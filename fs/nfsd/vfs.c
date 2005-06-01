@@ -301,6 +301,7 @@ nfsd_setattr(struct svc_rqst *rqstp, struct svc_fh *fhp, struct iattr *iap,
 	iap->ia_valid |= ATTR_CTIME;
 
 	if (iap->ia_valid & ATTR_SIZE) {
+		down_write(&inode->i_alloc_sem);
 		fh_lock(fhp);
 		size_change = 1;
 	}
@@ -311,6 +312,7 @@ nfsd_setattr(struct svc_rqst *rqstp, struct svc_fh *fhp, struct iattr *iap,
 	}
 	if (size_change) {
 		fh_unlock(fhp);
+		up_write(&inode->i_alloc_sem);
 		put_write_access(inode);
 	}
 	if (!err)
