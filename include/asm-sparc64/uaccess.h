@@ -294,10 +294,10 @@ static inline unsigned long copy_in_user(void *to, void *from,
 }
 #define __copy_in_user copy_in_user
 
+extern __kernel_size_t __bzero_noasi(void *addr, __kernel_size_t size);
+	
 extern __inline__ __kernel_size_t __clear_user(void *addr, __kernel_size_t size)
 {
-	extern __kernel_size_t __bzero_noasi(void *addr, __kernel_size_t size);
-	
 	return __bzero_noasi(addr, size);
 }
 
