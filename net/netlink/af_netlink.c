@@ -330,9 +330,9 @@ static void netlink_remove(struct sock *sk)
 	u32 pid = nlk_sk(sk)->pid;
 
 	netlink_table_grab();
-	hash->entries--;
 	for (skp = nl_pid_hashfn(hash, pid); *skp; skp = &((*skp)->next)) {
 		if (*skp == sk) {
+			hash->entries--;
 			*skp = sk->next;
 			__sock_put(sk);
 			break;
@@ -450,7 +450,7 @@ retry:
 	err = netlink_insert(sk, pid);
 	if (err == -EADDRINUSE)
 		goto retry;
-	return 0;
+	return err;
 }
 
 static inline int netlink_capable(struct socket *sock, unsigned int flag) 
