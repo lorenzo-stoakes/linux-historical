@@ -94,7 +94,7 @@ asmlinkage unsigned long sys_brk(unsigned long);
 static DECLARE_MUTEX(ia32_mmap_sem);
 
 static int
-nargs (unsigned int arg, char **ap)
+nargs (unsigned int arg, char **ap, int max)
 {
 	unsigned int addr;
 	int n, err;
@@ -107,6 +107,8 @@ nargs (unsigned int arg, char **ap)
 		err = get_user(addr, (unsigned int *)A(arg));
 		if (err)
 			return err;
+		if (n > max)
+			return -E2BIG;
 		if (ap)
 			*ap++ = (char *) A(addr);
 		arg += sizeof(unsigned int);
@@ -128,10 +130,11 @@ sys32_execve (char *filename, unsigned int argv, unsigned int envp,
 	int na, ne, len;
 	long r;
 
-	na = nargs(argv, NULL);
+	/* Allocates upto 2x MAX_ARG_PAGES */
+	na = nargs(argv, NULL, (MAX_ARG_PAGES*PAGE_SIZE) / sizeof(char *) - 1);
 	if (na < 0)
 		return na;
-	ne = nargs(envp, NULL);
+	ne = nargs(envp, NULL, (MAX_ARG_PAGES*PAGE_SIZE) / sizeof(char *) - 1 );
 	if (ne < 0)
 		return ne;
 	len = (na + ne + 2) * sizeof(*av);
@@ -143,10 +146,10 @@ sys32_execve (char *filename, unsigned int argv, unsigned int envp,
 	av[na] = NULL;
 	ae[ne] = NULL;
 
-	r = nargs(argv, av);
+	r = nargs(argv, av, na);
 	if (r < 0)
 		goto out;
-	r = nargs(envp, ae);
+	r = nargs(envp, ae, ne);
 	if (r < 0)
 		goto out;
 
