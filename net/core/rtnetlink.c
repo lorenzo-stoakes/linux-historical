@@ -160,6 +160,7 @@ static int rtnetlink_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
 	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
 	r = NLMSG_DATA(nlh);
 	r->ifi_family = AF_UNSPEC;
+	r->__ifi_pad = 0;
 	r->ifi_type = dev->type;
 	r->ifi_index = dev->ifindex;
 	r->ifi_flags = dev->flags;
