@@ -47,6 +47,10 @@ int iommu_fullflush = 1;
 extern int fallback_aper_order;
 extern int fallback_aper_force;
 
+#ifdef CONFIG_SWIOTLB
+extern char *io_tlb_start, *io_tlb_end;
+#endif
+ 
 /* Allocation bitmap for the remapping area */ 
 static spinlock_t iommu_bitmap_lock = SPIN_LOCK_UNLOCKED;
 static unsigned long *iommu_gart_bitmap; /* guarded by iommu_bitmap_lock */
@@ -234,10 +238,10 @@ void pci_free_consistent(struct pci_dev *hwdev, size_t size,
 			 void *vaddr, dma_addr_t bus)
 {
 	unsigned long iommu_page;
- 	extern  char *io_tlb_start, *io_tlb_end;
- 
+
 	size = round_up(size, PAGE_SIZE); 
 #ifdef CONFIG_SWIOTLB
+	/* Overlap should not happen */
  	if (swiotlb && vaddr >= (void *)io_tlb_start &&
  	    vaddr < (void *)io_tlb_end) {
  		swiotlb_unmap_single (hwdev, bus, size, PCI_DMA_TODEVICE);
