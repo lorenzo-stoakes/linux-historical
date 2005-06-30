@@ -304,7 +304,7 @@ void __init setup_arch(char **cmdline_p)
 #endif
 
 	paging_init();
-#if !defined(CONFIG_SMP) && defined(CONFIG_X86_IO_APIC)
+#if defined(CONFIG_X86_IO_APIC)
 	extern void check_ioapic(void);
 	check_ioapic();
 #endif
