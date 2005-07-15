@@ -297,7 +297,7 @@ static inline void __refile_inode(struct inode *inode)
 {
 	struct list_head *to;
 
-	if (inode->i_state & I_FREEING)
+	if (inode->i_state & (I_FREEING|I_CLEAR))
 		return;
 	if (list_empty(&inode->i_hash))
 		return;
@@ -634,7 +634,9 @@ void clear_inode(struct inode *inode)
 		cdput(inode->i_cdev);
 		inode->i_cdev = NULL;
 	}
+	spin_lock(&inode_lock);
 	inode->i_state = I_CLEAR;
+	spin_unlock(&inode_lock);
 }
 
 /*
