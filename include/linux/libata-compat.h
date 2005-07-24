@@ -23,6 +23,9 @@ static inline struct pci_dev *to_pci_dev(struct device *dev)
 	return (struct pci_dev *) dev;
 }
 
+static inline int pci_enable_msi(struct pci_dev *dev) { return -1; }
+static inline void pci_disable_msi(struct pci_dev *dev) {}
+
 #define pci_set_consistent_dma_mask(pdev,mask) (0)
 
 #define DMA_FROM_DEVICE PCI_DMA_FROMDEVICE
