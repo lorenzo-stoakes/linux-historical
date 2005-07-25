@@ -740,6 +740,7 @@ static ssize_t usblp_read(struct file *file, char *buffer, size_t count, loff_t 
 				schedule();
 			} else {
 				set_current_state(TASK_RUNNING);
+				down (&usblp->sem);
 				break;
 			}
 			down (&usblp->sem);
