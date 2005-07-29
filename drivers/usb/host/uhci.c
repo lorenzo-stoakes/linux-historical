@@ -2924,7 +2924,7 @@ static int alloc_uhci(struct pci_dev *dev, unsigned int io_addr, unsigned int io
 		}
 
 		/* Only place we don't use the frame list routines */
-		uhci->fl->frame[i] = uhci->skeltd[irq]->dma_handle | UHCI_PTR_QH;
+		uhci->fl->frame[i] =  uhci->skeltd[irq]->dma_handle;
 	}
 
 	start_hc(uhci);
