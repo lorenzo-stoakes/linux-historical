@@ -6,7 +6,7 @@
 
 
 #define MEGARAID_VERSION	\
-	"v2.10.8.2 (Release Date: Mon Jul 26 12:15:51 EDT 2004)\n"
+	"v2.10.10.1 (Release Date: Thu Jan 27 16:19:44 EDT 2005)\n"
 
 /*
  * Driver features - change the values to enable or disable features in the
@@ -83,6 +83,7 @@
 #define INTEL_SUBSYS_VID		0x8086
 #define FSC_SUBSYS_VID			0x1734
 #define ACER_SUBSYS_VID			0x1025
+#define NEC_SUBSYS_VID			0x1033
 
 #define HBA_SIGNATURE	      		0x3344
 #define HBA_SIGNATURE_471	  	0xCCCC
@@ -707,15 +708,15 @@ typedef struct {
 	char		signature[8];	/* Must contain "MEGANIT" */
 	u32		opcode;		/* opcode for the command */
 	u32		adapno;		/* adapter number */
-	union {
-		u8	__raw_mbox[18];
-		caddr_t	__uaddr; /* xferaddr for non-mbox cmds */
-	}__ua;
+	mbox_t  	u_mbox;		/* user mailbox */
+	caddr_t		u_dataaddr;	/* xferaddr for DCMD and non-mbox
+					   commands */
+	mega_passthru	pthru;
 
-#define uioc_rmbox	__ua.__raw_mbox
-#define MBOX(uioc)	((megacmd_t *)&((uioc).__ua.__raw_mbox[0]))
-#define MBOX_P(uioc)	((megacmd_t *)&((uioc)->__ua.__raw_mbox[0]))
-#define uioc_uaddr	__ua.__uaddr
+#define RMBOX(uioc) 	((u8 *)&(uioc).u_mbox)
+#define MBOX(uioc)	((megacmd_t *)&(uioc).u_mbox)
+#define MBOX_P(uioc) 	((megacmd_t *)&(uioc)->u_mbox)
+
 
 	u32		xferlen;	/* xferlen for DCMD and non-mbox
 					   commands */
@@ -1128,7 +1129,7 @@ static int mega_build_sglist (adapter_t *adapter, scb_t *scb,
 			      u32 *buffer, u32 *length);
 static inline int mega_busywait_mbox (adapter_t *);
 static int __mega_busywait_mbox (adapter_t *);
-static void mega_cmd_done(adapter_t *, u8 [], int, int);
+static inline void mega_cmd_done(adapter_t *, u8 [], int, int);
 static inline void mega_free_sgl (adapter_t *adapter);
 static void mega_8_to_40ld (mraid_inquiry *inquiry,
 		mega_inquiry3 *enquiry3, mega_product_info *);
@@ -1137,7 +1138,14 @@ static int megaraid_reboot_notify (struct notifier_block *,
 				   unsigned long, void *);
 static int megadev_open (struct inode *, struct file *);
 
-#if defined(__x86_64__)
+#if defined( __x86_64__) || defined(IA32_EMULATION)
+#ifndef __ia64__
+#define LSI_CONFIG_COMPAT
+#endif
+#endif
+
+
+#ifdef LSI_CONFIG_COMPAT
 static int megadev_compat_ioctl(unsigned int, unsigned int, unsigned long,
 	struct file *);
 #endif
