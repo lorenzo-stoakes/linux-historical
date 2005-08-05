@@ -450,6 +450,11 @@ retry:
 	err = netlink_insert(sk, pid);
 	if (err == -EADDRINUSE)
 		goto retry;
+
+	/* If 2 threads race to autobind, that is fine.  */
+	if (err == -EBUSY)
+		err = 0;
+
 	return err;
 }
 
