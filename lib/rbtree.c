@@ -332,6 +332,7 @@ rb_node_t *rb_next(rb_node_t *node)
 		node = node->rb_right;
 		while (node->rb_left)
 			node = node->rb_left;
+		return node;
 	}
 
 	/* No right-hand children.  Everything down and left is
@@ -355,6 +356,7 @@ rb_node_t *rb_prev(rb_node_t *node)
 		node = node->rb_left;
 		while (node->rb_right)
 			node = node->rb_right;	 
+		return node;
 	}
 
 	/* No left-hand children. Go up till we find an ancestor which
