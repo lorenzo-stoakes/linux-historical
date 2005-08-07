@@ -1223,9 +1223,15 @@ static void isicom_close(struct tty_struct * tty, struct file * filp)
 static int isicom_write(struct tty_struct * tty, int from_user,
 			const unsigned char * buf, int count)
 {
-	struct isi_port * port = (struct isi_port *) tty->driver_data;
+	struct isi_port * port;
 	unsigned long flags;
 	int cnt, total = 0;
+
+	if (!tty)
+		return 0;
+	
+	port = (struct isi_port *) tty->driver_data;
+	
 #ifdef ISICOM_DEBUG
 	printk(KERN_DEBUG "ISICOM: isicom_write for port%d: %d bytes.\n",
 			port->channel+1, count);
@@ -1233,7 +1239,7 @@ static int isicom_write(struct tty_struct * tty, int from_user,
 	if (isicom_paranoia_check(port, tty->device, "isicom_write"))
 		return 0;
 	
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!port->xmit_buf || !tmp_buf)
 		return 0;
 	if (from_user)
 		down(&tmp_buf_sem); /* acquire xclusive access to tmp_buf */
@@ -1281,13 +1287,18 @@ static int isicom_write(struct tty_struct * tty, int from_user,
 /* put_char et all */
 static void isicom_put_char(struct tty_struct * tty, unsigned char ch)
 {
-	struct isi_port * port = (struct isi_port *) tty->driver_data;
+	struct isi_port * port;
 	unsigned long flags;
+
+	if (!tty)
+		return;
+
+	port = (struct isi_port *) tty->driver_data;
 	
 	if (isicom_paranoia_check(port, tty->device, "isicom_put_char"))
 		return;
 	
-	if (!tty || !port->xmit_buf)
+	if (!port->xmit_buf)
 		return;
 #ifdef ISICOM_DEBUG
 	printk(KERN_DEBUG "ISICOM: put_char, port %d, char %c.\n", port->channel+1, ch);

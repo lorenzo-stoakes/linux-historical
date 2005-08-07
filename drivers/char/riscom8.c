@@ -1220,17 +1220,22 @@ out:	restore_flags(flags);
 static int rc_write(struct tty_struct * tty, int from_user, 
 		    const unsigned char *buf, int count)
 {
-	struct riscom_port *port = (struct riscom_port *)tty->driver_data;
+	struct riscom_port *port;
 	struct riscom_board *bp;
 	int c, total = 0;
 	unsigned long flags;
+
+	if (!tty)
+		return 0;
+
+	port = (struct riscom_port *)tty->driver_data;
 				
 	if (rc_paranoia_check(port, tty->device, "rc_write"))
 		return 0;
 	
 	bp = port_Board(port);
 
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!port->xmit_buf || !tmp_buf)
 		return 0;
 
 	save_flags(flags);
@@ -1298,13 +1303,18 @@ static int rc_write(struct tty_struct * tty, int from_user,
 
 static void rc_put_char(struct tty_struct * tty, unsigned char ch)
 {
-	struct riscom_port *port = (struct riscom_port *)tty->driver_data;
+	struct riscom_port *port;
 	unsigned long flags;
+
+	if (!tty)
+		return;
+
+	port = (struct riscom_port *)tty->driver_data;
 
 	if (rc_paranoia_check(port, tty->device, "rc_put_char"))
 		return;
 
-	if (!tty || !port->xmit_buf)
+	if (!port->xmit_buf)
 		return;
 
 	save_flags(flags); cli();

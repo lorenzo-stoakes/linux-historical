@@ -1251,13 +1251,18 @@ static void change_speed(struct esp_struct *info)
 
 static void rs_put_char(struct tty_struct *tty, unsigned char ch)
 {
-	struct esp_struct *info = (struct esp_struct *)tty->driver_data;
+	struct esp_struct *info;
 	unsigned long flags;
 
+	if (!tty)
+		return;
+
+	info = (struct esp_struct *)tty->driver_data;
+	
 	if (serial_paranoia_check(info, tty->device, "rs_put_char"))
 		return;
 
-	if (!tty || !info->xmit_buf)
+	if (!info->xmit_buf)
 		return;
 
 	save_flags(flags); cli();
@@ -1296,13 +1301,19 @@ static int rs_write(struct tty_struct * tty, int from_user,
 		    const unsigned char *buf, int count)
 {
 	int	c, t, ret = 0;
-	struct esp_struct *info = (struct esp_struct *)tty->driver_data;
+	struct esp_struct *info;
 	unsigned long flags;
+
+
+	if (!tty)
+		return 0;
+	
+	info = (struct esp_struct *)tty->driver_data;
 
 	if (serial_paranoia_check(info, tty->device, "rs_write"))
 		return 0;
 
-	if (!tty || !info->xmit_buf || !tmp_buf)
+	if (!info->xmit_buf || !tmp_buf)
 		return 0;
 	    
 	if (from_user)

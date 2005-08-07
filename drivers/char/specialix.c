@@ -1600,17 +1600,22 @@ static void sx_close(struct tty_struct * tty, struct file * filp)
 static int sx_write(struct tty_struct * tty, int from_user, 
                     const unsigned char *buf, int count)
 {
-	struct specialix_port *port = (struct specialix_port *)tty->driver_data;
+	struct specialix_port *port;
 	struct specialix_board *bp;
 	int c, total = 0;
 	unsigned long flags;
+
+	if (!tty)
+		return 0;
+
+	port = (struct specialix_port *)tty->driver_data;
 				
 	if (sx_paranoia_check(port, tty->device, "sx_write"))
 		return 0;
 	
 	bp = port_Board(port);
 
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!port->xmit_buf || !tmp_buf)
 		return 0;
 
 	save_flags(flags);
@@ -1676,13 +1681,18 @@ static int sx_write(struct tty_struct * tty, int from_user,
 
 static void sx_put_char(struct tty_struct * tty, unsigned char ch)
 {
-	struct specialix_port *port = (struct specialix_port *)tty->driver_data;
+	struct specialix_port *port;
 	unsigned long flags;
+
+	if (!tty)
+		return;
+
+	port = (struct specialix_port *)tty->driver_data;
 
 	if (sx_paranoia_check(port, tty->device, "sx_put_char"))
 		return;
 
-	if (!tty || !port->xmit_buf)
+	if (!port->xmit_buf)
 		return;
 
 	save_flags(flags); cli();

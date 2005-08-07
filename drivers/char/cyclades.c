@@ -2960,10 +2960,15 @@ static int
 cy_write(struct tty_struct * tty, int from_user,
            const unsigned char *buf, int count)
 {
-  struct cyclades_port *info = (struct cyclades_port *)tty->driver_data;
+  struct cyclades_port *info;
   unsigned long flags;
   int c, ret = 0;
 
+    if (!tty)
+	return 0;
+
+    info = (struct cyclades_port *)tty->driver_data;
+  
 #ifdef CY_DEBUG_IO
     printk("cyc:cy_write ttyC%d\n", info->line); /* */
 #endif
@@ -2972,7 +2977,7 @@ cy_write(struct tty_struct * tty, int from_user,
         return 0;
     }
         
-    if (!tty || !info->xmit_buf || !tmp_buf){
+    if (!info->xmit_buf || !tmp_buf){
         return 0;
     }
 
@@ -3047,9 +3052,14 @@ cy_write(struct tty_struct * tty, int from_user,
 static void
 cy_put_char(struct tty_struct *tty, unsigned char ch)
 {
-  struct cyclades_port *info = (struct cyclades_port *)tty->driver_data;
+  struct cyclades_port *info;
   unsigned long flags;
 
+    if (!tty)
+        return;
+
+    info = (struct cyclades_port *)tty->driver_data;
+  
 #ifdef CY_DEBUG_IO
     printk("cyc:cy_put_char ttyC%d\n", info->line);
 #endif
@@ -3057,7 +3067,7 @@ cy_put_char(struct tty_struct *tty, unsigned char ch)
     if (serial_paranoia_check(info, tty->device, "cy_put_char"))
         return;
 
-    if (!tty || !info->xmit_buf)
+    if (!info->xmit_buf)
         return;
 
     CY_LOCK(info, flags);

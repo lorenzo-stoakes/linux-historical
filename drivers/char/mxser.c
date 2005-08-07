@@ -911,10 +911,15 @@ static int mxser_write(struct tty_struct *tty, int from_user,
 		       const unsigned char *buf, int count)
 {
 	int c, total = 0;
-	struct mxser_struct *info = (struct mxser_struct *) tty->driver_data;
+	struct mxser_struct *info;
 	unsigned long flags;
 
-	if (!tty || !info->xmit_buf || !mxvar_tmp_buf)
+	if (!tty)
+		return (0);
+	
+	info = (struct mxser_struct *) tty->driver_data;
+	
+	if (!info->xmit_buf || !mxvar_tmp_buf)
 		return (0);
 
 	save_flags(flags);
@@ -979,10 +984,15 @@ static int mxser_write(struct tty_struct *tty, int from_user,
 
 static void mxser_put_char(struct tty_struct *tty, unsigned char ch)
 {
-	struct mxser_struct *info = (struct mxser_struct *) tty->driver_data;
+	struct mxser_struct *info;
 	unsigned long flags;
 
-	if (!tty || !info->xmit_buf)
+	if (!tty)
+		return;
+
+	info = (struct mxser_struct *) tty->driver_data;
+	
+	if (!info->xmit_buf)
 		return;
 
 	save_flags(flags);
