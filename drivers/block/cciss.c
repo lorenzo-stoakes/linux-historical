@@ -1,6 +1,6 @@
 /*
  *    Disk Array driver for HP SA 5xxx and 6xxx Controllers
- *    Copyright 2000, 2002 Hewlett-Packard Development Company, L.P. 
+ *    Copyright 2000, 2005 Hewlett-Packard Development Company, L.P. 
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -45,13 +45,13 @@
 #include <linux/genhd.h>
 
 #define CCISS_DRIVER_VERSION(maj,min,submin) ((maj<<16)|(min<<8)|(submin))
-#define DRIVER_NAME "HP CISS Driver (v 2.4.52)"
-#define DRIVER_VERSION CCISS_DRIVER_VERSION(2,4,52)
+#define DRIVER_NAME "HP CISS Driver (v 2.4.60)"
+#define DRIVER_VERSION CCISS_DRIVER_VERSION(2,4,60)
 
 /* Embedded module documentation macros - see modules.h */
 MODULE_AUTHOR("Hewlett-Packard Company");
 MODULE_DESCRIPTION("Driver for HP SA5xxx SA6xxx Controllers version 2.4.52");
-MODULE_SUPPORTED_DEVICE("HP SA5i SA5i+ SA532 SA5300 SA5312 SA641 SA642 SA6400 6i SA6422 V100"); 
+MODULE_SUPPORTED_DEVICE("HP SA5i SA5i+ SA532 SA5300 SA5312 SA641 SA642 SA6400 6i SA6422 P600 P400 P400i E200i E200"); 
 MODULE_LICENSE("GPL");
 
 #include "cciss_cmd.h"
@@ -80,8 +80,24 @@ const struct pci_device_id cciss_pci_device_id[] = {
                         0x0E11, 0x4091, 0, 0, 0},
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSC,
                         0x0E11, 0x409E, 0, 0, 0},
-	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISS,
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSA,
+                        0x103C, 0x3225, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSC,
+                        0x103C, 0x3234, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSC,
+                        0x103C, 0x3235, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSD,
                         0x103C, 0x3211, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSD,
+                        0x103C, 0x3212, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSD,
+                        0x103C, 0x3213, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSD,
+                        0x103C, 0x3214, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISSD,
+                        0x103C, 0x3215, 0, 0, 0},
+	{ PCI_VENDOR_ID_HP, PCI_ANY_ID, PCI_ANY_ID, PCI_ANY_ID, 
+		PCI_CLASS_STORAGE_RAID << 8, 0xffff << 8, 0},
 	{0,}
 };
 MODULE_DEVICE_TABLE(pci, cciss_pci_device_id);
@@ -103,7 +119,14 @@ static struct board_type products[] = {
 	{ 0x409D0E11, "Smart Array 6400 EM", &SA5_access},
 	{ 0x40910E11, "Smart Array 6i", &SA5_access},
 	{ 0x409E0E11, "Smart Array 6422", &SA5_access},
-	{ 0x3211103C, "Smart Array V100", &SA5_access},
+	{ 0x3234103c, "Smart Array P400", &SA5_access},
+	{ 0x3235103c, "Smart Array P400i", &SA5_access},
+	{ 0x3211103c, "Smart Array E200i", &SA5_access},
+	{ 0x3212103c, "Smart Array E200", &SA5_access},
+	{ 0x3213103c, "Smart Array E200i", &SA5_access},
+	{ 0x3214103c, "Smart Array E200i", &SA5_access},
+	{ 0x3215103c, "Smart Array E200i", &SA5_access},
+	{ 0xFFFF103C, "Unknown Smart Array", &SA5_access},
 };
 
 /* How long to wait (in millesconds) for board to go into simple mode */
@@ -2805,18 +2828,31 @@ static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 			break;
 		}
 	}
-	if (i == NR_PRODUCTS) {
-		printk(KERN_WARNING "cciss: Sorry, I don't know how"
-			" to access the Smart Array controller %08lx\n", 
-				(unsigned long)board_id);
-		return -1;
-	}
 	if (  (readb(&c->cfgtable->Signature[0]) != 'C') ||
 	      (readb(&c->cfgtable->Signature[1]) != 'I') ||
 	      (readb(&c->cfgtable->Signature[2]) != 'S') ||
 	      (readb(&c->cfgtable->Signature[3]) != 'S') ) {
 		printk("Does not appear to be a valid CISS config table\n");
 		return -1;
+	}
+	/* We didn't find the controller in our list. We know the
+	 * signature is valid. If it's an HP device let's try to
+	 * bind to the device and fire it up. Otherwise we bail.
+	 */
+	if (i == NR_PRODUCTS) {
+		if (subsystem_vendor_id == PCI_VENDOR_ID_HP) {
+			c->product_name = products[NR_PRODUCTS-1].product_name;
+			c->access = *(products[NR_PRODUCTS-1].access);
+			printk(KERN_WARNING "cciss: This is an unknown "
+				"Smart Array controller.\n"
+				"cciss: Please update to the latest driver "
+				"available from www.hp.com.\n");
+		} else {
+			printk(KERN_WARNING "cciss: Sorry, I don't know how"
+				" to access the Smart Array controller %08lx\n"
+					, (unsigned long)board_id);
+			return -1;
+		}
 	}
 
 #ifdef CONFIG_X86
