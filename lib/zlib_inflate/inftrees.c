@@ -140,7 +140,7 @@ uIntf *v;               /* working area: values in order of bit length */
   {
     *t = (inflate_huft *)Z_NULL;
     *m = 0;
-    return Z_DATA_ERROR;
+    return Z_OK;
   }
 
 
