@@ -1294,7 +1294,7 @@ z_stream *zs;           /* for zalloc function */
   {
     *t = (inflate_huft *)Z_NULL;
     *m = 0;
-    return Z_DATA_ERROR;
+    return Z_OK;
   }
 
 
