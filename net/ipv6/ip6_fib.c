@@ -424,7 +424,7 @@ insert_above:
  */
 
 static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
-    struct nlmsghdr *nlh)
+		struct nlmsghdr *nlh,  struct netlink_skb_parms *req)
 {
 	struct rt6_info *iter = NULL;
 	struct rt6_info **ins;
@@ -482,7 +482,7 @@ out:
 	*ins = rt;
 	rt->rt6i_node = fn;
 	atomic_inc(&rt->rt6i_ref);
-	inet6_rt_notify(RTM_NEWROUTE, rt, nlh);
+	inet6_rt_notify(RTM_NEWROUTE, rt, nlh, req);
 	rt6_stats.fib_rt_entries++;
 
 	if ((fn->fn_flags & RTN_RTINFO) == 0) {
@@ -506,7 +506,8 @@ static __inline__ void fib6_start_gc(struct rt6_info *rt)
  *	with source addr info in sub-trees
  */
 
-int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nlmsghdr *nlh)
+int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nlmsghdr *nlh,
+		struct netlink_skb_parms *req)
 {
 	struct fib6_node *fn;
 	int err = -ENOMEM;
@@ -579,7 +580,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nlmsghdr *nlh)
 	}
 #endif
 
-	err = fib6_add_rt2node(fn, rt, nlh);
+	err = fib6_add_rt2node(fn, rt, nlh, req);
 
 	if (err == 0) {
 		fib6_start_gc(rt);
@@ -888,7 +889,7 @@ static struct fib6_node * fib6_repair_tree(struct fib6_node *fn)
 }
 
 static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
-    struct nlmsghdr *nlh)
+    struct nlmsghdr *nlh, struct netlink_skb_parms *req)
 {
 	struct fib6_walker_t *w;
 	struct rt6_info *rt = *rtp;
@@ -943,11 +944,11 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
 		if (atomic_read(&rt->rt6i_ref) != 1) BUG();
 	}
 
-	inet6_rt_notify(RTM_DELROUTE, rt, nlh);
+	inet6_rt_notify(RTM_DELROUTE, rt, nlh, req);
 	rt6_release(rt);
 }
 
-int fib6_del(struct rt6_info *rt, struct nlmsghdr *nlh)
+int fib6_del(struct rt6_info *rt, struct nlmsghdr *nlh, struct netlink_skb_parms *req)
 {
 	struct fib6_node *fn = rt->rt6i_node;
 	struct rt6_info **rtp;
@@ -972,7 +973,7 @@ int fib6_del(struct rt6_info *rt, struct nlmsghdr *nlh)
 
 	for (rtp = &fn->leaf; *rtp; rtp = &(*rtp)->u.next) {
 		if (*rtp == rt) {
-			fib6_del_route(fn, rtp, nlh);
+			fib6_del_route(fn, rtp, nlh, req);
 			return 0;
 		}
 	}
@@ -1101,7 +1102,7 @@ static int fib6_clean_node(struct fib6_walker_t *w)
 		res = c->func(rt, c->arg);
 		if (res < 0) {
 			w->leaf = rt;
-			res = fib6_del(rt, NULL);
+			res = fib6_del(rt, NULL, NULL);
 			if (res) {
 #if RT6_DEBUG >= 2
 				printk(KERN_DEBUG "fib6_clean_node: del failed: rt=%p@%p err=%d\n", rt, rt->rt6i_node, res);

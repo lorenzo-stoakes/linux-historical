@@ -876,7 +876,7 @@ void ndisc_recv_na(struct sk_buff *skb)
 					/* It is safe only because
 					   we aer in BH */
 					dst_release(&rt->u.dst);
-					ip6_del_rt(rt, NULL);
+					ip6_del_rt(rt, NULL, NULL);
 				}
 			}
 		} else {
@@ -962,7 +962,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 	rt = rt6_get_dflt_router(&skb->nh.ipv6h->saddr, skb->dev);
 
 	if (rt && lifetime == 0) {
-		ip6_del_rt(rt, NULL);
+		ip6_del_rt(rt, NULL, NULL);
 		rt = NULL;
 	}
 
