@@ -9978,9 +9978,7 @@ PPP over Ethernet
 CONFIG_PPPOE
   Support for PPP over Ethernet.
 
-  This driver requires the current pppd from the "ppp" CVS repository
-  on cvs.samba.org.  The required support will be present in the next
-  ppp release (2.4.2).
+  This driver requires a ppp release >= 2.4.2.
 
 Wireless LAN (non-hamradio)
 CONFIG_NET_RADIO
