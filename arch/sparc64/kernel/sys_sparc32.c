@@ -50,6 +50,7 @@
 #include <linux/in.h>
 #include <linux/icmpv6.h>
 #include <linux/sysctl.h>
+#include <linux/vmalloc.h>
 #include <linux/dnotify.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 
@@ -2919,12 +2920,12 @@ static int do_netfilter_replace(int fd, int level, int optname,
 	if (optlen != kreplsize)
 		return -ENOPROTOOPT;
 
-	krepl = (struct ipt_replace *)kmalloc(kreplsize, GFP_KERNEL);
+	krepl = (struct ipt_replace *)vmalloc(kreplsize);
 	if (krepl == NULL)
 		return -ENOMEM;
 
 	if (copy_from_user(krepl, optval, kreplsize)) {
-		kfree(krepl);
+		vfree(krepl);
 		return -EFAULT;
 	}
 
@@ -2932,10 +2933,9 @@ static int do_netfilter_replace(int fd, int level, int optname,
 		((struct ipt_replace32 *)krepl)->counters);
 
 	kcountersize = krepl->num_counters * sizeof(struct ipt_counters);
-	krepl->counters = (struct ipt_counters *)kmalloc(
-					kcountersize, GFP_KERNEL);
+	krepl->counters = (struct ipt_counters *)vmalloc(kcountersize);
 	if (krepl->counters == NULL) {
-		kfree(krepl);
+		vfree(krepl);
 		return -ENOMEM;
 	}
 
@@ -2949,8 +2949,8 @@ static int do_netfilter_replace(int fd, int level, int optname,
 		copy_to_user(counters32, krepl->counters, kcountersize))
 			ret = -EFAULT;
 
-	kfree(krepl->counters);
-	kfree(krepl);
+	vfree(krepl->counters);
+	vfree(krepl);
 
 	return ret;
 }
