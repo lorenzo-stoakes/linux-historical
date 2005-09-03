@@ -584,7 +584,7 @@ static void __insert_into_lru_list(struct buffer_head * bh, int blist)
 	(*bhp)->b_prev_free->b_next_free = bh;
 	(*bhp)->b_prev_free = bh;
 	nr_buffers_type[blist]++;
-	size_buffers_type[blist] += bh->b_size;
+	size_buffers_type[blist] += bh->b_size >> 9;
 }
 
 static void __remove_from_lru_list(struct buffer_head * bh)
@@ -604,7 +604,7 @@ static void __remove_from_lru_list(struct buffer_head * bh)
 		bh->b_next_free = NULL;
 		bh->b_prev_free = NULL;
 		nr_buffers_type[blist]--;
-		size_buffers_type[blist] -= bh->b_size;
+		size_buffers_type[blist] -= bh->b_size >> 9;
 	}
 }
 
@@ -1033,7 +1033,7 @@ static int balance_dirty_state(void)
 {
 	unsigned long dirty, tot, hard_dirty_limit, soft_dirty_limit;
 
-	dirty = size_buffers_type[BUF_DIRTY] >> PAGE_SHIFT;
+	dirty = size_buffers_type[BUF_DIRTY] >> (PAGE_SHIFT - 9);
 	tot = nr_free_buffer_pages();
 
 	dirty *= 100;
@@ -1054,7 +1054,7 @@ static int bdflush_stop(void)
 {
 	unsigned long dirty, tot, dirty_limit;
 
-	dirty = size_buffers_type[BUF_DIRTY] >> PAGE_SHIFT;
+	dirty = size_buffers_type[BUF_DIRTY] >> (PAGE_SHIFT - 9);
 	tot = nr_free_buffer_pages();
 
 	dirty *= 100;
@@ -2839,7 +2839,7 @@ void show_buffers(void)
 		}
 		printk("%9s: %d buffers, %lu kbyte, %d used (last=%d), "
 		       "%d locked, %d dirty, %d delay\n",
-		       buf_types[nlist], found, size_buffers_type[nlist]>>10,
+		       buf_types[nlist], found, size_buffers_type[nlist]>>(10-9),
 		       used, lastused, locked, dirty, delalloc);
 	}
 	spin_unlock(&lru_list_lock);
