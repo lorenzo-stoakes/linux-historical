@@ -123,8 +123,12 @@ ip_nat_fn(unsigned int hooknum,
 				ret = call_expect(master_ct(ct), pskb, 
 						  hooknum, ct, info);
 			} else {
-				/* LOCAL_IN hook doesn't have a chain!  */
-				if (hooknum == NF_IP_LOCAL_IN)
+				if (unlikely(is_confirmed(ct)))
+					/* NAT module was loaded late */
+					ret = alloc_null_binding_confirmed(ct, info,
+		        		                                   hooknum);
+				else if (hooknum == NF_IP_LOCAL_IN)
+					/* LOCAL_IN hook doesn't have a chain */
 					ret = alloc_null_binding(ct, info,
 								 hooknum);
 				else
