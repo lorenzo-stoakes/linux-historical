@@ -816,6 +816,11 @@ struct in6_rtmsg32 {
 
 extern struct socket *sockfd_lookup(int fd, int *err);
 
+extern __inline__ void sockfd_put(struct socket *sock)
+{
+	fput(sock->file);
+}
+
 static int routing_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
 	int ret;
@@ -857,12 +862,17 @@ static int routing_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 		r = (void *) &r4;
 	}
 
-	if (ret)
-		return -EFAULT;
+	if (ret) {
+		ret = -EFAULT;
+		goto out;
+	}
 
 	set_fs (KERNEL_DS);
 	ret = sys_ioctl (fd, cmd, (long) r);
 	set_fs (old_fs);
+out:
+	if (mysock)
+		sockfd_put(mysock);
 
 	return ret;
 }
