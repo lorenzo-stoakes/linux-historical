@@ -2766,17 +2766,24 @@ static int ioc_settimeout(unsigned int fd, unsigned int cmd, unsigned long arg)
 static int tiocgdev(unsigned fd, unsigned cmd,  unsigned int *ptr) 
 { 
 
-	struct file *file = fget(fd);
+	struct file *file;
 	struct tty_struct *real_tty;
+	int ret;
 
+	file = fget(fd);
 	if (!file)
 		return -EBADF;
+	ret = -EINVAL;
 	if (file->f_op->ioctl != tty_ioctl)
-		return -EINVAL; 
+		goto out;
 	real_tty = (struct tty_struct *)file->private_data;
 	if (!real_tty) 	
-		return -EINVAL; 
-	return put_user(kdev_t_to_nr(real_tty->device), ptr); 
+		goto out;
+	ret = put_user(kdev_t_to_nr(real_tty->device), ptr); 
+out:
+	fput(file);
+
+	return ret;
 } 
 
 
