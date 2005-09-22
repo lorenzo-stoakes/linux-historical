@@ -128,7 +128,7 @@ static inline void set_tssldt_descriptor(struct ldttss_desc *dst, unsigned long 
 
 static inline void set_tss_desc(unsigned n, void *addr)
 { 
-	set_tssldt_descriptor((void *)&gdt_table + __CPU_DESC_INDEX(n,tss), (unsigned long)addr, DESC_TSS, sizeof(struct tss_struct)); 
+	set_tssldt_descriptor((void *)&gdt_table + __CPU_DESC_INDEX(n,tss), (unsigned long)addr, DESC_TSS, IO_BITMAP_OFFSET + IO_BITMAP_BYTES + 7); 
 } 
 
 static inline void set_ldt_desc(unsigned n, void *addr, int size)
