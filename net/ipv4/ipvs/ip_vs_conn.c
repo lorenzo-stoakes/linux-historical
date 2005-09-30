@@ -210,6 +210,7 @@ static inline struct ip_vs_conn *__ip_vs_conn_in_get
 		cp = list_entry(e, struct ip_vs_conn, c_list);
 		if (s_addr==cp->caddr && s_port==cp->cport &&
 		    d_port==cp->vport && d_addr==cp->vaddr &&
+		    ((!s_port) ^ (!(cp->flags & IP_VS_CONN_F_NO_CPORT))) &&
 		    protocol==cp->protocol) {
 			/* HIT */
 			atomic_inc(&cp->refcnt);
@@ -241,6 +242,40 @@ struct ip_vs_conn *ip_vs_conn_in_get
 	return cp;
 }
 
+/* Get reference to connection template */
+struct ip_vs_conn *ip_vs_ct_in_get
+(int protocol, __u32 s_addr, __u16 s_port, __u32 d_addr, __u16 d_port)
+{
+	unsigned hash;
+	struct ip_vs_conn *cp;
+
+	hash = ip_vs_conn_hashkey(protocol, s_addr, s_port);
+
+	ct_read_lock(hash);
+
+	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
+		if (s_addr==cp->caddr && s_port==cp->cport &&
+		    d_port==cp->vport && d_addr==cp->vaddr &&
+		    cp->flags & IP_VS_CONN_F_TEMPLATE &&
+		    protocol==cp->protocol) {
+			/* HIT */
+			atomic_inc(&cp->refcnt);
+			goto out;
+		}
+	}
+	cp = NULL;
+
+  out:
+	ct_read_unlock(hash);
+
+	IP_VS_DBG(7, "template lookup/in %s %u.%u.%u.%u:%d->%u.%u.%u.%u:%d %s\n",
+		  ip_vs_proto_name(protocol),
+		  NIPQUAD(s_addr), ntohs(s_port),
+		  NIPQUAD(d_addr), ntohs(d_port),
+		  cp?"hit":"not hit");
+
+	return cp;
+}
 
 /*
  *  Gets ip_vs_conn associated with supplied parameters in the ip_vs_conn_tab.
@@ -1087,7 +1122,7 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
 
 	IP_VS_DBG(9, "Unbind-dest %s c:%u.%u.%u.%u:%d "
 		  "v:%u.%u.%u.%u:%d d:%u.%u.%u.%u:%d fwd:%c "
-		  "s:%s flg:%X cnt:%d destcnt:%d",
+		  "s:%s flg:%X cnt:%d destcnt:%d\n",
 		  ip_vs_proto_name(cp->protocol),
 		  NIPQUAD(cp->caddr), ntohs(cp->cport),
 		  NIPQUAD(cp->vaddr), ntohs(cp->vport),
@@ -1098,10 +1133,9 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
 
 	/*
 	 * Decrease the inactconns or activeconns counter
-	 * if it is not a connection template ((cp->cport!=0)
-	 *   || (cp->flags & IP_VS_CONN_F_NO_CPORT)).
+	 * if it is not a connection template
 	 */
-	if (cp->cport || (cp->flags & IP_VS_CONN_F_NO_CPORT)) {
+	if (!(cp->flags & IP_VS_CONN_F_TEMPLATE)) {
 		if (cp->flags & IP_VS_CONN_F_INACTIVE) {
 			atomic_dec(&dest->inactconns);
 		} else {
@@ -1428,7 +1462,7 @@ void ip_vs_random_dropentry(void)
 		l = &ip_vs_conn_tab[hash];
 		for (e=l->next; e!=l; e=e->next) {
 			cp = list_entry(e, struct ip_vs_conn, c_list);
-			if (!cp->cport && !(cp->flags & IP_VS_CONN_F_NO_CPORT))
+			if (cp->flags & IP_VS_CONN_F_TEMPLATE)
 				/* connection template */
 				continue;
 			switch(cp->state) {

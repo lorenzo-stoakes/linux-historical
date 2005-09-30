@@ -188,10 +188,10 @@ ip_vs_sched_persist(struct ip_vs_service *svc, struct iphdr *iph)
 	if (portp[1] == svc->port) {
 		/* Check if a template already exists */
 		if (svc->port != FTPPORT)
-			ct = ip_vs_conn_in_get(iph->protocol, snet, 0,
+			ct = ip_vs_ct_in_get(iph->protocol, snet, 0,
 					       iph->daddr, portp[1]);
 		else
-			ct = ip_vs_conn_in_get(iph->protocol, snet, 0,
+			ct = ip_vs_ct_in_get(iph->protocol, snet, 0,
 					       iph->daddr, 0);
 
 		if (!ct || !ip_vs_check_template(ct)) {
@@ -216,14 +216,14 @@ ip_vs_sched_persist(struct ip_vs_service *svc, struct iphdr *iph)
 						    snet, 0,
 						    iph->daddr, portp[1],
 						    dest->addr, dest->port,
-						    0,
+						    IP_VS_CONN_F_TEMPLATE,
 						    dest);
 			else
 				ct = ip_vs_conn_new(iph->protocol,
 						    snet, 0,
 						    iph->daddr, 0,
 						    dest->addr, 0,
-						    0,
+						    IP_VS_CONN_F_TEMPLATE,
 						    dest);
 			if (ct == NULL)
 				return NULL;
@@ -242,10 +242,10 @@ ip_vs_sched_persist(struct ip_vs_service *svc, struct iphdr *iph)
 		 * port zero template: <protocol,caddr,0,vaddr,0,daddr,0>
 		 */
 		if (svc->fwmark)
-			ct = ip_vs_conn_in_get(IPPROTO_IP, snet, 0,
+			ct = ip_vs_ct_in_get(IPPROTO_IP, snet, 0,
 					       htonl(svc->fwmark), 0);
 		else
-			ct = ip_vs_conn_in_get(iph->protocol, snet, 0,
+			ct = ip_vs_ct_in_get(iph->protocol, snet, 0,
 					       iph->daddr, 0);
 
 		if (!ct || !ip_vs_check_template(ct)) {
@@ -270,14 +270,14 @@ ip_vs_sched_persist(struct ip_vs_service *svc, struct iphdr *iph)
 						    snet, 0,
 						    htonl(svc->fwmark), 0,
 						    dest->addr, 0,
-						    0,
+						    IP_VS_CONN_F_TEMPLATE,
 						    dest);
 			else
 				ct = ip_vs_conn_new(iph->protocol,
 						    snet, 0,
 						    iph->daddr, 0,
 						    dest->addr, 0,
-						    0,
+						    IP_VS_CONN_F_TEMPLATE,
 						    dest);
 			if (ct == NULL)
 				return NULL;
