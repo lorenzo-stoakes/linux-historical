@@ -229,7 +229,7 @@ extern struct ip_conntrack *
 ip_conntrack_get(struct sk_buff *skb, enum ip_conntrack_info *ctinfo);
 
 /* decrement reference count on a conntrack */
-extern inline void ip_conntrack_put(struct ip_conntrack *ct);
+extern void ip_conntrack_put(struct ip_conntrack *ct);
 
 /* find unconfirmed expectation based on tuple */
 struct ip_conntrack_expect *
