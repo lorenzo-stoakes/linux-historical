@@ -14,6 +14,24 @@ extern unsigned long loops_per_jiffy;
 #include <asm/delay.h>
 
 /*
+ * We define MAX_MSEC_OFFSET as the maximal value that can be accepted by
+ * msecs_to_jiffies() without risking a multiply overflow. This function
+ * returns MAX_JIFFY_OFFSET for arguments above those values.
+ */
+
+#if HZ <= 1000 && !(1000 % HZ)
+#  define MAX_MSEC_OFFSET \
+	(ULONG_MAX - (1000 / HZ) + 1)
+#elif HZ > 1000 && !(HZ % 1000)
+#  define MAX_MSEC_OFFSET \
+	(ULONG_MAX / (HZ / 1000))
+#else
+#  define MAX_MSEC_OFFSET \
+	((ULONG_MAX - 999) / HZ)
+#endif
+
+
+/*
  * Convert jiffies to milliseconds and back.
  *
  * Avoid unnecessary multiplications/divisions in the
@@ -43,14 +61,14 @@ static inline unsigned int jiffies_to_usecs(const unsigned long j)
 
 static inline unsigned long msecs_to_jiffies(const unsigned int m)
 {
-	if (m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
+	if (MAX_MSEC_OFFSET < UINT_MAX && m > (unsigned int)MAX_MSEC_OFFSET)
 		return MAX_JIFFY_OFFSET;
 #if HZ <= 1000 && !(1000 % HZ)
-	return (m + (1000 / HZ) - 1) / (1000 / HZ);
+	return ((unsigned long)m + (1000 / HZ) - 1) / (1000 / HZ);
 #elif HZ > 1000 && !(HZ % 1000)
-	return m * (HZ / 1000);
+	return (unsigned long)m * (HZ / 1000);
 #else
-	return (m * HZ + 999) / 1000;
+	return ((unsigned long)m * HZ + 999) / 1000;
 #endif
 }
 
