@@ -276,6 +276,9 @@ do_kdgkb_ioctl(int cmd, struct kbsentry *user_kdgkb, int perm)
 	char *first_free, *fj, *fnw;
 	int i, j, k;
 
+	if (!capable(CAP_SYS_TTY_CONFIG))
+		return -EPERM;
+
 	/* we mostly copy too much here (512bytes), but who cares ;) */
 	if (copy_from_user(&tmp, user_kdgkb, sizeof(struct kbsentry)))
 		return -EFAULT;
