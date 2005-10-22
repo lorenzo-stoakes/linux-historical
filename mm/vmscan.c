@@ -556,6 +556,7 @@ page_mapped:
 			continue;
 			
 		}
+		smp_rmb();
 		if (PageDirty(page)) {
 			spin_unlock(&pagecache_lock);
 			UnlockPage(page);
