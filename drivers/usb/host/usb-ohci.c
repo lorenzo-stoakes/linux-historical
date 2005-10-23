@@ -677,7 +677,6 @@ static int sohci_submit_urb (struct urb * urb)
 		return -ENOMEM;
 	}
 	memset (urb_priv, 0, sizeof (urb_priv_t) + size * sizeof (td_t *));
-	init_waitqueue_head (&urb_priv->wait);
 
 	/* fill the private part of the URB */
 	urb_priv->length = size;
@@ -824,10 +823,12 @@ static int sohci_unlink_urb (struct urb * urb)
 			urb_priv->ed->state |= ED_URB_DEL;
 
 			if (!(urb->transfer_flags & USB_ASYNC_UNLINK)) {
+				DECLARE_WAIT_QUEUE_HEAD (unlink_wakeup);
 				DECLARE_WAITQUEUE (wait, current);
 				int timeout = OHCI_UNLINK_TIMEOUT;
 
-				add_wait_queue(&urb_priv->wait, &wait);
+				add_wait_queue (&unlink_wakeup, &wait);
+				urb_priv->wait = &unlink_wakeup;
 				spin_unlock_irqrestore(&ohci->ohci_lock, flags);
 
 				/* wait until all TDs are deleted */
@@ -840,12 +841,10 @@ static int sohci_unlink_urb (struct urb * urb)
 
 				/*
 				 * A waitqueue head is self-locked, but we try
-				 * to interlock with the dl_del_urb() which may
-				 * be doing wake_up() right now, least
-				 * urb->complete poisons over the urb->wait.
+				 * to interlock with the dl_del_urb().
 				 */
 				spin_lock_irqsave(&ohci->ohci_lock, flags);
-				remove_wait_queue(&urb_priv->wait, &wait); 
+				remove_wait_queue(&unlink_wakeup, &wait);
 				spin_unlock_irqrestore(&ohci->ohci_lock, flags);
 				if (urb->status == USB_ST_URB_PENDING) {
 					err ("unlink URB timeout");
@@ -1566,7 +1565,7 @@ static void dl_transfer_length(td_t * td)
 
 static void dl_del_urb (ohci_t *ohci, struct urb * urb)
 {
- 	urb_priv_t * urb_priv = urb->hcpriv;
+	wait_queue_head_t * wait_head = ((urb_priv_t *)(urb->hcpriv))->wait;
 
 	urb_rm_priv_locked (urb);
 
@@ -1577,7 +1576,8 @@ static void dl_del_urb (ohci_t *ohci, struct urb * urb)
 		urb->status = -ENOENT;
 
 		/* unblock sohci_unlink_urb */
-		wake_up(&urb_priv->wait);
+		if (wait_head)
+			wake_up (wait_head);
 	}
 }
 

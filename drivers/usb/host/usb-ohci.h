@@ -336,7 +336,7 @@ typedef struct
 	__u16 length;	// number of tds associated with this request
 	__u16 td_cnt;	// number of tds already serviced
 	int   state;
-	wait_queue_head_t wait;
+	wait_queue_head_t * wait;
 	td_t * td[0];	// list pointer to all corresponding TDs associated with this request
 
 } urb_priv_t;
