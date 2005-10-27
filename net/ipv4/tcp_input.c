@@ -2486,6 +2486,7 @@ static int tcp_ack_update_window(struct sock *sk, struct tcp_opt *tp,
 			/* Note, it is the only place, where
 			 * fast path is recovered for sending TCP.
 			 */
+			tp->pred_flags = 0;
 			tcp_fast_path_check(sk, tp);
 
 			if (nwin > tp->max_window) {
