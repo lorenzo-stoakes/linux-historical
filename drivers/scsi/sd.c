@@ -1472,6 +1472,7 @@ static void __exit exit_sd(void)
 		kfree(sd_sizes);
 		kfree(sd_blocksizes);
 		kfree(sd_hardsizes);
+		kfree(sd_max_sectors);
 		for (i = 0; i < N_USED_SD_MAJORS; i++) {
 			kfree(sd_gendisks[i].de_arr);
 			kfree(sd_gendisks[i].flags);
@@ -1482,6 +1483,7 @@ static void __exit exit_sd(void)
 		del_gendisk(&sd_gendisks[i]);
 		blksize_size[SD_MAJOR(i)] = NULL;
 		hardsect_size[SD_MAJOR(i)] = NULL;
+		max_sectors[SD_MAJOR(i)] = NULL;
 		read_ahead[SD_MAJOR(i)] = 0;
 	}
 	sd_template.dev_max = 0;
