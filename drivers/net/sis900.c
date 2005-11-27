@@ -1613,14 +1613,6 @@ static int sis900_rx(struct net_device *net_dev)
 	long ioaddr = net_dev->base_addr;
 	unsigned int entry = sis_priv->cur_rx % NUM_RX_DESC;
 	u32 rx_status = sis_priv->rx_ring[entry].cmdsts;
-	/*
-	 * If cur > dirty, then limit = NUM_RX_DESC - cur + dirty =
-	 *				NUM_RX_DESC + (dirty - cur)
-	 * If cur < dirty (cur overflowed, dirty - not), then
-	 *			limit = dirty - cur
-	 */
-	int rx_work_limit =
-		(sis_priv->dirty_rx - sis_priv->cur_rx) % NUM_RX_DESC;
 
 	if (sis900_debug > 3)
 		printk(KERN_INFO "sis900_rx, cur_rx:%4.4d, dirty_rx:%4.4d "
@@ -1630,8 +1622,6 @@ static int sis900_rx(struct net_device *net_dev)
 	while (rx_status & OWN) {
 		unsigned int rx_size;
 
-		if (--rx_work_limit < 0)
-			break;
 		rx_size = (rx_status & DSIZE) - CRC_SIZE;
 
 		if (rx_status & (ABORT|OVERRUN|TOOLONG|RUNT|RXISERR|CRCERR|FAERR)) {
@@ -1698,7 +1688,6 @@ static int sis900_rx(struct net_device *net_dev)
 				sis_priv->rx_ring[entry].cmdsts = 0;
 				sis_priv->rx_ring[entry].bufptr = 0;
 				sis_priv->stats.rx_dropped++;
-				sis_priv->cur_rx++;
 				break;
 			}
 			skb->dev = net_dev;
@@ -1716,7 +1705,7 @@ static int sis900_rx(struct net_device *net_dev)
 
 	/* refill the Rx buffer, what if the rate of refilling is slower than 
 	   consuming ?? */
-	for (; sis_priv->cur_rx != sis_priv->dirty_rx; sis_priv->dirty_rx++) {
+	for (;sis_priv->cur_rx - sis_priv->dirty_rx > 0; sis_priv->dirty_rx++) {
 		struct sk_buff *skb;
 
 		entry = sis_priv->dirty_rx % NUM_RX_DESC;
