@@ -411,7 +411,7 @@ typedef void (pm_kbd_func) (void);
 
 static __init int broken_ps2_resume(struct dmi_blacklist *d)
 {
-#ifdef CONFIG_VT
+#if defined(CONFIG_VT) && !defined(CONFIG_DUMMY_KEYB)
 	if (pm_kbd_request_override == NULL)
 	{
 		pm_kbd_request_override = pckbd_pm_resume;
