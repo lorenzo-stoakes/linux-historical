@@ -3442,12 +3442,13 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	struct cmsghdr *kcmsg, *kcmsg_base;
 	__kernel_size_t32 ucmlen;
 	__kernel_size_t kcmlen, tmp;
+	int err = -EFAULT;
 
 	kcmlen = 0;
 	kcmsg_base = kcmsg = (struct cmsghdr *)stackbuf;
 	ucmsg = CMSG32_FIRSTHDR(kmsg);
 	while(ucmsg != NULL) {
-		if(get_user(ucmlen, &ucmsg->cmsg_len))
+		if (get_user(ucmlen, &ucmsg->cmsg_len))
 			return -EFAULT;
 
 		/* Catch bogons. */
@@ -3456,6 +3457,7 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
 		       CMSG_ALIGN(sizeof(struct cmsghdr)));
+		tmp = CMSG_ALIGN(tmp);
 		kcmlen += tmp;
 		ucmsg = CMSG32_NXTHDR(kmsg, ucmsg, ucmlen);
 	}
@@ -3476,21 +3478,23 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	memset(kcmsg, 0, kcmlen);
 	ucmsg = CMSG32_FIRSTHDR(kmsg);
 	while (ucmsg != NULL) {
-		__get_user(ucmlen, &ucmsg->cmsg_len);
+		if (__get_user(ucmlen, &ucmsg->cmsg_len))
+			goto Efault;
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
 		       CMSG_ALIGN(sizeof(struct cmsghdr)));
+		if ((char *)kcmsg_base + kcmlen - (char *)kcmsg < CMSG_ALIGN(tmp))
+			goto Einval;
 		kcmsg->cmsg_len = tmp;
-		__get_user(kcmsg->cmsg_level, &ucmsg->cmsg_level);
-		__get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type);
-
-		/* Copy over the data. */
-		if(copy_from_user(CMSG_DATA(kcmsg),
-				  CMSG32_DATA(ucmsg),
-				  (ucmlen - CMSG32_ALIGN(sizeof(*ucmsg)))))
-			goto out_free_efault;
+		tmp = CMSG_ALIGN(tmp);
+		if (__get_user(kcmsg->cmsg_level, &ucmsg->cmsg_level) ||
+		    __get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type) ||
+		    copy_from_user(CMSG_DATA(kcmsg),
+				   CMSG32_DATA(ucmsg),
+				   (ucmlen - CMSG32_ALIGN(sizeof(*ucmsg)))))
+			goto Efault;
 
 		/* Advance. */
-		kcmsg = (struct cmsghdr *)((char *)kcmsg + CMSG_ALIGN(tmp));
+		kcmsg = (struct cmsghdr *)((char *)kcmsg + tmp);
 		ucmsg = CMSG32_NXTHDR(kmsg, ucmsg, ucmlen);
 	}
 
@@ -3499,10 +3503,12 @@ static int cmsghdr_from_user32_to_kern(struct msghdr *kmsg,
 	kmsg->msg_controllen = kcmlen;
 	return 0;
 
-out_free_efault:
-	if(kcmsg_base != (struct cmsghdr *)stackbuf)
+Einval:
+	err = -EINVAL;
+Efault:
+	if (kcmsg_base != (struct cmsghdr *)stackbuf)
 		kfree(kcmsg_base);
-	return -EFAULT;
+	return err;
 }
 
 asmlinkage long sys32_sendmsg(int fd, struct msghdr32* user_msg, unsigned int user_flags)

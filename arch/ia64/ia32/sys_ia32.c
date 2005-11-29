@@ -1442,6 +1442,7 @@ get_cmsghdr32 (struct msghdr *kmsg, unsigned char *stackbuf, struct sock *sk, si
 
 		tmp = ((ucmlen - CMSG32_ALIGN(sizeof(*ucmsg))) +
 		       CMSG_ALIGN(sizeof(struct cmsghdr)));
+		tmp = CMSG_ALIGN(tmp);
 		kcmlen += tmp;
 		ucmsg = CMSG32_NXTHDR(kmsg, ucmsg, ucmlen);
 	}
@@ -1478,7 +1479,7 @@ get_cmsghdr32 (struct msghdr *kmsg, unsigned char *stackbuf, struct sock *sk, si
 			goto out_free_efault;
 
 		/* Advance. */
-		kcmsg = (struct cmsghdr *)((char *)kcmsg + CMSG_ALIGN(tmp));
+		kcmsg = (struct cmsghdr *)((char *)kcmsg + tmp);
 		ucmsg = CMSG32_NXTHDR(kmsg, ucmsg, ucmlen);
 	}
 
