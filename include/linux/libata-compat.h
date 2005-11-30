@@ -12,6 +12,10 @@ typedef u64 __le64;
 #define DMA_64BIT_MASK 0xffffffffffffffffULL
 #define DMA_32BIT_MASK 0x00000000ffffffffULL
 
+#define DMA_FROM_DEVICE SCSI_DATA_READ
+#define DMA_TO_DEVICE SCSI_DATA_WRITE
+#define DMA_NONE SCSI_DATA_NONE
+
 #define MODULE_VERSION(ver_str)
 
 struct device {
@@ -27,8 +31,6 @@ static inline int pci_enable_msi(struct pci_dev *dev) { return -1; }
 static inline void pci_disable_msi(struct pci_dev *dev) {}
 
 #define pci_set_consistent_dma_mask(pdev,mask) (0)
-
-#define DMA_FROM_DEVICE PCI_DMA_FROMDEVICE
 
 /* NOTE: dangerous! we ignore the 'gfp' argument */
 #define dma_alloc_coherent(dev,sz,dma,gfp) \
