@@ -75,7 +75,7 @@ static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 static u32 svia_scr_read (struct ata_port *ap, unsigned int sc_reg);
 static void svia_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val);
 
-static struct pci_device_id svia_pci_tbl[] = {
+static const struct pci_device_id svia_pci_tbl[] = {
 	{ 0x1106, 0x3149, PCI_ANY_ID, PCI_ANY_ID, 0, 0, vt6420 },
 	{ 0x1106, 0x3249, PCI_ANY_ID, PCI_ANY_ID, 0, 0, vt6421 },
 
@@ -109,7 +109,7 @@ static Scsi_Host_Template svia_sht = {
 	.bios_param		= ata_std_bios_param,
 };
 
-static struct ata_port_operations svia_sata_ops = {
+static const struct ata_port_operations svia_sata_ops = {
 	.port_disable		= ata_port_disable,
 
 	.tf_load		= ata_tf_load,
@@ -212,7 +212,7 @@ static struct ata_probe_ent *vt6420_init_probe_ent(struct pci_dev *pdev)
 	struct ata_probe_ent *probe_ent;
 	struct ata_port_info *ppi = &svia_port_info;
 
-	probe_ent = ata_pci_init_native_mode(pdev, &ppi);
+	probe_ent = ata_pci_init_native_mode(pdev, &ppi, ATA_PORT_PRIMARY | ATA_PORT_SECONDARY);
 	if (!probe_ent)
 		return NULL;
 
@@ -259,15 +259,15 @@ static void svia_configure(struct pci_dev *pdev)
 	u8 tmp8;
 
 	pci_read_config_byte(pdev, PCI_INTERRUPT_LINE, &tmp8);
-	printk(KERN_INFO DRV_NAME "(%s): routed to hard irq line %d\n",
-	       pci_name(pdev),
+	pdev_printk(KERN_INFO, pdev, "routed to hard irq line %d\n",
 	       (int) (tmp8 & 0xf0) == 0xf0 ? 0 : tmp8 & 0x0f);
 
 	/* make sure SATA channels are enabled */
 	pci_read_config_byte(pdev, SATA_CHAN_ENAB, &tmp8);
 	if ((tmp8 & ALL_PORTS) != ALL_PORTS) {
-		printk(KERN_DEBUG DRV_NAME "(%s): enabling SATA channels (0x%x)\n",
-		       pci_name(pdev), (int) tmp8);
+		pdev_printk(KERN_DEBUG, pdev,
+			   "enabling SATA channels (0x%x)\n",
+		           (int) tmp8);
 		tmp8 |= ALL_PORTS;
 		pci_write_config_byte(pdev, SATA_CHAN_ENAB, tmp8);
 	}
@@ -275,8 +275,9 @@ static void svia_configure(struct pci_dev *pdev)
 	/* make sure interrupts for each channel sent to us */
 	pci_read_config_byte(pdev, SATA_INT_GATE, &tmp8);
 	if ((tmp8 & ALL_PORTS) != ALL_PORTS) {
-		printk(KERN_DEBUG DRV_NAME "(%s): enabling SATA channel interrupts (0x%x)\n",
-		       pci_name(pdev), (int) tmp8);
+		pdev_printk(KERN_DEBUG, pdev,
+			   "enabling SATA channel interrupts (0x%x)\n",
+		           (int) tmp8);
 		tmp8 |= ALL_PORTS;
 		pci_write_config_byte(pdev, SATA_INT_GATE, tmp8);
 	}
@@ -284,8 +285,9 @@ static void svia_configure(struct pci_dev *pdev)
 	/* make sure native mode is enabled */
 	pci_read_config_byte(pdev, SATA_NATIVE_MODE, &tmp8);
 	if ((tmp8 & NATIVE_MODE_ALL) != NATIVE_MODE_ALL) {
-		printk(KERN_DEBUG DRV_NAME "(%s): enabling SATA channel native mode (0x%x)\n",
-		       pci_name(pdev), (int) tmp8);
+		pdev_printk(KERN_DEBUG, pdev,
+			   "enabling SATA channel native mode (0x%x)\n",
+		           (int) tmp8);
 		tmp8 |= NATIVE_MODE_ALL;
 		pci_write_config_byte(pdev, SATA_NATIVE_MODE, tmp8);
 	}
@@ -303,7 +305,7 @@ static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	u8 tmp8;
 
 	if (!printed_version++)
-		printk(KERN_DEBUG DRV_NAME " version " DRV_VERSION "\n");
+		pdev_printk(KERN_DEBUG, pdev, "version " DRV_VERSION "\n");
 
 	rc = pci_enable_device(pdev);
 	if (rc)
@@ -318,8 +320,9 @@ static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (board_id == vt6420) {
 		pci_read_config_byte(pdev, SATA_PATA_SHARING, &tmp8);
 		if (tmp8 & SATA_2DEV) {
-			printk(KERN_ERR DRV_NAME "(%s): SATA master/slave not supported (0x%x)\n",
-		       	pci_name(pdev), (int) tmp8);
+			pdev_printk(KERN_ERR, pdev,
+				   "SATA master/slave not supported (0x%x)\n",
+		       		   (int) tmp8);
 			rc = -EIO;
 			goto err_out_regions;
 		}
@@ -332,15 +335,19 @@ static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	for (i = 0; i < ARRAY_SIZE(svia_bar_sizes); i++)
 		if ((pci_resource_start(pdev, i) == 0) ||
 		    (pci_resource_len(pdev, i) < bar_sizes[i])) {
-			printk(KERN_ERR DRV_NAME "(%s): invalid PCI BAR %u (sz 0x%lx, val 0x%lx)\n",
-			       pci_name(pdev), i,
-			       pci_resource_start(pdev, i),
-			       pci_resource_len(pdev, i));
+			pdev_printk(KERN_ERR, pdev,
+				   "invalid PCI BAR %u (sz 0x%lx, val 0x%lx)\n",
+				   i,
+			           pci_resource_start(pdev, i),
+			           pci_resource_len(pdev, i));
 			rc = -ENODEV;
 			goto err_out_regions;
 		}
 
 	rc = pci_set_dma_mask(pdev, ATA_DMA_MASK);
+	if (rc)
+		goto err_out_regions;
+	rc = pci_set_consistent_dma_mask(pdev, ATA_DMA_MASK);
 	if (rc)
 		goto err_out_regions;
 
@@ -350,8 +357,7 @@ static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		probe_ent = vt6421_init_probe_ent(pdev);
 
 	if (!probe_ent) {
-		printk(KERN_ERR DRV_NAME "(%s): out of memory\n",
-		       pci_name(pdev));
+		pdev_printk(KERN_ERR, pdev, "out of memory\n");
 		rc = -ENOMEM;
 		goto err_out_regions;
 	}

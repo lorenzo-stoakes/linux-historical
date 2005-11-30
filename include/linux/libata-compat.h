@@ -12,9 +12,16 @@ typedef u64 __le64;
 #define DMA_64BIT_MASK 0xffffffffffffffffULL
 #define DMA_32BIT_MASK 0x00000000ffffffffULL
 
-#define DMA_FROM_DEVICE SCSI_DATA_READ
-#define DMA_TO_DEVICE SCSI_DATA_WRITE
-#define DMA_NONE SCSI_DATA_NONE
+/* These definitions mirror those in pci.h, so they can be used
+ * interchangeably with their PCI_ counterparts */
+enum dma_data_direction {
+	DMA_BIDIRECTIONAL = 0,
+	DMA_TO_DEVICE = 1,
+	DMA_FROM_DEVICE = 2,
+	DMA_NONE = 3,
+};
+
+#define offset_in_page(p)	((unsigned long)(p) & ~PAGE_MASK)
 
 #define MODULE_VERSION(ver_str)
 
@@ -27,10 +34,22 @@ static inline struct pci_dev *to_pci_dev(struct device *dev)
 	return (struct pci_dev *) dev;
 }
 
+#define pdev_printk(lvl, pdev, fmt, args...)			\
+	do {							\
+		printk("%s%s(%s): ", lvl, (pdev)->driver->name,	\
+			pci_name(pdev));			\
+		printk(fmt, ## args);				\
+	} while (0)
+
 static inline int pci_enable_msi(struct pci_dev *dev) { return -1; }
 static inline void pci_disable_msi(struct pci_dev *dev) {}
 
-#define pci_set_consistent_dma_mask(pdev,mask) (0)
+static inline int pci_set_consistent_dma_mask(struct pci_dev *dev, u64 mask)
+{
+	if (mask == (u64)dev->dma_mask)
+		return 0;
+	return -EIO;
+}
 
 /* NOTE: dangerous! we ignore the 'gfp' argument */
 #define dma_alloc_coherent(dev,sz,dma,gfp) \
@@ -120,6 +139,21 @@ pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
 	}
 	/* What? */
 	return NULL;
+}
+
+static inline void sg_set_buf(struct scatterlist *sg, void *buf,
+			      unsigned int buflen)
+{
+	sg->page = virt_to_page(buf);
+	sg->offset = offset_in_page(buf);
+	sg->length = buflen;
+}
+
+static inline void sg_init_one(struct scatterlist *sg, void *buf,
+			       unsigned int buflen)
+{
+	memset(sg, 0, sizeof(*sg));
+	sg_set_buf(sg, buf, buflen);
 }
 
 #endif /* __LIBATA_COMPAT_H__ */

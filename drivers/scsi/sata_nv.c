@@ -137,7 +137,7 @@ enum nv_host_type
 	CK804
 };
 
-static struct pci_device_id nv_pci_tbl[] = {
+static const struct pci_device_id nv_pci_tbl[] = {
 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE2S_SATA,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, NFORCE2 },
 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE3S_SATA,
@@ -238,7 +238,7 @@ static Scsi_Host_Template nv_sht = {
 	.bios_param		= ata_std_bios_param,
 };
 
-static struct ata_port_operations nv_ops = {
+static const struct ata_port_operations nv_ops = {
 	.port_disable		= ata_port_disable,
 	.tf_load		= ata_tf_load,
 	.tf_read		= ata_tf_read,
@@ -331,7 +331,7 @@ static u32 nv_scr_read (struct ata_port *ap, unsigned int sc_reg)
 		return 0xffffffffU;
 
 	if (host->host_flags & NV_HOST_FLAGS_SCR_MMIO)
-		return readl((void*)ap->ioaddr.scr_addr + (sc_reg * 4));
+		return readl((void __iomem *)ap->ioaddr.scr_addr + (sc_reg * 4));
 	else
 		return inl(ap->ioaddr.scr_addr + (sc_reg * 4));
 }
@@ -345,7 +345,7 @@ static void nv_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val)
 		return;
 
 	if (host->host_flags & NV_HOST_FLAGS_SCR_MMIO)
-		writel(val, (void*)ap->ioaddr.scr_addr + (sc_reg * 4));
+		writel(val, (void __iomem *)ap->ioaddr.scr_addr + (sc_reg * 4));
 	else
 		outl(val, ap->ioaddr.scr_addr + (sc_reg * 4));
 }
@@ -383,7 +383,7 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 			return -ENODEV;
 
 	if (!printed_version++)
-		printk(KERN_DEBUG DRV_NAME " version " DRV_VERSION "\n");
+		pdev_printk(KERN_DEBUG, pdev, "version " DRV_VERSION "\n");
 
 	rc = pci_enable_device(pdev);
 	if (rc)
@@ -398,11 +398,14 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	rc = pci_set_dma_mask(pdev, ATA_DMA_MASK);
 	if (rc)
 		goto err_out_regions;
+	rc = pci_set_consistent_dma_mask(pdev, ATA_DMA_MASK);
+	if (rc)
+		goto err_out_regions;
 
 	rc = -ENOMEM;
 
 	ppi = &nv_port_info;
-	probe_ent = ata_pci_init_native_mode(pdev, &ppi);
+	probe_ent = ata_pci_init_native_mode(pdev, &ppi, ATA_PORT_PRIMARY | ATA_PORT_SECONDARY);
 	if (!probe_ent)
 		goto err_out_regions;
 
