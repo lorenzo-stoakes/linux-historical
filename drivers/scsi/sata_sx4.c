@@ -7,21 +7,26 @@
  *
  *  Copyright 2003-2004 Red Hat, Inc.
  *
- *  The contents of this file are subject to the Open
- *  Software License version 1.1 that can be found at
- *  http://www.opensource.org/licenses/osl-1.1.txt and is included herein
- *  by reference.
  *
- *  Alternatively, the contents of this file may be used under the terms
- *  of the GNU General Public License version 2 (the "GPL") as distributed
- *  in the kernel source COPYING file, in which case the provisions of
- *  the GPL are applicable instead of the above.  If you wish to allow
- *  the use of your version of this file only under the terms of the
- *  GPL and not to allow others to use your version of this file under
- *  the OSL, indicate your decision by deleting the provisions above and
- *  replace them with the notice and other provisions required by the GPL.
- *  If you do not delete the provisions above, a recipient may use your
- *  version of this file under either the OSL or the GPL.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2, or (at your option)
+ *  any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; see the file COPYING.  If not, write to
+ *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *
+ *  libata documentation is available via 'make {ps|pdf}docs',
+ *  as Documentation/DocBook/libata.*
+ *
+ *  Hardware documentation available under NDA.
  *
  */
 
@@ -240,13 +245,14 @@ static struct pci_driver pdc_sata_pci_driver = {
 
 static void pdc20621_host_stop(struct ata_host_set *host_set)
 {
+	struct pci_dev *pdev = to_pci_dev(host_set->dev);
 	struct pdc_host_priv *hpriv = host_set->private_data;
 	void *dimm_mmio = hpriv->dimm_mmio;
 
-	iounmap(dimm_mmio);
+	pci_iounmap(pdev, dimm_mmio);
 	kfree(hpriv);
 
-	ata_host_stop(host_set);
+	pci_iounmap(pdev, host_set->mmio_base);
 }
 
 static int pdc_port_start(struct ata_port *ap)
@@ -446,9 +452,9 @@ static void pdc20621_dma_prep(struct ata_queued_cmd *qc)
 	struct scatterlist *sg = qc->sg;
 	struct ata_port *ap = qc->ap;
 	struct pdc_port_priv *pp = ap->private_data;
-	void *mmio = ap->host_set->mmio_base;
+	void __iomem *mmio = ap->host_set->mmio_base;
 	struct pdc_host_priv *hpriv = ap->host_set->private_data;
-	void *dimm_mmio = hpriv->dimm_mmio;
+	void __iomem *dimm_mmio = hpriv->dimm_mmio;
 	unsigned int portno = ap->port_no;
 	unsigned int i, last, idx, total_len = 0, sgt_len;
 	u32 *buf = (u32 *) &pp->dimm_buf[PDC_DIMM_HEADER_SZ];
@@ -508,9 +514,9 @@ static void pdc20621_nodata_prep(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
 	struct pdc_port_priv *pp = ap->private_data;
-	void *mmio = ap->host_set->mmio_base;
+	void __iomem *mmio = ap->host_set->mmio_base;
 	struct pdc_host_priv *hpriv = ap->host_set->private_data;
-	void *dimm_mmio = hpriv->dimm_mmio;
+	void __iomem *dimm_mmio = hpriv->dimm_mmio;
 	unsigned int portno = ap->port_no;
 	unsigned int i;
 
@@ -560,7 +566,7 @@ static void __pdc20621_push_hdma(struct ata_queued_cmd *qc,
 {
 	struct ata_port *ap = qc->ap;
 	struct ata_host_set *host_set = ap->host_set;
-	void *mmio = host_set->mmio_base;
+	void __iomem *mmio = host_set->mmio_base;
 
 	/* hard-code chip #0 */
 	mmio += PDC_CHIP0_OFS;
@@ -634,7 +640,7 @@ static void pdc20621_packet_start(struct ata_queued_cmd *qc)
 	struct ata_port *ap = qc->ap;
 	struct ata_host_set *host_set = ap->host_set;
 	unsigned int port_no = ap->port_no;
-	void *mmio = host_set->mmio_base;
+	void __iomem *mmio = host_set->mmio_base;
 	unsigned int rw = (qc->tf.flags & ATA_TFLAG_WRITE);
 	u8 seq = (u8) (port_no + 1);
 	unsigned int port_ofs;
@@ -694,7 +700,7 @@ static int pdc20621_qc_issue_prot(struct ata_queued_cmd *qc)
 static inline unsigned int pdc20621_host_intr( struct ata_port *ap,
                                           struct ata_queued_cmd *qc,
 					  unsigned int doing_hdma,
-					  void *mmio)
+					  void __iomem *mmio)
 {
 	unsigned int port_no = ap->port_no;
 	unsigned int port_ofs =
@@ -773,7 +779,7 @@ static inline unsigned int pdc20621_host_intr( struct ata_port *ap,
 static void pdc20621_irq_clear(struct ata_port *ap)
 {
 	struct ata_host_set *host_set = ap->host_set;
-	void *mmio = host_set->mmio_base;
+	void __iomem *mmio = host_set->mmio_base;
 
 	mmio += PDC_CHIP0_OFS;
 
@@ -787,7 +793,7 @@ static irqreturn_t pdc20621_interrupt (int irq, void *dev_instance, struct pt_re
 	u32 mask = 0;
 	unsigned int i, tmp, port_no;
 	unsigned int handled = 0;
-	void *mmio_base;
+	void __iomem *mmio_base;
 
 	VPRINTK("ENTER\n");
 
@@ -825,7 +831,8 @@ static irqreturn_t pdc20621_interrupt (int irq, void *dev_instance, struct pt_re
 			ap = host_set->ports[port_no];
 		tmp = mask & (1 << i);
 		VPRINTK("seq %u, port_no %u, ap %p, tmp %x\n", i, port_no, ap, tmp);
-		if (tmp && ap && (!(ap->flags & ATA_FLAG_PORT_DISABLED))) {
+		if (tmp && ap &&
+		    !(ap->flags & (ATA_FLAG_PORT_DISABLED | ATA_FLAG_NOINTR))) {
 			struct ata_queued_cmd *qc;
 
 			qc = ata_qc_from_tag(ap, ap->active_tag);
@@ -847,9 +854,13 @@ static irqreturn_t pdc20621_interrupt (int irq, void *dev_instance, struct pt_re
 static void pdc_eng_timeout(struct ata_port *ap)
 {
 	u8 drv_stat;
+	struct ata_host_set *host_set = ap->host_set;
 	struct ata_queued_cmd *qc;
+	unsigned long flags;
 
 	DPRINTK("ENTER\n");
+
+	spin_lock_irqsave(&host_set->lock, flags);
 
 	qc = ata_qc_from_tag(ap, ap->active_tag);
 	if (!qc) {
@@ -884,6 +895,7 @@ static void pdc_eng_timeout(struct ata_port *ap)
 	}
 
 out:
+	spin_unlock_irqrestore(&host_set->lock, flags);
 	DPRINTK("EXIT\n");
 }
 
@@ -929,9 +941,9 @@ static void pdc20621_get_from_dimm(struct ata_probe_ent *pe, void *psource,
 	u16 idx;
 	u8 page_mask;
 	long dist;
-	void *mmio = pe->mmio_base;
+	void __iomem *mmio = pe->mmio_base;
 	struct pdc_host_priv *hpriv = pe->private_data;
-	void *dimm_mmio = hpriv->dimm_mmio;
+	void __iomem *dimm_mmio = hpriv->dimm_mmio;
 
 	/* hard-code chip #0 */
 	mmio += PDC_CHIP0_OFS;
@@ -985,9 +997,9 @@ static void pdc20621_put_to_dimm(struct ata_probe_ent *pe, void *psource,
 	u16 idx;
 	u8 page_mask;
 	long dist;
-	void *mmio = pe->mmio_base;
+	void __iomem *mmio = pe->mmio_base;
 	struct pdc_host_priv *hpriv = pe->private_data;
-	void *dimm_mmio = hpriv->dimm_mmio;
+	void __iomem *dimm_mmio = hpriv->dimm_mmio;
 
 	/* hard-code chip #0 */
 	mmio += PDC_CHIP0_OFS;
@@ -1033,7 +1045,7 @@ static void pdc20621_put_to_dimm(struct ata_probe_ent *pe, void *psource,
 static unsigned int pdc20621_i2c_read(struct ata_probe_ent *pe, u32 device,
 				      u32 subaddr, u32 *pdata)
 {
-	void *mmio = pe->mmio_base;
+	void __iomem *mmio = pe->mmio_base;
 	u32 i2creg  = 0;
 	u32 status;
 	u32 count =0;
@@ -1092,7 +1104,7 @@ static int pdc20621_prog_dimm0(struct ata_probe_ent *pe)
 	u32 data = 0;
    	int size, i;
    	u8 bdimmsize;
-   	void *mmio = pe->mmio_base;
+   	void __iomem *mmio = pe->mmio_base;
 	static const struct {
 		unsigned int reg;
 		unsigned int ofs;
@@ -1155,7 +1167,7 @@ static unsigned int pdc20621_prog_dimm_global(struct ata_probe_ent *pe)
 {
 	u32 data, spd0;
    	int error, i;
-   	void *mmio = pe->mmio_base;
+   	void __iomem *mmio = pe->mmio_base;
 
 	/* hard-code chip #0 */
    	mmio += PDC_CHIP0_OFS;
@@ -1209,7 +1221,7 @@ static unsigned int pdc20621_dimm_init(struct ata_probe_ent *pe)
 	u32 ticks=0;
 	u32 clock=0;
 	u32 fparam=0;
-   	void *mmio = pe->mmio_base;
+   	void __iomem *mmio = pe->mmio_base;
 
 	/* hard-code chip #0 */
    	mmio += PDC_CHIP0_OFS;
@@ -1333,7 +1345,7 @@ static unsigned int pdc20621_dimm_init(struct ata_probe_ent *pe)
 static void pdc_20621_init(struct ata_probe_ent *pe)
 {
 	u32 tmp;
-	void *mmio = pe->mmio_base;
+	void __iomem *mmio = pe->mmio_base;
 
 	/* hard-code chip #0 */
 	mmio += PDC_CHIP0_OFS;
@@ -1366,7 +1378,8 @@ static int pdc_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *
 	static int printed_version;
 	struct ata_probe_ent *probe_ent = NULL;
 	unsigned long base;
-	void *mmio_base, *dimm_mmio = NULL;
+	void __iomem *mmio_base;
+	void __iomem *dimm_mmio = NULL;
 	struct pdc_host_priv *hpriv = NULL;
 	unsigned int board_idx = (unsigned int) ent->driver_data;
 	int pci_dev_busy = 0;
@@ -1403,8 +1416,7 @@ static int pdc_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *
 	probe_ent->dev = pci_dev_to_dev(pdev);
 	INIT_LIST_HEAD(&probe_ent->node);
 
-	mmio_base = ioremap(pci_resource_start(pdev, 3),
-		            pci_resource_len(pdev, 3));
+	mmio_base = pci_iomap(pdev, 3, 0);
 	if (mmio_base == NULL) {
 		rc = -ENOMEM;
 		goto err_out_free_ent;
@@ -1418,8 +1430,7 @@ static int pdc_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *
 	}
 	memset(hpriv, 0, sizeof(*hpriv));
 
-	dimm_mmio = ioremap(pci_resource_start(pdev, 4),
-			    pci_resource_len(pdev, 4));
+	dimm_mmio = pci_iomap(pdev, 4, 0);
 	if (!dimm_mmio) {
 		kfree(hpriv);
 		rc = -ENOMEM;
@@ -1464,9 +1475,9 @@ static int pdc_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *
 
 err_out_iounmap_dimm:		/* only get to this label if 20621 */
 	kfree(hpriv);
-	iounmap(dimm_mmio);
+	pci_iounmap(pdev, dimm_mmio);
 err_out_iounmap:
-	iounmap(mmio_base);
+	pci_iounmap(pdev, mmio_base);
 err_out_free_ent:
 	kfree(probe_ent);
 err_out_regions:

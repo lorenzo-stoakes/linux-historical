@@ -64,4 +64,62 @@ static inline void *kcalloc(size_t nmemb, size_t size, int flags)
 	return mem;
 }
 
+static inline void *kzalloc(size_t size, int flags)
+{
+	return kcalloc(1, size, flags);
+}
+
+static inline void pci_iounmap(struct pci_dev *pdev, void *mem)
+{
+	iounmap(mem);
+}
+
+/**
+ * pci_intx - enables/disables PCI INTx for device dev
+ * @pdev: the PCI device to operate on
+ * @enable: boolean: whether to enable or disable PCI INTx
+ *
+ * Enables/disables PCI INTx for device dev
+ */
+static inline void
+pci_intx(struct pci_dev *pdev, int enable)
+{
+	u16 pci_command, new;
+
+	pci_read_config_word(pdev, PCI_COMMAND, &pci_command);
+
+	if (enable) {
+		new = pci_command & ~PCI_COMMAND_INTX_DISABLE;
+	} else {
+		new = pci_command | PCI_COMMAND_INTX_DISABLE;
+	}
+
+	if (new != pci_command) {
+		pci_write_config_word(pdev, PCI_COMMAND, new);
+	}
+}
+
+static inline void __iomem *
+pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
+{
+	unsigned long start = pci_resource_start(dev, bar);
+	unsigned long len = pci_resource_len(dev, bar);
+	unsigned long flags = pci_resource_flags(dev, bar);
+
+	if (!len || !start)
+		return NULL;
+	if (maxlen && len > maxlen)
+		len = maxlen;
+	if (flags & IORESOURCE_IO) {
+		BUG();
+	}
+	if (flags & IORESOURCE_MEM) {
+		if (flags & IORESOURCE_CACHEABLE)
+			return ioremap(start, len);
+		return ioremap_nocache(start, len);
+	}
+	/* What? */
+	return NULL;
+}
+
 #endif /* __LIBATA_COMPAT_H__ */
