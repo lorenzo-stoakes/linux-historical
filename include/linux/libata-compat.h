@@ -36,7 +36,9 @@ static inline struct pci_dev *to_pci_dev(struct device *dev)
 
 #define pdev_printk(lvl, pdev, fmt, args...)			\
 	do {							\
-		printk("%s%s(%s): ", lvl, (pdev)->driver->name,	\
+		printk("%s%s(%s): ", lvl,			\
+			(pdev)->driver && (pdev)->driver->name ? \
+				(pdev)->driver->name : "PCI",	\
 			pci_name(pdev));			\
 		printk(fmt, ## args);				\
 	} while (0)
