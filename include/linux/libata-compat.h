@@ -25,6 +25,12 @@ enum dma_data_direction {
 
 #define MODULE_VERSION(ver_str)
 
+/* remaps usage of KM_IRQ0 onto KM_SOFTIRQ0. KM_IRQ0 only exists on ia64 in
+ * 2.4. Warning: this will also remap KM_IRQ0 on ia64, so be careful about
+ * the files included after this file. */
+
+#define KM_IRQ0	KM_SOFTIRQ0
+
 struct device {
 	struct pci_dev pdev;
 };
