@@ -128,7 +128,7 @@ static void strbuf_flush(struct sbus_iommu *iommu, u32 base, unsigned long npage
 		   iommu->strbuf_regs + STRBUF_FSYNC);
 	upa_readq(iommu->sbus_control_reg);
 	while (iommu->strbuf_flushflag == 0UL)
-		membar("#LoadLoad");
+		rmb();
 }
 
 static iopte_t *alloc_streaming_cluster(struct sbus_iommu *iommu, unsigned long npages)

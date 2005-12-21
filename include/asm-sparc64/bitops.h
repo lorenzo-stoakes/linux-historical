@@ -75,8 +75,8 @@ static __inline__ int __test_and_change_bit(int nr, volatile void *addr)
 }
 
 #ifdef CONFIG_SMP
-#define smp_mb__before_clear_bit()	membar("#StoreLoad | #LoadLoad")
-#define smp_mb__after_clear_bit()	membar("#StoreLoad | #StoreStore")
+#define smp_mb__before_clear_bit()	membar_safe("#StoreLoad | #LoadLoad")
+#define smp_mb__after_clear_bit()	membar_safe("#StoreLoad | #StoreStore")
 #else
 #define smp_mb__before_clear_bit()	barrier()
 #define smp_mb__after_clear_bit()	barrier()

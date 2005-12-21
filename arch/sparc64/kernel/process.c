@@ -100,7 +100,7 @@ int cpu_idle(void)
 		 * other cpus see our increasing idleness for the buddy
 		 * redistribution algorithm.  -DaveM
 		 */
-		membar("#StoreStore | #StoreLoad");
+		membar_safe("#StoreStore | #StoreLoad");
 	}
 }
 

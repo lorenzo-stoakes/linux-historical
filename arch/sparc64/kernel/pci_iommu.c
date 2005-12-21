@@ -436,7 +436,7 @@ void pci_unmap_single(struct pci_dev *pdev, dma_addr_t bus_addr, size_t sz, int 
 		pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 		(void) pci_iommu_read(iommu->write_complete_reg);
 		while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-			membar("#LoadLoad");
+			rmb();
 	}
 
 	/* Step 2: Clear out first TSB entry. */
@@ -674,7 +674,7 @@ void pci_unmap_sg(struct pci_dev *pdev, struct scatterlist *sglist, int nelems, 
 		pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 		(void) pci_iommu_read(iommu->write_complete_reg);
 		while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-			membar("#LoadLoad");
+			rmb();
 	}
 
 	/* Step 2: Clear out first TSB entry. */
@@ -742,7 +742,7 @@ void pci_dma_sync_single(struct pci_dev *pdev, dma_addr_t bus_addr, size_t sz, i
 	pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 	(void) pci_iommu_read(iommu->write_complete_reg);
 	while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-		membar("#LoadLoad");
+		rmb();
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
 }
@@ -807,7 +807,7 @@ void pci_dma_sync_sg(struct pci_dev *pdev, struct scatterlist *sglist, int nelem
 	pci_iommu_write(strbuf->strbuf_fsync, strbuf->strbuf_flushflag_pa);
 	(void) pci_iommu_read(iommu->write_complete_reg);
 	while (!PCI_STC_FLUSHFLAG_SET(strbuf))
-		membar("#LoadLoad");
+		rmb();
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
 }
