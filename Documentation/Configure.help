@@ -8148,7 +8148,7 @@ CONFIG_AIC7XXX_DEBUG_ENABLE
 Debug code enable mask (2048 for all debugging)
 CONFIG_AIC7XXX_DEBUG_MASK
   Bit mask of debug options that is only valid if the
-  CONFIG_AIC7XXX_DEBUG_ENBLE option is enabled.  The bits in this mask
+  CONFIG_AIC7XXX_DEBUG_ENABLE option is enabled.  The bits in this mask
   are defined in the drivers/scsi/aic7xxx/aic7xxx.h - search for the
   variable ahc_debug in that file to find them.
 
@@ -8322,7 +8322,7 @@ CONFIG_AIC79XX_DEBUG_ENABLE
 
 CONFIG_AIC79XX_DEBUG_MASK
   Bit mask of debug options that is only valid if the
-  CONFIG_AIC79XX_DEBUG_ENBLE option is enabled.  The bits in this mask
+  CONFIG_AIC79XX_DEBUG_ENABLE option is enabled.  The bits in this mask
   are defined in the drivers/scsi/aic7xxx/aic79xx.h - search for the
   variable ahd_debug in that file to find them.
 
