@@ -65,6 +65,7 @@ else
    define_bool CONFIG_X86_POPAD_OK y
    define_bool CONFIG_RWSEM_GENERIC_SPINLOCK n
    define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM y
+   define_bool CONFIG_X86_TSC n
 fi
 if [ "$CONFIG_M486" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 4
@@ -72,6 +73,7 @@ if [ "$CONFIG_M486" = "y" ]; then
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_PPRO_FENCE y
    define_bool CONFIG_X86_F00F_WORKS_OK n
+   define_bool CONFIG_X86_TSC n
 fi
 if [ "$CONFIG_M586" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
