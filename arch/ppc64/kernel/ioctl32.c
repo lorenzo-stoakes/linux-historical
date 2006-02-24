@@ -49,6 +49,7 @@
 #include <linux/cdrom.h>
 #include <linux/loop.h>
 #include <linux/auto_fs.h>
+#include <linux/autofs_4.h>
 #include <linux/devfs_fs.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>
