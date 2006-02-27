@@ -332,7 +332,7 @@ setup_trampoline(unsigned int syscall, unsigned int *tramp)
 }
 
 
-asmlinkage int
+asmlinkage long
 sys_rt_sigreturn(unsigned long r3, unsigned long r4, unsigned long r5,
 		 unsigned long r6, unsigned long r7, unsigned long r8,
 		 struct pt_regs *regs)
