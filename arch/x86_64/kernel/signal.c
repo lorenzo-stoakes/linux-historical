@@ -137,15 +137,18 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext *sc, unsigned long *p
 
 
 #define COPY(x)		err |= __get_user(regs->x, &sc->x)
-#define COPY_CANON(x)   \
-	COPY(x); \
-	if ((regs->x >> 48)  != 0 && (regs->x >> 48) != 0xffff) \
-				regs->x = 0; 
 
 	/* fs and gs are ignored because we cannot handle the 64bit base easily */ 
 
-	COPY(rdi); COPY(rsi); COPY(rbp); COPY_CANON(rsp); COPY(rbx);
-	COPY(rdx); COPY(rcx); COPY_CANON(rip);
+	COPY(rdi); COPY(rsi); COPY(rbp); COPY(rsp); COPY(rbx);
+	COPY(rdx); COPY(rcx); 
+	COPY(rip);
+	/* rsp check is not strictly needed I think -AK */
+	if (regs->rip >= TASK_SIZE || regs->rsp >= TASK_SIZE) { 
+		regs->rip = 0;
+		regs->rsp = 0;
+		return -EFAULT;
+	}
 	COPY(r8);
 	COPY(r9);
 	COPY(r10);
@@ -357,6 +360,10 @@ static void setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	regs->rdx = (unsigned long)&frame->uc; 
 	regs->rsp = (unsigned long) frame;
 	regs->rip = (unsigned long) ka->sa.sa_handler;
+	if (regs->rip >= TASK_SIZE) { 
+		regs->rip = 0;
+		goto give_sigsegv;
+	}
 	regs->cs = __USER_CS;
 	regs->ss = __USER_DS; 
 
