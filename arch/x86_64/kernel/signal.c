@@ -143,10 +143,8 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext *sc, unsigned long *p
 	COPY(rdi); COPY(rsi); COPY(rbp); COPY(rsp); COPY(rbx);
 	COPY(rdx); COPY(rcx); 
 	COPY(rip);
-	/* rsp check is not strictly needed I think -AK */
-	if (regs->rip >= TASK_SIZE || regs->rsp >= TASK_SIZE) { 
+	if (regs->rip >= TASK_SIZE && regs->rip < VSYSCALL_START) { 
 		regs->rip = 0;
-		regs->rsp = 0;
 		return -EFAULT;
 	}
 	COPY(r8);
@@ -361,8 +359,9 @@ static void setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	regs->rsp = (unsigned long) frame;
 	regs->rip = (unsigned long) ka->sa.sa_handler;
 	if (regs->rip >= TASK_SIZE) { 
+		if (sig == SIGSEGV)
+			ka->sa.sa_handler = SIG_DFL;
 		regs->rip = 0;
-		goto give_sigsegv;
 	}
 	regs->cs = __USER_CS;
 	regs->ss = __USER_DS; 
