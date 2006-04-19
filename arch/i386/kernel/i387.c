@@ -11,6 +11,7 @@
 #include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/init.h>
+#include <linux/kernel_stat.h>
 #include <asm/processor.h>
 #include <asm/i387.h>
 #include <asm/math_emu.h>
@@ -70,8 +71,12 @@ void init_fpu(void)
 static inline void __save_init_fpu( struct task_struct *tsk )
 {
 	if ( cpu_has_fxsr ) {
-		asm volatile( "fxsave %0 ; fnclex"
+		asm volatile( "fxsave %0"
 			      : "=m" (tsk->thread.i387.fxsave) );
+		if (tsk->thread.i387.fxsave.swd & (1<<7))
+			asm volatile("fnclex");
+		/* AMD CPUs leak F?P. Clear it here */
+		asm volatile("ffree %%st(7) ; fildl %0" :: "m" (kstat.context_swtch));
 	} else {
 		asm volatile( "fnsave %0 ; fwait"
 			      : "=m" (tsk->thread.i387.fsave) );
