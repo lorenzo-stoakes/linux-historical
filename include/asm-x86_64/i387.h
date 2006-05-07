@@ -125,8 +125,12 @@ static inline void kernel_fpu_begin(void)
 
 static inline void save_init_fpu( struct task_struct *tsk )
 {
-	asm volatile( "fxsave %0 ; fnclex"
+	asm volatile( "fxsave %0"
 		      : "=m" (tsk->thread.i387.fxsave));
+	if (tsk->thread.i387.fxsave.swd & (1<<7))
+		asm volatile("fnclex");
+	/* AMD CPUs leak F?P through FXSAVE. Clear it here */
+	asm volatile("ffree %st(7) ; fildl %gs:0");
 	tsk->flags &= ~PF_USEDFPU;
 	stts();
 }

@@ -1101,7 +1101,7 @@ __nfs_refresh_inode(struct inode *inode, struct nfs_fattr *fattr)
 		invalidate_inode_pages(inode);
 		if (! list_empty(&inode->i_mapping->clean_pages)) {
 			dfprintk(PAGECACHE,
-				 "NFS: clean_pages for %x/%d is not empty\n",
+				 "NFS: clean_pages for %x/%ld is not empty\n",
 				 inode->i_dev, inode->i_ino);
 			NFS_FLAGS(inode) |= NFS_INO_MAPPED;
 		}

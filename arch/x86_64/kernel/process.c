@@ -564,8 +564,6 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 				 *next = &next_p->thread;
 	struct tss_struct *tss = init_tss + smp_processor_id();
 
-	unlazy_fpu(prev_p);
-
 	/*
 	 * Reload rsp0, LDT and the page table pointer:
 	 */
@@ -581,6 +579,11 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 	asm volatile ("mov %%ds,%0" : "=m" (prev->ds)); 
 	if (unlikely(next->ds | prev->ds))
 		loadsegment(ds, next->ds);
+
+	/* 
+  	 * Must be after DS reload for AMD workaround.
+	 */
+	unlazy_fpu(prev_p);
 
 	/* 
 	 * Switch FS and GS.
