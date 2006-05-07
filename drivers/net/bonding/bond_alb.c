@@ -1278,7 +1278,7 @@ void bond_alb_deinitialize(struct bonding *bond)
 int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
 {
 	struct bonding *bond = bond_dev->priv;
-	struct ethhdr *eth_data = (struct ethhdr *)skb->mac.raw = skb->data;
+	struct ethhdr *eth_data = (struct ethhdr *)(skb->mac.raw = skb->data);
 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
 	struct slave *tx_slave = NULL;
 	static u32 ip_bcast = 0xffffffff;
