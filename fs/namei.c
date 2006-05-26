@@ -1479,19 +1479,20 @@ int vfs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	int error;
 
-	double_down(&dir->i_zombie, &dentry->d_inode->i_zombie);
 	error = may_delete(dir, dentry, 0);
-	if (!error) {
-		error = -EPERM;
-		if (dir->i_op && dir->i_op->unlink) {
-			DQUOT_INIT(dir);
-			if (d_mountpoint(dentry))
-				error = -EBUSY;
-			else {
-				lock_kernel();
-				error = dir->i_op->unlink(dir, dentry);
-				unlock_kernel();
-			}
+	if (error)
+		return error;
+
+	double_down(&dir->i_zombie, &dentry->d_inode->i_zombie);
+	error = -EPERM;
+	if (dir->i_op && dir->i_op->unlink) {
+		DQUOT_INIT(dir);
+		if (d_mountpoint(dentry))
+			error = -EBUSY;
+		else {
+			lock_kernel();
+			error = dir->i_op->unlink(dir, dentry);
+			unlock_kernel();
 		}
 	}
 	double_up(&dir->i_zombie, &dentry->d_inode->i_zombie);
