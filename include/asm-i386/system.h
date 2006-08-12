@@ -302,7 +302,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 #define smp_mb()	mb()
 #define smp_rmb()	rmb()
 #define smp_wmb()	wmb()
-#define set_mb(var, value) do { xchg(&var, value); } while (0)
+#define set_mb(var, value) do { (void) xchg(&var, value); } while (0)
 #else
 #define smp_mb()	barrier()
 #define smp_rmb()	barrier()

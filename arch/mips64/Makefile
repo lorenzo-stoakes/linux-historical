@@ -26,7 +26,6 @@ ifdef CONFIG_CROSSCOMPILE
 CROSS_COMPILE	= $(tool-prefix)
 endif
 
-check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
 check_gas = $(shell if $(CC) $(1) -Wa,-Z -c -o /dev/null -xassembler /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
 
 #
