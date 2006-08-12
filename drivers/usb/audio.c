@@ -217,9 +217,6 @@
 
 #define dprintk(x)
 
-#undef abs
-extern int abs(int __x) __attribute__ ((__const__)); /* Shut up warning */
-
 /* --------------------------------------------------------------------- */
 
 /*
@@ -461,8 +458,8 @@ struct usb_audio_state {
 /* --------------------------------------------------------------------- */
 
 /* prevent picking up a bogus abs macro */
-#undef abs
-static inline int abs(int x)
+#undef my_abs
+static inline int my_abs(int x)
 {
         if (x < 0)
 		return -x;
@@ -1401,7 +1398,7 @@ static int usbout_sync_retire_desc(struct usbout *u, struct urb *urb)
 			continue;
 		}
 		f = cp[0] | (cp[1] << 8) | (cp[2] << 16);
-		if (abs(f - u->freqn) > (u->freqn >> 3) || f > u->freqmax) {
+		if (my_abs(f - u->freqn) > (u->freqn >> 3) || f > u->freqmax) {
 			printk(KERN_WARNING "usbout_sync_retire_desc: requested frequency %u (nominal %u) out of range!\n", f, u->freqn);
 			continue;
 		}
