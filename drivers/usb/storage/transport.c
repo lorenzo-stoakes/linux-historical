@@ -628,16 +628,16 @@ void usb_stor_invoke_transport(Scsi_Cmnd *srb, struct us_data *us)
 	int result;
 
 	/*
-	 * Grab device's exclusive_access mutex to prevent libusb/usbfs from
+	 * Grab device's exclusive access lock to prevent libusb/usbfs from
 	 * sending out a command in the middle of ours (if libusb sends a
 	 * get_descriptor or something on pipe 0 after our CBW and before
 	 * our CSW, and then we get a stall, we have trouble).
 	 */
-	down(&(us->pusb_dev->exclusive_access));
+	usb_excl_lock(us->pusb_dev, 3, 0);
 
 	/* send the command to the transport layer */
 	result = us->transport(srb, us);
-	up(&(us->pusb_dev->exclusive_access));
+	usb_excl_unlock(us->pusb_dev, 3);
 
 	/* if the command gets aborted by the higher layers, we need to
 	 * short-circuit all other processing
@@ -757,9 +757,9 @@ void usb_stor_invoke_transport(Scsi_Cmnd *srb, struct us_data *us)
 		srb->use_sg = 0;
 
 		/* issue the auto-sense command */
-		down(&(us->pusb_dev->exclusive_access));
+		usb_excl_lock(us->pusb_dev, 3, 0);
 		temp_result = us->transport(us->srb, us);
-		up(&(us->pusb_dev->exclusive_access));
+		usb_excl_unlock(us->pusb_dev, 3);
 
 		/* let's clean up right away */
 		srb->request_buffer = old_request_buffer;
