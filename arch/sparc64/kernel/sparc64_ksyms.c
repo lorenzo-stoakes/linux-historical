@@ -359,6 +359,7 @@ EXPORT_SYMBOL_NOVERS(__ret_efault);
 /* No version information on these, as gcc produces such symbols. */
 EXPORT_SYMBOL_NOVERS(memcmp);
 EXPORT_SYMBOL_NOVERS(memcpy);
+EXPORT_SYMBOL_NOVERS(memchr);
 EXPORT_SYMBOL_NOVERS(memset);
 EXPORT_SYMBOL_NOVERS(memmove);
 
