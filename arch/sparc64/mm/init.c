@@ -95,7 +95,7 @@ int do_check_pgt_cache(int low, int high)
                                 if (page2)
                                         page2->next_hash = page->next_hash;
                                 else
-                                        (struct page *)pgd_quicklist = page->next_hash;
+                                        pgd_quicklist = (unsigned long *)page->next_hash;
                                 page->next_hash = NULL;
                                 page->pprev_hash = NULL;
                                 pgd_cache_size -= 2;
