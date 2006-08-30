@@ -967,9 +967,13 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
 				sctp_unhash_established(asoc);
 				sctp_association_free(asoc);
 
-			} else if (sk->linger && !sk->lingertime)
-				sctp_primitive_ABORT(asoc, NULL);
-			else
+			} else if (sk->linger && !sk->lingertime) {
+				struct sctp_chunk *chunk;
+
+				chunk = sctp_make_abort_user(asoc, NULL, 0);
+				if (chunk)
+					sctp_primitive_ABORT(asoc, NULL);
+			} else
 				sctp_primitive_SHUTDOWN(asoc, NULL);
 		} else
 			sctp_primitive_SHUTDOWN(asoc, NULL);
