@@ -38,7 +38,7 @@ __copy_from_user_asm:
 4:	lgr	%r1,%r5      # pad remaining bytes with 0
 	lgr	%r3,%r5
 	slgr	%r5,%r5
-5:	mvcle	%r4,%r2,0
+5:	mvcle	%r2,%r4,0
 	jo	5b
 	lgr	%r2,%r1
 	j	1b
