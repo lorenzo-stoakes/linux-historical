@@ -28,10 +28,10 @@ __copy_from_user_asm:
 	nr	%r3,%r1      # %r3 = (%r4 + 4096) & -4096
 	slr	%r3,%r4      # %r3 = #bytes to next user page boundary
 	clr	%r5,%r3      # copy crosses next page boundary ?
-	jnh	4b           # no, this page fauled
+	jnh	4f           # no, this page faulted
 	# The page after the current user page might have faulted.
 	# We can't find out which page because the program check handler
-	# might have callled schedule, destroying all lowcore information.
+	# might have called schedule, destroying all lowcore information.
 	# We retry with the shortened length.
 3:	mvcle	%r2,%r4,0
 	jo	3b
