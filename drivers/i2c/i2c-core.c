@@ -548,12 +548,10 @@ int i2c_use_client(struct i2c_client *client)
 	if (client->flags & I2C_CLIENT_ALLOW_USE) {
 		if (client->flags & I2C_CLIENT_ALLOW_MULTIPLE_USE)
 			client->usage_count++;
-		else {
-			if(client->usage_count > 0) 
-				return -EBUSY;
-			 else 
-				client->usage_count++;
-		}
+		else if (client->usage_count > 0)
+			return -EBUSY;
+		else
+			client->usage_count++;
 	}
 
 	i2c_inc_use_client(client);
@@ -974,7 +972,7 @@ extern s32 i2c_smbus_read_byte(struct i2c_client * client)
 	                   I2C_SMBUS_READ,0,I2C_SMBUS_BYTE, &data))
 		return -1;
 	else
-		return 0x0FF & data.byte;
+		return data.byte;
 }
 
 extern s32 i2c_smbus_write_byte(struct i2c_client * client, u8 value)
@@ -990,7 +988,7 @@ extern s32 i2c_smbus_read_byte_data(struct i2c_client * client, u8 command)
 	                   I2C_SMBUS_READ,command, I2C_SMBUS_BYTE_DATA,&data))
 		return -1;
 	else
-		return 0x0FF & data.byte;
+		return data.byte;
 }
 
 extern s32 i2c_smbus_write_byte_data(struct i2c_client * client, u8 command,
@@ -1010,7 +1008,7 @@ extern s32 i2c_smbus_read_word_data(struct i2c_client * client, u8 command)
 	                   I2C_SMBUS_READ,command, I2C_SMBUS_WORD_DATA, &data))
 		return -1;
 	else
-		return 0x0FFFF & data.word;
+		return data.word;
 }
 
 extern s32 i2c_smbus_write_word_data(struct i2c_client * client,
@@ -1033,7 +1031,7 @@ extern s32 i2c_smbus_process_call(struct i2c_client * client,
 	                   I2C_SMBUS_PROC_CALL, &data))
 		return -1;
 	else
-		return 0x0FFFF & data.word;
+		return data.word;
 }
 
 /* Returns the number of read bytes */
@@ -1131,7 +1129,7 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 		else {
 			msg[0].len=3;
 			msgbuf0[1] = data->word & 0xff;
-			msgbuf0[2] = (data->word >> 8) & 0xff;
+			msgbuf0[2] = data->word >> 8;
 		}
 		break;
 	case I2C_SMBUS_PROC_CALL:
@@ -1139,7 +1137,7 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 		msg[0].len = 3;
 		msg[1].len = 2;
 		msgbuf0[1] = data->word & 0xff;
-		msgbuf0[2] = (data->word >> 8) & 0xff;
+		msgbuf0[2] = data->word >> 8;
 		break;
 	case I2C_SMBUS_BLOCK_DATA:
 		if (read_write == I2C_SMBUS_READ) {
