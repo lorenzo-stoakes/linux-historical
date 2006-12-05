@@ -152,9 +152,8 @@
 
 #define I2C_ALGO_MPC8XX 0x110000	/* MPC8xx PowerPC I2C algorithm */
 
-#define I2C_ALGO_SIBYTE 0x120000	/* Broadcom SiByte SOCs		*/
-
-#define I2C_ALGO_SGI	0x130000	/* SGI algorithm		*/
+#define I2C_ALGO_SIBYTE 0x150000	/* Broadcom SiByte SOCs		*/
+#define I2C_ALGO_SGI	0x160000	/* SGI algorithm		*/
 
 #define I2C_ALGO_EXP	0x800000	/* experimental			*/
 
