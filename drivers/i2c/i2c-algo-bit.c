@@ -367,10 +367,6 @@ static int sendbytes(struct i2c_adapter *i2c_adap,const char *buf, int count)
 			return (retval<0)? retval : -EFAULT;
 			        /* got a better one ?? */
 		}
-#if 0
-		/* from asm/delay.h */
-		__delay(adap->mdelay * (loops_per_sec / 1000) );
-#endif
 	}
 	return wrcount;
 }
@@ -384,7 +380,6 @@ static inline int readbytes(struct i2c_adapter *i2c_adap,char *buf,int count)
 
 	while (count > 0) {
 		inval = i2c_inb(i2c_adap);
-/*printk("%#02x ",inval); if ( ! (count % 16) ) printk("\n"); */
 		if (inval>=0) {
 			*temp = inval;
 			rdcount++;

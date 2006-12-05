@@ -39,8 +39,6 @@
 #define THIS_MODULE NULL
 #endif
 
-static int i2c_create_name(char **name, const char *prefix,
-			       struct i2c_adapter *adapter, int addr);
 static int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
 			       long *results, int magnitude);
 static int i2c_write_reals(int nrels, void *buffer, int *bufsize,
