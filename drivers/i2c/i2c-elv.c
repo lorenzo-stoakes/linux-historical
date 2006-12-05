@@ -28,14 +28,11 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/init.h>
-
-#include <asm/uaccess.h>
-
 #include <linux/ioport.h>
-#include <asm/io.h>
 #include <linux/errno.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
+#include <asm/io.h>
 
 #define DEFAULT_BASE 0x378
 static int base=0;

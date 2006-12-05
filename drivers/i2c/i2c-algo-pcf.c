@@ -524,7 +524,6 @@ int __init i2c_algo_pcf_init (void)
 	return 0;
 }
 
-
 EXPORT_SYMBOL(i2c_pcf_add_bus);
 EXPORT_SYMBOL(i2c_pcf_del_bus);
 

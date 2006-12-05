@@ -609,8 +609,6 @@ int __init i2c_algo_bit_init (void)
 	return 0;
 }
 
-
-
 EXPORT_SYMBOL(i2c_bit_add_bus);
 EXPORT_SYMBOL(i2c_bit_del_bus);
 

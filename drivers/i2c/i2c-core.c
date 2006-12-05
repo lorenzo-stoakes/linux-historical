@@ -208,14 +208,14 @@ int i2c_del_adapter(struct i2c_adapter *adap)
 			if ((res = drivers[j]->attach_adapter(adap))) {
 				printk(KERN_WARNING "i2c-core.o: can't detach adapter %s "
 				       "while detaching driver %s: driver not "
-				       "detached!",adap->name,drivers[j]->name);
+				       "detached!\n", adap->name, drivers[j]->name);
 				goto ERROR1;	
 			}
 	DRV_UNLOCK();
 
 
 	/* detach any active clients. This must be done first, because
-	 * it can fail; in which case we give upp. */
+	 * it can fail; in which case we give up. */
 	for (j=0;j<I2C_CLIENT_MAX;j++) {
 		struct i2c_client *client = adap->clients[j];
 		if (client!=NULL)
@@ -226,11 +226,12 @@ int i2c_del_adapter(struct i2c_adapter *adap)
 			if ((res=client->driver->detach_client(client))) {
 				printk(KERN_ERR "i2c-core.o: adapter %s not "
 					"unregistered, because client at "
-					"address %02x can't be detached. ",
+					"address %02x can't be detached\n",
 					adap->name, client->addr);
 				goto ERROR0;
 			}
 	}
+
 #ifdef CONFIG_PROC_FS
 	if (i2cproc_initialized) {
 		char name[8];
@@ -339,7 +340,7 @@ int i2c_del_driver(struct i2c_driver *driver)
 				printk(KERN_WARNING "i2c-core.o: while unregistering "
 				       "dummy driver %s, adapter %s could "
 				       "not be detached properly; driver "
-				       "not unloaded!",driver->name,
+				       "not unloaded!\n", driver->name,
 				       adap->name);
 				ADAP_UNLOCK();
 				return res;
@@ -359,9 +360,9 @@ int i2c_del_driver(struct i2c_driver *driver)
 						       "unregistering driver "
 						       "`%s', the client at "
 						       "address %02x of "
-						       "adapter `%s' could not"
-						       "be detached; driver"
-						       "not unloaded!",
+						       "adapter `%s' could not "
+						       "be detached; driver "
+						       "not unloaded!\n",
 						       driver->name,
 						       client->addr,
 						       adap->name);
@@ -448,7 +449,7 @@ int i2c_detach_client(struct i2c_client *client)
 	if (adapter->client_unregister != NULL) 
 		if ((res = adapter->client_unregister(client))) {
 			printk(KERN_ERR "i2c-core.o: client_unregister [%s] failed, "
-			       "client not detached",client->name);
+			       "client not detached\n", client->name);
 			return res;
 		}
 
@@ -461,20 +462,16 @@ int i2c_detach_client(struct i2c_client *client)
 
 void i2c_inc_use_client(struct i2c_client *client)
 {
-
 	if (client->driver->inc_use != NULL)
 		client->driver->inc_use(client);
-
 	if (client->adapter->inc_use != NULL)
 		client->adapter->inc_use(client->adapter);
 }
 
 void i2c_dec_use_client(struct i2c_client *client)
 {
-	
 	if (client->driver->dec_use != NULL)
 		client->driver->dec_use(client);
-
 	if (client->adapter->dec_use != NULL)
 		client->adapter->dec_use(client->adapter);
 }
@@ -548,8 +545,8 @@ struct i2c_client *i2c_get_client(int driver_id, int adapter_id,
 
 int i2c_use_client(struct i2c_client *client)
 {
-	if(client->flags & I2C_CLIENT_ALLOW_USE) {
-		if (client->flags & I2C_CLIENT_ALLOW_MULTIPLE_USE) 
+	if (client->flags & I2C_CLIENT_ALLOW_USE) {
+		if (client->flags & I2C_CLIENT_ALLOW_MULTIPLE_USE)
 			client->usage_count++;
 		else {
 			if(client->usage_count > 0) 
@@ -711,7 +708,6 @@ int i2cproc_cleanup(void)
 	}
 	return 0;
 }
-
 
 #endif /* def CONFIG_PROC_FS */
 
@@ -984,7 +980,7 @@ extern s32 i2c_smbus_read_byte(struct i2c_client * client)
 extern s32 i2c_smbus_write_byte(struct i2c_client * client, u8 value)
 {
 	return i2c_smbus_xfer(client->adapter,client->addr,client->flags,
-	                      I2C_SMBUS_WRITE,value, I2C_SMBUS_BYTE,NULL);
+	                      I2C_SMBUS_WRITE, value, I2C_SMBUS_BYTE, NULL);
 }
 
 extern s32 i2c_smbus_read_byte_data(struct i2c_client * client, u8 command)
@@ -1193,7 +1189,9 @@ s32 i2c_smbus_xfer(struct i2c_adapter * adapter, u16 addr, unsigned short flags,
                    union i2c_smbus_data * data)
 {
 	s32 res;
+
 	flags = flags & I2C_M_TEN;
+
 	if (adapter->algo->smbus_xfer) {
 		I2C_LOCK(adapter);
 		res = adapter->algo->smbus_xfer(adapter,addr,flags,read_write,
@@ -1202,6 +1200,7 @@ s32 i2c_smbus_xfer(struct i2c_adapter * adapter, u16 addr, unsigned short flags,
 	} else
 		res = i2c_smbus_xfer_emulated(adapter,addr,flags,read_write,
 	                                      command,size,data);
+
 	return res;
 }
 

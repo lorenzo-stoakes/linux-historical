@@ -29,13 +29,11 @@
 #include <linux/ctype.h>
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
+#include <linux/init.h>
 #include <linux/ioport.h>
-#include <asm/uaccess.h>
-
 #include <linux/i2c.h>
 #include <linux/i2c-proc.h>
-
-#include <linux/init.h>
+#include <asm/uaccess.h>
 
 #ifndef THIS_MODULE
 #define THIS_MODULE NULL
@@ -126,11 +124,9 @@ int i2c_create_name(char **name, const char *prefix,
    If any driver wants subdirectories within the newly created directory,
    this function must be updated! 
    controlling_mod is the controlling module. It should usually be
-   THIS_MODULE when calling. Note that this symbol is not defined in
-   kernels before 2.3.13; define it to NULL in that case. We will not use it
-   for anything older than 2.3.27 anyway. */
+   THIS_MODULE when calling. */
 int i2c_register_entry(struct i2c_client *client, const char *prefix,
-			   ctl_table * ctl_template,
+			   ctl_table *ctl_template,
 			   struct module *controlling_mod)
 {
 	int i, res, len, id;

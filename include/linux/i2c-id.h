@@ -91,9 +91,9 @@
 #define I2C_DRIVERID_SP5055	44     /* Satellite tuner		*/
 #define I2C_DRIVERID_STV0030	45     /* Multipurpose switch		*/
 #define I2C_DRIVERID_ADV7175	48     /* ADV 7175/7176 video encoder	*/
-#define I2C_DRIVERID_MAX1617	56     /* temp sensor			*/
-#define I2C_DRIVERID_SAA7191	57     /* video decoder                 */
-#define I2C_DRIVERID_INDYCAM	58     /* SGI IndyCam			*/
+#define I2C_DRIVERID_MAX1617	56	/* temp sensor			*/
+#define I2C_DRIVERID_SAA7191	57	/* video decoder		*/
+#define I2C_DRIVERID_INDYCAM	58	/* SGI IndyCam			*/
 
 #define I2C_DRIVERID_EXP0	0xF0	/* experimental use id's	*/
 #define I2C_DRIVERID_EXP1	0xF1

@@ -24,12 +24,12 @@
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/string.h>  /* for 2.0 kernels to get NULL   */
-#include <asm/errno.h>     /* for 2.0 kernels to get ENODEV */
-#include <asm/io.h>
-
+#include <linux/errno.h>
+#include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
+#include <asm/io.h>
+#include <asm/param.h> /* for HZ */
 
 /* ----- global defines -----------------------------------------------	*/
 #define DEB(x)		/* should be reasonable open, close &c. 	*/

@@ -39,16 +39,14 @@
 #ifdef CONFIG_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif
-
+#include <linux/init.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
+#include <asm/uaccess.h>
 
 /* If you want debugging uncomment: */
 /* #define DEBUG */
 
-#include <linux/init.h>
-#include <asm/uaccess.h>
-
-#include <linux/i2c.h>
-#include <linux/i2c-dev.h>
 
 #ifdef MODULE
 extern int init_module(void);
@@ -229,7 +227,7 @@ int i2cdev_ioctl (struct inode *inode, struct file *file, unsigned int cmd,
 				   sizeof(rdwr_arg)))
 			return -EFAULT;
 
-		/* Put an arbritrary limit on the number of messages that can
+		/* Put an arbitrary limit on the number of messages that can
 		 * be sent at once */
 		if (rdwr_arg.nmsgs > 42)
 			return -EINVAL;
