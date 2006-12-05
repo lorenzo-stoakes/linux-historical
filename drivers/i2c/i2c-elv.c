@@ -145,23 +145,23 @@ static void bit_elv_dec_use(struct i2c_adapter *adap)
  * This is only done when more than one hardware adapter is supported.
  */
 static struct i2c_algo_bit_data bit_elv_data = {
-	NULL,
-	bit_elv_setsda,
-	bit_elv_setscl,
-	bit_elv_getsda,
-	bit_elv_getscl,
-	80, 80, 100,		/*	waits, timeout */
+	.setsda		= bit_elv_setsda,
+	.setscl		= bit_elv_setscl,
+	.getsda		= bit_elv_getsda,
+	.getscl		= bit_elv_getscl,
+	.udelay		= 80,
+	.mdelay		= 80,
+	.timeout	= HZ
 };
 
 static struct i2c_adapter bit_elv_ops = {
-	"ELV Parallel port adaptor",
-	I2C_HW_B_ELV,
-	NULL,
-	&bit_elv_data,
-	bit_elv_inc_use,
-	bit_elv_dec_use,
-	bit_elv_reg,
-	bit_elv_unreg,	
+	.name		= "ELV Parallel port adaptor",
+	.id		= I2C_HW_B_ELV,
+	.algo_data	= &bit_elv_data,
+	.inc_use	= bit_elv_inc_use,
+	.dec_use	= bit_elv_dec_use,
+	.client_register = bit_elv_reg,
+	.client_unregister = bit_elv_unreg,
 };
 
 int __init i2c_bitelv_init(void)

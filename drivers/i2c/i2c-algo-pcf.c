@@ -440,14 +440,11 @@ static u32 pcf_func(struct i2c_adapter *adap)
 /* -----exported algorithm data: -------------------------------------	*/
 
 static struct i2c_algorithm pcf_algo = {
-	"PCF8584 algorithm",
-	I2C_ALGO_PCF,
-	pcf_xfer,
-	NULL,
-	NULL,				/* slave_xmit		*/
-	NULL,				/* slave_recv		*/
-	algo_control,			/* ioctl		*/
-	pcf_func,			/* functionality	*/
+	.name		= "PCF8584 algorithm",
+	.id		= I2C_ALGO_PCF,
+	.master_xfer	= pcf_xfer,
+	.algo_control	= algo_control,
+	.functionality	= pcf_func,
 };
 
 /* 
