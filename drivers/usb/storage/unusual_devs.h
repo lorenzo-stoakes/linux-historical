@@ -73,6 +73,14 @@ UNUSUAL_DEV(  0x03f0, 0x0307, 0x0001, 0x0001,
 		US_SC_8070, US_PR_SCM_ATAPI, init_8200e, 0), 
 #endif
 
+
+/* Reported by Gilles Espinasse <g.esp@free.fr> */
+UNUSUAL_DEV(  0x03f0, 0x2001, 0x0001, 0x9999,
+		"HP",
+		"USB FDC GOLD-1.11",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SINGLE_LUN ),
+
 /* Reported by Sebastian Kapfer <sebastian_kapfer@gmx.net>
  * and Olaf Hering <olh@suse.de> (different bcd's, same vendor/product)
  * for USB floppies that need the SINGLE_LUN enforcement.
