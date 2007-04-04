@@ -84,10 +84,6 @@ extern int irda_device_init(void);
 #error Sorry, your GCC is too old. It builds incorrect kernels.
 #endif
 
-/*
- * gcc >= 4 is not supported by kernel 2.4
- */
-
 extern char _stext, _etext;
 extern char *linux_banner;
 
