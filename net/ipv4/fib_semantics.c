@@ -431,10 +431,8 @@ fib_create_info(const struct rtmsg *r, struct kern_rta *rta,
 	const int nhs = 1;
 #endif
 
-	if (r->rtm_type > RTN_MAX) {
-		err = -EINVAL;
-		goto errout;
-	}
+	if (r->rtm_type > RTN_MAX)
+		goto err_inval;
 
 	/* Fast check to catch the most weird cases */
 	if (fib_props[r->rtm_type].scope > r->rtm_scope)
