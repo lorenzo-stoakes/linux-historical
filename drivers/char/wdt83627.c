@@ -80,36 +80,6 @@ MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=" _
 
 /* Non standard proc bits, added by request, wanted some feedback */
 
-static int wdt_readproc(char *page, char **start, off_t off, int count,
-		int *eof, void *data)
-{
-	int len;
-	unsigned char remaining;
-	unsigned char fired;
-	spin_lock(&io_lock);
-	w83627hf_select_wd_register();
-	outb_p(0xF6, WDT_EFIR);/* get current timer val */
-	remaining=inb_p(WDT_EFDR);
-	outb_p(0xF7, WDT_EFIR);
-	fired=inb_p(WDT_EFDR);
-	/* clear that bit (bit 4) */
-	outb_p(fired&(~0x10),WDT_EFDR);
-	w83627hf_unselect_wd_register();
-	spin_unlock(&io_lock);
-	fired=(fired&0x10)!=0;
-	len=snprintf(page,PAGE_SIZE,
-			"W83627HF WDT\n"
-			"active=%d\n"
-			"iobase=%04X\n"
-			"nowayout=%d\n"
-			"timeout=%d\n"
-			"remaining=%d\n"
-			"fired=%d\n",
-			wdt_is_open,wdt_io,nowayout,timeout,remaining,fired);
-	*eof=1;
-	return len;
-}
-
 static void
 w83627hf_select_wd_register(void)
 {
@@ -145,6 +115,36 @@ w83627hf_init(void)
 	outb_p(t, WDT_EFDR);    /* Write back to CRF5 */
 
 	w83627hf_unselect_wd_register();
+}
+
+static int wdt_readproc(char *page, char **start, off_t off, int count,
+		int *eof, void *data)
+{
+	int len;
+	unsigned char remaining;
+	unsigned char fired;
+	spin_lock(&io_lock);
+	w83627hf_select_wd_register();
+	outb_p(0xF6, WDT_EFIR);/* get current timer val */
+	remaining=inb_p(WDT_EFDR);
+	outb_p(0xF7, WDT_EFIR);
+	fired=inb_p(WDT_EFDR);
+	/* clear that bit (bit 4) */
+	outb_p(fired&(~0x10),WDT_EFDR);
+	w83627hf_unselect_wd_register();
+	spin_unlock(&io_lock);
+	fired=(fired&0x10)!=0;
+	len=snprintf(page,PAGE_SIZE,
+			"W83627HF WDT\n"
+			"active=%d\n"
+			"iobase=%04X\n"
+			"nowayout=%d\n"
+			"timeout=%d\n"
+			"remaining=%d\n"
+			"fired=%d\n",
+			wdt_is_open,wdt_io,nowayout,timeout,remaining,fired);
+	*eof=1;
+	return len;
 }
 
 static void
