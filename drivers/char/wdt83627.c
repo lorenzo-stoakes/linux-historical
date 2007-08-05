@@ -347,7 +347,7 @@ static struct notifier_block wdt_notifier = {
 static int __init
 wdt_init(void)
 {
-	int ret;
+	int ret = -EBUSY;
 
 	spin_lock_init(&io_lock);
 
