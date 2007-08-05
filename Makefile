@@ -93,7 +93,7 @@ CPPFLAGS := -D__KERNEL__ -I$(HPATH)
 
 CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
 	  -fno-strict-aliasing -fno-common
-CFLAGS += -fno-builtin-sprintf
+CFLAGS += -fno-builtin-sprintf -fno-builtin-strpbrk
 ifndef CONFIG_FRAME_POINTER
 CFLAGS += -fomit-frame-pointer
 endif
