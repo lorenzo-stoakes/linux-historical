@@ -94,7 +94,10 @@ endif
 
 # Disable unit-at-a-time mode on pre-gcc-4.0 compilers, it makes gcc use
 # a lot more stack due to the lack of sharing of stacklots.
-CFLAGS += $(call if_gcc4,,$(call check_gcc,-fno-unit-at-a-time,))
+# CFLAGS += $(call if_gcc4,,$(call check_gcc,-fno-unit-at-a-time,))
+# Disable unit-at-a-time on gcc >= 4 too, because it removes seemingly unused
+# variables which are indeed module params.
+CFLAGS += $(call check_gcc,-fno-unit-at-a-time,)
 
 HEAD := arch/i386/kernel/head.o arch/i386/kernel/init_task.o
 
