@@ -285,24 +285,27 @@ static ssize_t property_read(struct file *filp, char *buf,
 		k += count;
 
 	} else if (op->flag & OPP_HEXSTRING) {
-		char buffer[2];
+		char buffer[3];
 
 		if ((k < i - 1) && (k & 1)) {
-			sprintf (buffer, "%02x", *(op->value + (k >> 1)));
+			sprintf (buffer, "%02x",
+				 (unsigned char) *(op->value + (k >> 1)) & 0xff);
 			if (put_user(buffer[1], &buf[k++ - pos]))
 				return -EFAULT;
 			count--;
 		}
 
 		for (; (count > 1) && (k < i - 1); k += 2) {
-			sprintf (buffer, "%02x", *(op->value + (k >> 1)));
+			sprintf (buffer, "%02x",
+				 (unsigned char) *(op->value + (k >> 1)) & 0xff);
 			if (copy_to_user (buf + k - pos, buffer, 2))
 				return -EFAULT;
 			count -= 2;
 		}
 
 		if (count && (k < i - 1)) {
-			sprintf (buffer, "%02x", *(op->value + (k >> 1)));
+			sprintf (buffer, "%02x",
+				 (unsigned char) *(op->value + (k >> 1)) & 0xff);
 			if (put_user(buffer[0], &buf[k++ - pos]))
 				return -EFAULT;
 			count--;
