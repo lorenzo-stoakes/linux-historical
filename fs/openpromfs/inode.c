@@ -97,7 +97,7 @@ static ssize_t property_read(struct file *filp, char *buf,
 	openprom_property *op;
 	char buffer[64];
 	
-	if (pos < 0 || pos >= 0xffffff)
+	if (pos < 0 || pos >= 0xffffff || count >= 0xffffff)
 		return -EINVAL;
 	if (!filp->private_data) {
 		node = nodes[(u16)((long)inode->u.generic_ip)].node;
@@ -331,7 +331,7 @@ static ssize_t property_write(struct file *filp, const char *buf,
 	void *b;
 	openprom_property *op;
 	
-	if (pos < 0 || pos >= 0xffffff)
+	if (pos < 0 || pos >= 0xffffff || count >= 0xffffff)
 		return -EINVAL;
 	if (!filp->private_data) {
 		i = property_read (filp, NULL, 0, 0);
