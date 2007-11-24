@@ -3611,7 +3611,7 @@ static void usb_audio_featureunit(struct consmixstate *state, unsigned char *ftr
 			printk(KERN_INFO "usbaudio: assuming that a stereo channel connected directly to a mixer is missing in search (got Labtec headset?). Should be fine.\n");
 			state->nrchannels=nr_logical_channels;
 		} else {
-			printk(KERN_WARNING "usbaudio: no idea what's going on..., contact linux-usb-devel@lists.sourceforge.net\n");
+			printk(KERN_WARNING "usbaudio: no idea what's going on with channels.\n");
 		}
 	}
 
