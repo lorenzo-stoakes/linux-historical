@@ -409,8 +409,19 @@ static int ignored_signal(int sig, struct task_struct *t)
 static void handle_stop_signal(int sig, struct task_struct *t)
 {
 	switch (sig) {
-	case SIGKILL: case SIGCONT:
-		/* Wake up the process if stopped.  */
+	case SIGCONT:
+		/* SIGCONT must not wake a task while it's being traced */
+		if ((t->state == TASK_STOPPED) &&
+		    ((t->ptrace & (PT_PTRACED|PT_TRACESYS)) ==
+		     (PT_PTRACED|PT_TRACESYS)))
+			return;
+		/* fall through */
+	case SIGKILL:
+		/* Wake up the process if stopped.
+		 * Note that if the process is being traced, waking it up
+		 * will make it continue before being killed. This may end
+		 * up unexpectedly completing whatever syscall is pending.
+		 */
 		if (t->state == TASK_STOPPED)
 			wake_up_process(t);
 		t->exit_code = 0;
