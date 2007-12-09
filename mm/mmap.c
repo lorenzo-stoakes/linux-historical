@@ -1073,6 +1073,9 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	if ((addr + len) > TASK_SIZE || (addr + len) < addr)
 		return -EINVAL;
 
+	if (addr < mmap_min_addr && !capable(CAP_SYS_RAWIO))
+		return -ENOMEM;
+
 	/*
 	 * mlock MCL_FUTURE?
 	 */
