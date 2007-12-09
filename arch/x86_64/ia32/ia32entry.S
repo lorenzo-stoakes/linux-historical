@@ -73,7 +73,7 @@ ia32_tracesys:
 	call syscall_trace
 	LOAD_ARGS ARGOFFSET  /* reload args from stack in case ptrace changed it */
 	RESTORE_REST
-	cmpl $(IA32_NR_syscalls),%rax
+	cmpq $(IA32_NR_syscalls),%rax
 	jae  1f
 	IA32_ARG_FIXUP
 	call *ia32_sys_call_table(,%rax,8)
