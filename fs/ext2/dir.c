@@ -240,7 +240,7 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 	loff_t pos = filp->f_pos;
 	struct inode *inode = filp->f_dentry->d_inode;
 	struct super_block *sb = inode->i_sb;
-	unsigned offset = pos & ~PAGE_CACHE_MASK;
+	unsigned int offset = pos & ~PAGE_CACHE_MASK;
 	unsigned long n = pos >> PAGE_CACHE_SHIFT;
 	unsigned long npages = dir_pages(inode);
 	unsigned chunk_mask = ~(ext2_chunk_size(inode)-1);
@@ -258,8 +258,13 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 		ext2_dirent *de;
 		struct page *page = ext2_get_page(inode, n);
 
-		if (IS_ERR(page))
+		if (IS_ERR(page)) {
+			ext2_error(sb, __FUNCTION__,
+				   "bad page in #%lu",
+				   inode->i_ino);
+			filp->f_pos += PAGE_CACHE_SIZE - offset;
 			continue;
+		}
 		kaddr = page_address(page);
 		if (need_revalidate) {
 			offset = ext2_validate_entry(kaddr, offset, chunk_mask);
@@ -283,12 +288,12 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 					ext2_put_page(page);
 					goto done;
 				}
+			filp->f_pos += le16_to_cpu(de->rec_len);
 			}
 		ext2_put_page(page);
 	}
 
 done:
-	filp->f_pos = (n << PAGE_CACHE_SHIFT) | offset;
 	filp->f_version = inode->i_version;
 	UPDATE_ATIME(inode);
 	return 0;
