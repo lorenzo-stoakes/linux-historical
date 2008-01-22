@@ -246,6 +246,7 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 	unsigned chunk_mask = ~(ext2_chunk_size(inode)-1);
 	unsigned char *types = NULL;
 	int need_revalidate = (filp->f_version != inode->i_version);
+	int ret = 0;
 
 	if (pos > inode->i_size - EXT2_DIR_REC_LEN(1))
 		goto done;
@@ -263,7 +264,8 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 				   "bad page in #%lu",
 				   inode->i_ino);
 			filp->f_pos += PAGE_CACHE_SIZE - offset;
-			continue;
+			ret = -EIO;
+			goto done;
 		}
 		kaddr = page_address(page);
 		if (need_revalidate) {
@@ -296,7 +298,7 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 done:
 	filp->f_version = inode->i_version;
 	UPDATE_ATIME(inode);
-	return 0;
+	return ret;
 }
 
 /*
