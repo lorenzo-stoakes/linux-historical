@@ -234,8 +234,9 @@ static inline void clear_in_cr4 (unsigned long mask)
 #define getCx86(reg) ({ outb((reg), 0x22); inb(0x23); })
 
 #define setCx86(reg, data) do { \
+	unsigned char _tmp_data = (data); \
 	outb((reg), 0x22); \
-	outb((data), 0x23); \
+	outb(_tmp_data, 0x23); \
 } while (0)
 
 /*
