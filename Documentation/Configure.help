@@ -3209,6 +3209,17 @@ CONFIG_IP_NF_TARGET_LOG
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+CLASSIFY target support
+CONFIG_IP_NF_TARGET_CLASSIFY
+  This option adds a `CLASSIFY' target, which enables the user to set
+  the priority of a packet. Some qdiscs can use this value for classification,
+  among these are:
+
+  atm, cbq, dsmark, pfifo_fast, htb, prio
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 ipchains (2.2-style) support
 CONFIG_IP_NF_COMPAT_IPCHAINS
   This option places ipchains (with masquerading and redirection
