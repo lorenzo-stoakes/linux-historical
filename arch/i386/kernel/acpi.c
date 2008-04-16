@@ -440,7 +440,7 @@ acpi_boot_init (void)
 		return result;
 	}
 
-#ifdef CONFIG_X86_IOAPIC
+#ifdef CONFIG_X86_IO_APIC
 	check_acpi_pci();
 #endif
 	
