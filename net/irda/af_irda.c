@@ -1092,14 +1092,6 @@ static int irda_create(struct socket *sock, int protocol)
 
 	init_waitqueue_head(&self->query_wait);
 
-	/* Initialise networking socket struct */ 
-	sock_init_data(sock, sk);	/* Note : set sk->refcnt to 1 */
-	sk->family = PF_IRDA;
-	sk->protocol = protocol;
-	/* Link networking socket and IrDA socket structs together */
-	sk->protinfo.irda = self;
-	self->sk = sk;
-
 	switch (sock->type) {
 	case SOCK_STREAM:
 		sock->ops = &irda_stream_ops;
@@ -1123,12 +1115,22 @@ static int irda_create(struct socket *sock, int protocol)
 			break;
 		default:
 			ERROR("%s(), protocol not supported!\n", __FUNCTION__);
+			sk_free(sk);
 			return -ESOCKTNOSUPPORT;
 		}
 		break;
 	default:
+		sk_free(sk);
 		return -ESOCKTNOSUPPORT;
 	}		
+
+	/* Initialise networking socket struct */
+	sock_init_data(sock, sk);	/* Note : set sk->refcnt to 1 */
+	sk->family = PF_IRDA;
+	sk->protocol = protocol;
+	/* Link networking socket and IrDA socket structs together */
+	sk->protinfo.irda = self;
+	self->sk = sk;
 
 	/* Register as a client with IrLMP */
 	self->ckey = irlmp_register_client(0, NULL, NULL, NULL);
