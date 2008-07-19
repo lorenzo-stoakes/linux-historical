@@ -3985,7 +3985,7 @@ int sctp_inet_listen(struct socket *sock, int backlog)
 		goto out;
 
 	/* Allocate HMAC for generating cookie. */
-	if (sctp_hmac_alg) {
+	if (!sctp_sk(sk)->hmac && sctp_hmac_alg) {
 		tfm = sctp_crypto_alloc_tfm(sctp_hmac_alg, 0);
 		if (!tfm) {
 			err = -ENOSYS;
@@ -4007,7 +4007,8 @@ int sctp_inet_listen(struct socket *sock, int backlog)
 		goto cleanup;
 
 	/* Store away the transform reference. */
-	sctp_sk(sk)->hmac = tfm;
+	if (!sctp_sk(sk)->hmac)
+		sctp_sk(sk)->hmac = tfm;
 out:
 	sctp_release_sock(sk);
 	return err;
