@@ -324,17 +324,18 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
 	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
 		return -EACCES;
 
+	/* See if the address matches any of the addresses we may have
+	 * already bound before checking against other endpoints.
+	 */
+	if (sctp_bind_addr_match(bp, addr, sp))
+		return -EINVAL;
+
 	/* Make sure we are allowed to bind here.
 	 * The function sctp_get_port_local() does duplicate address
 	 * detection.
 	 */
 	if ((ret = sctp_get_port_local(sk, addr))) {
-		if (ret == (long) sk) {
-			/* This endpoint has a conflicting address. */
-			return -EINVAL;
-		} else {
-			return -EADDRINUSE;
-		}
+		return -EADDRINUSE;
 	}
 
 	/* Refresh ephemeral port.  */
@@ -3797,7 +3798,9 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
 			struct sctp_endpoint *ep2;
 			ep2 = sctp_sk(sk2)->ep;
 
-			if (reuse && sk2->reuse)
+			if (sk == sk2 ||
+			    (reuse && sk2->reuse &&
+			     sk2->state != SCTP_SS_LISTENING))
 				continue;
 
 			if (sctp_bind_addr_match(&ep2->base.bind_addr, addr,
@@ -3918,6 +3921,11 @@ SCTP_STATIC int sctp_seqpacket_listen(struct sock *sk, int backlog)
 	if (!ep->base.bind_addr.port) {
 		if (sctp_autobind(sk))
 			return -EAGAIN;
+	} else {
+		if (sctp_get_port(sk, sk->num)) {
+			sk->state = SCTP_SS_CLOSED;
+			return -EADDRINUSE;
+		}
 	}
 	sk->state = SCTP_SS_LISTENING;
 	sctp_hash_endpoint(ep);
