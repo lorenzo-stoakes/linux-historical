@@ -187,6 +187,16 @@ static ide_pci_device_t generic_chipsets[] __devinitdata = {
  		.channels	= 1,
  		.autodma	= NOAUTODMA,
  		.bootable	= ON_BOARD,
+ 	},{     /* 15 */
+ 		.vendor		= PCI_VENDOR_ID_MARVELL,
+ 		.device		= PCI_DEVICE_ID_MARVELL_6145,
+ 		.name		= "MARVELL_6145",
+ 		.init_chipset	= init_chipset_generic,
+ 		.init_hwif	= init_hwif_generic,
+ 		.init_dma	= init_dma_generic,
+ 		.channels	= 1,
+ 		.autodma	= NOAUTODMA,
+ 		.bootable	= ON_BOARD,
 	},{
 		.vendor		= 0,
 		.device		= 0,
