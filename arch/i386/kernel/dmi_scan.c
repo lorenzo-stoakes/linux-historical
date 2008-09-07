@@ -524,6 +524,7 @@ static __init int disable_acpi_pci(struct dmi_blacklist *d)
  */
  
 
+#ifdef CONFIG_VT
 /*      IBM bladeservers have a USB console switch. The keyboard type is USB
  *      and the hardware does not have a console keyboard. We disable the
  *      console keyboard so the kernel does not try to initialize one and
@@ -538,6 +539,7 @@ static __init int disable_console_keyboard(struct dmi_blacklist *d)
         keyboard_controller_present = 0;
         return 0;
 }
+#endif
 
 /*
  *	This will be expanded over time to force things like the APM 
@@ -825,7 +827,8 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_SYS_VENDOR, "IBM"),
 			NO_MATCH, NO_MATCH, NO_MATCH
 			} },
- /*
+#ifdef CONFIG_VT
+        /*
          *      IBM Bladeservers
          */
 
@@ -834,6 +837,7 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
                         MATCH(DMI_BOARD_NAME, "Server Blade"),
                         NO_MATCH, NO_MATCH
                         } },
+#endif
 
 #ifdef	CONFIG_ACPI_BOOT
 	/*
