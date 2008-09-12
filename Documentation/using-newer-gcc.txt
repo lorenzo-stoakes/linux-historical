@@ -167,6 +167,13 @@ commands :
 
   $ make CC=kernel-gcc -j 4 dep bzImage modules modules_install
 
+7) I want to use a really old compiler, but compiling it breaks!
+-----------------------------------------------------------------
+
+Tackle the problem in stages. Compile 3.x.y as above. Then use that to
+compile 2.95.x (CC=/opt/kgcc/bin/kernel-gcc ./configure ...), install,
+use 2.95.x to compile the next compiler in the chain, continue as
+far as you'd like.
 
 Conclusion
 ==========
