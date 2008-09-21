@@ -28820,6 +28820,7 @@ CONFIG_SCx200_I2C_SDA
 NatSemi SCx200 ACCESS.bus
 CONFIG_SCx200_ACB
   Enable the use of the ACCESS.bus controllers of a SCx200 processor.
+  It also enables the I2C controller found on Geode GX/LX processors.
 
   If you don't know what to do here, say N.
 
