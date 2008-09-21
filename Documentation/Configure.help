@@ -20201,6 +20201,22 @@ CONFIG_HW_RANDOM
 
   If unsure, say N.
 
+AMD Geode LX HW Random Number Generator support
+CONFIG_GEODE_RNG
+  This driver provides kernel-side support for the Random Number
+  Generator hardware found on the AMD Geode LX.
+
+  It runs a timer function which automatically adds entropy directly
+  into the kernel pool. You may need this driver if your system runs
+  headless and has no other source of entropy.
+
+  To compile this driver as a module ( = code which can be inserted in
+  and removed from the running kernel whenever you want), say M here
+  and read <file:Documentation/modules.txt>. The module will be called
+  hw_random.
+
+  If unsure, say N.
+
 Power Management support
 CONFIG_PM
   "Power Management" means that parts of your computer are shut
