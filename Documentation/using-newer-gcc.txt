@@ -161,11 +161,21 @@ above, or /usr/local/bin if none was specified :
 The compiler just has to be passed to "make" via the "CC" variable for all
 commands :
 
-  $ make CC=/opt/kgcc/bin/kernel-gcc -j 4 dep bzImage modules modules_install
+  $ make CC=/opt/kgcc/bin/kernel-gcc -j 4 dep bzImage modules
+  $ sudo make CC=/opt/kgcc/bin/kernel-gcc modules_install install
 
   or more simply, when you have it in your path :
 
-  $ make CC=kernel-gcc -j 4 dep bzImage modules modules_install
+  $ make CC=kernel-gcc -j 4 dep bzImage modules
+  $ sudo make CC=kernel-gcc -j 4 modules_install install
+
+Note: make modules_install needs a 2.4-compatible depmod. If your distro is
+      2.6-based and says it does not find depmod or depmod.old, it means that
+      either modutils or module-init-tools have not been correctly installed.
+      You can still force the path to depmod by passing it in the DEPMOD
+      variable during make modules_install if you know where to find a good
+      one.
+
 
 7) I want to use a really old compiler, but compiling it breaks!
 -----------------------------------------------------------------
