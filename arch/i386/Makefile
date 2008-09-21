@@ -71,6 +71,10 @@ CFLAGS += -march=i686
 CFLAGS += $(call check_gcc,-falign-functions=0 -falign-jumps=0 -falign-loops=0,-malign-functions=0 -malign-jumps=0 -malign-loops=0)
 endif
 
+ifdef CONFIG_MGEODE_LX
+CFLAGS += -march=i686
+endif
+
 ifdef CONFIG_MWINCHIPC6
 CFLAGS += -march=i586
 endif

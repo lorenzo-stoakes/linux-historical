@@ -39,6 +39,7 @@ choice 'Processor family' \
 	 Opteron/Athlon64/Hammer/K8		CONFIG_MK8 \
 	 Elan					CONFIG_MELAN \
 	 Crusoe					CONFIG_MCRUSOE \
+	 Geode-GX/LX				CONFIG_MGEODE_LX \
 	 Winchip-C6				CONFIG_MWINCHIPC6 \
 	 Winchip-2				CONFIG_MWINCHIP2 \
 	 Winchip-2A/Winchip-3			CONFIG_MWINCHIP3D \
@@ -171,6 +172,17 @@ if [ "$CONFIG_MCRUSOE" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
    define_bool CONFIG_X86_HAS_TSC y
    define_bool CONFIG_X86_F00F_WORKS_OK y
+fi
+if [ "$CONFIG_MGEODE_LX" = "y" ]; then
+   define_int  CONFIG_X86_L1_CACHE_SHIFT 5
+   define_bool CONFIG_X86_USE_STRING_486 y
+   define_bool CONFIG_X86_ALIGNMENT_16 y
+   define_bool CONFIG_X86_HAS_TSC y
+   define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
+   define_bool CONFIG_X86_USE_3DNOW y
+   define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+   define_bool CONFIG_X86_OOSTORE y
 fi
 if [ "$CONFIG_MWINCHIPC6" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
