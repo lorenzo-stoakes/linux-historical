@@ -20673,6 +20673,22 @@ CONFIG_SC1200_WDT
   module, say M here and read <file:Documentation/modules.txt>.  Most
   people will say N.
 
+AMD/NSC Geode Hardware Watchdog
+CONFIG_GEODE_WDT
+  This driver enables a watchdog capability built into the
+  CS5535/CS5536 companion chips for the AMD Geode GX and LX
+  processors.  This watchdog watches your kernel to make sure
+  it doesn't freeze, and if it does, it reboots your computer after
+  a certain amount of time.
+
+  This driver depends on CONFIG_MGEODE_LX.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module is called geodewdt.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.  Most
+  people will say N.
+
 SuperH Watchdog
 CONFIG_SH_WDT
   This driver adds watchdog support for the integrated watchdog in the

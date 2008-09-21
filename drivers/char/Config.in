@@ -274,6 +274,9 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
    if [ "$CONFIG_SGI_IP22" = "y" ]; then
       dep_tristate '  Indy/I2 Hardware Watchdog' CONFIG_INDYDOG $CONFIG_SGI_IP22
    fi
+   if [ "$CONFIG_MGEODE_LX" = "y" ]; then
+      tristate '  Geode GX/LX on-chip Watchdog timer' CONFIG_GEODE_WDT
+   fi
    if [ "$CONFIG_8xx" = "y" ]; then
       tristate '  MPC8xx Watchdog Timer' CONFIG_8xx_WDT
    fi
