@@ -30,6 +30,11 @@ obj-y			+= pci-pc.o pci-irq.o
 endif
 endif
 
+ifdef CONFIG_MGEODE_LX
+obj-y				+= geode-mfgpt.o
+export-objs			+= geode-mfgpt.o
+endif
+
 obj-$(CONFIG_MCA)		+= mca.o
 obj-$(CONFIG_MTRR)		+= mtrr.o
 obj-$(CONFIG_X86_MSR)		+= msr.o
