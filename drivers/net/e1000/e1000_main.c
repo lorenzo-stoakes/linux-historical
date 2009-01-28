@@ -3621,7 +3621,7 @@ e1000_intr(int irq, void *data)
 #ifndef CONFIG_E1000_NAPI
 	int i;
 #endif
-	if (unlikely(!icr))
+	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
 		return IRQ_NONE;  /* Not our interrupt */
 
 #ifdef CONFIG_E1000_NAPI
