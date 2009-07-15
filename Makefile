@@ -105,6 +105,9 @@ if_gcc4 = $(shell if echo __GNUC__ | $(CC) -E -xc - | grep -q '^4$$' > /dev/null
 # disable pointer signedness warnings in gcc 4.0
 CFLAGS += $(call check_gcc,-Wno-pointer-sign,)
 
+# disable stupid and dangerous "optimization" in gcc 3.2+
+CFLAGS += $(call check_gcc,-fno-delete-null-pointer-checks,)
+
 #
 # ROOT_DEV specifies the default root-device when making the image.
 # This can be either FLOPPY, CURRENT, /dev/xxxx or empty, in which case
