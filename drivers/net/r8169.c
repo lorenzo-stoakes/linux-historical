@@ -1519,7 +1519,9 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 			break;
 
 		if (status & RxRES) {
-			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
+			if (net_ratelimit())
+				printk(KERN_INFO "%s: Rx ERROR, status=0x%08x !\n",
+				       dev->name, status);
 			tp->stats.rx_errors++;
 			if (status & (RxRWT | RxRUNT))
 				tp->stats.rx_length_errors++;
@@ -1574,7 +1576,7 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
 	if (delta > 0)
 		tp->dirty_rx += delta;
-	else if (delta < 0)
+	else if (delta < 0 && net_ratelimit())
 		printk(KERN_INFO "%s: no Rx buffer allocated\n", dev->name);
 
 	/*
@@ -1584,7 +1586,7 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 	 *   after refill ?
 	 * - how do others driver handle this condition (Uh oh...).
 	 */
-	if (tp->dirty_rx + NUM_RX_DESC == tp->cur_rx)
+	if (tp->dirty_rx + NUM_RX_DESC == tp->cur_rx && net_ratelimit())
 		printk(KERN_EMERG "%s: Rx buffers exhausted\n", dev->name);
 }
 
@@ -1632,8 +1634,9 @@ rtl8169_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 	} while (boguscnt > 0);
 
 	if (boguscnt <= 0) {
-		printk(KERN_WARNING "%s: Too much work at interrupt!\n",
-		       dev->name);
+		if (net_ratelimit())
+			printk(KERN_WARNING "%s: Too much work at interrupt!\n",
+			       dev->name);
 		/* Clear all interrupt sources. */
 		RTL_W16(IntrStatus, 0xffff);
 	}
