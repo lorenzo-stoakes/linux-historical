@@ -1445,6 +1445,11 @@ static inline int rtl8169_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
 	return ret;
 }
 
+static inline int rtl8169_fragmented_frame(u32 status)
+{
+	return (status & (FSbit | LSbit)) != (FSbit | LSbit);
+}
+
 static void
 rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 		     void *ioaddr)
@@ -1459,7 +1464,7 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 	cur_rx = tp->cur_rx;
 	rx_left = NUM_RX_DESC + tp->dirty_rx - cur_rx;
 
-	while (rx_left > 0) {
+	for (; rx_left > 0; rx_left--, cur_rx++) {
 		int entry = cur_rx % NUM_RX_DESC;
 		u32 status;
 
@@ -1481,6 +1486,18 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 			struct sk_buff *skb = tp->Rx_skbuff[entry];
 			int pkt_size = (status & 0x00001FFF) - 4;
 
+			/* Backport from 2.6 to cover a panic on large frames.
+			 * The driver does not support incoming fragmented
+			 * frames. They are seen as a symptom of over-mtu
+			 * sized frames (0x3ff0 bytes).
+			 */
+			if (unlikely(rtl8169_fragmented_frame(status))) {
+				tp->stats.rx_dropped++;
+				tp->stats.rx_length_errors++;
+				rtl8169_return_to_asic(desc);
+				continue;
+			}
+
 			pci_dma_sync_single(tp->pci_dev, le64_to_cpu(desc->addr),
 					    RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
 
@@ -1499,9 +1516,6 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 			tp->stats.rx_bytes += pkt_size;
 			tp->stats.rx_packets++;
 		}
-		
-		cur_rx++;
-		rx_left--;
 	}
 
 	tp->cur_rx = cur_rx;
