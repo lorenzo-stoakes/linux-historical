@@ -46,6 +46,8 @@ VERSION 1.2	<2002/11/30>
 #include <linux/ethtool.h>
 #include <linux/crc32.h>
 #include <linux/init.h>
+#include <linux/tqueue.h>
+#include <linux/rtnetlink.h>
 
 #include <asm/io.h>
 
@@ -210,6 +212,7 @@ enum RTL8169_register_content {
 	RxCRC = 0x00080000,
 	RxRUNT = 0x00100000,
 	RxRWT = 0x00400000,
+	RxOVF = 0x00800000,
 
 	/*ChipCmdBits */
 	CmdReset = 0x10,
@@ -330,6 +333,7 @@ struct rtl8169_private {
 	struct timer_list timer;
 	unsigned long phy_link_down_cnt;
 	u16 cp_cmd;
+	struct tq_struct reset_task;
 };
 
 MODULE_AUTHOR("Realtek");
@@ -348,6 +352,9 @@ static int rtl8169_close(struct net_device *dev);
 static void rtl8169_set_rx_mode(struct net_device *dev);
 static void rtl8169_tx_timeout(struct net_device *dev);
 static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
+static void rtl8169_reset_task(struct net_device *dev);
+static void rtl8169_rx_interrupt(struct net_device *dev,
+                                 struct rtl8169_private *tp, void *ioaddr);
 
 static const u16 rtl8169_intr_mask =
     RxUnderrun | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
@@ -979,6 +986,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	}
 
+	INIT_TQUEUE(&tp->reset_task, (void (*)(void *))rtl8169_reset_task, dev);
+
 	return 0;
 }
 
@@ -991,6 +1000,7 @@ rtl8169_remove_one(struct pci_dev *pdev)
 	assert(dev != NULL);
 	assert(tp != NULL);
 
+	flush_scheduled_tasks();
 	unregister_netdev(dev);
 	iounmap(tp->mmio_addr);
 	pci_release_regions(pdev);
@@ -1304,6 +1314,40 @@ rtl8169_tx_clear(struct rtl8169_private *tp)
 }
 
 static void
+rtl8169_reset_task(struct net_device *dev)
+{
+	struct rtl8169_private *tp = dev->priv;
+	void *ioaddr = tp->mmio_addr;
+
+	rtnl_lock();
+	RTL_W16(IntrMask, 0);
+
+	if (!netif_running(dev))
+		goto out_unlock;
+
+	rtl8169_rx_interrupt(dev, tp, ioaddr);
+
+	spin_lock_irq(&tp->lock);
+	rtl8169_tx_clear(tp);
+	spin_unlock_irq(&tp->lock);
+
+	if (tp->dirty_rx == tp->cur_rx) {
+		tp->dirty_tx = tp->dirty_rx = tp->cur_tx = tp->cur_rx = 0;
+		rtl8169_hw_start(dev);
+		netif_wake_queue(dev);
+	} else {
+		if (net_ratelimit()) {
+			printk(KERN_EMERG PFX "%s: Rx buffers shortage\n",
+			       dev->name);
+		}
+		schedule_task(&tp->reset_task);
+	}
+out_unlock:
+	RTL_W16(IntrMask, rtl8169_intr_mask);
+	rtnl_unlock();
+}
+
+static void
 rtl8169_tx_timeout(struct net_device *dev)
 {
 	struct rtl8169_private *tp = dev->priv;
@@ -1481,6 +1525,10 @@ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
 				tp->stats.rx_length_errors++;
 			if (status & RxCRC)
 				tp->stats.rx_crc_errors++;
+			if (status & RxOVF) {
+				tp->stats.rx_fifo_errors++;
+	                	schedule_task(&tp->reset_task);
+			}
 
 			rtl8169_return_to_asic(tp->RxDescArray + entry);
 			continue;
