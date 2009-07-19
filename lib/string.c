@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
+#include <linux/module.h>
 
 #ifndef __HAVE_ARCH_STRNICMP
 /**
@@ -448,6 +449,7 @@ void * memmove(void * dest,const void *src,size_t count)
  * @ct: Another area of memory
  * @count: The size of the area.
  */
+#undef memcmp
 int memcmp(const void * cs,const void * ct,size_t count)
 {
 	const unsigned char *su1, *su2;
@@ -458,6 +460,7 @@ int memcmp(const void * cs,const void * ct,size_t count)
 			break;
 	return res;
 }
+EXPORT_SYMBOL(memcmp);
 #endif
 
 #ifndef __HAVE_ARCH_MEMSCAN
