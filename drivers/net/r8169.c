@@ -92,7 +92,6 @@ static int multicast_filter_limit = 32;
 #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
 #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
 #define EarlyTxThld 	0x3F	/* 0x3F means NO early transmit */
-#define RxPacketMaxSize	0x0800	/* Maximum size supported is 16K-1 */
 #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
 
 #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
@@ -1116,7 +1115,7 @@ rtl8169_hw_start(struct net_device *dev)
 	RTL_W8(EarlyTxThres, EarlyTxThld);
 
 	// For gigabit rtl8169
-	RTL_W16(RxMaxSize, RxPacketMaxSize);
+	RTL_W16(RxMaxSize, RX_BUF_SIZE);
 
 	// Set Rx Config register
 	i = rtl8169_rx_config | (RTL_R32(RxConfig) & rtl_chip_info[tp->chipset].
@@ -1177,13 +1176,13 @@ static void rtl8169_free_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
 
 static inline void rtl8169_return_to_asic(struct RxDesc *desc)
 {
-	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
+	desc->status = (desc->status & EORbit) | cpu_to_le32(OWNbit + RX_BUF_SIZE);
 }
 
 static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping)
 {
 	desc->addr = cpu_to_le64(mapping);
-	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
+	rtl8169_return_to_asic(desc);
 }
 
 static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct net_device *dev,
@@ -1193,7 +1192,7 @@ static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct net_device *dev,
 	dma_addr_t mapping;
 	int ret = 0;
 
-	skb = dev_alloc_skb(RX_BUF_SIZE);
+	skb = dev_alloc_skb(RX_BUF_SIZE + 2);
 	if (!skb)
 		goto err_out;
 
