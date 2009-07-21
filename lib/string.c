@@ -18,7 +18,6 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
-#include <linux/module.h>
 
 #ifndef __HAVE_ARCH_STRNICMP
 /**
@@ -460,7 +459,6 @@ int memcmp(const void * cs,const void * ct,size_t count)
 			break;
 	return res;
 }
-EXPORT_SYMBOL_NOVERS(memcmp);
 #endif
 
 #ifndef __HAVE_ARCH_MEMSCAN
