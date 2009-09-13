@@ -563,6 +563,12 @@ static void *m_start(struct seq_file *m, loff_t *pos)
 
 	task_lock(task);
 	mm = task->mm;
+	if (mm && mm != current->mm &&
+	    !capable(CAP_SYS_PTRACE) &&
+	    ((current->uid != task->euid) || (current->uid != task->suid) ||
+	     (current->uid != task->uid)  || (current->gid != task->egid) ||
+	     (current->gid != task->sgid) || (current->gid != task->gid)))
+		mm = NULL;
 	if (mm)
 		atomic_inc(&mm->mm_users);
 	task_unlock(task);
