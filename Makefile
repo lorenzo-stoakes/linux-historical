@@ -397,6 +397,10 @@ tags: dummy
 	find include -type d \( -name "asm-*" -o -name config \) -prune -o -name '*.h' -print | xargs ctags $$CTAGSF -a && \
 	find $(SUBDIRS) init -name '*.[ch]' | xargs ctags $$CTAGSF -a
 
+cscope: dummy
+	(echo \-k; echo \-q; find * -name '*.[chS]') > cscope.files
+	cscope -b -f cscope.out
+
 ifdef CONFIG_MODULES
 ifdef CONFIG_MODVERSIONS
 MODFLAGS += -DMODVERSIONS -include $(HPATH)/linux/modversions.h
@@ -475,7 +479,7 @@ distclean: mrproper
 	rm -f core `find . \( -not -type d \) -and \
 		\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
 		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
-		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \) -type f -print` TAGS tags
+		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \) -type f -print` TAGS tags cscope*
 
 backup: mrproper
 	cd .. && tar cf - linux/ | gzip -9 > backup.gz
