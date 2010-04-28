@@ -206,10 +206,13 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
 	sp = sctp_sk(asoc->base.sk);
 	num_types = sp->pf->supported_addrs(sp, types);
 
-	chunksize = sizeof(init) + addrs_len + SCTP_SAT_LEN(num_types);
+	chunksize = sizeof(init) + addrs_len;
+	chunksize += WORD_ROUND(SCTP_SAT_LEN(num_types));
 	chunksize += sizeof(ecap_param);
+
 	if (sctp_prsctp_enable)
 		chunksize += sizeof(prsctp_param);
+
 	chunksize += sizeof(aiparam);
 	chunksize += vparam_len;
 
