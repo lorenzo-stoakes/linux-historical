@@ -31,6 +31,7 @@
 #include <linux/if_arp.h>
 #include <linux/wireless.h>
 #include <linux/skbuff.h>
+#include <linux/vmalloc.h>
 #include <net/sock.h>
 #include <net/inet_common.h>
 #include <linux/stat.h>
@@ -245,12 +246,12 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 #endif
 #ifdef CONFIG_ECONET_AUNUDP
 	struct msghdr udpmsg;
-	struct iovec iov[msg->msg_iovlen+1];
+	struct iovec iov[2];
 	struct aunhdr ah;
 	struct sockaddr_in udpdest;
 	__kernel_size_t size;
-	int i;
 	mm_segment_t oldfs;
+	char *userbuf;
 #endif
 		
 	/*
@@ -294,6 +295,10 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	{
 		/* Real hardware Econet.  We're not worthy etc. */
 #ifdef CONFIG_ECONET_NATIVE
+
+		if (len + 15 > dev->mtu)
+			return -EMSGSIZE;
+
 		atomic_inc(&dev->refcnt);
 		
 		skb = sock_alloc_send_skb(sk, len+dev->hard_header_len+15, 
@@ -365,6 +370,9 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 
 	if (udpsock == NULL)
 		return -ENETDOWN;		/* No socket - can't send */
+
+	if (len > 32768)
+		return -E2BIG;
 	
 	/* Make up a UDP datagram and hand it off to some higher intellect. */
 
@@ -398,21 +406,21 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	size = sizeof(struct aunhdr);
 	iov[0].iov_base = (void *)&ah;
 	iov[0].iov_len = size;
-	for (i = 0; i < msg->msg_iovlen; i++) {
-		void *base = msg->msg_iov[i].iov_base;
-		size_t len = msg->msg_iov[i].iov_len;
-		/* Check it now since we switch to KERNEL_DS later. */
-		if ((err = verify_area(VERIFY_READ, base, len)) < 0)
-			return err;
-		iov[i+1].iov_base = base;
-		iov[i+1].iov_len = len;
-		size += len;
-	}
+
+	userbuf = vmalloc(len);
+	if (userbuf == NULL)
+		return -ENOMEM;
+
+	iov[1].iov_base = userbuf;
+	iov[1].iov_len = len;
+	err = memcpy_fromiovec(userbuf, msg->msg_iov, len);
+	if (err)
+		goto error_free_buf;
 
 	/* Get a skbuff (no data, just holds our cb information) */
 	if ((skb = sock_alloc_send_skb(sk, 0, 
 			     msg->msg_flags & MSG_DONTWAIT, &err)) == NULL)
-		return err;
+		goto error_free_buf;
 
 	eb = (struct ec_cb *)&skb->cb;
 
@@ -428,7 +436,7 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	udpmsg.msg_name = (void *)&udpdest;
 	udpmsg.msg_namelen = sizeof(udpdest);
 	udpmsg.msg_iov = &iov[0];
-	udpmsg.msg_iovlen = msg->msg_iovlen + 1;
+	udpmsg.msg_iovlen = 2;
 	udpmsg.msg_control = NULL;
 	udpmsg.msg_controllen = 0;
 	udpmsg.msg_flags=0;
@@ -436,6 +444,9 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	oldfs = get_fs(); set_fs(KERNEL_DS);	/* More privs :-) */
 	err = sock_sendmsg(udpsock, &udpmsg, size);
 	set_fs(oldfs);
+
+ error_free_buf:
+	vfree(userbuf);
 #else
 	err = -EPROTOTYPE;
 #endif
