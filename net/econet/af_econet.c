@@ -265,19 +265,12 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	 *	Get and verify the address. 
 	 */
 	 
-	if (saddr == NULL) {
-		addr.station = sk->protinfo.af_econet->station;
-		addr.net = sk->protinfo.af_econet->net;
-		port = sk->protinfo.af_econet->port;
-		cb = sk->protinfo.af_econet->cb;
-	} else {
-		if (msg->msg_namelen < sizeof(struct sockaddr_ec)) 
-			return -EINVAL;
-		addr.station = saddr->addr.station;
-		addr.net = saddr->addr.net;
-		port = saddr->port;
-		cb = saddr->cb;
-	}
+	if (saddr == NULL || msg->msg_namelen < sizeof(struct sockaddr_ec))
+		return -EINVAL;
+	addr.station = saddr->addr.station;
+	addr.net = saddr->addr.net;
+	port = saddr->port;
+	cb = saddr->cb;
 
 	/* Look for a device with the right network number. */
 	dev = net2dev_map[addr.net];
@@ -311,7 +304,6 @@ static int econet_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 		
 		eb = (struct ec_cb *)&skb->cb;
 		
-		/* BUG: saddr may be NULL */
 		eb->cookie = saddr->cookie;
 		eb->sec = *saddr;
 		eb->sent = ec_tx_done;
