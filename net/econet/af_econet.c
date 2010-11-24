@@ -592,6 +592,9 @@ static int ec_dev_ioctl(struct socket *sock, unsigned int cmd, void *arg)
 	switch (cmd)
 	{
 	case SIOCSIFADDR:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
+
 		edev = dev->ec_ptr;
 		if (edev == NULL)
 		{
