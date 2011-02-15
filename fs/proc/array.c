@@ -295,9 +295,6 @@ int proc_pid_status(struct task_struct *task, char * buffer)
 	}
 	buffer = task_sig(task, buffer);
 	buffer = task_cap(task, buffer);
-#if defined(CONFIG_ARCH_S390)
-	buffer = task_show_regs(task, buffer);
-#endif
 	return buffer - orig;
 }
 

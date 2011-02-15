@@ -222,44 +222,6 @@ void show_registers(struct pt_regs *regs)
 	printk("\n");
 }	
 
-/* This is called from fs/proc/array.c */
-char *task_show_regs(struct task_struct *task, char *buf)
-{
-	struct pt_regs *regs;
-
-	regs = __KSTK_PTREGS(task);
-	buf += sprintf(buf, "task: %016lx, ksp: %016lx\n",
-		       (unsigned long) task, task->thread.ksp);
-	buf += sprintf(buf, "User PSW : %016lx %016lx\n",
-		       (unsigned long) regs->psw.mask, 
-		       (unsigned long) regs->psw.addr);
-	buf += sprintf(buf, "User GPRS: %016lx %016lx %016lx %016lx\n",
-		       regs->gprs[0], regs->gprs[1],
-		       regs->gprs[2], regs->gprs[3]);
-	buf += sprintf(buf, "           %016lx %016lx %016lx %016lx\n",
-		       regs->gprs[4], regs->gprs[5], 
-		       regs->gprs[6], regs->gprs[7]);
-	buf += sprintf(buf, "           %016lx %016lx %016lx %016lx\n",
-		       regs->gprs[8], regs->gprs[9],
-		       regs->gprs[10], regs->gprs[11]);
-	buf += sprintf(buf, "           %016lx %016lx %016lx %016lx\n",
-		       regs->gprs[12], regs->gprs[13],
-		       regs->gprs[14], regs->gprs[15]);
-	buf += sprintf(buf, "User ACRS: %08x %08x %08x %08x\n",
-		       regs->acrs[0], regs->acrs[1],
-		       regs->acrs[2], regs->acrs[3]);
-	buf += sprintf(buf, "           %08x %08x %08x %08x\n",
-		       regs->acrs[4], regs->acrs[5],
-		       regs->acrs[6], regs->acrs[7]);
-	buf += sprintf(buf, "           %08x %08x %08x %08x\n",
-		       regs->acrs[8], regs->acrs[9],
-		       regs->acrs[10], regs->acrs[11]);
-	buf += sprintf(buf, "           %08x %08x %08x %08x\n",
-		       regs->acrs[12], regs->acrs[13],
-		       regs->acrs[14], regs->acrs[15]);
-	return buf;
-}
-
 spinlock_t die_lock = SPIN_LOCK_UNLOCKED;
 
 void die(const char * str, struct pt_regs * regs, long err)

@@ -308,7 +308,6 @@ struct user_regs_struct
 #define user_mode(regs) (((regs)->psw.mask & PSW_PROBLEM_STATE) != 0)
 #define instruction_pointer(regs) ((regs)->psw.addr)
 extern void show_regs(struct pt_regs * regs);
-extern char *task_show_regs(struct task_struct *task, char *buffer);
 #endif
 
 #endif /* __ASSEMBLY__ */
