@@ -1076,7 +1076,7 @@ sys_rt_sigqueueinfo(int pid, int sig, siginfo_t *uinfo)
 	/* Not even root can pretend to send signals from the kernel.
 	 * Nor can they impersonate a kill()/tgkill(), which adds source info.
 	 */
-	if (info.si_code != SI_QUEUE) {
+	if (info.si_code >= 0 || info.si_code == SI_TKILL) {
 		/* We used to allow any < 0 si_code */
 		return -EPERM;
 	}
