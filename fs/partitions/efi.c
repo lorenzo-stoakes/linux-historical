@@ -378,6 +378,14 @@ is_gpt_valid(struct gendisk *hd, struct block_device *bdev, u64 lba,
 		return 0;
 	}
 
+	/* Check that sizeof_partition_entry has the correct value */
+	if (le32_to_cpu((*gpt)->sizeof_partition_entry) != sizeof(gpt_entry)) {
+		Dprintk("GUID Partitition Entry Size check failed.\n");
+		kfree(*gpt);
+		*gpt = NULL;
+		return 0;
+	}
+
 	if (!(*ptes = alloc_read_gpt_entries(hd, bdev, *gpt))) {
 		kfree(*gpt);
 		*gpt = NULL;
