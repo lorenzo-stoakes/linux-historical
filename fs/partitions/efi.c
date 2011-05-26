@@ -337,6 +337,7 @@ is_gpt_valid(struct gendisk *hd, struct block_device *bdev, u64 lba,
 	     gpt_header **gpt, gpt_entry **ptes)
 {
 	u32 crc, origcrc;
+	int blocksize;
 
 	if (!hd || !bdev || !gpt || !ptes)
 		return 0;
@@ -348,6 +349,19 @@ is_gpt_valid(struct gendisk *hd, struct block_device *bdev, u64 lba,
 		Dprintk("GUID Partition Table Header signature is wrong: %"
 			PRIx64 " != %" PRIx64 "\n", le64_to_cpu((*gpt)->signature),
 			GPT_HEADER_SIGNATURE);
+		kfree(*gpt);
+		*gpt = NULL;
+		return 0;
+	}
+
+	/* Check the GUID Partition Table header size */
+	blocksize = get_hardsect_size(to_kdev_t(bdev->bd_dev));
+	if (!blocksize)
+		blocksize = 512;
+
+	if (le32_to_cpu((*gpt)->header_size) > blocksize) {
+		Dprintk("GUID Partition Table Header size is wrong: %u > %u\n",
+			le32_to_cpu((*gpt)->header_size), blocksize);
 		kfree(*gpt);
 		*gpt = NULL;
 		return 0;
