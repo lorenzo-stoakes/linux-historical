@@ -573,9 +573,15 @@ DARFixed:
 	ori	r21, r21, 1		/* Set valid bit in physical L2 page */
 	DO_8xx_CPU6(0x3b80, r3)
 	mtspr	MD_TWC, r21		/* Load pte table base address */
-	mfspr	r21, MD_TWC		/* ....and get the pte address */
-	lwz	r20, 0(r21)		/* Get the pte */
-
+	mfspr	r20, MD_TWC		/* ....and get the pte address */
+	lwz	r20, 0(r20)		/* Get the pte */
+	/* Insert the Guarded flag into the TWC from the Linux PTE.
+	 * It is bit 27 of both the Linux PTE and the TWC
+	 */
+	rlwimi	r21, r20, 0, 27, 27
+	DO_8xx_CPU6(0x3b80, r3)
+	mtspr	MD_TWC, r21
+	mfspr	r21, MD_TWC		/* get the pte address again */
 	ori	r20, r20, _PAGE_DIRTY|_PAGE_ACCESSED|_PAGE_HWWRITE
 	stw	r20, 0(r21)		/* and update pte in table */
 	xori	r20, r20, _PAGE_RW	/* RW bit is inverted */
