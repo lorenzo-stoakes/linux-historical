@@ -377,10 +377,14 @@ InstructionTLBMiss:
 	mfspr	r21, MD_TWC	/* ....and get the pte address */
 	lwz	r20, 0(r21)	/* Get the pte */
 
-#if 1
+#ifndef NO_SWAP
 	/* if !swap, you can delete this */
+	andi.	r21, r20, _PAGE_ACCESSED	/* test ACCESSED bit */
+	bne+	4f		/* Branch if set */
+	mfspr	r21, MD_TWC	/* get the pte address */
 	rlwimi	r20, r20, 5, _PAGE_PRESENT<<5	/* Copy PRESENT to ACCESSED */
 	stw	r20, 0(r21)	/* Update pte */
+4:
 #endif
 	/* The Linux PTE won't go exactly into the MMU TLB.
 	 * Software indicator bits 21 and 28 must be clear.
@@ -450,11 +454,14 @@ DataStoreTLBMiss:
 	DO_8xx_CPU6(0x3b80, r3)
 	mtspr	MD_TWC, r21
 
-#if 1
+#ifndef NO_SWAP
 	/* if !swap, you can delete this */
+	andi.	r21, r20, _PAGE_ACCESSED	/* test ACCESSED bit */
+	bne+	4f		/* Branch if set */
 	mfspr	r21, MD_TWC	/* get the pte address */
 	rlwimi	r20, r20, 5, _PAGE_PRESENT<<5	/* Copy PRESENT to ACCESSED */
 	stw	r20, 0(r21)	/* Update pte */
+4:
 #endif
 
 	/* Honour kernel RO, User NA */
