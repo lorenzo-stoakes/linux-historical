@@ -221,7 +221,11 @@ DataAccess:
 	mr	r5,r20
 	mfspr	r4,DAR
 	stw	r4,_DAR(r21)
-	li	r20,0x00f0
+	/* invalidate ~PRESENT TLBs, 8xx MMU don't do this */
+	andis.	r20,r5,0x4000
+	beq+	1f
+	tlbie	r4
+1:	li	r20,0x00f0
 	mtspr	DAR,r20	/* Tag DAR */
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	li	r20,MSR_KERNEL
@@ -238,7 +242,11 @@ InstructionAccess:
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	mr	r4,r22
 	mr	r5,r23
-	li	r20,MSR_KERNEL
+	/* invalidate ~PRESENT TLBs, 8xx MMU don't do this */
+	andis.	r20,r5,0x4000
+	beq+	1f
+	tlbie	r4
+1:	li	r20,MSR_KERNEL
 	rlwimi	r20,r23,0,16,16		/* copy EE bit from saved MSR */
 	FINISH_EXCEPTION(do_page_fault)
 
