@@ -592,7 +592,12 @@ DARFixed:
 	mfspr	r21, MD_TWC		/* get the pte address again */
 	ori	r20, r20, _PAGE_DIRTY|_PAGE_ACCESSED|_PAGE_HWWRITE
 	stw	r20, 0(r21)		/* and update pte in table */
-	xori	r20, r20, _PAGE_RW	/* RW bit is inverted */
+	rlwimi	r20, r20, 32-2, _PAGE_USER>>2 /* Copy USER to Encoding */
+	/* r21 =  (r20 & _PAGE_RW) >> 1 */
+	rlwinm	r21, r20, 32-1, _PAGE_RW>>1
+	or	r20, r21, r20
+	/* invert RW and 0x200 bits */
+	xori	r20, r20, _PAGE_RW | 0x200
 	b	finish_DTLB
 2:
 	mfspr	r20, M_TW	/* Restore registers */
