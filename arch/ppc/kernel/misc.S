@@ -662,15 +662,7 @@ _GLOBAL(__flush_dcache_icache)
 _GLOBAL(clear_page)
 	li	r0,4096/L1_CACHE_LINE_SIZE
 	mtctr	r0
-#ifdef CONFIG_8xx
-	li	r4, 0
-1:	stw	r4, 0(r3)
-	stw	r4, 4(r3)
-	stw	r4, 8(r3)
-	stw	r4, 12(r3)
-#else
 1:	dcbz	0,r3
-#endif
 	addi	r3,r3,L1_CACHE_LINE_SIZE
 	bdnz	1b
 	blr
@@ -695,15 +687,6 @@ _GLOBAL(copy_page)
 	addi	r3,r3,-4
 	addi	r4,r4,-4
 
-#ifdef CONFIG_8xx
-	/* don't use prefetch on 8xx */
-    	li	r0,4096/L1_CACHE_LINE_SIZE
-	mtctr	r0
-1:	COPY_16_BYTES
-	bdnz	1b
-	blr
-
-#else	/* not 8xx, we can prefetch */
 	li	r5,4
 
 #if MAX_COPY_PREFETCH > 1
@@ -744,7 +727,6 @@ _GLOBAL(copy_page)
 	li	r0,MAX_COPY_PREFETCH
 	li	r11,4
 	b	2b
-#endif	/* CONFIG_8xx */
 
 /*
  * Atomic [test&set] exchange

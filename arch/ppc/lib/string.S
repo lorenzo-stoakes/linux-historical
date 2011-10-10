@@ -159,14 +159,7 @@ _GLOBAL(cacheable_memzero)
 	bdnz	4b
 3:	mtctr	r9
 	li	r7,4
-#if !defined(CONFIG_8xx)
 10:	dcbz	r7,r6
-#else
-10:	stw	r4, 4(r6)
-	stw	r4, 8(r6)
-	stw	r4, 12(r6)
-	stw	r4, 16(r6)
-#endif
 	addi	r6,r6,CACHELINE_BYTES
 	bdnz	10b
 	clrlwi	r5,r8,32-LG_CACHELINE_BYTES
@@ -261,9 +254,7 @@ _GLOBAL(cacheable_memcpy)
 	mtctr	r0
 	beq	63f
 53:
-#if !defined(CONFIG_8xx)
 	dcbz	r11,r6
-#endif
 	COPY_16_BYTES
 #if L1_CACHE_LINE_SIZE >= 32
 	COPY_16_BYTES
@@ -443,13 +434,6 @@ _GLOBAL(__copy_tofrom_user)
 	li	r11,4
 	beq	63f
 
-#ifdef CONFIG_8xx
-	/* Don't use prefetch on 8xx */
-	mtctr	r0
-53:	COPY_16_BYTES_WITHEX(0)
-	bdnz	53b
-
-#else /* not CONFIG_8xx */
 	/* Here we decide how far ahead to prefetch the source */
 	li	r3,4
 	cmpwi	r0,1
@@ -502,7 +486,6 @@ _GLOBAL(__copy_tofrom_user)
 	li	r3,4
 	li	r7,0
 	bne	114b
-#endif /* CONFIG_8xx */	
 
 63:	srwi.	r0,r5,2
 	mtctr	r0
