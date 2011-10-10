@@ -298,21 +298,20 @@ extern unsigned long vmalloc_start;
 #define _PAGE_NO_CACHE	0x0002	/* I: cache inhibit */
 #define _PAGE_SHARED	0x0004	/* No ASID (context) compare */
 
-/* These five software bits must be masked out when the entry is loaded
- * into the TLB.
+/* These three software bits must be masked out when the entry is loaded
+ * into the TLB, 2 SW bits free.
  */
 #define _PAGE_EXEC	0x0008	/* software: i-cache coherency required */
 #define _PAGE_GUARDED	0x0010	/* software: guarded access */
-#define _PAGE_DIRTY	0x0020	/* software: page changed */
-#define _PAGE_RW	0x0040	/* software: user write access allowed */
-#define _PAGE_ACCESSED	0x0080	/* software: page referenced */
+#define _PAGE_ACCESSED	0x0020	/* software: page referenced */
 
 /* Setting any bits in the nibble with the follow two controls will
  * require a TLB exception handler change.  It is assumed unused bits
- * are always zero.
+ * are always zero, encoding(bit 22).
  */
-#define _PAGE_HWWRITE	0x0100	/* h/w write enable: never set in Linux PTE */
-#define _PAGE_USER	0x0800	/* One of the PP bits, the other is USER&~RW */
+#define _PAGE_DIRTY	0x0100	/* Changed: page changed */
+#define _PAGE_RW	0x0400	/* PP lsb(bit 21), user write access allowed */
+#define _PAGE_USER	0x0800	/* PP msb(bit 20), user access allowed */
 
 #define _PMD_PRESENT	PAGE_MASK
 #define _PMD_PAGE_MASK	0x000c

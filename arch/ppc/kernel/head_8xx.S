@@ -369,25 +369,27 @@ InstructionTLBMiss:
 	 */
 	tophys(r21,r21)
 	ori	r21,r21,1		/* Set valid bit */
-	beq-	2f			/* If zero, don't try to find a pte */
 	DO_8xx_CPU6(0x2b80, r3)
 	mtspr	MI_TWC, r21	/* Set segment attributes */
+	beq-	2f		/* If zero, don't try to find a pte */
 	DO_8xx_CPU6(0x3b80, r3)
 	mtspr	MD_TWC, r21	/* Load pte table base address */
 	mfspr	r21, MD_TWC	/* ....and get the pte address */
 	lwz	r20, 0(r21)	/* Get the pte */
 
-	ori	r20, r20, _PAGE_ACCESSED
-	stw	r20, 0(r21)
-
+#if 1
+	/* if !swap, you can delete this */
+	rlwimi	r20, r20, 5, _PAGE_PRESENT<<5	/* Copy PRESENT to ACCESSED */
+	stw	r20, 0(r21)	/* Update pte */
+#endif
 	/* The Linux PTE won't go exactly into the MMU TLB.
-	 * Software indicator bits 21, 22 and 28 must be clear.
+	 * Software indicator bits 21 and 28 must be clear.
 	 * Software indicator bits 24, 25, 26, and 27 must be
 	 * set.  All other Linux PTE bits control the behavior
 	 * of the MMU.
 	 */
 2:	li	r21, 0x00f0
-	rlwimi	r20, r21, 0, 24, 28	/* Set 24-27, clear 28 */
+	rlwimi	r20, r21, 0, 0x07f8	/* Set 24-27, clear 21-23,28 */
 	DO_8xx_CPU6(0x2d80, r3)
 	mtspr	MI_RPN, r20	/* Update TLB entry */
 
@@ -444,12 +446,25 @@ DataStoreTLBMiss:
 	DO_8xx_CPU6(0x3b80, r3)
 	mtspr	MD_TWC, r21
 
-	mfspr	r21, MD_TWC	/* get the pte address again */
-	ori	r20, r20, _PAGE_ACCESSED
-	stw	r20, 0(r21)
+#if 1
+	/* if !swap, you can delete this */
+	mfspr	r21, MD_TWC	/* get the pte address */
+	rlwimi	r20, r20, 5, _PAGE_PRESENT<<5	/* Copy PRESENT to ACCESSED */
+	stw	r20, 0(r21)	/* Update pte */
+#endif
+
+	/* Honour kernel RO, User NA */
+	/* 0x200 == Extended encoding, bit 22 */
+	/* r20 |=  (r20 & _PAGE_USER) >> 2 */
+	rlwimi	r20, r20, 32-2, 0x200
+	/* r21 =  (r20 & _PAGE_RW) >> 1 */
+	rlwinm	r21, r20, 32-1, 0x200
+	or	r20, r21, r20
+	/* invert RW and 0x200 bits */
+	xori	r20, r20, _PAGE_RW | 0x200
 
 	/* The Linux PTE won't go exactly into the MMU TLB.
-	 * Software indicator bits 21, 22 and 28 must be clear.
+	 * Software indicator bits 22 and 28 must be clear.
 	 * Software indicator bits 24, 25, 26, and 27 must be
 	 * set.  All other Linux PTE bits control the behavior
 	 * of the MMU.
@@ -496,11 +511,12 @@ DataTLBError:
 	stw	r20, 0(r0)
 	stw	r21, 4(r0)
 
-	/* First, make sure this was a store operation.
-	*/
 	mfspr	r20, DSISR
-	andis.	r21, r20, 0x0200	/* If set, indicates store op */
-	beq	2f
+	andis.	r21, r20, 0x4800	/* !translation or protection */
+	bne-	2f
+	/* Only Change bit left now, do it here as it is faster
+	 * than trapping to the C fault handler.
+ 	 */
 
 	/* The EA of a data TLB miss is automatically stored in the MD_EPN
 	 * register.  The EA of a data TLB error is automatically stored in
@@ -550,17 +566,12 @@ DataTLBError:
 	mfspr	r21, MD_TWC		/* ....and get the pte address */
 	lwz	r20, 0(r21)		/* Get the pte */
 
-	andi.	r21, r20, _PAGE_RW	/* Is it writeable? */
-	beq	2f			/* Bail out if not */
-
-	/* Update 'changed', among others.
-	*/
 	ori	r20, r20, _PAGE_DIRTY|_PAGE_ACCESSED|_PAGE_HWWRITE
-	mfspr	r21, MD_TWC		/* Get pte address again */
 	stw	r20, 0(r21)		/* and update pte in table */
+	xori	r20, r20, _PAGE_RW	/* RW bit is inverted */
 
 	/* The Linux PTE won't go exactly into the MMU TLB.
-	 * Software indicator bits 21, 22 and 28 must be clear.
+	 * Software indicator bits 22 and 28 must be clear.
 	 * Software indicator bits 24, 25, 26, and 27 must be
 	 * set.  All other Linux PTE bits control the behavior
 	 * of the MMU.
