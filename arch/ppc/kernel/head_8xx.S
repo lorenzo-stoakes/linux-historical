@@ -197,7 +197,17 @@ label:						\
 	STD_EXCEPTION(0x100, Reset, UnknownException)
 
 /* Machine check */
-	STD_EXCEPTION(0x200, MachineCheck, MachineCheckException)
+	. = 0x200
+MachineCheck:
+	EXCEPTION_PROLOG
+	mfspr	r20,DSISR
+	stw	r20,_DSISR(r21)
+	mfspr	r20,DAR
+	stw	r20,_DAR(r21)
+	li	r20,0x00f0
+	mtspr	DAR,r20	/* Tag DAR */
+	addi	r3,r1,STACK_FRAME_OVERHEAD
+	FINISH_EXCEPTION(MachineCheckException)
 
 /* Data access exception.
  * This is "never generated" by the MPC8xx.  We jump to it for other
@@ -211,6 +221,8 @@ DataAccess:
 	mr	r5,r20
 	mfspr	r4,DAR
 	stw	r4,_DAR(r21)
+	li	r20,0x00f0
+	mtspr	DAR,r20	/* Tag DAR */
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	li	r20,MSR_KERNEL
 	rlwimi	r20,r23,0,16,16		/* copy EE bit from saved MSR */
@@ -249,6 +261,8 @@ Alignment:
 	EXCEPTION_PROLOG
 	mfspr	r4,DAR
 	stw	r4,_DAR(r21)
+	li	r20,0x00f0
+	mtspr	DAR,r20	/* Tag DAR */
 	mfspr	r5,DSISR
 	stw	r5,_DSISR(r21)
 	addi	r3,r1,STACK_FRAME_OVERHEAD
@@ -433,6 +447,7 @@ DataStoreTLBMiss:
 	 * of the MMU.
 	 */
 2:	li	r21, 0x00f0
+	mtspr	DAR, r21	/* Tag DAR */
 	rlwimi	r20, r21, 0, 24, 28	/* Set 24-27, clear 28 */
 	DO_8xx_CPU6(0x3d80, r3)
 	mtspr	MD_RPN, r20	/* Update TLB entry */
@@ -543,6 +558,7 @@ DataTLBError:
 	 * of the MMU.
 	 */
 	li	r21, 0x00f0
+	mtspr	DAR, r21	/* Tag DAR */
 	rlwimi	r20, r21, 0, 24, 28	/* Set 24-27, clear 28 */
 	DO_8xx_CPU6(0x3d80, r3)
 	mtspr	MD_RPN, r20	/* Update TLB entry */
