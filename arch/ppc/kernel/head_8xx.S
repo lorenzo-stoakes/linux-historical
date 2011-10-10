@@ -442,11 +442,11 @@ DataStoreTLBMiss:
 	 * this into the Linux pgd/pmd and load it in the operation
 	 * above.
 	 */
-	rlwimi	r21, r20, 0, 27, 27
+	rlwimi	r21, r20, 0, _PAGE_GUARDED
 	/* Insert the WriteThru flag into the TWC from the Linux PTE.
 	 * It is bit 25 in the Linux PTE and bit 30 in the TWC
 	 */
-	rlwimi	r21, r20, 32-5, 30, 30
+	rlwimi	r21, r20, 32-5, _PAGE_WRITETHRU>>5
 	DO_8xx_CPU6(0x3b80, r3)
 	mtspr	MD_TWC, r21
 
@@ -460,9 +460,9 @@ DataStoreTLBMiss:
 	/* Honour kernel RO, User NA */
 	/* 0x200 == Extended encoding, bit 22 */
 	/* r20 |=  (r20 & _PAGE_USER) >> 2 */
-	rlwimi	r20, r20, 32-2, 0x200
+	rlwimi	r20, r20, 32-2, _PAGE_USER>>2 /* Copy USER to Encoding */
 	/* r21 =  (r20 & _PAGE_RW) >> 1 */
-	rlwinm	r21, r20, 32-1, 0x200
+	rlwinm	r21, r20, 32-1, _PAGE_RW>>1
 	or	r20, r21, r20
 	/* invert RW and 0x200 bits */
 	xori	r20, r20, _PAGE_RW | 0x200
@@ -582,11 +582,11 @@ DARFixed:
 	/* Insert the Guarded flag into the TWC from the Linux PTE.
 	 * It is bit 27 of both the Linux PTE and the TWC
 	 */
-	rlwimi	r21, r20, 0, 27, 27
+	rlwimi	r21, r20, 0, _PAGE_GUARDED
 	/* Insert the WriteThru flag into the TWC from the Linux PTE.
 	 * It is bit 25 in the Linux PTE and bit 30 in the TWC
 	 */
-	rlwimi	r21, r20, 32-5, 30, 30
+	rlwimi	r21, r20, 32-5, _PAGE_WRITETHRU>>5
 	DO_8xx_CPU6(0x3b80, r3)
 	mtspr	MD_TWC, r21
 	mfspr	r21, MD_TWC		/* get the pte address again */
