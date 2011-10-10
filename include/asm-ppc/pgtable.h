@@ -298,12 +298,13 @@ extern unsigned long vmalloc_start;
 #define _PAGE_NO_CACHE	0x0002	/* I: cache inhibit */
 #define _PAGE_SHARED	0x0004	/* No ASID (context) compare */
 
-/* These three software bits must be masked out when the entry is loaded
- * into the TLB, 2 SW bits free.
+/* These four software bits must be masked out when the entry is loaded
+ * into the TLB, 1 SW bits left(0x0080).
  */
 #define _PAGE_EXEC	0x0008	/* software: i-cache coherency required */
 #define _PAGE_GUARDED	0x0010	/* software: guarded access */
 #define _PAGE_ACCESSED	0x0020	/* software: page referenced */
+#define _PAGE_WRITETHRU	0x0040	/* software: caching is write through */
 
 /* Setting any bits in the nibble with the follow two controls will
  * require a TLB exception handler change.  It is assumed unused bits
