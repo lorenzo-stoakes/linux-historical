@@ -165,6 +165,7 @@ EXPORT_SYMBOL(mark_buffer_dirty);
 EXPORT_SYMBOL(set_buffer_async_io); /* for reiserfs_writepage */
 EXPORT_SYMBOL(__mark_buffer_dirty);
 EXPORT_SYMBOL(__mark_inode_dirty);
+EXPORT_SYMBOL(fd_install);
 EXPORT_SYMBOL(get_empty_filp);
 EXPORT_SYMBOL(init_private_file);
 EXPORT_SYMBOL(filp_open);
@@ -453,6 +454,7 @@ EXPORT_SYMBOL(nr_running);
 
 /* misc */
 EXPORT_SYMBOL(panic);
+EXPORT_SYMBOL(out_of_line_bug);
 EXPORT_SYMBOL(sprintf);
 EXPORT_SYMBOL(snprintf);
 EXPORT_SYMBOL(sscanf);

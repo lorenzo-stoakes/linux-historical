@@ -76,6 +76,7 @@ coda_file_write(struct file *file,const char *buf,size_t count,loff_t *ppos)
 
 	cfile->f_flags = flags;
 	inode->i_size = cinode->i_size;
+	inode->i_blocks = (inode->i_size + 511) >> 9;
 	inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	up(&inode->i_sem);
 

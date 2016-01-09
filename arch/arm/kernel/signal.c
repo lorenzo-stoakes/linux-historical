@@ -344,7 +344,7 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, int framesize)
 	/*
 	 * This is the X/Open sanctioned signal stack switching.
 	 */
-	if ((ka->sa.sa_flags & SA_ONSTACK) && sas_ss_flags(sp))
+	if ((ka->sa.sa_flags & SA_ONSTACK) && !sas_ss_flags(sp))
 		sp = current->sas_ss_sp + current->sas_ss_size;
 
 	/*
@@ -637,7 +637,10 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs *regs, int syscall)
 				/* FALLTHRU */
 
 			default:
-				sig_exit(signr, exit_code, &info);
+				sigaddset(&current->pending.signal, signr);
+				recalc_sigpending(current);
+				current->flags |= PF_SIGNALED;
+				do_exit(exit_code);
 				/* NOTREACHED */
 			}
 		}

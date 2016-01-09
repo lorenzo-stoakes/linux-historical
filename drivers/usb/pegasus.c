@@ -57,7 +57,7 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v0.4.25 (2002/03/06)"
+#define DRIVER_VERSION "v0.4.26 (2002/03/21)"
 #define DRIVER_AUTHOR "Petko Manolov <petkan@users.sourceforge.net>"
 #define DRIVER_DESC "Pegasus/Pegasus II USB Ethernet driver"
 
@@ -69,6 +69,7 @@
 static int loopback = 0;
 static int mii_mode = 1;
 static int multicast_filter_limit = 32;
+static DECLARE_MUTEX(gsem);
 
 static struct usb_eth_dev usb_dev_id[] = {
 #define	PEGASUS_DEV(pn, vid, pid, flags)	\
@@ -741,6 +742,7 @@ static int pegasus_open(struct net_device *net)
 	int	res;
 
 
+	down(&pegasus->sem);
 	FILL_BULK_URB( pegasus->rx_urb, pegasus->usb,
 			usb_rcvbulkpipe(pegasus->usb, 1),
 			pegasus->rx_buff, PEGASUS_MAX_MTU, 
@@ -759,12 +761,16 @@ static int pegasus_open(struct net_device *net)
 	pegasus->flags |= PEGASUS_RUNNING;
 	if ( (res = enable_net_traffic(net, pegasus->usb)) ) {
 		err("can't enable_net_traffic() - %d", res);
-		return -EIO;
+		res = -EIO;
+		goto exit;
 	}
 
 	set_carrier(net);
-
-	return 0;
+	res = 0;
+exit:
+	up(&pegasus->sem);
+	
+	return res;
 }
 
 
@@ -772,6 +778,7 @@ static int pegasus_close( struct net_device *net )
 {
 	pegasus_t	*pegasus = net->priv;
 
+	down(&pegasus->sem);
 	pegasus->flags &= ~PEGASUS_RUNNING;
 	netif_stop_queue( net );
 	if ( !(pegasus->flags & PEGASUS_UNPLUG) )
@@ -783,7 +790,8 @@ static int pegasus_close( struct net_device *net )
 #ifdef	PEGASUS_USE_INTR
 	usb_unlink_urb( pegasus->intr_urb );
 #endif
-
+	up(&pegasus->sem);
+	
 	return 0;
 }
 
@@ -869,23 +877,33 @@ static int pegasus_ioctl( struct net_device *net, struct ifreq *rq, int cmd )
 {
 	__u16 *data = (__u16 *)&rq->ifr_data;
 	pegasus_t	*pegasus = net->priv;
+	int	res;
 
+	down(&pegasus->sem);
 	switch(cmd) {
 	case SIOCETHTOOL:
-		return pegasus_ethtool_ioctl(net, rq->ifr_data);
+		res = pegasus_ethtool_ioctl(net, rq->ifr_data);
+		break;
 	case SIOCDEVPRIVATE:
 		data[0] = pegasus->phy;
 	case SIOCDEVPRIVATE+1:
 		read_mii_word(pegasus, data[0], data[1]&0x1f, &data[3]);
-		return 0;
+		res = 0;
+		break;
 	case SIOCDEVPRIVATE+2:
-		if ( !capable(CAP_NET_ADMIN) )
+		if ( !capable(CAP_NET_ADMIN) ) {
+			up(&pegasus->sem);
 			return -EPERM;
+		}
 		write_mii_word(pegasus, pegasus->phy, data[1] & 0x1f, data[2]);
-		return 0;
+		res = 0;
+		break;
 	default:
-		return -EOPNOTSUPP;
+		res = -EOPNOTSUPP;
 	}
+	up(&pegasus->sem);
+
+	return res;
 }
 
 
@@ -955,9 +973,10 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 		return NULL;
 	}
 
+	down(&gsem);
 	if(!(pegasus = kmalloc(sizeof(struct pegasus), GFP_KERNEL))) {
 		err("out of memory allocating device structure");
-		return NULL;
+		goto exit;
 	}
 
 	usb_inc_dev_use( dev );
@@ -968,20 +987,23 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 	pegasus->ctrl_urb = usb_alloc_urb(0);
 	if (!pegasus->ctrl_urb) {
 		kfree (pegasus);
-		return NULL;
+		pegasus = NULL;
+		goto exit;
 	}
 	pegasus->rx_urb = usb_alloc_urb(0);
 	if (!pegasus->rx_urb) {
 		usb_free_urb (pegasus->ctrl_urb);
 		kfree (pegasus);
-		return NULL;
+		pegasus = NULL;
+		goto exit;
 	}
 	pegasus->tx_urb = usb_alloc_urb(0);
 	if (!pegasus->tx_urb) {
 		usb_free_urb (pegasus->rx_urb);
 		usb_free_urb (pegasus->ctrl_urb);
 		kfree (pegasus);
-		return NULL;
+		pegasus = NULL;
+		goto exit;
 	}
 	pegasus->intr_urb = usb_alloc_urb(0);
 	if (!pegasus->intr_urb) {
@@ -989,7 +1011,8 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 		usb_free_urb (pegasus->rx_urb);
 		usb_free_urb (pegasus->ctrl_urb);
 		kfree (pegasus);
-		return NULL;
+		pegasus = NULL;
+		goto exit;
 	}
 
 	net = init_etherdev( NULL, 0 );
@@ -998,9 +1021,11 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 		usb_free_urb (pegasus->rx_urb);
 		usb_free_urb (pegasus->ctrl_urb);
 		kfree( pegasus );
-		return	NULL;
+		pegasus = NULL;
+		goto exit;
 	}
-	
+
+	init_MUTEX(&pegasus->sem);
 	pegasus->usb = dev;
 	pegasus->net = net;
 	SET_MODULE_OWNER(net);
@@ -1028,7 +1053,7 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 		kfree(pegasus->net);
 		kfree(pegasus);
 		pegasus = NULL;
-		return NULL;
+		goto exit;
 	}
 
 	info( "%s: %s", net->name, usb_dev_id[dev_index].name );
@@ -1046,6 +1071,8 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 		pegasus->phy = 1;
 	}
 
+exit:
+	up(&gsem);
 	return pegasus;
 }
 

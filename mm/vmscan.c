@@ -20,7 +20,6 @@
 #include <linux/init.h>
 #include <linux/highmem.h>
 #include <linux/file.h>
-#include <linux/compiler.h>
 
 #include <asm/pgalloc.h>
 

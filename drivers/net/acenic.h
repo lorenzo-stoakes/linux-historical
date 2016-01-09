@@ -446,11 +446,12 @@ struct cmd {
 
 
 /*
- * TX ring
+ * TX ring - maximum TX ring entries for Tigon I's is 128
  */
-#define TX_RING_ENTRIES	256	
-#define TX_RING_SIZE	(TX_RING_ENTRIES * sizeof(struct tx_desc))
-#define TX_RING_BASE	0x3800
+#define MAX_TX_RING_ENTRIES	256
+#define TIGON_I_TX_RING_ENTRIES	128
+#define TX_RING_SIZE		(MAX_TX_RING_ENTRIES * sizeof(struct tx_desc))
+#define TX_RING_BASE		0x3800
 
 struct tx_desc{
         aceaddr	addr;
@@ -617,7 +618,7 @@ struct tx_ring_info {
  */
 struct ace_skb
 {
-	struct tx_ring_info	tx_skbuff[TX_RING_ENTRIES];
+	struct tx_ring_info	tx_skbuff[MAX_TX_RING_ENTRIES];
 	struct ring_info	rx_std_skbuff[RX_STD_RING_ENTRIES];
 	struct ring_info	rx_mini_skbuff[RX_MINI_RING_ENTRIES];
 	struct ring_info	rx_jumbo_skbuff[RX_JUMBO_RING_ENTRIES];
@@ -641,10 +642,6 @@ struct ace_private
 	struct ace_skb		*skb;
 	dma_addr_t		info_dma;	/* 32/64 bit */
 
-#if ACENIC_DO_VLAN
-	struct vlan_group	*vlgrp;
-#endif
-
 	int			version, link;
 	int			promisc, mcast_all;
 
@@ -654,7 +651,7 @@ struct ace_private
 	struct tx_desc		*tx_ring;
 	u32			tx_prd;
 	volatile u32		tx_ret_csm;
-	struct timer_list	timer;
+	int			tx_ring_entries;
 
 	/*
 	 * RX elements
@@ -672,6 +669,10 @@ struct ace_private
 	struct rx_desc		*rx_jumbo_ring;
 	struct rx_desc		*rx_mini_ring;
 	struct rx_desc		*rx_return_ring;
+
+#if ACENIC_DO_VLAN
+	struct vlan_group	*vlgrp;
+#endif
 
 	int			tasklet_pending, jumbo;
 	struct tasklet_struct	ace_tasklet;
@@ -705,17 +706,17 @@ struct ace_private
 
 #define TX_RESERVED	MAX_SKB_FRAGS
 
-static inline int tx_space (u32 csm, u32 prd)
+static inline int tx_space (struct ace_private *ap, u32 csm, u32 prd)
 {
-	return (csm - prd - 1) & (TX_RING_ENTRIES - 1);
+	return (csm - prd - 1) & (ACE_TX_RING_ENTRIES(ap) - 1);
 }
 
-#define tx_free(ap) 		tx_space((ap)->tx_ret_csm, (ap)->tx_prd)
+#define tx_free(ap) 		tx_space((ap)->tx_ret_csm, (ap)->tx_prd, ap)
 
 #if MAX_SKB_FRAGS
-#define tx_ring_full(csm, prd)	(tx_space(csm, prd) <= TX_RESERVED)
+#define tx_ring_full(ap, csm, prd)	(tx_space(ap, csm, prd) <= TX_RESERVED)
 #else
-#define tx_ring_full		0
+#define tx_ring_full			0
 #endif
 
 
@@ -724,7 +725,7 @@ static inline void set_aceaddr(aceaddr *aa, dma_addr_t addr)
 	u64 baddr = (u64) addr;
 	aa->addrlo = baddr & 0xffffffff;
 	aa->addrhi = baddr >> 32;
-	mb();
+	wmb();
 }
 
 

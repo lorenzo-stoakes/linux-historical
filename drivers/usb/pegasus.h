@@ -102,7 +102,7 @@ typedef struct pegasus {
 	struct urb		*ctrl_urb, *rx_urb, *tx_urb, *intr_urb;
 	devrequest		dr;
 	wait_queue_head_t	ctrl_wait;
-	struct semaphore	ctrl_sem;
+	struct semaphore	sem;
 	unsigned char		ALIGN(rx_buff[PEGASUS_MAX_MTU]);
 	unsigned char		ALIGN(tx_buff[PEGASUS_MAX_MTU]);
 	unsigned char		ALIGN(intr_buff[8]);

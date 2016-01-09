@@ -47,6 +47,7 @@
 #include <linux/highmem.h>
 #include <linux/module.h>
 #include <linux/completion.h>
+#include <linux/compiler.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -102,27 +103,35 @@ union bdflush_param {
 	struct {
 		int nfract;	/* Percentage of buffer cache dirty to 
 				   activate bdflush */
-		int dummy1;	/* old "ndirty" */
+		int ndirty;	/* Maximum number of dirty blocks to write out per
+				   wake-cycle */
 		int dummy2;	/* old "nrefill" */
 		int dummy3;	/* unused */
 		int interval;	/* jiffies delay between kupdate flushes */
 		int age_buffer;	/* Time for normal buffer to age before we flush it */
 		int nfract_sync;/* Percentage of buffer cache dirty to 
 				   activate bdflush synchronously */
-		int dummy4;	/* unused */
+		int nfract_stop_bdflush; /* Percetange of buffer cache dirty to stop bdflush */
 		int dummy5;	/* unused */
 	} b_un;
 	unsigned int data[N_PARAM];
-} bdf_prm = {{40, 0, 0, 0, 5*HZ, 30*HZ, 60, 0, 0}};
+} bdf_prm = {{30, 500, 0, 0, 5*HZ, 30*HZ, 60, 20, 0}};
 
 /* These are the min and max parameter values that we will allow to be assigned */
-int bdflush_min[N_PARAM] = {  0,  10,    5,   25,  0,   1*HZ,   0, 0, 0};
-int bdflush_max[N_PARAM] = {100,50000, 20000, 20000,10000*HZ, 6000*HZ, 100, 0, 0};
+int bdflush_min[N_PARAM] = {  0,  1,    0,   0,  0,   1*HZ,   0, 0, 0};
+int bdflush_max[N_PARAM] = {100,50000, 20000, 20000,10000*HZ, 10000*HZ, 100, 100, 0};
 
 void unlock_buffer(struct buffer_head *bh)
 {
 	clear_bit(BH_Wait_IO, &bh->b_state);
-	clear_bit(BH_launder, &bh->b_state);
+	clear_bit(BH_Launder, &bh->b_state);
+	/*
+	 * When a locked buffer is visible to the I/O layer BH_Launder
+	 * is set. This means before unlocking we must clear BH_Launder,
+	 * mb() on alpha and then clear BH_Lock, so no reader can see
+	 * BH_Launder set on an unlocked buffer and then risk to deadlock.
+	 */
+	smp_mb__after_clear_bit();
 	clear_bit(BH_Lock, &bh->b_state);
 	smp_mb__after_clear_bit();
 	if (waitqueue_active(&bh->b_wait))
@@ -130,13 +139,9 @@ void unlock_buffer(struct buffer_head *bh)
 }
 
 /*
- * Rewrote the wait-routines to use the "new" wait-queue functionality,
- * and getting rid of the cli-sti pairs. The wait-queue routines still
- * need cli-sti, but now it's just a couple of 386 instructions or so.
- *
  * Note that the real wait_on_buffer() is an inline function that checks
- * if 'b_wait' is set before calling this, so that the queues aren't set
- * up unnecessarily.
+ * that the buffer is locked before calling this, so that unnecessary disk
+ * unplugging does not occur.
  */
 void __wait_on_buffer(struct buffer_head * bh)
 {
@@ -232,10 +237,9 @@ static int write_some_buffers(kdev_t dev)
  */
 static void write_unlocked_buffers(kdev_t dev)
 {
-	do {
+	do
 		spin_lock(&lru_list_lock);
-	} while (write_some_buffers(dev));
-	run_task_queue(&tq_disk);
+	while (write_some_buffers(dev));
 }
 
 /*
@@ -271,12 +275,6 @@ static int wait_for_buffers(kdev_t dev, int index, int refile)
 	}
 	spin_unlock(&lru_list_lock);
 	return 0;
-}
-
-static inline void wait_for_some_buffers(kdev_t dev)
-{
-	spin_lock(&lru_list_lock);
-	wait_for_buffers(dev, BUF_LOCKED, 1);
 }
 
 static int wait_for_locked_buffers(kdev_t dev, int index, int refile)
@@ -1046,7 +1044,6 @@ static int balance_dirty_state(void)
 	unsigned long dirty, tot, hard_dirty_limit, soft_dirty_limit;
 
 	dirty = size_buffers_type[BUF_DIRTY] >> PAGE_SHIFT;
-	dirty += size_buffers_type[BUF_LOCKED] >> PAGE_SHIFT;
 	tot = nr_free_buffer_pages();
 
 	dirty *= 100;
@@ -1063,6 +1060,21 @@ static int balance_dirty_state(void)
 	return -1;
 }
 
+static int bdflush_stop(void)
+{
+	unsigned long dirty, tot, dirty_limit;
+
+	dirty = size_buffers_type[BUF_DIRTY] >> PAGE_SHIFT;
+	tot = nr_free_buffer_pages();
+
+	dirty *= 100;
+	dirty_limit = tot * bdf_prm.b_un.nfract_stop_bdflush;
+
+	if (dirty > dirty_limit)
+		return 0;
+	return 1;
+}
+
 /*
  * if a new dirty buffer is created we need to balance bdflush.
  *
@@ -1077,19 +1089,16 @@ void balance_dirty(void)
 	if (state < 0)
 		return;
 
-	/* If we're getting into imbalance, start write-out */
-	spin_lock(&lru_list_lock);
-	write_some_buffers(NODEV);
+	wakeup_bdflush();
 
 	/*
 	 * And if we're _really_ out of balance, wait for
-	 * some of the dirty/locked buffers ourselves and
-	 * start bdflush.
+	 * some of the dirty/locked buffers ourselves.
 	 * This will throttle heavy writers.
 	 */
 	if (state > 0) {
-		wait_for_some_buffers(NODEV);
-		wakeup_bdflush();
+		spin_lock(&lru_list_lock);
+		write_some_buffers(NODEV);
 	}
 }
 
@@ -2592,23 +2601,58 @@ static int grow_buffers(kdev_t dev, unsigned long block, int size)
 	return 1;
 }
 
+/*
+ * The first time the VM inspects a page which has locked buffers, it
+ * will just mark it as needing waiting upon on the scan of the page LRU.
+ * BH_Wait_IO is used for this.
+ *
+ * The second time the VM visits the page, if it still has locked
+ * buffers, it is time to start writing them out.  (BH_Wait_IO was set).
+ *
+ * The third time the VM visits the page, if the I/O hasn't completed
+ * then it's time to wait upon writeout.  BH_Lock and BH_Launder are
+ * used for this.
+ *
+ * There is also the case of buffers which were locked by someone else
+ * - write(2) callers, bdflush, etc.  There can be a huge number of these
+ * and we don't want to just skip them all and fail the page allocation. 
+ * We want to be able to wait on these buffers as well.
+ *
+ * The BH_Launder bit is set in submit_bh() to indicate that I/O is
+ * underway against the buffer, doesn't matter who started it - we know
+ * that the buffer will eventually come unlocked, and so it's safe to
+ * wait on it.
+ *
+ * The caller holds the page lock and the caller will free this page
+ * into current->local_page, so by waiting on the page's buffers the
+ * caller is guaranteed to obtain this page.
+ *
+ * sync_page_buffers() will sort-of return true if all the buffers
+ * against this page are freeable, so try_to_free_buffers() should
+ * try to free the page's buffers a second time.  This is a bit
+ * broken for blocksize < PAGE_CACHE_SIZE, but not very importantly.
+ */
 static int sync_page_buffers(struct buffer_head *head)
 {
 	struct buffer_head * bh = head;
-	int tryagain = 0;
+	int tryagain = 1;
 
 	do {
 		if (!buffer_dirty(bh) && !buffer_locked(bh))
 			continue;
 
 		/* Don't start IO first time around.. */
-		if (!test_and_set_bit(BH_Wait_IO, &bh->b_state))
+		if (!test_and_set_bit(BH_Wait_IO, &bh->b_state)) {
+			tryagain = 0;
 			continue;
+		}
 
 		/* Second time through we start actively writing out.. */
 		if (test_and_set_bit(BH_Lock, &bh->b_state)) {
-			if (!test_bit(BH_launder, &bh->b_state))
+			if (unlikely(!buffer_launder(bh))) {
+				tryagain = 0;
 				continue;
+			}
 			wait_on_buffer(bh);
 			tryagain = 1;
 			continue;
@@ -2621,7 +2665,6 @@ static int sync_page_buffers(struct buffer_head *head)
 
 		__mark_buffer_clean(bh);
 		get_bh(bh);
-		set_bit(BH_launder, &bh->b_state);
 		bh->b_end_io = end_buffer_io_sync;
 		submit_bh(WRITE, bh);
 		tryagain = 0;
@@ -2946,14 +2989,29 @@ int bdflush(void *startup)
 
 	complete((struct completion *)startup);
 
+	/*
+	 * FIXME: The ndirty logic here is wrong.  It's supposed to
+	 * send bdflush back to sleep after writing ndirty buffers.
+	 * In fact, the test is wrong so bdflush will in fact
+	 * sleep when bdflush_stop() returns true.
+	 *
+	 * FIXME: If it proves useful to implement ndirty properly,
+	 * then perhaps the value of ndirty should be scaled by the
+	 * amount of memory in the machine.
+	 */
 	for (;;) {
+		int ndirty = bdf_prm.b_un.ndirty;
+
 		CHECK_EMERGENCY_SYNC
 
-		spin_lock(&lru_list_lock);
-		if (!write_some_buffers(NODEV) || balance_dirty_state() < 0) {
-			wait_for_some_buffers(NODEV);
-			interruptible_sleep_on(&bdflush_wait);
+		while (ndirty > 0) {
+			spin_lock(&lru_list_lock);
+			if (!write_some_buffers(NODEV))
+				break;
+			ndirty -= NRSYNC;
 		}
+		if (ndirty > 0 || bdflush_stop())
+			interruptible_sleep_on(&bdflush_wait);
 	}
 }
 
@@ -2982,8 +3040,6 @@ int kupdate(void *startup)
 	complete((struct completion *)startup);
 
 	for (;;) {
-		wait_for_some_buffers(NODEV);
-
 		/* update interval */
 		interval = bdf_prm.b_un.interval;
 		if (interval) {
@@ -3011,6 +3067,7 @@ int kupdate(void *startup)
 		printk(KERN_DEBUG "kupdate() activated...\n");
 #endif
 		sync_old_buffers();
+		run_task_queue(&tq_disk);
 	}
 }
 

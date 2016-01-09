@@ -72,7 +72,6 @@
 #include	<linux/slab.h>
 #include	<linux/interrupt.h>
 #include	<linux/init.h>
-#include	<linux/compiler.h>
 #include	<asm/uaccess.h>
 
 /*

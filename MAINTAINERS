@@ -714,12 +714,12 @@ S:      Supported
 IDE DRIVER [GENERAL]
 P:	Andre Hedrick
 M:	andre@linux-ide.org
-M:	andre@aslab.com
-M:	andre@suse.com
+M:	andre@linuxdiskcert.org
 L:	linux-kernel@vger.kernel.org
 W:	http://www.kernel.org/pub/linux/kernel/people/hedrick/
 W:	http://www.linux-ide.org/
-S:	Supported
+W:	http://www.linuxdiskcert.org/
+S:	Maintained
 
 IDE/ATAPI CDROM DRIVER
 P:	Jens Axboe
@@ -742,15 +742,11 @@ L:	linux-kernel@vger.kernel.org
 S:	Maintained
 
 IEEE 1394 SUBSYSTEM
-P:	Andreas Bombe
-M:	andreas.bombe@munich.netsurf.de
+P:	Ben Collins
+M:	bcollins@debian.org
 L:	linux1394-devel@lists.sourceforge.net
 W:	http://linux1394.sourceforge.net/
 S:	Maintained
-
-IEEE 1394 AIC5800 DRIVER
-L:	linux1394-devel@lists.sourceforge.net
-S:	Orphan
 
 IEEE 1394 OHCI DRIVER
 P:	Ben Collins
@@ -863,7 +859,7 @@ P:	Vojtech Pavlik
 M:	vojtech@suse.cz
 L:	linux-joystick@atrey.karlin.mff.cuni.cz
 W:	http://www.suse.cz/development/joystick/
-S:	Supported
+S:	Maintained
 
 KERNEL AUTOMOUNTER (AUTOFS)
 P:	H. Peter Anvin
@@ -931,6 +927,13 @@ M:	benh@kernel.crashing.org
 W:	http://www.linuxppc.org/
 L:	linuxppc-dev@lists.linuxppc.org
 S:	Maintained
+
+LINUX FOR 64BIT POWERPC
+P:	David Engebretsen
+M:	engebret@us.ibm.com
+W:	http://linuxppc64.org
+L:	linuxppc64-dev@lists.linuxppc.org
+S:	Supported
 
 LOGICAL DISK MANAGER SUPPORT (LDM, Windows 2000/XP Dynamic Disks)
 P:	Richard Russon (FlatCap)
@@ -1197,8 +1200,10 @@ L:	linux-abi-devel@lists.sourceforge.net
 S:	Maintained
 
 PCI ID DATABASE
-P:	Jens Maurer
-M:	jmaurer@cck.uni-kl.de
+P:	Martin Mares
+M:	mj@ucw.cz
+L:	pciids-devel@lists.sourceforge.net
+W:	http://pciids.sourceforge.net/
 S:	Maintained
 
 PCI SOUND DRIVERS (ES1370, ES1371 and SONICVIBES)
@@ -1440,8 +1445,6 @@ P:	Anton Blanchard
 M:	anton@samba.org
 L:	sparclinux@vger.kernel.org
 L:	ultralinux@vger.kernel.org
-W:	http://ultra.linux.cz
-W:	http://www.geog.ubc.ca/s_linux.html
 S:	Maintained
 
 SPECIALIX IO8+ MULTIPORT SERIAL CARD DRIVER
@@ -1590,7 +1593,7 @@ P:	Vojtech Pavlik
 M:	vojtech@suse.cz
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
-S:	Supported
+S:	Maintained
 
 USB AUERSWALD DRIVER
 P:	Wolfgang Muees
@@ -1626,7 +1629,7 @@ M:	vojtech@suse.cz
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
 W:	http://www.suse.cz/development/input/
-S:	Supported
+S:	Maintained
 
 USB HUB
 P:	Johannes Erdfelt
@@ -1677,7 +1680,7 @@ P:	Vojtech Pavlik
 M:	vojtech@suse.cz
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
-S:	Supported
+S:	Maintained
 
 USB SE401 DRIVER
 P:	Jeroen Vreeken

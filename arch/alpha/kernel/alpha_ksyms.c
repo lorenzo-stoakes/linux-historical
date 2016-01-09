@@ -214,6 +214,7 @@ EXPORT_SYMBOL(flush_tlb_page);
 EXPORT_SYMBOL(smp_imb);
 EXPORT_SYMBOL(cpu_data);
 EXPORT_SYMBOL(__cpu_number_map);
+EXPORT_SYMBOL(__cpu_logical_map);
 EXPORT_SYMBOL(smp_num_cpus);
 EXPORT_SYMBOL(smp_call_function);
 EXPORT_SYMBOL(smp_call_function_on_cpu);

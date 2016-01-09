@@ -723,6 +723,59 @@ CONFIG_BLK_DEV_IDEFLOPPY
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called ide-floppy.o.
 
+AWARD Bios Work-Around
+CONFIG_IDEDISK_STROKE
+  Should you have a system w/ an AWARD Bios and your drives are larger
+  than 32GB and it will not boot, one is required to perform a few OEM
+  operations first.  The option is called "STROKE" because it allows
+  one to "soft clip" the drive to work around a barrier limit.  For
+  Maxtor drives it is called "jumpon.exe".  Please search Maxtor's
+  web-site for "JUMPON.EXE".  IBM has a similar tool at:
+  <http://www.storage.ibm.com/hdd/support/download.htm>.
+
+  If you are unsure, say N here.
+
+Raw Access to Media
+CONFIG_IDE_TASK_IOCTL
+  This is a direct raw access to the media.  It is a complex but
+  elegant solution to test and validate the domain of the hardware and
+  perform below the driver data recover if needed.  This is the most
+  basic form of media-forensics.
+
+  If you are unsure, say N here.
+
+Use Taskfile I/O
+CONFIG_IDE_TASKFILE_IO
+  This is the "Jewel" of the patch.  It will go away and become the new
+  driver core.  Since all the chipsets/host side hardware deal w/ their
+  exceptions in "their local code" currently, adoption of a
+  standardized data-transport is the only logical solution.
+  Additionally we packetize the requests and gain rapid performance and
+  a reduction in system latency.  Additionally by using a memory struct
+  for the commands we can redirect to a MMIO host hardware in the next
+  generation of controllers, specifically second generation Ultra133
+  and Serial ATA.
+
+  Since this is a major transition, it was deemed necessary to make the
+  driver paths buildable in separtate models.  Therefore if using this
+  option fails for your arch then we need to address the needs for that
+  arch.
+
+  If you want to test this functionality, say Y here.
+
+Force DMA
+CONFIG_BLK_DEV_IDEDMA_FORCED
+  This is an old piece of lost code from Linux 2.0 Kernels.
+
+  Generally say N here.
+
+DMA Only on Disks
+CONFIG_IDEDMA_ONLYDISK
+  This is used if you know your ATAPI Devices are going to fail DMA
+  Transfers.
+
+  Generally say N here.
+
 SCSI emulation support
 CONFIG_BLK_DEV_IDESCSI
   This will provide SCSI host adapter emulation for IDE ATAPI devices,
@@ -746,6 +799,14 @@ CONFIG_BLK_DEV_IDESCSI
 
   If both this SCSI emulation and native ATAPI support are compiled
   into the kernel, the native support will be used.
+
+Use the NOOP Elevator (WARNING)
+CONFIG_BLK_DEV_ELEVATOR_NOOP
+  If you are using a raid class top-level driver above the ATA/IDE core,
+  one may find a performance boost by preventing a merging and re-sorting
+  of the new requests.
+
+  If unsure, say N.
 
 ISA-PNP EIDE support
 CONFIG_BLK_DEV_ISAPNP
@@ -1136,9 +1197,15 @@ CONFIG_PDC202XX_FORCE
 
 SiS5513 chipset support
 CONFIG_BLK_DEV_SIS5513
-  This driver ensures (U)DMA support for SIS5513 chipset based
-  mainboards. SiS620/530 UDMA mode 4, SiS5600/5597 UDMA mode 2, all
-  other DMA mode 2 limited chipsets are unsupported to date.
+  This driver ensures (U)DMA support for SIS5513 chipset family based
+  mainboards.
+
+  The following chipsets are supported:
+  ATA16:  SiS5511, SiS5513
+  ATA33:  SiS5591, SiS5597, SiS5598, SiS5600
+  ATA66:  SiS530, SiS540, SiS620, SiS630, SiS640
+  ATA100: SiS635, SiS645, SiS650, SiS730, SiS735, SiS740,
+          SiS745, SiS750
 
   If you say Y here, you need to say Y to "Use DMA by default when
   available" as well.
@@ -2512,6 +2579,19 @@ CONFIG_IP_NF_TARGET_MIRROR
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+Local NAT support
+CONFIG_IP_NF_NAT_LOCAL
+  This option enables support for NAT of locally originated connections. 
+  Enable this if you need to use destination NAT on connections
+  originating from local processes on the nat box itself.
+
+  Please note that you will need a recent version (>= 1.2.6a)
+  of the iptables userspace program in order to use this feature.
+  See http://www.iptables.org/ for download instructions.
+
+  If unsure, say 'N'.
+
 
 Full NAT (Network Address Translation)
 CONFIG_IP_NF_NAT
@@ -4213,6 +4293,16 @@ Link-Up Systems LCD support
 CONFIG_FB_L7200
   This driver supports the L7200 Color LCD.
   Say Y if you want graphics support.
+
+NeoMagic display support (EXPERIMENTAL)
+CONFIG_FB_NEOMAGIC
+  This driver supports notebooks with NeoMagic PCI chips.
+  Say Y if you have such a graphics card. 
+
+  The driver is also available as a module ( = code which can be
+  inserted and removed from the running kernel whenever you want). The
+  module will be called neofb.o. If you want to compile it as a
+  module, say M here and read Documentation/modules.txt.
 
 PowerMac "control" frame buffer device support
 CONFIG_FB_CONTROL

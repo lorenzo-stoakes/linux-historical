@@ -155,7 +155,8 @@ static struct dev_info device_list[] =
 	{"DELL", "PV660F   PSEUDO",   "*", BLIST_SPARSELUN},
 	{"DELL", "PSEUDO DEVICE .",   "*", BLIST_SPARSELUN}, // Dell PV 530F
 	{"DELL", "PV530F",    "*", BLIST_SPARSELUN}, // Dell PV 530F
-	{"EMC", "SYMMETRIX", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"EMC", "SYMMETRIX", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_FORCELUN},
+	{"HP", "A6189A", "*", BLIST_SPARSELUN |  BLIST_LARGELUN}, // HP VA7400, by Alar Aun
 	{"CMD", "CRA-7280", "*", BLIST_SPARSELUN},   // CMD RAID Controller
 	{"CNSI", "G7324", "*", BLIST_SPARSELUN},     // Chaparral G7324 RAID
 	{"CNSi", "G8324", "*", BLIST_SPARSELUN},     // Chaparral G8324 RAID
@@ -167,6 +168,8 @@ static struct dev_info device_list[] =
 	{"ADAPTEC", "AACRAID", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "Adaptec 5400S", "*", BLIST_FORCELUN},
 	{"COMPAQ", "MSA1000", "*", BLIST_FORCELUN},
+	{"HP", "C1557A", "*", BLIST_FORCELUN},
+	{"IBM", "AuSaV1S2", "*", BLIST_FORCELUN},
 
 	/*
 	 * Must be at end of list...

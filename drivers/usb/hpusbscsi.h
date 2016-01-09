@@ -4,8 +4,13 @@
 /* large parts based on or taken from code by John Fremlin and Matt Dharm */
 /* this file is licensed under the GPL */
 
+/* A big thanks to Jose for untiring testing */
+
 typedef void (*usb_urb_callback) (struct urb *);
 typedef void (*scsi_callback)(Scsi_Cmnd *);
+
+#define SENSE_COMMAND_SIZE 6
+#define HPUSBSCSI_SENSE_LENGTH 0x16
 
 struct hpusbscsi
 {
@@ -21,6 +26,7 @@ struct hpusbscsi
         int number;
        scsi_callback scallback;
        Scsi_Cmnd *srb;
+	u8 sense_command[SENSE_COMMAND_SIZE];
 
         int use_count;
         wait_queue_head_t pending;
@@ -57,6 +63,7 @@ static void simple_done (struct urb *u);
 static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback);
 static int hpusbscsi_scsi_host_reset (Scsi_Cmnd *srb);
 static int hpusbscsi_scsi_abort (Scsi_Cmnd *srb);
+static void issue_request_sense (struct hpusbscsi *hpusbscsi);
 
 static Scsi_Host_Template hpusbscsi_scsi_host_template = {
 	name:           "hpusbscsi",

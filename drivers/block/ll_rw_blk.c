@@ -117,16 +117,6 @@ int * max_readahead[MAX_BLKDEV];
  */
 int * max_sectors[MAX_BLKDEV];
 
-/*
- * The total number of requests in each queue.
- */
-static int queue_nr_requests;
-
-/*
- * The threshold around which we make wakeup decisions
- */
-static int batch_requests;
-
 static inline int get_max_sectors(kdev_t dev)
 {
 	if (!max_sectors[MAJOR(dev)])
@@ -180,7 +170,7 @@ static int __blk_cleanup_queue(struct request_list *list)
  **/
 void blk_cleanup_queue(request_queue_t * q)
 {
-	int count = queue_nr_requests;
+	int count = q->nr_requests;
 
 	count -= __blk_cleanup_queue(&q->rq[READ]);
 	count -= __blk_cleanup_queue(&q->rq[WRITE]);
@@ -330,31 +320,64 @@ void generic_unplug_device(void *data)
 	spin_unlock_irqrestore(&io_request_lock, flags);
 }
 
+/** blk_grow_request_list
+ *  @q: The &request_queue_t
+ *  @nr_requests: how many requests are desired
+ *
+ * More free requests are added to the queue's free lists, bringing
+ * the total number of requests to @nr_requests.
+ *
+ * The requests are added equally to the request queue's read
+ * and write freelists.
+ *
+ * This function can sleep.
+ *
+ * Returns the (new) number of requests which the queue has available.
+ */
+int blk_grow_request_list(request_queue_t *q, int nr_requests)
+{
+	spin_lock_irq(&io_request_lock);
+	while (q->nr_requests < nr_requests) {
+		struct request *rq;
+		int rw;
+
+		spin_unlock_irq(&io_request_lock);
+		rq = kmem_cache_alloc(request_cachep, SLAB_KERNEL);
+		spin_lock_irq(&io_request_lock);
+		if (rq == NULL)
+			break;
+		memset(rq, 0, sizeof(*rq));
+		rq->rq_status = RQ_INACTIVE;
+		rw = q->nr_requests & 1;
+		list_add(&rq->queue, &q->rq[rw].free);
+		q->rq[rw].count++;
+		q->nr_requests++;
+	}
+	q->batch_requests = q->nr_requests / 4;
+	if (q->batch_requests > 32)
+		q->batch_requests = 32;
+	spin_unlock_irq(&io_request_lock);
+	return q->nr_requests;
+}
+
 static void blk_init_free_list(request_queue_t *q)
 {
-	struct request *rq;
-	int i;
+	struct sysinfo si;
+	int megs;		/* Total memory, in megabytes */
+	int nr_requests;
 
 	INIT_LIST_HEAD(&q->rq[READ].free);
 	INIT_LIST_HEAD(&q->rq[WRITE].free);
 	q->rq[READ].count = 0;
 	q->rq[WRITE].count = 0;
+	q->nr_requests = 0;
 
-	/*
-	 * Divide requests in half between read and write
-	 */
-	for (i = 0; i < queue_nr_requests; i++) {
-		rq = kmem_cache_alloc(request_cachep, SLAB_KERNEL);
-		if (rq == NULL) {
-			/* We'll get a `leaked requests' message from blk_cleanup_queue */
-			printk(KERN_EMERG "blk_init_free_list: error allocating requests\n");
-			break;
-		}
-		memset(rq, 0, sizeof(struct request));
-		rq->rq_status = RQ_INACTIVE;
-		list_add(&rq->queue, &q->rq[i&1].free);
-		q->rq[i&1].count++;
-	}
+	si_meminfo(&si);
+	megs = si.totalram >> (20 - PAGE_SHIFT);
+	nr_requests = 128;
+	if (megs < 32)
+		nr_requests /= 2;
+	blk_grow_request_list(q, nr_requests);
 
 	init_waitqueue_head(&q->wait_for_requests[0]);
 	init_waitqueue_head(&q->wait_for_requests[1]);
@@ -610,7 +633,7 @@ void blkdev_release_request(struct request *req)
 	 */
 	if (q) {
 		list_add(&req->queue, &q->rq[rw].free);
-		if (++q->rq[rw].count >= batch_requests &&
+		if (++q->rq[rw].count >= q->batch_requests &&
 				waitqueue_active(&q->wait_for_requests[rw]))
 			wake_up(&q->wait_for_requests[rw]);
 	}
@@ -802,7 +825,7 @@ get_rq:
 		 * See description above __get_request_wait()
 		 */
 		if (rw_ahead) {
-			if (q->rq[rw].count < batch_requests) {
+			if (q->rq[rw].count < q->batch_requests) {
 				spin_unlock_irq(&io_request_lock);
 				goto end_io;
 			}
@@ -958,6 +981,7 @@ void submit_bh(int rw, struct buffer_head * bh)
 		BUG();
 
 	set_bit(BH_Req, &bh->b_state);
+	set_bit(BH_Launder, &bh->b_state);
 
 	/*
 	 * First step, 'identity mapping' - RAID or LVM might
@@ -1149,12 +1173,9 @@ void end_that_request_last(struct request *req)
 	blkdev_release_request(req);
 }
 
-#define MB(kb)	((kb) << 10)
-
 int __init blk_dev_init(void)
 {
 	struct blk_dev_struct *dev;
-	int total_ram;
 
 	request_cachep = kmem_cache_create("blkdev_requests",
 					   sizeof(struct request),
@@ -1169,22 +1190,6 @@ int __init blk_dev_init(void)
 	memset(ro_bits,0,sizeof(ro_bits));
 	memset(max_readahead, 0, sizeof(max_readahead));
 	memset(max_sectors, 0, sizeof(max_sectors));
-
-	total_ram = nr_free_pages() << (PAGE_SHIFT - 10);
-
-	/*
-	 * Free request slots per queue.
-	 * (Half for reads, half for writes)
-	 */
-	queue_nr_requests = 64;
-	if (total_ram > MB(32))
-		queue_nr_requests = 128;
-
-	/*
-	 * Batch frees according to queue length
-	 */
-	batch_requests = queue_nr_requests/4;
-	printk("block: %d slots per queue, batch=%d\n", queue_nr_requests, batch_requests);
 
 #ifdef CONFIG_AMIGA_Z2RAM
 	z2_init();
@@ -1296,6 +1301,7 @@ int __init blk_dev_init(void)
 EXPORT_SYMBOL(io_request_lock);
 EXPORT_SYMBOL(end_that_request_first);
 EXPORT_SYMBOL(end_that_request_last);
+EXPORT_SYMBOL(blk_grow_request_list);
 EXPORT_SYMBOL(blk_init_queue);
 EXPORT_SYMBOL(blk_get_queue);
 EXPORT_SYMBOL(blk_cleanup_queue);

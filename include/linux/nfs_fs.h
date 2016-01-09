@@ -171,7 +171,7 @@ nfs_file_cred(struct file *file)
 		cred = (struct rpc_cred *)file->private_data;
 #ifdef RPC_DEBUG
 	if (cred && cred->cr_magic != RPCAUTH_CRED_MAGIC)
-		BUG();
+		out_of_line_bug();
 #endif
 	return cred;
 }

@@ -202,6 +202,7 @@ obj-$(CONFIG_AMIGAMOUSE) += amigamouse.o
 obj-$(CONFIG_ATARIMOUSE) += atarimouse.o
 obj-$(CONFIG_ADBMOUSE) += adbmouse.o
 obj-$(CONFIG_PC110_PAD) += pc110pad.o
+obj-$(CONFIG_MK712_MOUSE) += mk712.o
 obj-$(CONFIG_RTC) += rtc.o
 obj-$(CONFIG_EFI_RTC) += efirtc.o
 ifeq ($(CONFIG_PPC),)
@@ -211,6 +212,8 @@ obj-$(CONFIG_TOSHIBA) += toshiba.o
 obj-$(CONFIG_I8K) += i8k.o
 obj-$(CONFIG_DS1620) += ds1620.o
 obj-$(CONFIG_INTEL_RNG) += i810_rng.o
+obj-$(CONFIG_AMD_RNG) += amd768_rng.o
+
 obj-$(CONFIG_ITE_GPIO) += ite_gpio.o
 obj-$(CONFIG_AU1000_GPIO) += au1000_gpio.o
 obj-$(CONFIG_COBALT_LCD) += lcd.o
@@ -244,6 +247,8 @@ obj-$(CONFIG_ADVANTECH_WDT) += advantechwdt.o
 obj-$(CONFIG_IB700_WDT) += ib700wdt.o
 obj-$(CONFIG_MIXCOMWD) += mixcomwd.o
 obj-$(CONFIG_60XX_WDT) += sbc60xxwdt.o
+obj-$(CONFIG_W83877F_WDT) += w83877f_wdt.o
+obj-$(CONFIG_SC520_WDT) += sc520_wdt.o
 obj-$(CONFIG_WDT) += wdt.o
 obj-$(CONFIG_WDTPCI) += wdt_pci.o
 obj-$(CONFIG_21285_WATCHDOG) += wdt285.o
@@ -252,8 +257,11 @@ obj-$(CONFIG_I810_TCO) += i810-tco.o
 obj-$(CONFIG_MACHZ_WDT) += machzwd.o
 obj-$(CONFIG_SH_WDT) += shwdt.o
 obj-$(CONFIG_EUROTECH_WDT) += eurotechwdt.o
-obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
+obj-$(CONFIG_ALIM7101_WDT) += alim7101_wdt.o
 obj-$(CONFIG_INDYDOG) += indydog.o
+obj-$(CONFIG_SC1200_WDT) += sc1200wdt.o
+obj-$(CONFIG_WAFER_WDT) += wafer5823wdt.o
+obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
 
 subdir-$(CONFIG_MWAVE) += mwave
 ifeq ($(CONFIG_MWAVE),y)

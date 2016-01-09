@@ -3813,7 +3813,7 @@ static int ali_reset_5451(struct trident_card *card)
 	pci_write_config_dword(pci_dev, 0x44, dwVal & 0xfffbffff);
 	udelay(5000);
 
-	wCount = 200;
+	wCount = 2000;
 	while(wCount--) {
 		wReg = ali_ac97_get(card, 0, AC97_POWER_CONTROL);
 		if((wReg & 0x000f) == 0x000f)

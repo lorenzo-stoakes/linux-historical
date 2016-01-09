@@ -11,6 +11,9 @@
  * 
  * 
  * History:
+ *
+ * 2002/01/20 async unlink fixes:  return -EINPROGRESS (per spec) and
+ *	make interrupt unlink-in-completion work (db)
  * 
  * 2001/09/19 USB_ZERO_PACKET support (Jean Tourrilhes)
  * 2001/07/17 power management and pmac cleanup (Benjamin Herrenschmidt)
@@ -486,9 +489,8 @@ static int sohci_return_urb (struct ohci *hc, urb_t * urb)
 
 			/* implicitly requeued */
   			urb->actual_length = 0;
-  			urb->status = USB_ST_URB_PENDING;
-  			if (urb_priv->state != URB_DEL)
-  				td_submit_urb (urb);
+			urb->status = -EINPROGRESS;
+			td_submit_urb (urb);
   			break;
   			
 		case PIPE_ISOCHRONOUS:
@@ -790,6 +792,7 @@ static int sohci_unlink_urb (urb_t * urb)
 				/* usb_dec_dev_use done in dl_del_list() */
 				urb->status = -EINPROGRESS;
 				spin_unlock_irqrestore (&usb_ed_lock, flags);
+				return -EINPROGRESS;
 			}
 		} else {
 			urb_rm_priv (urb);

@@ -550,10 +550,6 @@ static int usb_hub_port_wait_reset(struct usb_device *hub, int port,
 		if (!(portstatus & USB_PORT_STAT_CONNECTION))
 			return 1;
 
-		/* Device went away? */
-		if (!(portstatus & USB_PORT_STAT_CONNECTION))
-			return 1;
-
 		/* bomb out completely if something weird happened */
 		if ((portchange & USB_PORT_STAT_C_CONNECTION))
 			return -1;
@@ -631,11 +627,11 @@ void usb_hub_port_disable(struct usb_device *hub, int port)
  * Not covered by the spec - but easy to deal with.
  *
  * This implementation uses 400ms minimum debounce timeout and checks
- * every 10ms for transient disconnects to restart the delay.
+ * every 100ms for transient disconnects to restart the delay.
  */
 
 #define HUB_DEBOUNCE_TIMEOUT	400
-#define HUB_DEBOUNCE_STEP	10
+#define HUB_DEBOUNCE_STEP	100
 
 /* return: -1 on error, 0 on success, 1 on disconnect.  */
 static int usb_hub_port_debounce(struct usb_device *hub, int port)
@@ -908,6 +904,7 @@ static int usb_hub_thread(void *__hub)
 	 */
 
 	daemonize();
+	reparent_to_init();
 
 	/* Setup a nice name */
 	strcpy(current->comm, "khubd");

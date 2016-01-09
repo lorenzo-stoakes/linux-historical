@@ -30,6 +30,7 @@
  * HISTORY
  *
  */
+#include <linux/config.h>
 
 #ifndef _UDF_FS_H
 #define _UDF_FS_H 1

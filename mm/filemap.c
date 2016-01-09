@@ -23,7 +23,6 @@
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/iobuf.h>
-#include <linux/compiler.h>
 
 #include <asm/pgalloc.h>
 #include <asm/uaccess.h>
@@ -869,12 +868,6 @@ static void __lock_page(struct page *page)
 	__set_task_state(tsk, TASK_RUNNING);
 	remove_wait_queue(waitqueue, &wait);
 }
-
-void wake_up_page(struct page *page)
-{
-	wake_up(page_waitqueue(page));
-}
-EXPORT_SYMBOL(wake_up_page);
 
 /*
  * Get an exclusive lock on the page, optimistically
@@ -2204,6 +2197,9 @@ static int msync_interval(struct vm_area_struct * vma,
 {
 	int ret = 0;
 	struct file * file = vma->vm_file;
+
+	if ( (flags & MS_INVALIDATE) && (vma->vm_flags & VM_LOCKED) )
+		return -EBUSY;
 
 	if (file && (vma->vm_flags & VM_SHARED)) {
 		ret = filemap_sync(vma, start, end-start, flags);

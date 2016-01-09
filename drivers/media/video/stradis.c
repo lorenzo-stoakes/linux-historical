@@ -1972,7 +1972,9 @@ static int saa_open(struct video_device *dev, int flags)
 {
 	struct saa7146 *saa = (struct saa7146 *) dev;
 
-	saa->video_dev.busy = 0;
+	/* FIXME: Don't do it this way, use the video_device->fops
+	 * registration for a sane implementation of multiple opens */
+	saa->video_dev.users--;
 	saa->user++;
 	if (saa->user > 1)
 		return 0;	/* device open already, don't reset */
@@ -1984,7 +1986,7 @@ static void saa_close(struct video_device *dev)
 {
 	struct saa7146 *saa = (struct saa7146 *) dev;
 	saa->user--;
-	saa->video_dev.busy = 0;
+	saa->video_dev.users++;
 	if (saa->user > 0)	/* still someone using device */
 		return;
 	saawrite(0x007f0000, SAA7146_MC1);	/* stop all overlay dma */

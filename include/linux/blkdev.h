@@ -79,6 +79,16 @@ struct request_queue
 	struct request_list	rq[2];
 
 	/*
+	 * The total number of requests on each queue
+	 */
+	int nr_requests;
+
+	/*
+	 * Batching threshold for sleep/wakeup decisions
+	 */
+	int batch_requests;
+
+	/*
 	 * Together with queue_head for cacheline sharing
 	 */
 	struct list_head	queue_head;
@@ -157,6 +167,7 @@ extern void blkdev_release_request(struct request *);
 /*
  * Access functions for manipulating queue properties
  */
+extern int blk_grow_request_list(request_queue_t *q, int nr_requests);
 extern void blk_init_queue(request_queue_t *, request_fn_proc *);
 extern void blk_cleanup_queue(request_queue_t *);
 extern void blk_queue_headactive(request_queue_t *, int);

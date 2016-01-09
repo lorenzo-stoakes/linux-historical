@@ -55,6 +55,8 @@
  *		Tigran Aivazian <tigran@veritas.com>,
  *		Serialize updates as required on HT processors due to speculative
  *		nature of implementation.
+ *	1.11	22 Mar 2001 Tigran Aivazian <tigran@veritas.com>
+ *		Fix the panic when writing zero-length microcode chunk.
  */
 
 #include <linux/init.h>
@@ -73,7 +75,7 @@
 
 static spinlock_t microcode_update_lock = SPIN_LOCK_UNLOCKED;
 
-#define MICROCODE_VERSION 	"1.10"
+#define MICROCODE_VERSION 	"1.11"
 
 MODULE_DESCRIPTION("Intel CPU (IA-32) microcode update driver");
 MODULE_AUTHOR("Tigran Aivazian <tigran@veritas.com>");
@@ -330,9 +332,13 @@ static ssize_t microcode_write(struct file *file, const char *buf, size_t len, l
 {
 	ssize_t ret;
 
-	if (len % sizeof(struct microcode) != 0) {
+	if (!len || len % sizeof(struct microcode) != 0) {
 		printk(KERN_ERR "microcode: can only write in N*%d bytes units\n", 
 			sizeof(struct microcode));
+		return -EINVAL;
+	}
+	if ((len >> PAGE_SHIFT) > num_physpages) {
+		printk(KERN_ERR "microcode: too much data (max %d pages)\n", num_physpages);
 		return -EINVAL;
 	}
 	down_write(&microcode_rwsem);

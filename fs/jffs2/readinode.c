@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: readinode.c,v 1.58.2.2 2002/02/23 14:25:37 dwmw2 Exp $
+ * $Id: readinode.c,v 1.58.2.5 2002/03/05 22:40:03 dwmw2 Exp $
  *
  */
 
@@ -252,6 +252,7 @@ void jffs2_read_inode (struct inode *inode)
 	struct jffs2_sb_info *c;
 	struct jffs2_raw_inode latest_node;
 	__u32 latest_mctime, mctime_ver;
+	__u32 mdata_ver = 0;
 	int ret;
 	ssize_t retlen;
 
@@ -299,8 +300,6 @@ void jffs2_read_inode (struct inode *inode)
 	f->dents = fd_list;
 
 	while (tn_list) {
-		static __u32 mdata_ver = 0;
-
 		tn = tn_list;
 
 		fn = tn->fn;
@@ -472,6 +471,8 @@ void jffs2_clear_inode (struct inode *inode)
 
 	D1(printk(KERN_DEBUG "jffs2_clear_inode(): ino #%lu mode %o\n", inode->i_ino, inode->i_mode));
 
+	down(&f->sem);
+
 	frags = f->fraglist;
 	fds = f->dents;
 	if (f->metadata) {
@@ -499,10 +500,7 @@ void jffs2_clear_inode (struct inode *inode)
 		fds = fd->next;
 		jffs2_free_full_dirent(fd);
 	}
-	//	if (!f->inocache->nlink) {
-		//		D1(printk(KERN_DEBUG "jffs2_clear_inode() deleting inode #%lu\n", inode->i_ino));
-		//		jffs2_del_ino_cache(JFFS2_SB_INFO(inode->i_sb), f->inocache);
-		//		jffs2_free_inode_cache(f->inocache);
-	//	}
+
+	up(&f->sem);
 };
 

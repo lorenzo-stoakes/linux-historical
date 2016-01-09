@@ -62,7 +62,7 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
      tristate '    Stallion EasyIO or EC8/32 support' CONFIG_STALLION
      tristate '    Stallion EC8/64, ONboard, Brumby support' CONFIG_ISTALLION
    fi
-   if [ "CONFIG_MIPS" = "y" ]; then
+   if [ "$CONFIG_MIPS" = "y" ]; then
      bool '  TX3912/PR31700 serial port support' CONFIG_SERIAL_TX3912
      dep_bool '     Console on TX3912/PR31700 serial port' CONFIG_SERIAL_TX3912_CONSOLE $CONFIG_SERIAL_TX3912
      bool '  Enable Au1000 UART Support' CONFIG_AU1000_UART
@@ -154,6 +154,7 @@ if [ "$CONFIG_MOUSE" != "n" ]; then
    bool '  PS/2 mouse (aka "auxiliary device") support' CONFIG_PSMOUSE
    tristate '  C&T 82C710 mouse port support (as on TI Travelmate)' CONFIG_82C710_MOUSE
    tristate '  PC110 digitizer pad support' CONFIG_PC110_PAD
+   tristate '  MK712 touch screen support' CONFIG_MK712_MOUSE
 fi
 endmenu
 
@@ -201,7 +202,9 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
    tristate '  SBC-60XX Watchdog Timer' CONFIG_60XX_WDT
    tristate '  W83877F (EMACS) Watchdog Timer' CONFIG_W83877F_WDT
    tristate '  ZF MachZ Watchdog' CONFIG_MACHZ_WDT
-   dep_tristate '  Indy/I2 Hardware Watchdog' CONFIG_INDYDOG $CONFIG_SGI_IP22
+   if [ "$CONFIG_SGI_IP22" = "y" ]; then
+      tristate '  Indy/I2 Hardware Watchdog' CONFIG_INDYDOG
+   fi
 fi
 endmenu
 
@@ -214,6 +217,7 @@ if [ "$CONFIG_ARCH_NETWINDER" = "y" ]; then
    tristate 'NetWinder flash support' CONFIG_NWFLASH
 fi
 
+dep_tristate 'AMD 768 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI
 dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
 tristate '/dev/nvram support' CONFIG_NVRAM
 tristate 'Enhanced Real Time Clock Support' CONFIG_RTC

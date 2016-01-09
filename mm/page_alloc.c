@@ -20,7 +20,6 @@
 #include <linux/pagemap.h>
 #include <linux/bootmem.h>
 #include <linux/slab.h>
-#include <linux/compiler.h>
 #include <linux/module.h>
 
 int nr_swap_pages;

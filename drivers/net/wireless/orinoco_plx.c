@@ -385,18 +385,17 @@ static struct pci_device_id orinoco_plx_pci_id_table[] __devinitdata = {
 	{0x16ab, 0x1101, PCI_ANY_ID, PCI_ANY_ID,},	/* Reported working, but unknown */
 	{0x16ab, 0x1102, PCI_ANY_ID, PCI_ANY_ID,},	/* Linksys WDT11 */
 	{0x16ec, 0x3685, PCI_ANY_ID, PCI_ANY_ID,},	/* USR 2415 */
+	{0xec80, 0xec00, PCI_ANY_ID, PCI_ANY_ID,}, 	/* Belkin F5D6000 */
 	{0,},
 };
 
 MODULE_DEVICE_TABLE(pci, orinoco_plx_pci_id_table);
 
 static struct pci_driver orinoco_plx_driver = {
-	name:"orinoco_plx",
-	id_table:orinoco_plx_pci_id_table,
-	probe:orinoco_plx_init_one,
-	remove:__devexit_p(orinoco_plx_remove_one),
-	suspend:0,
-	resume:0
+	name:		"orinoco_plx",
+	id_table:	orinoco_plx_pci_id_table,
+	probe:		orinoco_plx_init_one,
+	remove:		__devexit_p(orinoco_plx_remove_one),
 };
 
 static int __init orinoco_plx_init(void)

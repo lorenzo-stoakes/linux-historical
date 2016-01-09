@@ -471,6 +471,28 @@ static const lookup_t error_table[] = {
 };
 #define ERROR_COUNT	(sizeof(error_table)/sizeof(lookup_t))
 
+/**
+ *	apm_error	-	display an APM error
+ *	@str: information string
+ *	@err: APM BIOS return code
+ *
+ *	Write a meaningful log entry to the kernel log in the event of
+ *	an APM error.
+ */
+ 
+static void apm_error(char *str, int err)
+{
+	int	i;
+
+	for (i = 0; i < ERROR_COUNT; i++)
+		if (error_table[i].key == err) break;
+	if (i < ERROR_COUNT)
+		printk(KERN_NOTICE "apm: %s: %s\n", str, error_table[i].msg);
+	else
+		printk(KERN_NOTICE "apm: %s: unknown error code %#2.2x\n",
+			str, err);
+}
+
 /*
  * These are the actual BIOS calls.  Depending on APM_ZERO_SEGS and
  * apm_info.allow_ints, we are being really paranoid here!  Not only
@@ -702,13 +724,13 @@ static int set_power_state(u_short what, u_short state)
 }
 
 /**
- *	apm_set_power_state - set system wide power state
+ *	set_system_power_state - set system wide power state
  *	@state: which state to enter
  *
  *	Transition the entire system into a new APM power state.
  */
  
-static int apm_set_power_state(u_short state)
+static int set_system_power_state(u_short state)
 {
 	return set_power_state(APM_DEVICE_ALL, state);
 }
@@ -884,7 +906,7 @@ static void apm_power_off(void)
 	if (apm_info.realmode_power_off)
 		machine_real_restart(po_bios_call, sizeof(po_bios_call));
 	else
-		(void) apm_set_power_state(APM_STATE_OFF);
+		(void) set_system_power_state(APM_STATE_OFF);
 }
 
 /**
@@ -1029,28 +1051,6 @@ static int apm_engage_power_management(u_short device, int enable)
 	return APM_SUCCESS;
 }
 
-/**
- *	apm_error	-	display an APM error
- *	@str: information string
- *	@err: APM BIOS return code
- *
- *	Write a meaningful log entry to the kernel log in the event of
- *	an APM error.
- */
- 
-static void apm_error(char *str, int err)
-{
-	int	i;
-
-	for (i = 0; i < ERROR_COUNT; i++)
-		if (error_table[i].key == err) break;
-	if (i < ERROR_COUNT)
-		printk(KERN_NOTICE "apm: %s: %s\n", str, error_table[i].msg);
-	else
-		printk(KERN_NOTICE "apm: %s: unknown error code %#2.2x\n",
-			str, err);
-}
-
 #if defined(CONFIG_APM_DISPLAY_BLANK) && defined(CONFIG_VT)
 
 /**
@@ -1189,7 +1189,7 @@ static int suspend(int vetoable)
 		/* Vetoed */
 		if (vetoable) {
 			if (apm_info.connection_version > 0x100)
-				apm_set_power_state(APM_STATE_REJECT);
+				set_system_power_state(APM_STATE_REJECT);
 			err = -EBUSY;
 			ignore_sys_suspend = 0;
 			printk(KERN_WARNING "apm: suspend was vetoed.\n");
@@ -1199,9 +1199,10 @@ static int suspend(int vetoable)
 	}
 	get_time_diff();
 	cli();
-	err = apm_set_power_state(APM_STATE_SUSPEND);
+	err = set_system_power_state(APM_STATE_SUSPEND);
 	reinit_timer();
 	set_time();
+	ignore_normal_resume = 1;
 	sti();
 	if (err == APM_NO_ERROR)
 		err = APM_SUCCESS;
@@ -1210,7 +1211,6 @@ static int suspend(int vetoable)
 	err = (err == APM_SUCCESS) ? 0 : -EIO;
 	pm_send_all(PM_RESUME, (void *)0);
 	queue_event(APM_NORMAL_RESUME, NULL);
-	ignore_normal_resume = 1;
  out:
 	for (as = user_list; as != NULL; as = as->next) {
 		as->suspend_wait = 0;
@@ -1226,7 +1226,7 @@ static void standby(void)
 
 	/* If needed, notify drivers here */
 	get_time_diff();
-	err = apm_set_power_state(APM_STATE_STANDBY);
+	err = set_system_power_state(APM_STATE_STANDBY);
 	if ((err != APM_SUCCESS) && (err != APM_NO_ERROR))
 		apm_error("standby", err);
 }
@@ -1280,13 +1280,13 @@ static void check_events(void)
 		case APM_USER_SUSPEND:
 #ifdef CONFIG_APM_IGNORE_USER_SUSPEND
 			if (apm_info.connection_version > 0x100)
-				apm_set_power_state(APM_STATE_REJECT);
+				set_system_power_state(APM_STATE_REJECT);
 			break;
 #endif
 		case APM_SYS_SUSPEND:
 			if (ignore_bounce) {
 				if (apm_info.connection_version > 0x100)
-					apm_set_power_state(APM_STATE_REJECT);
+					set_system_power_state(APM_STATE_REJECT);
 				break;
 			}
 			/*
@@ -1352,7 +1352,7 @@ static void apm_event_handler(void)
 			pending_count = 4;
 			if (debug)
 				printk(KERN_DEBUG "apm: setting state busy\n");
-			err = apm_set_power_state(APM_STATE_BUSY);
+			err = set_system_power_state(APM_STATE_BUSY);
 			if (err)
 				apm_error("busy", err);
 		}

@@ -618,7 +618,7 @@ static struct urb_priv *uhci_alloc_urb_priv(struct uhci *uhci, struct urb *urb)
 {
 	struct urb_priv *urbp;
 
-	urbp = kmem_cache_alloc(uhci_up_cachep, in_interrupt() ? SLAB_ATOMIC : SLAB_KERNEL);
+	urbp = kmem_cache_alloc(uhci_up_cachep, SLAB_ATOMIC);
 	if (!urbp) {
 		err("uhci_alloc_urb_priv: couldn't allocate memory for urb_priv\n");
 		return NULL;
@@ -1585,7 +1585,9 @@ out:
 	spin_unlock(&urb->lock);
 	spin_unlock_irqrestore(&uhci->urb_list_lock, flags);
 
-	uhci_call_completion(urb);
+	/* Only call completion if it was successful */
+	if (!ret)
+		uhci_call_completion(urb);
 
 	return ret;
 }
@@ -1651,6 +1653,7 @@ static void uhci_transfer_result(struct uhci *uhci, struct urb *urb)
 		/* Interrupts are an exception */
 		if (urb->interval) {
 			uhci_add_complete(urb);
+			spin_unlock_irqrestore(&urb->lock, flags);
 			return;		/* <-- note return */
 		}
 

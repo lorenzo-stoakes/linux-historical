@@ -215,6 +215,9 @@ static char * pdc202xx_info_new (char *buf, struct pci_dev *dev)
 //	int udmasel[4]={0,0,0,0}, piosel[4]={0,0,0,0}, i=0, hd=0;
 
 	switch(dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
+			p += sprintf(p, "\n                                PDC20276 Chipset.\n");
+			break;
 		case PCI_DEVICE_ID_PROMISE_20275:
 			p += sprintf(p, "\n                                PDC20275 Chipset.\n");
 			break;
@@ -236,6 +239,7 @@ static int pdc202xx_get_info (char *buffer, char **addr, off_t offset, int count
 {
 	char *p = buffer;
 	switch(bmide_dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20269:
 		case PCI_DEVICE_ID_PROMISE_20268:
@@ -729,6 +733,7 @@ static int config_chipset_for_dma (ide_drive_t *drive, byte ultra)
 				   (ultra_100)) ? 1 : 0;
 
 	switch(dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20269:
 			udma_133 = (udma_66) ? 1 : 0;
@@ -984,6 +989,7 @@ int pdc202xx_dmaproc (ide_dma_action_t func, ide_drive_t *drive)
 	unsigned long dma_base	= hwif->dma_base;
 
 	switch (dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20269:
 		case PCI_DEVICE_ID_PROMISE_20268R:
@@ -1116,6 +1122,7 @@ unsigned int __init pci_init_pdc202xx (struct pci_dev *dev, const char *name)
 	}
 
 	switch (dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20269:
 		case PCI_DEVICE_ID_PROMISE_20268R:
@@ -1210,6 +1217,7 @@ unsigned int __init ata66_pdc202xx (ide_hwif_t *hwif)
 	unsigned short CIS;
 
         switch(hwif->pci_dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20269:
 		case PCI_DEVICE_ID_PROMISE_20268:
@@ -1228,6 +1236,7 @@ void __init ide_init_pdc202xx (ide_hwif_t *hwif)
 	hwif->quirkproc = &pdc202xx_quirkproc;
 
         switch(hwif->pci_dev->device) {
+		case PCI_DEVICE_ID_PROMISE_20276:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20269:
 		case PCI_DEVICE_ID_PROMISE_20268:

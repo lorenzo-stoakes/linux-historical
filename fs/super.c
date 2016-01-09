@@ -762,7 +762,7 @@ void kill_super(struct super_block *sb)
 
 	/* Forget any remaining inodes */
 	if (invalidate_inodes(sb)) {
-		printk("VFS: Busy inodes after unmount. "
+		printk(KERN_ERR "VFS: Busy inodes after unmount. "
 			"Self-destruct in 5 seconds.  Have a nice day...\n");
 	}
 

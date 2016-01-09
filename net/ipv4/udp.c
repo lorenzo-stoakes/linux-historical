@@ -712,6 +712,8 @@ int udp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 {
 	struct sockaddr_in *usin = (struct sockaddr_in *) uaddr;
 	struct rtable *rt;
+	u32 saddr;
+	int oif;
 	int err;
 
 	
@@ -723,8 +725,16 @@ int udp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 
 	sk_dst_reset(sk);
 
-	err = ip_route_connect(&rt, usin->sin_addr.s_addr, sk->saddr,
-			       RT_CONN_FLAGS(sk), sk->bound_dev_if);
+	oif = sk->bound_dev_if;
+	saddr = sk->saddr;
+	if (MULTICAST(usin->sin_addr.s_addr)) {
+		if (!oif)
+			oif = sk->protinfo.af_inet.mc_index;
+		if (!saddr)
+			saddr = sk->protinfo.af_inet.mc_addr;
+	}
+	err = ip_route_connect(&rt, usin->sin_addr.s_addr, saddr,
+			       RT_CONN_FLAGS(sk), oif);
 	if (err)
 		return err;
 	if ((rt->rt_flags&RTCF_BROADCAST) && !sk->broadcast) {

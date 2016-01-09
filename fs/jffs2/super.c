@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: super.c,v 1.48.2.1 2002/02/23 14:13:34 dwmw2 Exp $
+ * $Id: super.c,v 1.48.2.2 2002/03/12 15:36:43 dwmw2 Exp $
  *
  */
 
@@ -245,14 +245,10 @@ static struct super_block *jffs2_read_super(struct super_block *sb, void *data, 
 	INIT_LIST_HEAD(&c->bad_used_list);
 	c->highest_ino = 1;
 
-	c->flags |= JFFS2_SB_FLAG_MOUNTING;
-
 	if (jffs2_build_filesystem(c)) {
 		D1(printk(KERN_DEBUG "build_fs failed\n"));
 		goto out_nodes;
 	}
-
-	c->flags &= ~JFFS2_SB_FLAG_MOUNTING;
 
 	sb->s_op = &jffs2_super_operations;
 

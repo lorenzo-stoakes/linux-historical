@@ -161,6 +161,16 @@
  *     - Remove possibility of calling bond_sethwaddr with NULL slave_dev ptr 
  *     - Handle hot swap ethernet interface deregistration events to remove
  *       kernel oops following hot swap of enslaved interface
+ *
+ * 2002/1/2 - Chad N. Tindel <ctindel at ieee dot org>
+ *     - Restore original slave flags at release time.
+ *
+ * 2002/02/18 - Erik Habbinga <erik_habbinga at hp dot com>
+ *     - bond_release(): calling kfree on our_slave after call to
+ *       bond_restore_slave_flags, not before
+ *     - bond_enslave(): saving slave flags into original_flags before
+ *       call to netdev_set_master, so the IFF_SLAVE flag doesn't end
+ *       up in original_flags
  */
 
 #include <linux/config.h>
@@ -208,10 +218,7 @@
 #define MII_ENDOF_NWAY	0x20
 
 #undef  MII_LINK_READY
-/*#define MII_LINK_READY	(MII_LINK_UP | MII_ENDOF_NWAY)*/
 #define MII_LINK_READY	(MII_LINK_UP)
-
-#define MAX_BOND_ADDR 256
 
 #ifndef BOND_LINK_ARP_INTERV
 #define BOND_LINK_ARP_INTERV	0
@@ -223,7 +230,7 @@ static unsigned long arp_target = 0;
 static u32 my_ip = 0;
 char *arp_target_hw_addr = NULL;
 
-static int max_bonds	= MAX_BONDS;
+static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
 static int miimon	= BOND_LINK_MON_INTERV;
 static int mode		= BOND_MODE_ROUNDROBIN;
 static int updelay	= 0;
@@ -234,7 +241,7 @@ int bond_cnt;
 static struct bonding *these_bonds =  NULL;
 static struct net_device *dev_bonds = NULL;
 
-MODULE_PARM(max_bonds, "1-" __MODULE_STRING(INT_MAX) "i");
+MODULE_PARM(max_bonds, "i");
 MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
 MODULE_PARM(miimon, "i");
 MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
@@ -260,6 +267,7 @@ static struct net_device_stats *bond_get_stats(struct net_device *dev);
 static void bond_mii_monitor(struct net_device *dev);
 static void bond_arp_monitor(struct net_device *dev);
 static int bond_event(struct notifier_block *this, unsigned long event, void *ptr);
+static void bond_restore_slave_flags(slave_t *slave);
 static void bond_set_slave_inactive_flags(slave_t *slave);
 static void bond_set_slave_active_flags(slave_t *slave);
 static int bond_enslave(struct net_device *master, struct net_device *slave);
@@ -281,6 +289,11 @@ static int bond_get_info(char *buf, char **start, off_t offset, int length);
 
 #define IS_UP(dev)	((((dev)->flags & (IFF_UP)) == (IFF_UP)) && \
 			(netif_running(dev) && netif_carrier_ok(dev)))
+
+static void bond_restore_slave_flags(slave_t *slave)
+{
+	slave->dev->flags = slave->original_flags;
+}
 
 static void bond_set_slave_inactive_flags(slave_t *slave)
 {
@@ -513,6 +526,8 @@ static int bond_enslave(struct net_device *master_dev,
 	}
 	memset(new_slave, 0, sizeof(slave_t));
 
+	/* save flags before call to netdev_set_master */
+	new_slave->original_flags = slave_dev->flags;
 	err = netdev_set_master(slave_dev, master_dev);
 
 	if (err) {
@@ -838,7 +853,6 @@ static int bond_release(struct net_device *master, struct net_device *slave)
 			} else {
 				printk(".\n");
 			}
-			kfree(our_slave);
 
 			/* release the slave from its bond */
 			 
@@ -853,6 +867,9 @@ static int bond_release(struct net_device *master, struct net_device *slave)
 				bond->current_slave != NULL) {
 					dev_close(slave);
 			}
+
+			bond_restore_slave_flags(our_slave);
+			kfree(our_slave);
 
 			if (bond->current_slave == NULL) {
 				printk(KERN_INFO
@@ -2038,6 +2055,13 @@ static int __init bonding_init(void)
 	/* Find a name for this unit */
 	static struct net_device *dev_bond = NULL;
 
+	if (max_bonds < 1 || max_bonds > INT_MAX) {
+		printk(KERN_WARNING 
+		       "bonding_init(): max_bonds (%d) not in range %d-%d, "
+		       "so it was reset to BOND_DEFAULT_MAX_BONDS (%d)",
+		       max_bonds, 1, INT_MAX, BOND_DEFAULT_MAX_BONDS);
+		max_bonds = BOND_DEFAULT_MAX_BONDS;
+	}
 	dev_bond = dev_bonds = kmalloc(max_bonds*sizeof(struct net_device), 
 					GFP_KERNEL);
 	if (dev_bond == NULL) {

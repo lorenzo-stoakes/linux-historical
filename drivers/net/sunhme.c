@@ -3,7 +3,7 @@
  *           auto carrier detecting ethernet driver.  Also known as the
  *           "Happy Meal Ethernet" found on SunSwift SBUS cards.
  *
- * Copyright (C) 1996, 1998, 1999 David S. Miller (davem@redhat.com)
+ * Copyright (C) 1996, 1998, 1999, 2002 David S. Miller (davem@redhat.com)
  *
  * Changes :
  * 2000/11/11 Willy Tarreau <willy AT meta-x.org>
@@ -14,7 +14,7 @@
  */
 
 static char version[] =
-        "sunhme.c:v1.99 12/Sep/99 David S. Miller (davem@redhat.com)\n";
+        "sunhme.c:v2.00 20/Mar/2002 David S. Miller (davem@redhat.com)\n";
 
 #include <linux/module.h>
 
@@ -34,6 +34,7 @@ static char version[] =
 #include <linux/ethtool.h>
 #include <linux/mii.h>
 #include <linux/crc32.h>
+#include <linux/random.h>
 #include <asm/system.h>
 #include <asm/bitops.h>
 #include <asm/io.h>
@@ -1611,12 +1612,12 @@ static int happy_meal_init(struct happy_meal *hp, int from_irq)
 
 	/* Set the RX and TX ring ptrs. */
 	HMD(("ring ptrs rxr[%08x] txr[%08x]\n",
-	     (hp->hblock_dvma + hblock_offset(happy_meal_rxd, 0)),
-	     (hp->hblock_dvma + hblock_offset(happy_meal_txd, 0))));
+	     ((__u32)hp->hblock_dvma + hblock_offset(happy_meal_rxd, 0)),
+	     ((__u32)hp->hblock_dvma + hblock_offset(happy_meal_txd, 0))));
 	hme_write32(hp, erxregs + ERX_RING,
-		    (hp->hblock_dvma + hblock_offset(happy_meal_rxd, 0)));
+		    ((__u32)hp->hblock_dvma + hblock_offset(happy_meal_rxd, 0)));
 	hme_write32(hp, etxregs + ETX_RING,
-		    (hp->hblock_dvma + hblock_offset(happy_meal_txd, 0)));
+		    ((__u32)hp->hblock_dvma + hblock_offset(happy_meal_txd, 0)));
 
 	/* Set the supported burst sizes. */
 	HMD(("happy_meal_init: old[%08x] bursts<",
@@ -2643,32 +2644,27 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 	struct happy_meal *hp;
 	struct net_device *dev;
 	int i, qfe_slot = -1;
+	int err = -ENODEV;
 
 	if (is_qfe) {
 		qp = quattro_sbus_find(sdev);
 		if (qp == NULL)
-			return -ENODEV;
+			goto err_out;
 		for (qfe_slot = 0; qfe_slot < 4; qfe_slot++)
 			if (qp->happy_meals[qfe_slot] == NULL)
 				break;
 		if (qfe_slot == 4)
-			return -ENODEV;
+			goto err_out;
 	}
 
-	dev = init_etherdev(NULL, sizeof(struct happy_meal));
+	err = -ENOMEM;
+	dev = alloc_etherdev(sizeof(struct happy_meal));
 	if (!dev)
-		return -ENOMEM;
+		goto err_out;
 	SET_MODULE_OWNER(dev);
 
 	if (hme_version_printed++ == 0)
 		printk(KERN_INFO "%s", version);
-
-	if (qfe_slot != -1)
-		printk(KERN_INFO "%s: Quattro HME slot %d (SBUS) 10/100baseT Ethernet ",
-		       dev->name, qfe_slot);
-	else
-		printk(KERN_INFO "%s: HAPPY MEAL (SBUS) 10/100baseT Ethernet ",
-		       dev->name);
 
 	/* If user did not specify a MAC address specifically, use
 	 * the Quattro local-mac-address property...
@@ -2680,6 +2676,7 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 	if (i < 6) { /* a mac address was given */
 		for (i = 0; i < 6; i++)
 			dev->dev_addr[i] = macaddr[i];
+		macaddr[5]++;
 	} else if (qfe_slot != -1 &&
 		   prom_getproplen(sdev->prom_node,
 				   "local-mac-address") == 6) {
@@ -2689,11 +2686,6 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 		memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
 	}
 
-	for (i = 0; i < 6; i++)
-		printk("%2.2x%c",
-		       dev->dev_addr[i], i == 5 ? ' ' : ':');
-	printk("\n");
-
 	hp = dev->priv;
 	memset(hp, 0, sizeof(*hp));
 
@@ -2701,11 +2693,12 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 
 	spin_lock_init(&hp->happy_lock);
 
+	err = -ENODEV;
 	if (sdev->num_registers != 5) {
 		printk(KERN_ERR "happymeal: Device does not have 5 regs, it has %d.\n",
 		       sdev->num_registers);
 		printk(KERN_ERR "happymeal: Would you like that for here or to go?\n");
-		return -ENODEV;
+		goto err_out_free_netdev;
 	}
 
 	if (qp != NULL) {
@@ -2719,35 +2712,35 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 				 GREG_REG_SIZE, "HME Global Regs");
 	if (!hp->gregs) {
 		printk(KERN_ERR "happymeal: Cannot map Happy Meal global registers.\n");
-		return -ENODEV;
+		goto err_out_free_netdev;
 	}
 
 	hp->etxregs = sbus_ioremap(&sdev->resource[1], 0,
 				   ETX_REG_SIZE, "HME TX Regs");
 	if (!hp->etxregs) {
 		printk(KERN_ERR "happymeal: Cannot map Happy Meal MAC Transmit registers.\n");
-		return -ENODEV;
+		goto err_out_iounmap;
 	}
 
 	hp->erxregs = sbus_ioremap(&sdev->resource[2], 0,
 				   ERX_REG_SIZE, "HME RX Regs");
 	if (!hp->erxregs) {
 		printk(KERN_ERR "happymeal: Cannot map Happy Meal MAC Receive registers.\n");
-		return -ENODEV;
+		goto err_out_iounmap;
 	}
 
 	hp->bigmacregs = sbus_ioremap(&sdev->resource[3], 0,
 				      BMAC_REG_SIZE, "HME BIGMAC Regs");
 	if (!hp->bigmacregs) {
 		printk(KERN_ERR "happymeal: Cannot map Happy Meal BIGMAC registers.\n");
-		return -ENODEV;
+		goto err_out_iounmap;
 	}
 
 	hp->tcvregs = sbus_ioremap(&sdev->resource[4], 0,
 				   TCVR_REG_SIZE, "HME Tranceiver Regs");
 	if (!hp->tcvregs) {
 		printk(KERN_ERR "happymeal: Cannot map Happy Meal Tranceiver registers.\n");
-		return -ENODEV;
+		goto err_out_iounmap;
 	}
 
 	hp->hm_revision = prom_getintdefault(sdev->prom_node, "hm-rev", 0xff);
@@ -2770,6 +2763,11 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 	hp->happy_block = sbus_alloc_consistent(hp->happy_dev,
 						PAGE_SIZE,
 						&hp->hblock_dvma);
+	err = -ENOMEM;
+	if (!hp->happy_block) {
+		printk(KERN_ERR "happymeal: Cannot allocate descriptors.\n");
+		goto err_out_iounmap;
+	}
 
 	/* Force check of the link first time we are brought up. */
 	hp->linkcheck = 0;
@@ -2812,20 +2810,157 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 	 */
 	happy_meal_set_initial_advertisement(hp);
 
-	ether_setup(dev);
+	if (register_netdev(hp->dev)) {
+		printk(KERN_ERR "happymeal: Cannot register net device, "
+		       "aborting.\n");
+		goto err_out_free_consistent;
+	}
+
+	if (qfe_slot != -1)
+		printk(KERN_INFO "%s: Quattro HME slot %d (SBUS) 10/100baseT Ethernet ",
+		       dev->name, qfe_slot);
+	else
+		printk(KERN_INFO "%s: HAPPY MEAL (SBUS) 10/100baseT Ethernet ",
+		       dev->name);
+
+	for (i = 0; i < 6; i++)
+		printk("%2.2x%c",
+		       dev->dev_addr[i], i == 5 ? ' ' : ':');
+	printk("\n");
 
 	/* We are home free at this point, link us in to the happy
 	 * device list.
 	 */
-	dev->ifindex = dev_new_index();
 	hp->next_module = root_happy_dev;
 	root_happy_dev = hp;
 
 	return 0;
+
+err_out_free_consistent:
+	sbus_free_consistent(hp->happy_dev,
+			     PAGE_SIZE,
+			     hp->happy_block,
+			     hp->hblock_dvma);
+
+err_out_iounmap:
+	if (hp->gregs)
+		sbus_iounmap(hp->gregs, GREG_REG_SIZE);
+	if (hp->etxregs)
+		sbus_iounmap(hp->etxregs, ETX_REG_SIZE);
+	if (hp->erxregs)
+		sbus_iounmap(hp->erxregs, ERX_REG_SIZE);
+	if (hp->bigmacregs)
+		sbus_iounmap(hp->bigmacregs, BMAC_REG_SIZE);
+	if (hp->tcvregs)
+		sbus_iounmap(hp->tcvregs, TCVR_REG_SIZE);
+
+err_out_free_netdev:
+	kfree(dev);
+
+err_out:
+	return err;
 }
 #endif
 
 #ifdef CONFIG_PCI
+#ifndef __sparc__
+static int is_quattro_p(struct pci_dev *pdev)
+{
+	struct pci_dev *busdev = pdev->bus->self;
+	struct list_head *tmp;
+	int n_hmes;
+
+	if (busdev->vendor != PCI_VENDOR_ID_DEC ||
+	    busdev->device != PCI_DEVICE_ID_DEC_21153)
+		return 0;
+
+	n_hmes = 0;
+	tmp = pdev->bus->devices.next;
+	while (tmp != &pdev->bus->devices) {
+		struct pci_dev *this_pdev = pci_dev_b(tmp);
+
+		if (this_pdev->vendor == PCI_VENDOR_ID_SUN &&
+		    this_pdev->device == PCI_DEVICE_ID_SUN_HAPPYMEAL)
+			n_hmes++;
+
+		tmp = tmp->next;
+	}
+
+	if (n_hmes != 4)
+		return 0;
+
+	return 1;
+}
+
+/* Fetch MAC address from vital product data of PCI ROM. */
+static void find_eth_addr_in_vpd(void *rom_base, int len, int index, unsigned char *dev_addr)
+{
+	int this_offset;
+
+	for (this_offset = 0x20; this_offset < len; this_offset++) {
+		void *p = rom_base + this_offset;
+
+		if (readb(p + 0) != 0x90 ||
+		    readb(p + 1) != 0x00 ||
+		    readb(p + 2) != 0x09 ||
+		    readb(p + 3) != 0x4e ||
+		    readb(p + 4) != 0x41 ||
+		    readb(p + 5) != 0x06)
+			continue;
+
+		this_offset += 6;
+		p += 6;
+
+		if (index == 0) {
+			int i;
+
+			for (i = 0; i < 6; i++)
+				dev_addr[i] = readb(p + i);
+			break;
+		}
+		index--;
+	}
+}
+
+static void get_hme_mac_nonsparc(struct pci_dev *pdev, unsigned char *dev_addr)
+{
+	u32 rom_reg_orig;
+	void *p;
+	int index;
+
+	index = 0;
+	if (is_quattro_p(pdev))
+		index = PCI_SLOT(pdev->devfn);
+
+	if (pdev->resource[PCI_ROM_RESOURCE].parent == NULL) {
+		if (pci_assign_resource(pdev, PCI_ROM_RESOURCE) < 0)
+			goto use_random;
+	}
+
+	pci_read_config_dword(pdev, pdev->rom_base_reg, &rom_reg_orig);
+	pci_write_config_dword(pdev, pdev->rom_base_reg,
+			       rom_reg_orig | PCI_ROM_ADDRESS_ENABLE);
+
+	p = ioremap(pci_resource_start(pdev, PCI_ROM_RESOURCE), (64 * 1024));
+	if (p != NULL && readb(p) == 0x55 && readb(p + 1) == 0xaa)
+		find_eth_addr_in_vpd(p, (64 * 1024), index, dev_addr);
+
+	if (p != NULL)
+		iounmap(p);
+
+	pci_write_config_dword(pdev, pdev->rom_base_reg, rom_reg_orig);
+	return;
+
+use_random:
+	/* Sun MAC prefix then 3 random bytes. */
+	dev_addr[0] = 0x08;
+	dev_addr[1] = 0x00;
+	dev_addr[2] = 0x20;
+	get_random_bytes(dev_addr, 3);
+	return;
+}
+#endif /* !(__sparc__) */
+
 static int __init happy_meal_pci_init(struct pci_dev *pdev)
 {
 	struct quattro *qp = NULL;
@@ -2838,6 +2973,7 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	unsigned long hpreg_base;
 	int i, qfe_slot = -1;
 	char prom_name[64];
+	int err;
 
 	/* Now make sure pci_dev cookie is there. */
 #ifdef __sparc__
@@ -2850,51 +2986,32 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	
 	prom_getstring(node, "name", prom_name, sizeof(prom_name));
 #else
-/* This needs to be corrected... -DaveM */
-	strcpy(prom_name, "qfe");
+	if (is_quattro_p(pdev))
+		strcpy(prom_name, "SUNW,qfe");
+	else
+		strcpy(prom_name, "SUNW,hme");
 #endif
 
+	err = -ENODEV;
 	if (!strcmp(prom_name, "SUNW,qfe") || !strcmp(prom_name, "qfe")) {
 		qp = quattro_pci_find(pdev);
 		if (qp == NULL)
-			return -ENODEV;
+			goto err_out;
 		for (qfe_slot = 0; qfe_slot < 4; qfe_slot++)
 			if (qp->happy_meals[qfe_slot] == NULL)
 				break;
 		if (qfe_slot == 4)
-			return -ENODEV;
+			goto err_out;
 	}
 
-	dev = init_etherdev(NULL, sizeof(struct happy_meal));
+	dev = alloc_etherdev(sizeof(struct happy_meal));
+	err = -ENOMEM;
 	if (!dev)
-		return -ENOMEM;
+		goto err_out;
 	SET_MODULE_OWNER(dev);
 
 	if (hme_version_printed++ == 0)
 		printk(KERN_INFO "%s", version);
-
-	if (!qfe_slot) {
-		struct pci_dev *qpdev = qp->quattro_dev;
-
-		prom_name[0] = 0;
-		if (!strncmp(dev->name, "eth", 3)) {
-			int i = simple_strtoul(dev->name + 3, NULL, 10);
-			sprintf(prom_name, "-%d", i + 3);
-		}
-		printk(KERN_INFO "%s%s: Quattro HME (PCI/CheerIO) 10/100baseT Ethernet ", dev->name, prom_name);
-		if (qpdev->vendor == PCI_VENDOR_ID_DEC &&
-		    qpdev->device == PCI_DEVICE_ID_DEC_21153)
-			printk("DEC 21153 PCI Bridge\n");
-		else
-			printk("unknown bridge %04x.%04x\n", 
-				qpdev->vendor, qpdev->device);
-	}
-	if (qfe_slot != -1)
-		printk(KERN_INFO "%s: Quattro HME slot %d (PCI/CheerIO) 10/100baseT Ethernet ",
-		       dev->name, qfe_slot);
-	else
-		printk(KERN_INFO "%s: HAPPY MEAL (PCI/CheerIO) 10/100BaseT Ethernet ",
-		       dev->name);
 
 	dev->base_addr = (long) pdev;
 
@@ -2912,13 +3029,20 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	}		
 
 	hpreg_base = pci_resource_start(pdev, 0);
+	err = -ENODEV;
 	if ((pci_resource_flags(pdev, 0) & IORESOURCE_IO) != 0) {
 		printk(KERN_ERR "happymeal(PCI): Cannot find proper PCI device base address.\n");
-		return -ENODEV;
+		goto err_out_clear_quattro;
 	}
+	if (pci_request_regions(pdev, dev->name)) {
+		printk(KERN_ERR "happymeal(PCI): Cannot obtain PCI resources, "
+		       "aborting.\n");
+		goto err_out_clear_quattro;
+	}
+
 	if ((hpreg_base = (unsigned long) ioremap(hpreg_base, 0x8000)) == 0) {
 		printk(KERN_ERR "happymeal(PCI): Unable to remap card memory.\n");
-		return -ENODEV;
+		goto err_out_free_res;
 	}
 
 	for (i = 0; i < 6; i++) {
@@ -2928,6 +3052,7 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	if (i < 6) { /* a mac address was given */
 		for (i = 0; i < 6; i++)
 			dev->dev_addr[i] = macaddr[i];
+		macaddr[5]++;
 	} else {
 #ifdef __sparc__
 		if (qfe_slot != -1 &&
@@ -2938,15 +3063,10 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 			memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
 		}
 #else
-		memset(dev->dev_addr, 0, 6);
+		get_hme_mac_nonsparc(pdev, &dev->dev_addr[0]);
 #endif
 	}
 	
-	for (i = 0; i < 6; i++)
-		printk("%2.2x%c", dev->dev_addr[i], i == 5 ? ' ' : ':');
-
-	printk("\n");
-
 	/* Layout registers. */
 	hp->gregs      = (hpreg_base + 0x0000UL);
 	hp->etxregs    = (hpreg_base + 0x2000UL);
@@ -2983,9 +3103,10 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	hp->happy_block = (struct hmeal_init_block *)
 		pci_alloc_consistent(pdev, PAGE_SIZE, &hp->hblock_dvma);
 
+	err = -ENODEV;
 	if (!hp->happy_block) {
 		printk(KERN_ERR "happymeal(PCI): Cannot get hme init block.\n");
-		return -ENODEV;
+		goto err_out_iounmap;
 	}
 
 	hp->linkcheck = 0;
@@ -3024,16 +3145,63 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	 */
 	happy_meal_set_initial_advertisement(hp);
 
-	ether_setup(dev);
+	if (register_netdev(hp->dev)) {
+		printk(KERN_ERR "happymeal(PCI): Cannot register net device, "
+		       "aborting.\n");
+		goto err_out_iounmap;
+	}
+
+	if (!qfe_slot) {
+		struct pci_dev *qpdev = qp->quattro_dev;
+
+		prom_name[0] = 0;
+		if (!strncmp(dev->name, "eth", 3)) {
+			int i = simple_strtoul(dev->name + 3, NULL, 10);
+			sprintf(prom_name, "-%d", i + 3);
+		}
+		printk(KERN_INFO "%s%s: Quattro HME (PCI/CheerIO) 10/100baseT Ethernet ", dev->name, prom_name);
+		if (qpdev->vendor == PCI_VENDOR_ID_DEC &&
+		    qpdev->device == PCI_DEVICE_ID_DEC_21153)
+			printk("DEC 21153 PCI Bridge\n");
+		else
+			printk("unknown bridge %04x.%04x\n", 
+				qpdev->vendor, qpdev->device);
+	}
+
+	if (qfe_slot != -1)
+		printk(KERN_INFO "%s: Quattro HME slot %d (PCI/CheerIO) 10/100baseT Ethernet ",
+		       dev->name, qfe_slot);
+	else
+		printk(KERN_INFO "%s: HAPPY MEAL (PCI/CheerIO) 10/100BaseT Ethernet ",
+		       dev->name);
+
+	for (i = 0; i < 6; i++)
+		printk("%2.2x%c", dev->dev_addr[i], i == 5 ? ' ' : ':');
+
+	printk("\n");
 
 	/* We are home free at this point, link us in to the happy
 	 * device list.
 	 */
-	dev->ifindex = dev_new_index();
 	hp->next_module = root_happy_dev;
 	root_happy_dev = hp;
 
 	return 0;
+
+err_out_iounmap:
+	iounmap((void *)hp->gregs);
+
+err_out_free_res:
+	pci_release_regions(pdev);
+
+err_out_clear_quattro:
+	if (qp != NULL)
+		qp->happy_meals[qfe_slot] = NULL;
+
+	kfree(dev);
+
+err_out:
+	return err;
 }
 #endif
 
@@ -3080,6 +3248,7 @@ static int __init happy_meal_pci_probe(void)
 				       PCI_DEVICE_ID_SUN_HAPPYMEAL, pdev)) != NULL) {
 		if (pci_enable_device(pdev))
 			continue;
+		pci_set_master(pdev);
 		cards++;
 		happy_meal_pci_init(pdev);
 	}
@@ -3120,12 +3289,18 @@ static void __exit happy_meal_cleanup_module(void)
 	while (root_happy_dev) {
 		struct happy_meal *hp = root_happy_dev;
 		struct happy_meal *next = root_happy_dev->next_module;
+		struct net_device *dev = hp->dev;
+
+		/* Unregister netdev before unmapping registers as this
+		 * call can end up trying to access those registers.
+		 */
+		unregister_netdev(dev);
 
 #ifdef CONFIG_SBUS
 		if (!(hp->happy_flags & HFLAG_PCI)) {
 			if (hp->happy_flags & HFLAG_QUATTRO) {
 				if (hp->qfe_parent != last_seen_qfe) {
-					free_irq(hp->dev->irq, hp->qfe_parent);
+					free_irq(dev->irq, hp->qfe_parent);
 					last_seen_qfe = hp->qfe_parent;
 				}
 			}
@@ -3148,12 +3323,35 @@ static void __exit happy_meal_cleanup_module(void)
 					    hp->happy_block,
 					    hp->hblock_dvma);
 			iounmap((void *)hp->gregs);
+			pci_release_regions(hp->happy_dev);
 		}
 #endif
-		unregister_netdev(hp->dev);
-		kfree(hp->dev);
+		kfree(dev);
+
 		root_happy_dev = next;
 	}
+
+	/* Now cleanup the quattro lists. */
+#ifdef CONFIG_SBUS
+	while (qfe_sbus_list) {
+		struct quattro *qfe = qfe_sbus_list;
+		struct quattro *next = qfe->next;
+
+		kfree(qfe);
+
+		qfe_sbus_list = next;
+	}
+#endif
+#ifdef CONFIG_PCI
+	while (qfe_pci_list) {
+		struct quattro *qfe = qfe_pci_list;
+		struct quattro *next = qfe->next;
+
+		kfree(qfe);
+
+		qfe_pci_list = next;
+	}
+#endif
 }
 
 module_init(happy_meal_probe);

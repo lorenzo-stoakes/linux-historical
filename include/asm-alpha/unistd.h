@@ -530,8 +530,8 @@ static inline long close(int fd)
 	return sys_close(fd);
 }
 
-extern off_t sys_lseek(int, off_t, int);
-static inline off_t lseek(int fd, off_t off, int whense)
+extern off_t sys_lseek(unsigned int, off_t, unsigned int);
+static inline off_t lseek(unsigned int fd, off_t off, unsigned int whense)
 {
 	return sys_lseek(fd, off, whense);
 }

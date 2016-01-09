@@ -59,7 +59,7 @@ static __inline__ void lock_kernel(void)
 static __inline__ void unlock_kernel(void)
 {
 	if (current->lock_depth < 0)
-		BUG();
+		out_of_line_bug();
 #if 1
 	if (--current->lock_depth < 0)
 		spin_unlock(&kernel_flag);

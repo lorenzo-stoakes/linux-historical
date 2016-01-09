@@ -124,3 +124,21 @@ const char *print_tainted()
 }
 
 int tainted = 0;
+
+/*
+ * A BUG() call in an inline function in a header should be avoided,
+ * because it can seriously bloat the kernel.  So here we have
+ * helper functions.
+ * We lose the BUG()-time file-and-line info this way, but it's
+ * usually not very useful from an inline anyway.  The backtrace
+ * tells us what we want to know.
+ */
+
+void out_of_line_bug(void)
+{
+	BUG();
+
+	/* Satisfy __attribute__((noreturn)) */
+	for ( ; ; )
+		;
+}

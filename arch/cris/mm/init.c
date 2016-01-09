@@ -465,7 +465,7 @@ free_initmem(void)
                 free_page(addr);
                 totalram_pages++;
         }
-        printk ("Freeing unused kernel memory: %luk freed\n", 
+        printk (KERN_INFO "Freeing unused kernel memory: %luk freed\n", 
 		(&__init_end - &__init_begin) >> 10);
 }
 

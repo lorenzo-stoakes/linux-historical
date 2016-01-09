@@ -54,7 +54,6 @@ static __inline__ struct ViceFid *coda_i2f(struct inode *);
 static __inline__ char *coda_i2s(struct inode *);
 static __inline__ void coda_flag_inode(struct inode *, int flag);
 char *coda_f2s(ViceFid *f);
-char *coda_f2s2(ViceFid *f);
 int coda_isroot(struct inode *i);
 int coda_iscontrol(const char *name, size_t length);
 
