@@ -408,7 +408,7 @@ static int lock_regs(struct hpsb_host *host, int nodeid, quadlet_t *store,
 		 * eventually. */
 		HPSB_WARN("Node [" NODE_BUS_FMT "] wants to release "
 			  "broadcast channel 31.  Ignoring.",
-			  NODE_BUS_ARGS(nodeid));
+			  NODE_BUS_ARGS(host, nodeid));
 
 		data &= ~0x1;	/* keep broadcast channel allocated */
 	}
@@ -554,7 +554,7 @@ static int lock64_regs(struct hpsb_host *host, int nodeid, octlet_t * store,
                  * eventually. */
 		HPSB_WARN("Node [" NODE_BUS_FMT "] wants to release "
 			  "broadcast channel 31.  Ignoring.",
-			  NODE_BUS_ARGS(nodeid));
+			  NODE_BUS_ARGS(host, nodeid));
 
 		data &= ~0x100000000ULL;	/* keep broadcast channel allocated */
 	}

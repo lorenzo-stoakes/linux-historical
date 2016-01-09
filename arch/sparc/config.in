@@ -209,8 +209,8 @@ if [ "$CONFIG_NET" = "y" ]; then
         dep_tristate '  PPP BSD-Compress compression' CONFIG_PPP_BSDCOMP m
 	if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
 	  dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
-	  if [ "$CONFIG_ATM" != "n" ]; then
-	    dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP
+	  if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
+	    dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_ATM
 	  fi
 	fi
       fi

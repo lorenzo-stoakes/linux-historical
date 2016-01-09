@@ -110,6 +110,7 @@ enum devctl_cmd {
 
 enum isoctl_cmd {
 	/* rawiso API - see iso.h for the meanings of these commands
+	   (they correspond exactly to the hpsb_iso_* API functions)
 	 * INIT = allocate resources
 	 * START = begin transmission/reception
 	 * STOP = halt transmission/reception
@@ -131,6 +132,7 @@ enum isoctl_cmd {
 	RECV_STOP,
 	RECV_RELEASE,
 	RECV_SHUTDOWN,
+	RECV_FLUSH
 };
 
 enum reset_types {

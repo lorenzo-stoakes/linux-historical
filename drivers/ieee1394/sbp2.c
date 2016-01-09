@@ -57,6 +57,8 @@
 #include <linux/blk.h>
 #include <linux/smp_lock.h>
 #include <linux/init.h>
+#include <linux/pci.h>
+
 #include <asm/current.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -87,7 +89,7 @@
 #include "sbp2.h"
 
 static char version[] __devinitdata =
-	"$Rev: 953 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 1010 $ Ben Collins <bcollins@debian.org>";
 
 /*
  * Module load parameter definitions
@@ -636,7 +638,14 @@ static int sbp2_probe(struct unit_directory *ud)
 {
 	struct sbp2scsi_host_info *hi;
 
-	SBP2_DEBUG("sbp2_probe");
+	SBP2_DEBUG(__FUNCTION__);
+
+	/* Don't probe UD's that have the LUN flag. We'll probe the LUN(s)
+	 * instead. */
+	if (ud->flags & UNIT_DIRECTORY_HAS_LUN_DIRECTORY)
+		return -1;
+
+	/* This will only add it if it doesn't exist */
 	hi = sbp2_add_host(ud->ne->host);
 
 	if (!hi)
@@ -1161,7 +1170,7 @@ static int sbp2_query_logins(struct scsi_id_instance_data *scsi_id)
 
 	SBP2_DEBUG("sbp2_query_logins: orb byte-swapped");
 
-	sbp2util_packet_dump(scsi_id->query_logins_orb, sizeof(stuct sbp2_query_logins_orb),
+	sbp2util_packet_dump(scsi_id->query_logins_orb, sizeof(struct sbp2_query_logins_orb),
 			     "sbp2 query logins orb", scsi_id->query_logins_orb_dma);
 
 	memset(scsi_id->query_logins_response, 0, sizeof(struct sbp2_query_logins_response));
@@ -1645,7 +1654,7 @@ static void sbp2_parse_unit_directory(struct scsi_id_group *scsi_group,
 			SBP2_128KB_BROKEN_FIRMWARE &&
 			(sbp2_max_sectors * 512) > (128 * 1024)) {
 		SBP2_WARN("Node " NODE_BUS_FMT ": Bridge only supports 128KB max transfer size.",
-				NODE_BUS_ARGS(ud->ne->nodeid));
+				NODE_BUS_ARGS(ud->ne->host, ud->ne->nodeid));
 		SBP2_WARN("WARNING: Current sbp2_max_sectors setting is larger than 128KB (%d sectors)!",
 				sbp2_max_sectors);
 		workarounds |= SBP2_BREAKAGE_128K_MAX_TRANSFER;
@@ -1658,36 +1667,42 @@ static void sbp2_parse_unit_directory(struct scsi_id_group *scsi_group,
 		if ((firmware_revision & 0xffff00) ==
 				sbp2_broken_inquiry_list[i]) {
 			SBP2_WARN("Node " NODE_BUS_FMT ": Using 36byte inquiry workaround",
-					NODE_BUS_ARGS(ud->ne->nodeid));
+					NODE_BUS_ARGS(ud->ne->host, ud->ne->nodeid));
 			workarounds |= SBP2_BREAKAGE_INQUIRY_HACK;
 			break; /* No need to continue. */
 		}
 	}
 
-	/* If our list is empty, add a base scsi_id (happens in a normal
-	 * case where there is no logical_unit_number entry */
-	if (list_empty(&scsi_group->scsi_id_list)) {
-		scsi_id = kmalloc(sizeof(*scsi_id), GFP_KERNEL);
-		if (!scsi_id) {
-			SBP2_ERR("Out of memory adding scsi_id");
-			return;
+	/* If this is a logical unit directory entry, process the parent
+	 * to get the common values. */
+	if (ud->flags & UNIT_DIRECTORY_LUN_DIRECTORY) {
+		sbp2_parse_unit_directory(scsi_group, ud->parent);
+	} else {
+		/* If our list is empty, add a base scsi_id (happens in a normal
+		 * case where there is no logical_unit_number entry */
+		if (list_empty(&scsi_group->scsi_id_list)) {
+			scsi_id = kmalloc(sizeof(*scsi_id), GFP_KERNEL);
+			if (!scsi_id) {
+				SBP2_ERR("Out of memory adding scsi_id");
+				return;
+			}
+			memset(scsi_id, 0, sizeof(*scsi_id));
+
+			scsi_id->sbp2_device_type_and_lun = SBP2_DEVICE_TYPE_LUN_UNINITIALIZED;
+			list_add_tail(&scsi_id->list, &scsi_group->scsi_id_list);
 		}
-		memset(scsi_id, 0, sizeof(*scsi_id));
 
-		scsi_id->sbp2_device_type_and_lun = SBP2_DEVICE_TYPE_LUN_UNINITIALIZED;
-		list_add_tail(&scsi_id->list, &scsi_group->scsi_id_list);
-	}
+		/* Update the generic fields in all the LUN's */
+		list_for_each (lh, &scsi_group->scsi_id_list) {
+			scsi_id = list_entry(lh, struct scsi_id_instance_data, list);
 
-	/* Update the generic fields in all the LUN's */
-	list_for_each (lh, &scsi_group->scsi_id_list) {
-		scsi_id = list_entry(lh, struct scsi_id_instance_data, list);
-
-		scsi_id->sbp2_management_agent_addr = management_agent_addr;
-		scsi_id->sbp2_command_set_spec_id = command_set_spec_id;
-		scsi_id->sbp2_command_set = command_set;
-		scsi_id->sbp2_unit_characteristics = unit_characteristics;
-		scsi_id->sbp2_firmware_revision = firmware_revision;
-		scsi_id->workarounds = workarounds;
+			scsi_id->sbp2_management_agent_addr = management_agent_addr;
+			scsi_id->sbp2_command_set_spec_id = command_set_spec_id;
+			scsi_id->sbp2_command_set = command_set;
+			scsi_id->sbp2_unit_characteristics = unit_characteristics;
+			scsi_id->sbp2_firmware_revision = firmware_revision;
+			scsi_id->workarounds = workarounds;
+		}
 	}
 }
 
@@ -1722,8 +1737,9 @@ static int sbp2_max_speed_and_size(struct scsi_id_instance_data *scsi_id)
 	scsi_id->max_payload_size = min(sbp2_speedto_max_payload[scsi_id->speed_code],
 					(u8)(((be32_to_cpu(hi->host->csr.rom[2]) >> 12) & 0xf) - 1));
 
-	SBP2_ERR("Node[" NODE_BUS_FMT "]: Max speed [%s] - Max payload [%u]",
-		 NODE_BUS_ARGS(scsi_id->ne->nodeid), hpsb_speedto_str[scsi_id->speed_code],
+	SBP2_ERR("Node " NODE_BUS_FMT ": Max speed [%s] - Max payload [%u]",
+		 NODE_BUS_ARGS(hi->host, scsi_id->ne->nodeid),
+		 hpsb_speedto_str[scsi_id->speed_code],
 		 1 << ((u32)scsi_id->max_payload_size + 2));
 
 	return(0);
@@ -2899,7 +2915,6 @@ static int sbp2scsi_proc_info(char *buffer, char **start, off_t offset,
 
 	SPRINTF("Host scsi%d             : SBP-2 IEEE-1394 (%s)\n", hostno,
 		host->driver->name);
-	SPRINTF("Driver version         : %s\n", version);
 
 	SPRINTF("\nModule options         :\n");
 	SPRINTF("  max_speed            : %s\n", hpsb_speedto_str[sbp2_max_speed]);
@@ -2973,6 +2988,8 @@ static Scsi_Host_Template scsi_driver_template = {
 static int sbp2_module_init(void)
 {
 	SBP2_DEBUG("sbp2_module_init");
+
+	printk(KERN_INFO "sbp2: %s\n", version);
 
 	/* Module load debug option to force one command at a time (serializing I/O) */
 	if (sbp2_serialize_io) {

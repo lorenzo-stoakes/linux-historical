@@ -582,6 +582,7 @@ int flush_old_exec(struct linux_binprm * bprm)
 	retval = unshare_files();
 	if(retval)
 		goto flush_failed;
+	steal_locks(files, current->files);
 	put_files_struct(files);
 	
 	/* 

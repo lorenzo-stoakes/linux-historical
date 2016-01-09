@@ -46,6 +46,13 @@
 
 /* Change Log
  * 
+ * 2.3.18       07/08/03
+ * o Bug fix: read skb->len after freeing skb
+ *   [Andrew Morton] akpm@zip.com.au
+ * o Bug fix: 82557 (with National PHY) timeout during init
+ *   [Adam Kropelin] akropel1@rochester.rr.com
+ * o Feature add: allow to change Wake On LAN when EEPROM disabled
+ * 
  * 2.3.13       05/08/03
  * o Feature remove: /proc/net/PRO_LAN_Adapters support gone completely
  * o Feature remove: IDIAG support (use ethtool -t instead)
@@ -65,20 +72,6 @@
  * o Bug fix: statistic command failure would stop statistic collection.
  * 
  * 2.2.21	02/11/03
- * o Removed marketing brand strings. Instead, Using generic string 
- *   "Intel(R) PRO/100 Network Connection" for all adapters.
- * o Implemented ethtool -S option
- * o Strip /proc/net/PRO_LAN_Adapters files for kernel driver
- * o Bug fix: Read wrong byte in EEPROM when offset is odd number
- * o Bug fix: PHY loopback test fails on ICH devices
- * o Bug fix: System panic on e100_close when repeating Hot Remove and 
- *   Add in a team
- * o Bug fix: Linux Bonding driver claims adapter's link loss because of
- *   not updating last_rx field
- * o Bug fix: e100 does not check validity of MAC address
- * o New feature: added ICH5 support
- * 
- * 2.1.27	11/20/02
  */
  
 #include <linux/config.h>
@@ -144,7 +137,7 @@ static void e100_non_tx_background(unsigned long);
 static inline void e100_tx_skb_free(struct e100_private *bdp, tcb_t *tcb);
 /* Global Data structures and variables */
 char e100_copyright[] __devinitdata = "Copyright (c) 2003 Intel Corporation";
-char e100_driver_version[]="2.3.13-k1";
+char e100_driver_version[]="2.3.18-k1";
 const char *e100_full_driver_name = "Intel(R) PRO/100 Network Driver";
 char e100_short_driver_name[] = "e100";
 static int e100nics = 0;
@@ -688,17 +681,16 @@ e100_found1(struct pci_dev *pcid, const struct pci_device_id *ent)
 
 	bdp->wolsupported = 0;
 	bdp->wolopts = 0;
+	if (bdp->rev_id >= D101A4_REV_ID)
+		bdp->wolsupported = WAKE_PHY | WAKE_MAGIC;
+	if (bdp->rev_id >= D101MA_REV_ID)
+		bdp->wolsupported |= WAKE_UCAST | WAKE_ARP;
 	
 	/* Check if WoL is enabled on EEPROM */
 	if (e100_eeprom_read(bdp, EEPROM_ID_WORD) & BIT_5) {
 		/* Magic Packet WoL is enabled on device by default */
 		/* if EEPROM WoL bit is TRUE                        */
-		bdp->wolsupported = WAKE_MAGIC;
 		bdp->wolopts = WAKE_MAGIC;
-		if (bdp->rev_id >= D101A4_REV_ID)
-			bdp->wolsupported = WAKE_PHY | WAKE_MAGIC;
-		if (bdp->rev_id >= D101MA_REV_ID)
-			bdp->wolsupported |= WAKE_UCAST | WAKE_ARP;
 	}
 
 	printk(KERN_NOTICE "\n");
@@ -1084,9 +1076,9 @@ e100_xmit_frame(struct sk_buff *skb, struct net_device *dev)
 		goto exit1;
 	}
 
-	e100_prepare_xmit_buff(bdp, skb);
-
 	bdp->drv_stats.net_stats.tx_bytes += skb->len;
+
+	e100_prepare_xmit_buff(bdp, skb);
 
 	dev->trans_start = jiffies;
 
@@ -2066,13 +2058,14 @@ e100_rx_srv(struct e100_private *bdp)
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 
+		bdp->drv_stats.net_stats.rx_bytes += skb->len;
+
 		if(bdp->vlgrp && (rfd_status & CB_STATUS_VLAN)) {
 			vlan_hwaccel_rx(skb, bdp->vlgrp, be16_to_cpu(rfd->vlanid));
 		} else {
 			netif_rx(skb);
 		}
 		dev->last_rx = jiffies;
-		bdp->drv_stats.net_stats.rx_bytes += skb->len;
 		
 		rfd_cnt++;
 	}			/* end of rfd loop */
@@ -4255,13 +4248,13 @@ e100_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
 static int
 e100_notify_reboot(struct notifier_block *nb, unsigned long event, void *p)
 {
-        struct pci_dev *pdev;
+        struct pci_dev *pdev = NULL;
 	
         switch(event) {
         case SYS_DOWN:
         case SYS_HALT:
         case SYS_POWER_OFF:
-                pci_for_each_dev(pdev) {
+		while ((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev)) != NULL) {
                         if(pci_dev_driver(pdev) == &e100_driver) {
 				/* If net_device struct is allocated? */
                                 if (pci_get_drvdata(pdev))

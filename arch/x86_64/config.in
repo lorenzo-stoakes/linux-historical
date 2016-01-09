@@ -168,7 +168,7 @@ if [ "$CONFIG_NET" = "y" ]; then
    if [ "$CONFIG_NETDEVICES" = "y" ]; then
       source drivers/net/Config.in
 # seems to be largely not 64bit safe	   
-#      if [ "$CONFIG_ATM" != "n" ]; then
+#      if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
 #         source drivers/atm/Config.in
 #      fi
    fi

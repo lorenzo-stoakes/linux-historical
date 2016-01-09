@@ -381,8 +381,10 @@ void hpsb_selfid_complete(struct hpsb_host *host, int phyid, int isroot)
                 } else {
                         HPSB_NOTICE("Stopping out-of-control reset loop");
                         HPSB_NOTICE("Warning - topology map and speed map will not be valid");
+			host->reset_retries = 0;
                 }
         } else {
+		host->reset_retries = 0;
                 build_speed_map(host, host->node_count);
         }
 
@@ -1208,7 +1210,7 @@ static int __init ieee1394_init(void)
 #ifdef CONFIG_PROC_FS
 	/* Must be done before we start everything else, since the drivers
 	 * may use it.  */
-	ieee1394_procfs_entry = proc_mkdir( "ieee1394", proc_bus);
+	ieee1394_procfs_entry = proc_mkdir("ieee1394", proc_bus);
 	if (ieee1394_procfs_entry == NULL) {
 		HPSB_ERR("unable to create /proc/bus/ieee1394\n");
 		unregister_chrdev(IEEE1394_MAJOR, "ieee1394");
@@ -1356,3 +1358,4 @@ EXPORT_SYMBOL(hpsb_iso_n_ready);
 EXPORT_SYMBOL(hpsb_iso_packet_sent);
 EXPORT_SYMBOL(hpsb_iso_packet_received);
 EXPORT_SYMBOL(hpsb_iso_wake);
+EXPORT_SYMBOL(hpsb_iso_recv_flush);

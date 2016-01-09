@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include "dma.h"
 
 /* dma_prog_region */
@@ -156,7 +157,10 @@ static inline int dma_region_find(struct dma_region *dma, unsigned long offset, 
 		off -= sg_dma_len(&dma->sglist[i]);
 	}
 
-	panic("dma_region_find: offset %lu beyond end of DMA mapping\n", offset);
+	printk("dma_region_find: offset %lu beyond end of DMA mapping\n", offset);
+	BUG();
+
+	return -ENOENT;
 }
 
 dma_addr_t dma_region_offset_to_bus(struct dma_region *dma, unsigned long offset)

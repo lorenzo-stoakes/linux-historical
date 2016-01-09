@@ -400,7 +400,7 @@ static void sci_init_pins_scif(struct sci_port* port, unsigned int cflag)
 	if (cflag & CRTSCTS) {
 		fcr_val |= SCFCR_MCE;
 	} else {
-		ctrl_outw(0x0080, SCSPTR2); /* Set RTS = 1 */
+		sci_out(port, SCSPTR, 0x0080); /* Set RTS = 1 */
 	}
 	sci_out(port, SCFCR, fcr_val);
 }
@@ -1026,7 +1026,7 @@ static void sci_shutdown_port(void * ptr)
 static int sci_open(struct tty_struct * tty, struct file * filp)
 {
 	struct sci_port *port;
-	int retval, line;
+	int retval = 0, line;
 
 	line = MINOR(tty->device) - SCI_MINOR_START;
 
@@ -1034,6 +1034,14 @@ static int sci_open(struct tty_struct * tty, struct file * filp)
 		return -ENODEV;
 
 	port = &sci_ports[line];
+
+#if defined(CONFIG_CPU_SUBTYPE_SH5_101) || defined(CONFIG_CPU_SUBTYPE_SH5_103)
+	if (port->base == 0) {
+		port->base = onchip_remap(SCIF_ADDR_SH5, 1024, "SCIF");
+		if (!port->base)
+			goto failed_1;
+	}
+#endif
 
 	tty->driver_data = port;
 	port->gs.tty = tty;
@@ -1455,6 +1463,12 @@ static int __init serial_console_setup(struct console *co, char *options)
 	char	*s;
 
 	sercons_port = &sci_ports[co->index];
+
+#if defined(CONFIG_CPU_SUBTYPE_SH5_101) || defined(CONFIG_CPU_SUBTYPE_SH5_103)
+	sercons_port->base = onchip_remap(SCIF_ADDR_SH5, 1024, "SCIF");
+	if (!sercons_port->base)
+		return -EINVAL;
+#endif
 
 	if (options) {
 		baud = simple_strtoul(options, NULL, 10);

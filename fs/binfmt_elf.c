@@ -798,6 +798,9 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		send_sig(SIGTRAP, current, 0);
 	retval = 0;
 out:
+	if (!retval)
+		steal_locks(files, current->files);
+
 	return retval;
 
 	/* error cleanup */

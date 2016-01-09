@@ -66,8 +66,9 @@ typedef u16 arm_length_t;
 #define NODEID_TO_NODE(nodeid)	(nodeid & NODE_MASK)
 
 /* Can be used to consistently print a node/bus ID. */
-#define NODE_BUS_FMT		"%02d:%04d"
-#define NODE_BUS_ARGS(nodeid)	NODEID_TO_NODE(nodeid), NODEID_TO_BUS(nodeid)
+#define NODE_BUS_FMT		"%d-%02d:%04d"
+#define NODE_BUS_ARGS(__host, __nodeid)	\
+	__host->id, NODEID_TO_NODE(__nodeid), NODEID_TO_BUS(__nodeid)
 
 #define HPSB_PRINT(level, fmt, args...) printk(level "ieee1394: " fmt "\n" , ## args)
 

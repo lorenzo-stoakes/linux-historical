@@ -32,7 +32,7 @@ if [ "$CONFIG_INET" = "y" ]; then
 fi
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    tristate 'Asynchronous Transfer Mode (ATM) (EXPERIMENTAL)' CONFIG_ATM
-   if [ "$CONFIG_ATM" != "n" ]; then
+   if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
       if [ "$CONFIG_INET" = "y" ]; then
 	 dep_tristate '  Classical IP over ATM' CONFIG_ATM_CLIP $CONFIG_ATM
 	 if [ "$CONFIG_ATM_CLIP" != "n" ]; then
