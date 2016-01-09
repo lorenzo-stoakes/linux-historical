@@ -763,7 +763,7 @@ int copy_namespace(int flags, struct task_struct *tsk)
 		return -EPERM;
 	}
 
-	new_ns = kmalloc(sizeof(struct namespace *), GFP_KERNEL);
+	new_ns = kmalloc(sizeof(struct namespace), GFP_KERNEL);
 	if (!new_ns)
 		goto out;
 

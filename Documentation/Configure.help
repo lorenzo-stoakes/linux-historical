@@ -137,6 +137,15 @@ CONFIG_SMP
 
   If you don't know what to do here, say N.
 
+Maximum number of CPUs
+CONFIG_NR_CPUS
+  This allows you to specify the maximum number of CPUs which this
+  kernel will support.  The maximum supported value is 32 and the
+  mimimum value which makes sense is 2.
+
+  This is purely to save memory - each supported CPU adds
+  approximately eight kilobytes to the kernel image.
+
 Intel or compatible 80x86 processor
 CONFIG_X86
   This is Linux's home port.  Linux was originally native to the Intel
@@ -3216,6 +3225,190 @@ CONFIG_IP6_NF_TARGET_LOG
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+IP: virtual server support
+CONFIG_IP_VS
+  IP Virtual Server support will let you build a high-performance
+  virtual server based on cluster of two or more real servers. This
+  option must be enabled for at least one of the clustered computers
+  that will take care of intercepting incomming connections to a
+  single IP address and scheduling them to real servers.
+
+  Three request dispatching techniques are implemented, they are
+  virtual server via NAT, virtual server via tunneling and virtual
+  server via direct routing. The several scheduling algorithms can
+  be used to choose which server the connection is directed to,
+  thus load balancing can be achieved among the servers.  For more
+  information and its administration program, please visit the
+  following URL:
+	http://www.linuxvirtualserver.org/
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IP virtual server debugging
+CONFIG_IP_VS_DEBUG
+  Say Y here if you want to get additional messages useful in
+  debugging the IP virtual server code. You can change the debug
+  level in /proc/sys/net/ipv4/vs/debug_level
+
+IPVS connection hash table size (the Nth power of 2)
+CONFIG_IP_VS_TAB_BITS
+  The IPVS connection hash table uses the chaining scheme to handle
+  hash collisions. Using a big IPVS connection hash table will greatly
+  reduce conflicts when there are hundreds of thousands of connections
+  in the hash table.
+
+  Note the table size must be power of 2. The table size will be the
+  value of 2 to the your input number power. The number to choose is
+  from 8 to 20, the default number is 12, which means the table size
+  is 4096. Don't input the number too small, otherwise you will lose
+  performance on it. You can adapt the table size yourself, according
+  to your virtual server application. It is good to set the table size
+  not far less than the number of connections per second multiplying
+  average lasting time of connection in the table.  For example, your
+  virtual server gets 200 connections per second, the connection lasts
+  for 200 seconds in average in the connection table, the table size
+  should be not far less than 200x200, it is good to set the table
+  size 32768 (2**15).
+
+  Another note that each connection occupies 128 bytes effectively and
+  each hash entry uses 8 bytes, so you can estimate how much memory is
+  needed for your box.
+
+IPVS: round-robin scheduling
+CONFIG_IP_VS_RR
+  The robin-robin scheduling algorithm simply directs network
+  connections to different real servers in a round-robin manner.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: weighted round-robin scheduling
+CONFIG_IP_VS_WRR
+  The weighted robin-robin scheduling algorithm directs network
+  connections to different real servers based on server weights
+  in a round-robin manner. Servers with higher weights receive
+  new connections first than those with less weights, and servers
+  with higher weights get more connections than those with less
+  weights and servers with equal weights get equal connections.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: least-connection scheduling
+CONFIG_IP_VS_LC
+  The least-connection scheduling algorithm directs network
+  connections to the server with the least number of active 
+  connections.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: weighted least-connection scheduling
+CONFIG_IP_VS_WLC
+  The weighted least-connection scheduling algorithm directs network
+  connections to the server with the least active connections
+  normalized by the server weight.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: locality-based least-connection scheduling
+CONFIG_IP_VS_LBLC
+  The locality-based least-connection scheduling algorithm is for
+  destination IP load balancing. It is usually used in cache cluster.
+  This algorithm usually directs packet destined for an IP address to
+  its server if the server is alive and under load. If the server is
+  overloaded (its active connection numbers is larger than its weight)
+  and there is a server in its half load, then allocate the weighted
+  least-connection server to this IP address.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: locality-based least-connection with replication scheduling
+CONFIG_IP_VS_LBLCR
+  The locality-based least-connection with replication scheduling
+  algorithm is also for destination IP load balancing. It is 
+  usually used in cache cluster. It differs from the LBLC scheduling
+  as follows: the load balancer maintains mappings from a target
+  to a set of server nodes that can serve the target. Requests for
+  a target are assigned to the least-connection node in the target's
+  server set. If all the node in the server set are over loaded,
+  it picks up a least-connection node in the cluster and adds it
+  in the sever set for the target. If the server set has not been
+  modified for the specified time, the most loaded node is removed
+  from the server set, in order to avoid high degree of replication.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: destination hashing scheduling
+CONFIG_IP_VS_DH
+  The destination hashing scheduling algorithm assigns network
+  connections to the servers through looking up a statically assigned
+  hash table by their destination IP addresses.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: source hashing scheduling
+CONFIG_IP_VS_SH
+  The source hashing scheduling algorithm assigns network
+  connections to the servers through looking up a statically assigned
+  hash table by their source IP addresses.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: shortest expected delay scheduling
+CONFIG_IP_VS_SED
+  The shortest expected delay scheduling algorithm assigns network
+  connections to the server with the shortest expected delay. The 
+  expected delay that the job will experience is (Ci + 1) / Ui if 
+  sent to the ith server, in which Ci is the number of connections
+  on the the ith server and Ui is the fixed service rate (weight)
+  of the ith server.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: never queue scheduling
+CONFIG_IP_VS_NQ
+  The never queue scheduling algorithm adopts a two-speed model.
+  When there is an idle server available, the job will be sent to
+  the idle server, instead of waiting for a fast one. When there
+  is no idle server available, the job will be sent to the server
+  that minimize its expected delay (The Shortest Expected Delay
+  scheduling algorithm).
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
+
+IPVS: FTP protocol helper
+CONFIG_IP_VS_FTP
+  FTP is a protocol that transfers IP address and/or port number in
+  the payload. In the virtual server via Network Address Translation,
+  the IP address and port number of real servers cannot be sent to
+  clients in ftp connections directly, so FTP protocol helper is
+  required for tracking the connection and mangling it back to that of
+  virtual service.
+
+  If you want to compile it in kernel, say Y. If you want to compile
+  it as a module, say M here and read Documentation/modules.txt. If
+  unsure, say N.
 
 SYN flood protection
 CONFIG_SYN_COOKIES
@@ -18921,6 +19114,21 @@ CONFIG_INTEL_RNG
 
   If unsure, say N.
 
+Intel/AMD/VIA HW Random Number Generator support
+CONFIG_HW_RANDOM
+  This driver provides kernel-side support for the
+  Random Number Generator hardware found on Intel i8xx-based motherboards,
+  AMD 76x-based motherboards, and Via Nehemiah CPUs.
+
+  Provides a character driver, used to read() entropy data.
+
+  To compile this driver as a module ( = code which can be inserted in
+  and removed from the running kernel whenever you want), say M here
+  and read <file:Documentation/modules.txt>. The module will be called
+  hw_random.
+
+  If unsure, say N.
+
 Power Management support
 CONFIG_PM
   "Power Management" means that parts of your computer are shut
@@ -24894,6 +25102,19 @@ CONFIG_DEBUG_CLPS711X_UART2
   output to the second serial port on these devices.  Saying N will
   cause the debug messages to appear on the first serial port.
 
+Kernel log buffer length shift
+CONFIG_LOG_BUF_SHIFT
+  The kernel log buffer has a fixed size of :
+      64 kB (2^16) on MULTIQUAD and IA64,
+     128 kB (2^17) on S390
+      32 kB (2^15) on SMP systems
+      16 kB (2^14) on UP systems
+
+  You have the ability to change this size with this paramter which
+  fixes the bit shift of to get the buffer length (which must be a
+  power of 2). Eg: a value of 16 sets the buffer to 64 kB (2^16).
+  The default value of 0 uses standard values above.
+
 Disable pgtable cache
 CONFIG_NO_PGT_CACHE
   Normally the kernel maintains a `quicklist' of preallocated
@@ -27477,6 +27698,12 @@ CONFIG_CRYPTO_AES
   The AES specifies three key sizes: 128, 192 and 256 bits	  
 
   See http://csrc.nist.gov/encryption/aes/ for more information.
+
+CONFIG_CRYPTO_CAST5
+  CAST5 (CAST-128) cipher algorithm.
+
+  The CAST5 encryption algorithm (synonymous with CAST-128) is
+  described in RFC2144.
 
 CONFIG_CRYPTO_DEFLATE
   This is the Deflate algorithm (RFC1951), specified for use in

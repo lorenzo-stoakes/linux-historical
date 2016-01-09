@@ -1414,6 +1414,7 @@ pmd_t *__pmd_alloc(struct mm_struct *mm, pgd_t *pgd, unsigned long address)
 		 */
 		if (!pgd_none(*pgd)) {
 			pmd_free(new);
+			check_pgt_cache();
 			goto out;
 		}
 	}
@@ -1448,6 +1449,7 @@ pte_t *pte_alloc(struct mm_struct *mm, pmd_t *pmd, unsigned long address)
 			 */
 			if (!pmd_none(*pmd)) {
 				pte_free(new);
+				check_pgt_cache();
 				goto out;
 			}
 		}

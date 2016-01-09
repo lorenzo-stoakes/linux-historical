@@ -46,6 +46,10 @@ subdir-$(CONFIG_DECNET)		+= decnet
 subdir-$(CONFIG_ECONET)		+= econet
 subdir-$(CONFIG_VLAN_8021Q)           += 8021q
 
+ifeq ($(CONFIG_NETFILTER),y)
+  mod-subdirs += ipv4/ipvs
+  subdir-$(CONFIG_IP_VS) += ipv4/ipvs
+endif
 
 obj-y	:= socket.o $(join $(subdir-y), $(patsubst %,/%.o,$(notdir $(subdir-y))))
 ifeq ($(CONFIG_NET),y)

@@ -278,6 +278,8 @@ running once the system is up.
 
 	keepinitrd	[HW, ARM]
 
+	lapic		[IA-32,APIC] Enable the local APIC even if BIOS disabled it.
+
 	load_ramdisk=	[RAM] List of ramdisks to load from floppy.
 
 	lockd.udpport=	[NFS]
@@ -414,6 +416,8 @@ running once the system is up.
 
 	nointroute	[IA-64]
  
+	nolapic		[IA-32,APIC] Do not enable or use the local APIC.
+
 	no-scroll	[VGA]
 
 	nosmp		[SMP] Tells an SMP kernel to act as a UP kernel.

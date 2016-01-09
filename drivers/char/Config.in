@@ -267,6 +267,10 @@ fi
 if [ "$CONFIG_X86" = "y" -o "$CONFIG_IA64" = "y" ]; then
    dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
 fi
+if [ "$CONFIG_X86" = "y" -o "$CONFIG_IA64" = "y" -o \
+     "$CONFIG_X86_64" = "y" ]; then
+   dep_tristate 'Intel/AMD/VIA HW Random Number Generator support' CONFIG_HW_RANDOM $CONFIG_PCI
+fi
 dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
 tristate '/dev/nvram support' CONFIG_NVRAM
 tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
@@ -317,18 +321,7 @@ if [ "$CONFIG_AGP" != "n" ]; then
    fi
 fi
 
-bool 'Direct Rendering Manager (XFree86 DRI support)' CONFIG_DRM
-if [ "$CONFIG_DRM" = "y" ]; then
-   bool '  Build drivers for old (XFree 4.0) DRM' CONFIG_DRM_OLD
-   if [ "$CONFIG_DRM_OLD" = "y" ]; then
-      comment 'DRM 4.0 drivers'
-      source drivers/char/drm-4.0/Config.in
-   else
-      comment 'DRM 4.1 drivers'
-      define_bool CONFIG_DRM_NEW y
-      source drivers/char/drm/Config.in
-   fi
-fi
+source drivers/char/DRM-Config.in
 
 if [ "$CONFIG_HOTPLUG" = "y" -a "$CONFIG_PCMCIA" != "n" ]; then
    source drivers/char/pcmcia/Config.in

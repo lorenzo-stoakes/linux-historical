@@ -146,6 +146,7 @@ enum
 	VM_MAX_MAP_COUNT=11,	/* int: Maximum number of active map areas */
 	VM_MIN_READAHEAD=12,    /* Min file readahead */
 	VM_MAX_READAHEAD=13,    /* Max file readahead */
+	VM_PAGEBUF=17,		/* struct: Control pagebuf parameters */
 };
 
 

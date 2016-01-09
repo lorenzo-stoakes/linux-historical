@@ -38,6 +38,8 @@ int prof_multiplier[NR_CPUS] = { 1, };
 int prof_old_multiplier[NR_CPUS] = { 1, };
 int prof_counter[NR_CPUS] = { 1, };
 
+static int enabled_via_apicbase;
+
 int get_maxlvt(void)
 {
 	unsigned int v, ver, maxlvt;
@@ -142,6 +144,13 @@ void disable_local_APIC(void)
 	value = apic_read(APIC_SPIV);
 	value &= ~APIC_SPIV_APIC_ENABLED;
 	apic_write_around(APIC_SPIV, value);
+
+	if (enabled_via_apicbase) {
+		unsigned int l, h;
+		rdmsr(MSR_IA32_APICBASE, l, h);
+		l &= ~MSR_IA32_APICBASE_ENABLE;
+		wrmsr(MSR_IA32_APICBASE, l, h);
+	}
 }
 
 /*
@@ -464,7 +473,6 @@ static struct {
 
 static void apic_pm_suspend(void *data)
 {
-	unsigned int l, h;
 	unsigned long flags;
 
 	if (apic_pm_state.perfctr_pmdev)
@@ -484,9 +492,6 @@ static void apic_pm_suspend(void *data)
 	__save_flags(flags);
 	__cli();
 	disable_local_APIC();
-	rdmsr(MSR_IA32_APICBASE, l, h);
-	l &= ~MSR_IA32_APICBASE_ENABLE;
-	wrmsr(MSR_IA32_APICBASE, l, h);
 	__restore_flags(flags);
 }
 
@@ -593,7 +598,26 @@ static inline void apic_pm_init2(void) { }
  * Detect and enable local APICs on non-SMP boards.
  * Original code written by Keir Fraser.
  */
-int dont_enable_local_apic __initdata = 0;
+
+/*
+ * Knob to control our willingness to enable the local APIC.
+ */
+int enable_local_apic __initdata = 0; /* -1=force-disable, +1=force-enable */
+
+static int __init lapic_disable(char *str)
+{
+	enable_local_apic = -1;
+	clear_bit(X86_FEATURE_APIC, boot_cpu_data.x86_capability);
+	return 0;
+}
+__setup("nolapic", lapic_disable);
+
+static int __init lapic_enable(char *str)
+{
+	enable_local_apic = 1;
+	return 0;
+}
+__setup("lapic", lapic_enable);
 
 static int __init detect_init_APIC (void)
 {
@@ -601,7 +625,7 @@ static int __init detect_init_APIC (void)
 	extern void get_cpu_vendor(struct cpuinfo_x86*);
 
 	/* Disabled by DMI scan or kernel option? */
-	if (dont_enable_local_apic)
+	if (enable_local_apic < 0)
 		return -1;
 
 	/* Workaround for us being called before identify_cpu(). */
@@ -616,7 +640,7 @@ static int __init detect_init_APIC (void)
 		goto no_apic;
 	case X86_VENDOR_INTEL:
 		if (boot_cpu_data.x86 == 6 ||
-		    (boot_cpu_data.x86 == 15 && cpu_has_apic) ||
+		    (boot_cpu_data.x86 == 15 && (cpu_has_apic || enable_local_apic > 0)) ||
 		    (boot_cpu_data.x86 == 5 && cpu_has_apic))
 			break;
 		goto no_apic;
@@ -636,6 +660,7 @@ static int __init detect_init_APIC (void)
 			l &= ~MSR_IA32_APICBASE_BASE;
 			l |= MSR_IA32_APICBASE_ENABLE | APIC_DEFAULT_PHYS_BASE;
 			wrmsr(MSR_IA32_APICBASE, l, h);
+			enabled_via_apicbase = 1;
 		}
 	}
 	/*
@@ -928,14 +953,8 @@ int __init calibrate_APIC_clock(void)
 
 static unsigned int calibration_result;
 
-int dont_use_local_apic_timer __initdata = 0;
-
 void __init setup_APIC_clocks (void)
 {
-	/* Disabled by DMI scan or kernel option? */
-	if (dont_use_local_apic_timer)
-		return;
-
 	printk("Using local APIC timer interrupts.\n");
 	using_apic_timer = 1;
 
@@ -1152,6 +1171,9 @@ asmlinkage void smp_error_interrupt(void)
  */
 int __init APIC_init_uniprocessor (void)
 {
+	if (enable_local_apic < 0)
+		clear_bit(X86_FEATURE_APIC, boot_cpu_data.x86_capability);
+
 	if (!smp_found_config && !cpu_has_apic)
 		return -1;
 

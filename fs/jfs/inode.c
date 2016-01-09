@@ -149,7 +149,7 @@ int jfs_commit_inode(struct inode *inode, int wait)
 	rc = txCommit(tid, 1, &inode, wait ? COMMIT_SYNC : 0);
 	txEnd(tid);
 	up(&JFS_IP(inode)->commit_sem);
-	return -rc;
+	return rc;
 }
 
 void jfs_write_inode(struct inode *inode, int wait)
@@ -303,7 +303,7 @@ static int jfs_get_block(struct inode *ip, long lblock,
 		else
 			IREAD_UNLOCK(ip);
 	}
-	return -rc;
+	return rc;
 }
 
 static int jfs_writepage(struct page *page)

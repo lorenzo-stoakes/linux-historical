@@ -3330,10 +3330,10 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *dev)
 static struct net_device_stats *bond_get_stats(struct net_device *dev)
 {
 	bonding_t *bond = dev->priv;
-	struct net_device_stats *stats = bond->stats, *sstats;
+	struct net_device_stats *stats = &(bond->stats), *sstats;
 	slave_t *slave;
 
-	memset(bond->stats, 0, sizeof(struct net_device_stats));
+	memset(stats, 0, sizeof(struct net_device_stats));
 
 	read_lock_bh(&bond->lock);
 
@@ -3566,13 +3566,6 @@ static int __init bond_init(struct net_device *dev)
 	/* initialize rwlocks */
 	rwlock_init(&bond->lock);
 	rwlock_init(&bond->ptrlock);
-	
-	bond->stats = kmalloc(sizeof(struct net_device_stats), GFP_KERNEL);
-	if (bond->stats == NULL) {
-		kfree(bond);
-		return -ENOMEM;
-	}
-	memset(bond->stats, 0, sizeof(struct net_device_stats));
 
 	bond->next = bond->prev = (slave_t *)bond;
 	bond->current_slave = NULL;
@@ -3603,7 +3596,6 @@ static int __init bond_init(struct net_device *dev)
 		break;
 	default:
 		printk(KERN_ERR "Unknown bonding mode %d\n", bond_mode);
-		kfree(bond->stats);
 		kfree(bond);
 		return -EINVAL;
 	}
@@ -3654,7 +3646,6 @@ static int __init bond_init(struct net_device *dev)
 	if (bond->bond_proc_dir == NULL) {
 		printk(KERN_ERR "%s: Cannot init /proc/net/%s/\n", 
 			dev->name, dev->name);
-		kfree(bond->stats);
 		kfree(bond);
 		return -ENOMEM;
 	}
@@ -3665,7 +3656,6 @@ static int __init bond_init(struct net_device *dev)
 		printk(KERN_ERR "%s: Cannot init /proc/net/%s/info\n", 
 			dev->name, dev->name);
 		remove_proc_entry(dev->name, proc_net);
-		kfree(bond->stats);
 		kfree(bond);
 		return -ENOMEM;
 	}
@@ -4007,9 +3997,8 @@ static void __exit bonding_exit(void)
 		remove_proc_entry(dev_bond->name, proc_net);
 #endif
 		unregister_netdev(dev_bond);
-		kfree(bond->stats);
 		kfree(dev_bond->priv);
-		
+
 		dev_bond->priv = NULL;
 		dev_bond++;
 	}

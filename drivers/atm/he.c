@@ -89,7 +89,7 @@
 
 /* compatibility */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,69)
+#ifndef IRQ_HANDLED
 typedef void irqreturn_t;
 #define IRQ_NONE
 #define IRQ_HANDLED

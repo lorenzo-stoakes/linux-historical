@@ -1,7 +1,7 @@
 /*
  * tg3.c: Broadcom Tigon3 ethernet driver.
  *
- * Copyright (C) 2001, 2002 David S. Miller (davem@redhat.com)
+ * Copyright (C) 2001, 2002, 2003 David S. Miller (davem@redhat.com)
  * Copyright (C) 2001, 2002 Jeff Garzik (jgarzik@pobox.com)
  */
 
@@ -29,6 +29,12 @@
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>
 
+#ifdef CONFIG_SPARC64
+#include <asm/idprom.h>
+#include <asm/oplib.h>
+#include <asm/pbm.h>
+#endif
+
 #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
 #define TG3_VLAN_TAG_USED 1
 #else
@@ -46,8 +52,8 @@
 
 #define DRV_MODULE_NAME		"tg3"
 #define PFX DRV_MODULE_NAME	": "
-#define DRV_MODULE_VERSION	"1.6"
-#define DRV_MODULE_RELDATE	"June 11, 2003"
+#define DRV_MODULE_VERSION	"1.9"
+#define DRV_MODULE_RELDATE	"August 3, 2003"
 
 #define TG3_DEF_MAC_MODE	0
 #define TG3_DEF_RX_MODE		0
@@ -142,6 +148,8 @@ static struct pci_device_id tg3_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_SYSKONNECT, 0x4400,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000,
+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1001,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC9100,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
@@ -245,6 +253,7 @@ static inline void __netif_rx_complete(struct net_device *dev)
 {
 	if (!test_bit(__LINK_STATE_RX_SCHED, &dev->state)) BUG();
 	list_del(&dev->poll_list);
+	smp_mb__before_clear_bit();
 	clear_bit(__LINK_STATE_RX_SCHED, &dev->state);
 }
 
@@ -2180,7 +2189,6 @@ static void tg3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	spin_unlock_irqrestore(&tp->lock, flags);
 }
 
-static void tg3_init_rings(struct tg3 *);
 static int tg3_init_hw(struct tg3 *);
 static int tg3_halt(struct tg3 *);
 
@@ -2198,7 +2206,6 @@ static void tg3_reset_task(void *_data)
 	tp->tg3_flags2 &= ~TG3_FLG2_RESTART_TIMER;
 
 	tg3_halt(tp);
-	tg3_init_rings(tp);
 	tg3_init_hw(tp);
 
 	spin_unlock(&tp->tx_lock);
@@ -2674,7 +2681,6 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
 
 	tg3_set_mtu(dev, tp, new_mtu);
 
-	tg3_init_rings(tp);
 	tg3_init_hw(tp);
 
 	spin_unlock(&tp->tx_lock);
@@ -2760,8 +2766,8 @@ static void tg3_free_rings(struct tg3 *tp)
  *
  * The chip has been shut down and the driver detached from
  * the networking, so no interrupts or new tx packets will
- * end up in the driver.  tp->{tx,}lock is not held and we are not
- * in an interrupt context and thus may sleep.
+ * end up in the driver.  tp->{tx,}lock are held and thus
+ * we may not sleep.
  */
 static void tg3_init_rings(struct tg3 *tp)
 {
@@ -3058,18 +3064,20 @@ static void tg3_chip_reset(struct tg3 *tp)
 	u32 val;
 	u32 flags_save;
 
-	/* Force NVRAM to settle.
-	 * This deals with a chip bug which can result in EEPROM
-	 * corruption.
-	 */
-	if (tp->tg3_flags & TG3_FLAG_NVRAM) {
-		int i;
+	if (!(tp->tg3_flags2 & TG3_FLG2_SUN_5704)) {
+		/* Force NVRAM to settle.
+		 * This deals with a chip bug which can result in EEPROM
+		 * corruption.
+		 */
+		if (tp->tg3_flags & TG3_FLAG_NVRAM) {
+			int i;
 
-		tw32(NVRAM_SWARB, SWARB_REQ_SET1);
-		for (i = 0; i < 100000; i++) {
-			if (tr32(NVRAM_SWARB) & SWARB_GNT1)
-				break;
-			udelay(10);
+			tw32(NVRAM_SWARB, SWARB_REQ_SET1);
+			for (i = 0; i < 100000; i++) {
+				if (tr32(NVRAM_SWARB) & SWARB_GNT1)
+					break;
+				udelay(10);
+			}
 		}
 	}
 
@@ -3162,7 +3170,8 @@ static int tg3_halt(struct tg3 *tp)
 		udelay(10);
 	}
 
-	if (i >= 100000) {
+	if (i >= 100000 &&
+	    !(tp->tg3_flags2 & TG3_FLG2_SUN_5704)) {
 		printk(KERN_ERR PFX "tg3_halt timed out for %s, "
 		       "firmware will not restart magic=%08x\n",
 		       tp->dev->name, val);
@@ -3906,7 +3915,8 @@ static int tg3_reset_hw(struct tg3 *tp)
 			break;
 		udelay(10);
 	}
-	if (i >= 100000) {
+	if (i >= 100000 &&
+	    !(tp->tg3_flags2 & TG3_FLG2_SUN_5704)) {
 		printk(KERN_ERR PFX "tg3_reset_hw timed out for %s, "
 		       "firmware will not restart magic=%08x\n",
 		       tp->dev->name, val);
@@ -3935,6 +3945,13 @@ static int tg3_reset_hw(struct tg3 *tp)
 		val |= PCISTATE_RETRY_SAME_DMA;
 		tw32(TG3PCI_PCISTATE, val);
 	}
+
+	/* Descriptor ring init may make accesses to the
+	 * NIC SRAM area to setup the TX descriptors, so we
+	 * can only do this after the hardware has been
+	 * successfully reset.
+	 */
+	tg3_init_rings(tp);
 
 	/* Clear statistics/status block in chip, and status block in ram. */
 	for (i = NIC_SRAM_STATS_BLK;
@@ -4494,8 +4511,6 @@ static int tg3_open(struct net_device *dev)
 
 	spin_lock_irq(&tp->lock);
 	spin_lock(&tp->tx_lock);
-
-	tg3_init_rings(tp);
 
 	err = tg3_init_hw(tp);
 	if (err) {
@@ -5308,7 +5323,6 @@ static int tg3_ethtool_ioctl (struct net_device *dev, void *useraddr)
 		tp->tx_pending = ering.tx_pending;
 
 		tg3_halt(tp);
-		tg3_init_rings(tp);
 		tg3_init_hw(tp);
 		netif_wake_queue(tp->dev);
 		spin_unlock(&tp->tx_lock);
@@ -5352,7 +5366,6 @@ static int tg3_ethtool_ioctl (struct net_device *dev, void *useraddr)
 		else
 			tp->tg3_flags &= ~TG3_FLAG_PAUSE_TX;
 		tg3_halt(tp);
-		tg3_init_rings(tp);
 		tg3_init_hw(tp);
 		spin_unlock(&tp->tx_lock);
 		spin_unlock_irq(&tp->lock);
@@ -5522,6 +5535,9 @@ static void __devinit tg3_nvram_init(struct tg3 *tp)
 {
 	int j;
 
+	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704)
+		return;
+
 	tw32(GRC_EEPROM_ADDR,
 	     (EEPROM_ADDR_FSM_RESET |
 	      (EEPROM_DEFAULT_CLOCK_PERIOD <<
@@ -5593,6 +5609,11 @@ static int __devinit tg3_nvram_read(struct tg3 *tp,
 				    u32 offset, u32 *val)
 {
 	int i, saw_done_clear;
+
+	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704) {
+		printk(KERN_ERR PFX "Attempt to do nvram_read on Sun 5704\n");
+		return -EINVAL;
+	}
 
 	if (!(tp->tg3_flags & TG3_FLAG_NVRAM))
 		return tg3_nvram_read_using_eeprom(tp, offset, val);
@@ -5862,6 +5883,14 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
 	unsigned char vpd_data[256];
 	int i;
 
+	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704) {
+		/* Sun decided not to put the necessary bits in the
+		 * NVRAM of their onboard tg3 parts :(
+		 */
+		strcpy(tp->board_part_number, "Sun 5704");
+		return;
+	}
+
 	for (i = 0; i < 256; i += 4) {
 		u32 tmp;
 
@@ -5918,6 +5947,34 @@ out_not_found:
 	strcpy(tp->board_part_number, "none");
 }
 
+#ifdef CONFIG_SPARC64
+static int __devinit tg3_is_sun_5704(struct tg3 *tp)
+{
+	struct pci_dev *pdev = tp->pdev;
+	struct pcidev_cookie *pcp = pdev->sysdata;
+
+	if (pcp != NULL) {
+		int node = pcp->prom_node;
+		u32 venid, devid;
+		int err;
+
+		err = prom_getproperty(node, "subsystem-vendor-id",
+				       (char *) &venid, sizeof(venid));
+		if (err == 0 || err == -1)
+			return 0;
+		err = prom_getproperty(node, "subsystem-id",
+				       (char *) &devid, sizeof(devid));
+		if (err == 0 || err == -1)
+			return 0;
+
+		if (venid == PCI_VENDOR_ID_SUN &&
+		    devid == PCI_DEVICE_ID_TIGON3_5704)
+			return 1;
+	}
+	return 0;
+}
+#endif
+
 static int __devinit tg3_get_invariants(struct tg3 *tp)
 {
 	u32 misc_ctrl_reg;
@@ -5925,6 +5982,11 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	u32 pci_state_reg, grc_misc_cfg;
 	u16 pci_cmd;
 	int err;
+
+#ifdef CONFIG_SPARC64
+	if (tg3_is_sun_5704(tp))
+		tp->tg3_flags2 |= TG3_FLG2_SUN_5704;
+#endif
 
 	/* If we have an AMD 762 or Intel ICH/ICH0 chipset, write
 	 * reordering to the mailbox registers done by the host
@@ -6234,10 +6296,43 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	return err;
 }
 
+#ifdef CONFIG_SPARC64
+static int __devinit tg3_get_macaddr_sparc(struct tg3 *tp)
+{
+	struct net_device *dev = tp->dev;
+	struct pci_dev *pdev = tp->pdev;
+	struct pcidev_cookie *pcp = pdev->sysdata;
+
+	if (pcp != NULL) {
+		int node = pcp->prom_node;
+
+		if (prom_getproplen(node, "local-mac-address") == 6) {
+			prom_getproperty(node, "local-mac-address",
+					 dev->dev_addr, 6);
+			return 0;
+		}
+	}
+	return -ENODEV;
+}
+
+static int __devinit tg3_get_default_macaddr_sparc(struct tg3 *tp)
+{
+	struct net_device *dev = tp->dev;
+
+	memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
+	return 0;
+}
+#endif
+
 static int __devinit tg3_get_device_address(struct tg3 *tp)
 {
 	struct net_device *dev = tp->dev;
 	u32 hi, lo, mac_offset;
+
+#ifdef CONFIG_SPARC64
+	if (!tg3_get_macaddr_sparc(tp))
+		return 0;
+#endif
 
 	if (PCI_FUNC(tp->pdev->devfn) == 0)
 		mac_offset = 0x7c;
@@ -6257,7 +6352,8 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
 		dev->dev_addr[5] = (lo >>  0) & 0xff;
 	}
 	/* Next, try NVRAM. */
-	else if (!tg3_nvram_read(tp, mac_offset + 0, &hi) &&
+	else if (!(tp->tg3_flags & TG3_FLG2_SUN_5704) &&
+		 !tg3_nvram_read(tp, mac_offset + 0, &hi) &&
 		 !tg3_nvram_read(tp, mac_offset + 4, &lo)) {
 		dev->dev_addr[0] = ((hi >> 16) & 0xff);
 		dev->dev_addr[1] = ((hi >> 24) & 0xff);
@@ -6279,9 +6375,13 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
 		dev->dev_addr[0] = (hi >> 8) & 0xff;
 	}
 
-	if (!is_valid_ether_addr(&dev->dev_addr[0]))
+	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
+#ifdef CONFIG_SPARC64
+		if (!tg3_get_default_macaddr_sparc(tp))
+			return 0;
+#endif
 		return -EINVAL;
-
+	}
 	return 0;
 }
 
@@ -6866,7 +6966,6 @@ static int tg3_suspend(struct pci_dev *pdev, u32 state)
 		spin_lock_irq(&tp->lock);
 		spin_lock(&tp->tx_lock);
 
-		tg3_init_rings(tp);
 		tg3_init_hw(tp);
 
 		spin_unlock(&tp->tx_lock);
@@ -6897,7 +6996,6 @@ static int tg3_resume(struct pci_dev *pdev)
 	spin_lock_irq(&tp->lock);
 	spin_lock(&tp->tx_lock);
 
-	tg3_init_rings(tp);
 	tg3_init_hw(tp);
 	tg3_enable_ints(tp);
 

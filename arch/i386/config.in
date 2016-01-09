@@ -231,6 +231,7 @@ if [ "$CONFIG_SMP" != "y" ]; then
       define_bool CONFIG_X86_IO_APIC y
    fi
 else
+   int  'Maximum number of CPUs (2-32)' CONFIG_NR_CPUS 32
    bool 'Multi-node NUMA system support' CONFIG_X86_NUMA
    if [ "$CONFIG_X86_NUMA" = "y" ]; then
       #Platform Choices
@@ -475,6 +476,8 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  Spinlock debugging' CONFIG_DEBUG_SPINLOCK
    bool '  Compile the kernel with frame pointers' CONFIG_FRAME_POINTER
 fi
+
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
 
 endmenu
 

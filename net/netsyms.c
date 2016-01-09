@@ -18,6 +18,7 @@
 #include <linux/fcdevice.h>
 #include <linux/ioport.h>
 #include <linux/tty.h>
+#include <linux/ethtool.h>
 #include <net/neighbour.h>
 #include <net/snmp.h>
 #include <net/dst.h>
@@ -193,6 +194,7 @@ EXPORT_SYMBOL(neigh_parms_alloc);
 EXPORT_SYMBOL(neigh_parms_release);
 EXPORT_SYMBOL(neigh_rand_reach_time);
 EXPORT_SYMBOL(neigh_compat_output); 
+EXPORT_SYMBOL(neigh_changeaddr);
 
 /*	dst_entry	*/
 EXPORT_SYMBOL(dst_alloc);
@@ -265,6 +267,7 @@ EXPORT_SYMBOL(inet_family_ops);
 EXPORT_SYMBOL(in_aton);
 EXPORT_SYMBOL(ip_mc_inc_group);
 EXPORT_SYMBOL(ip_mc_dec_group);
+EXPORT_SYMBOL(ip_mc_join_group);
 EXPORT_SYMBOL(ip_finish_output);
 EXPORT_SYMBOL(inet_stream_ops);
 EXPORT_SYMBOL(inet_dgram_ops);
@@ -610,5 +613,11 @@ EXPORT_SYMBOL(softnet_data);
 #include <net/iw_handler.h>
 EXPORT_SYMBOL(wireless_send_event);
 #endif /* CONFIG_NET_RADIO || CONFIG_NET_PCMCIA_RADIO */
+
+/* ethtool.c */
+EXPORT_SYMBOL(ethtool_op_get_link);
+EXPORT_SYMBOL(ethtool_op_get_tx_csum);
+EXPORT_SYMBOL(ethtool_op_get_sg);
+EXPORT_SYMBOL(ethtool_op_set_sg);
 
 #endif  /* CONFIG_NET */

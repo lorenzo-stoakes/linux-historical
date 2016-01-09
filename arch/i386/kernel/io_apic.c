@@ -169,6 +169,14 @@ void clear_IO_APIC_pin(unsigned int apic, unsigned int pin)
 {
 	struct IO_APIC_route_entry entry;
 	unsigned long flags;
+	
+	/* Check delivery_mode to be sure we're not clearing an SMI pin */
+	spin_lock_irqsave(&ioapic_lock, flags);
+	*(((int*)&entry) + 0) = io_apic_read(apic, 0x10 + 2 * pin);
+	*(((int*)&entry) + 1) = io_apic_read(apic, 0x11 + 2 * pin);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
+	if (entry.delivery_mode == dest_SMI)
+		return;
 
 	/*
 	 * Disable it in the IO-APIC irq-routing table:
@@ -1365,6 +1373,13 @@ void send_IPI_self(int vector)
 static void set_ioapic_affinity (unsigned int irq, unsigned long mask)
 {
 	unsigned long flags;
+
+	/* pick a single cpu for clustered xapics */
+	if(clustered_apic_mode == CLUSTERED_APIC_XAPIC){
+		int cpu = ffs(mask)-1;
+		mask = cpu_to_physical_apicid(cpu);
+	}
+
 	/*
 	 * Only the first 8 bits are valid.
 	 */

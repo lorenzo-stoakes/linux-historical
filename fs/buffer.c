@@ -612,7 +612,7 @@ void buffer_insert_list(struct buffer_head *bh, struct list_head *list)
 	if (buffer_attached(bh))
 		list_del(&bh->b_inode_buffers);
 	set_buffer_attached(bh);
-	list_add(&bh->b_inode_buffers, list);
+	list_add_tail(&bh->b_inode_buffers, list);
 	spin_unlock(&lru_list_lock);
 }
 
@@ -1749,7 +1749,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 		if (!buffer_mapped(bh)) {
 			if (iblock < lblock) {
 				if (get_block(inode, iblock, bh, 0))
-					continue;
+					SetPageError(page);
 			}
 			if (!buffer_mapped(bh)) {
 				memset(kmap(page) + i*blocksize, 0, blocksize);
@@ -1769,10 +1769,11 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 
 	if (!nr) {
 		/*
-		 * all buffers are uptodate - we can set the page
-		 * uptodate as well.
+		 * All buffers are uptodate - we can set the page uptodate
+		 * as well. But not if get_block() returned an error.
 		 */
-		SetPageUptodate(page);
+		if (!PageError(page))
+			SetPageUptodate(page);
 		UnlockPage(page);
 		return 0;
 	}
