@@ -59,9 +59,16 @@ ifeq ($(ARCH),m68k)
    ifdef CONFIG_AMIGA
       KEYBD = amikeyb.o
    else
-      KEYBD =
+      ifndef CONFIG_MAC
+	 KEYBD =
+      endif
    endif
    SERIAL   =
+endif
+
+ifdef CONFIG_Q40
+  KEYBD += q40_keyb.o
+  SERIAL = serial.o
 endif
 
 ifeq ($(ARCH),arm)

@@ -986,7 +986,7 @@ static void bigmac_set_multicast(struct net_device *dev)
 	unsigned long bregs = bp->bregs;
 	struct dev_mc_list *dmi = dev->mc_list;
 	char *addrs;
-	int i, j, bit, byte;
+	int i;
 	u32 tmp, crc;
 
 	/* Disable the receiver.  The bit self-clears when

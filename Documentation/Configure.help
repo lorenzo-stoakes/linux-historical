@@ -9614,6 +9614,21 @@ CONFIG_NET_PROFILE
   performance will be written to /proc/net/profile. If you don't know
   what it is about, you don't need it: say N.
 
+Network packet generator
+CONFIG_NET_PKTGEN
+  This module will inject preconfigured packets, at a configurable
+  rate, out of a given interface.  It is used for network interface
+  stress testing and performance analysis.  If you don't understand
+  what was just said, you don't neet it: say N.
+
+  Documentation on how to use the packet generator can be found
+  at <file:Documentation/networking/pktgen.txt>.
+
+  This code is also available as a module called pktgen.o ( = code
+  which can be inserted in and removed from the running kernel
+  whenever you want).  If you want to compile it as a module, say M
+  here and read <file:Documentation/modules.txt>.
+
 Wan interfaces support
 CONFIG_WAN
   Wide Area Networks (WANs), such as X.25, frame relay and leased
@@ -9918,6 +9933,20 @@ CONFIG_I810_TCO
   If you want to compile this as a module, say M and read
   <file:Documentation/modules.txt>.  The module will be called
   i810-tco.o.
+
+SliceCOM/PciCOM board support
+CONFIG_COMX_HW_MUNICH
+  Hardware driver for the 'SliceCOM' (channelized E1) and 'PciCOM'
+  boards (X21) from the MultiGate family.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called comx-hw-munich.o. If you want to compile it
+  as a module, say M here and read <file:Documentation/modules.txt>.
+
+  Read linux/Documentation/networking/slicecom.txt for help on
+  configuring and using SliceCOM interfaces. Further info on these cards
+  can be found at http://www.itc.hu or <info@itc.hu>.
 
 Support for HDLC and syncPPP protocols on MultiGate boards
 CONFIG_COMX_PROTO_PPP
@@ -10392,6 +10421,15 @@ Sun GEM support
 CONFIG_SUNGEM
   Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
   <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
+
+Broadcom Tigon3 support
+CONFIG_TIGON3
+  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
+
+  If you want to compile this driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  This is
+  recommended.  The module will be called tg3.o.
 
 MyriCOM Gigabit Ethernet support
 CONFIG_MYRI_SBUS
@@ -12977,6 +13015,20 @@ CONFIG_USB_AUDIO
   The module will be called audio.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
+EMI 2|6 USB Audio interface support
+CONFIG_USB_EMI26
+  This driver loads firmware to Emagic EMI 2|6 low latency USB
+  Audio interface.
+
+  After firmware load the device is handled with standard linux
+  USB Audio driver.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called audio.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+			
+
 USB Modem (CDC ACM) support
 CONFIG_USB_ACM
   This driver supports USB modems and ISDN adapters which support the
@@ -13426,12 +13478,12 @@ CONFIG_USB_VICAM
 
 Pegasus/Pegasus II based USB-Ethernet device support
 CONFIG_USB_PEGASUS
-  Say Y here if you know you have Pegasus or Pegasus II based adapter.
+  Say Y here if you know you have Pegasus or Pegasus-II based adapter.
   If in doubt then look at linux/drivers/usb/pegasus.h for the complete
   list of supported devices.
   If your particular adapter is not in the list and you are _sure_ it
-  is Pegasus or Pegasus II based then send me (pmanolov@lnxw.com) vendor
-  and device IDs.
+  is Pegasus or Pegasus-II based then send me (pmanolov@users.sourceforge.net)
+  vendor and device IDs.
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -19588,6 +19640,10 @@ CONFIG_HISAX_SEDLBAUER_CS
   This enables the PCMCIA client driver for the Sedlbauer Speed Star
   and Speed Star II cards.
 
+CONFIG_HISAX_AVM_A1_CS
+  This enables the PCMCIA client driver for the AVM A1 / Fritz!Card
+  PCMCIA cards.
+
 ST5481 USB ISDN modem
 CONFIG_HISAX_ST5481
   This enables the driver for ST5481 based USB ISDN adapters,
@@ -20111,9 +20167,13 @@ CONFIG_BLK_DEV_Q40IDE
 Sun 3 support
 CONFIG_SUN3
   This option enables support for the Sun 3 series of workstations.
-  Currently, only the Sun 3/80 is supported within the Sun 3x family.
-  You will also want to enable 68030 support.  General Linux
-  information on the Sun 3x series (now discontinued) is at
+  Note that if this option is enabled, support for all other m68k 
+  platforms above must be disabled in order to produce a working 
+  kernel.
+
+  Also, you will want to enable 68020 support below, and disable 
+  all other CPU types.  General Linux information on the Sun 3x series
+  (now discontinued) is at
   <http://www.angelfire.com/ca2/tech68k/sun3.html>.
 
   If you don't want to compile a kernel for a Sun 3, say N.
@@ -20121,8 +20181,8 @@ CONFIG_SUN3
 Sun 3X support
 CONFIG_SUN3X
   This option enables support for the Sun 3x series of workstations.
-  Be warned that this support is very experimental. You will also want
-  to say Y to 68020 support and N to the other processors below.
+  Currently, only the Sun 3/80 is supported within the Sun 3x family.
+  You will also want to enable 68030 support below  
   General Linux information on the Sun 3x series (now discontinued)
   is at <http://www.angelfire.com/ca2/tech68k/sun3.html>.
 
@@ -20133,8 +20193,7 @@ CONFIG_SUN3X_ZS
   ZS refers to a type of asynchronous serial port built in to the Sun3
   and Sun3x workstations; if you have a Sun 3, you probably have
   these.  Say 'Y' to support ZS ports directly.  This option must be
-  enabled in order to support the
-  keyboard and mouse ports.
+  enabled in order to support the keyboard and mouse ports.
 
 Sun keyboard support
 CONFIG_SUN_KEYBOARD
@@ -20432,6 +20491,17 @@ CONFIG_TT_DMA_EMUL
   Hades. This increases the SCSI transfer rates at least ten times
   compared to PIO transfers.
 
+Sun3 NCR5380 OBIO SCSI
+CONFIG_SUN3_SCSI
+  This option will enable support for the OBIO (onboard io) NCR5380
+  SCSI controller found in the Sun 3/50 and 3/60.  Note that this
+  driver does not provide support for VME SCSI boards.
+
+Sun3x ESP SCSI
+CONFIG_SUN3X_ESP
+  This option will enable support for the ESP SCSI controller found
+  onboard the Sun 3/80.
+
 Ariadne support
 CONFIG_ARIADNE
   If you have a Village Tronic Ariadne Ethernet adapter, say Y.
@@ -20494,6 +20564,19 @@ CONFIG_APNE
   inserted in and removed from the running kernel whenever you
   want). The module is called apne.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
+
+Sun3/Sun3x on-board LANCE support
+CONFIG_SUN3LANCE
+  This driver enables support for the on-board LANCE ethernet adapter
+  found on the Sun 3/50, 3/60, and 3/80 workstations.  If you have 
+  one of these workstations, and would like Ethernet, say Y. 
+  Otherwise, say N.
+
+Sun3 on-board Intel 82586 support
+CONFIG_SUN3_82586
+  This driver enables support for the on-board Intel 82586 based Ethernet
+  adapter found on Sun 3/1xx and 3/2xx motherboards.  Note that this driver
+  does not support 82586-based adapters on additional VME boards.
 
 Atari Lance support
 CONFIG_ATARILANCE

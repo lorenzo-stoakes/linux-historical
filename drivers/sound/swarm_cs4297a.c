@@ -1526,15 +1526,6 @@ static int mixer_ioctl(struct cs4297a_state *s, unsigned int cmd,
 	}
 }
 
-
-// --------------------------------------------------------------------- 
-
-static loff_t cs4297a_llseek(struct file *file, loff_t offset, int origin)
-{
-	return -ESPIPE;
-}
-
-
 // --------------------------------------------------------------------- 
 
 static int cs4297a_open_mixdev(struct inode *inode, struct file *file)
@@ -1592,7 +1583,7 @@ static int cs4297a_ioctl_mixdev(struct inode *inode, struct file *file,
 //   Mixer file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4297a_mixer_fops = {
-	llseek:cs4297a_llseek,
+	llseek:no_llseek,
 	ioctl:cs4297a_ioctl_mixdev,
 	open:cs4297a_open_mixdev,
 	release:cs4297a_release_mixdev,
@@ -2510,7 +2501,7 @@ static int cs4297a_open(struct inode *inode, struct file *file)
 //   Wave (audio) file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4297a_audio_fops = {
-	llseek:cs4297a_llseek,
+	llseek:no_llseek,
 	read:cs4297a_read,
 	write:cs4297a_write,
 	poll:cs4297a_poll,

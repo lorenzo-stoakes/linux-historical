@@ -2628,17 +2628,6 @@ static int mixer_ioctl(struct cs4281_state *s, unsigned int cmd,
 	}
 }
 
-
-// --------------------------------------------------------------------- 
-
-static loff_t cs4281_llseek(struct file *file, loff_t offset, int origin)
-{
-	return -ESPIPE;
-}
-
-
-// --------------------------------------------------------------------- 
-
 static int cs4281_open_mixdev(struct inode *inode, struct file *file)
 {
 	int minor = MINOR(inode->i_rdev);
@@ -2694,7 +2683,7 @@ static int cs4281_ioctl_mixdev(struct inode *inode, struct file *file,
 //   Mixer file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4281_mixer_fops = {
-	llseek:cs4281_llseek,
+	llseek:no_llseek,
 	ioctl:cs4281_ioctl_mixdev,
 	open:cs4281_open_mixdev,
 	release:cs4281_release_mixdev,
@@ -3835,7 +3824,7 @@ static int cs4281_open(struct inode *inode, struct file *file)
 //   Wave (audio) file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4281_audio_fops = {
-	llseek:cs4281_llseek,
+	llseek:no_llseek,
 	read:cs4281_read,
 	write:cs4281_write,
 	poll:cs4281_poll,
@@ -4184,7 +4173,7 @@ static int cs4281_midi_release(struct inode *inode, struct file *file)
 //   Midi file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4281_midi_fops = {
-	llseek:cs4281_llseek,
+	llseek:no_llseek,
 	read:cs4281_midi_read,
 	write:cs4281_midi_write,
 	poll:cs4281_midi_poll,

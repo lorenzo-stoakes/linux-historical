@@ -634,7 +634,6 @@ nfs_fill_inode(struct inode *inode, struct nfs_fh *fh, struct nfs_fattr *fattr)
 	 */
 	if (inode->i_mode == 0) {
 		NFS_FILEID(inode) = fattr->fileid;
-		NFS_FSID(inode) = fattr->fsid;
 		inode->i_mode = fattr->mode;
 		/* Why so? Because we want revalidate for devices/FIFOs, and
 		 * that's precisely what we have in nfs_file_inode_operations.
@@ -673,37 +672,16 @@ nfs_find_actor(struct inode *inode, unsigned long ino, void *opaque)
 	struct nfs_fh		*fh = desc->fh;
 	struct nfs_fattr	*fattr = desc->fattr;
 
-	if (NFS_FSID(inode) != fattr->fsid)
-		return 0;
 	if (NFS_FILEID(inode) != fattr->fileid)
 		return 0;
 	if (memcmp(&inode->u.nfs_i.fh, fh, sizeof(inode->u.nfs_i.fh)) != 0)
+		return 0;
+	if (is_bad_inode(inode))
 		return 0;
 	/* Force an attribute cache update if inode->i_count == 0 */
 	if (!atomic_read(&inode->i_count))
 		NFS_CACHEINV(inode);
 	return 1;
-}
-
-int
-nfs_inode_is_stale(struct inode *inode, struct nfs_fh *fh, struct nfs_fattr *fattr)
-{
-	/* Empty inodes are not stale */
-	if (!inode->i_mode)
-		return 0;
-
-	if ((fattr->mode & S_IFMT) != (inode->i_mode & S_IFMT))
-		return 1;
-
-	if (is_bad_inode(inode) || NFS_STALE(inode))
-		return 1;
-
-	/* Has the filehandle changed? If so is the old one stale? */
-	if (memcmp(&inode->u.nfs_i.fh, fh, sizeof(inode->u.nfs_i.fh)) != 0 &&
-	    __nfs_revalidate_inode(NFS_SERVER(inode),inode) == -ESTALE)
-		return 1;
-
-	return 0;
 }
 
 /*
@@ -771,7 +749,7 @@ nfs_notify_change(struct dentry *dentry, struct iattr *attr)
 	/*
 	 * Make sure the inode is up-to-date.
 	 */
-	error = nfs_revalidate(dentry);
+	error = nfs_revalidate_inode(NFS_SERVER(inode),inode);
 	if (error) {
 #ifdef NFS_PARANOIA
 printk("nfs_notify_change: revalidate failed, error=%d\n", error);
@@ -1006,12 +984,11 @@ __nfs_refresh_inode(struct inode *inode, struct nfs_fattr *fattr)
 			inode->i_dev, inode->i_ino,
 			atomic_read(&inode->i_count), fattr->valid);
 
-	if (NFS_FSID(inode) != fattr->fsid ||
-	    NFS_FILEID(inode) != fattr->fileid) {
+	if (NFS_FILEID(inode) != fattr->fileid) {
 		printk(KERN_ERR "nfs_refresh_inode: inode number mismatch\n"
-		       "expected (0x%Lx/0x%Lx), got (0x%Lx/0x%Lx)\n",
-		       (long long)NFS_FSID(inode), (long long)NFS_FILEID(inode),
-		       (long long)fattr->fsid, (long long)fattr->fileid);
+		       "expected (0x%x/0x%Lx), got (0x%x/0x%Lx)\n",
+		       inode->i_dev, (long long)NFS_FILEID(inode),
+		       inode->i_dev, (long long)fattr->fileid);
 		goto out_err;
 	}
 
@@ -1081,8 +1058,11 @@ __nfs_refresh_inode(struct inode *inode, struct nfs_fattr *fattr)
 
 	inode->i_atime = new_atime;
 
-	NFS_CACHE_MTIME(inode) = new_mtime;
-	inode->i_mtime = nfs_time_to_secs(new_mtime);
+	if (NFS_CACHE_MTIME(inode) != new_mtime) {
+		NFS_MTIME_UPDATE(inode) = jiffies;
+		NFS_CACHE_MTIME(inode) = new_mtime;
+		inode->i_mtime = nfs_time_to_secs(new_mtime);
+	}
 
 	NFS_CACHE_ISIZE(inode) = new_size;
 	inode->i_size = new_isize;

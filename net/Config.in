@@ -44,10 +44,8 @@ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
 	 tristate '    Multi-Protocol Over ATM (MPOA) support' CONFIG_ATM_MPOA
       fi
    fi
-
-   dep_tristate '802.1Q VLAN Support (EXPERIMENTAL)' CONFIG_VLAN_8021Q $CONFIG_EXPERIMENTAL
-
 fi
+tristate '802.1Q VLAN Support' CONFIG_VLAN_8021Q
 
 comment ' '
 tristate 'The IPX protocol' CONFIG_IPX
@@ -87,6 +85,11 @@ if [ "$CONFIG_NET_SCHED" = "y" ]; then
    source net/sched/Config.in
 fi
 #bool 'Network code profiler' CONFIG_NET_PROFILE
+endmenu
+
+mainmenu_option next_comment
+comment 'Network testing'
+tristate 'Packet Generator (USE WITH CAUTION)' CONFIG_NET_PKTGEN
 endmenu
 
 endmenu

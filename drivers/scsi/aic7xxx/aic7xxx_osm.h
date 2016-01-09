@@ -18,7 +18,7 @@
  * along with this program; see the file COPYING.  If not, write to
  * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  * 
- * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_linux.h#72 $
+ * $Id$
  *
  * Copyright (c) 2000-2001 Adaptec Inc.
  * All rights reserved.
@@ -55,7 +55,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_linux.h#72 $
+ * $Id$
  *
  */
 #ifndef _AIC7XXX_LINUX_H_
@@ -66,9 +66,11 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
-#include <linux/slab.h>
 #include <linux/pci.h>
 #include <linux/version.h>
+#ifndef AHC_MODVERSION_FILE
+#define __NO_VERSION__
+#endif
 #include <linux/module.h>
 #include <asm/byteorder.h>
 
@@ -77,7 +79,11 @@
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+#include <linux/interrupt.h> /* For tasklet support. */
 #include <linux/config.h>
+#include <linux/slab.h>
+#else
+#include <linux/malloc.h>
 #endif
 
 /* Core SCSI definitions */
@@ -391,7 +397,7 @@ struct scsi_inquiry_data
 
 /********************************** Includes **********************************/
 /* Host template and function declarations referenced by the template. */
-#include "aic7xxx_linux_host.h"
+#include "aic7xxx_host.h"
 
 /* Core driver definitions */
 #include "aic7xxx.h"
@@ -403,7 +409,7 @@ struct scsi_inquiry_data
 #include <linux/smp.h>
 #endif
 
-#define AIC7XXX_DRIVER_VERSION  "6.2.4"
+#define AIC7XXX_DRIVER_VERSION  "6.2.5"
 
 /**************************** Front End Queues ********************************/
 /*
@@ -554,6 +560,7 @@ struct ahc_linux_target {
  */
 struct scb_platform_data {
 	struct ahc_linux_device	*dev;
+	bus_addr_t		 buf_busaddr;
 	uint32_t		 xfer_len;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
 	uint32_t		 resid;		/* Transfer residual */
@@ -575,13 +582,17 @@ struct ahc_platform_data {
 	TAILQ_HEAD(, ahc_linux_device) device_runq;
 	struct ahc_completeq	 completeq;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,0)
 	spinlock_t		 spin_lock;
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+	struct tasklet_struct	 runq_tasklet;
 #endif
 	u_int			 qfrozen;
 	struct timer_list	 reset_timer;
 	struct semaphore	 eh_sem;
 	struct Scsi_Host        *host;		/* pointer to scsi host */
+#define AHC_LINUX_NOIRQ	((uint32_t)~0)
 	uint32_t		 irq;		/* IRQ for this adapter */
 	uint32_t		 bios_address;
 	uint32_t		 mem_busaddr;	/* Mem Base Addr */
@@ -843,7 +854,8 @@ void ahc_power_state_change(struct ahc_softc *ahc,
 			    ahc_power_state new_state);
 /**************************** VL/EISA Routines ********************************/
 int			 aic7770_linux_probe(Scsi_Host_Template *);
-int			 aic7770_map_registers(struct ahc_softc *ahc);
+int			 aic7770_map_registers(struct ahc_softc *ahc,
+					       u_int port);
 int			 aic7770_map_int(struct ahc_softc *ahc, u_int irq);
 
 /******************************* PCI Routines *********************************/

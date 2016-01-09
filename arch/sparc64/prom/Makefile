@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.7 2000/12/14 22:57:25 davem Exp $
+# $Id: Makefile,v 1.7.2.1 2002/03/14 01:26:21 kanoj Exp $
 # Makefile for the Sun Boot PROM interface library under
 # Linux.
 #
@@ -19,3 +19,6 @@ obj-y   := bootstr.o devops.o init.o memory.o misc.o \
 	$(CC) $(AFLAGS) -ansi -c $< -o $*.o
 
 include $(TOPDIR)/Rules.make
+
+%.o: %.c
+	$(CC) $(subst -pg,,$(CFLAGS)) -c $<

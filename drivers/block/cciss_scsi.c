@@ -203,13 +203,8 @@ scsi_cmd_stack_setup(int ctlr)
 	stk = &sa->cmd_stack;
 	size = sizeof(struct cciss_scsi_cmd_stack_elem_t) * CMD_STACK_SIZE;
 
-	// We use NULL as first arg to pci_alloc_consistent so we can be
-	// sure that we get addresses that will fit through the 32 bit
-	// command register, (our DMA mask says we can do 64 bit DMA, which
-	// we can, just not for commands.)
-
 	stk->pool = (struct cciss_scsi_cmd_stack_elem_t *)
-		pci_alloc_consistent(NULL, size, &stk->cmd_pool_handle);
+		pci_alloc_consistent(hba[ctlr]->pdev, size, &stk->cmd_pool_handle);
 
 	if (stk->pool == NULL) {
 		printk("stk->pool is null\n");
@@ -243,8 +238,7 @@ scsi_cmd_stack_free(int ctlr)
 	}
 	size = sizeof(struct cciss_scsi_cmd_stack_elem_t) * CMD_STACK_SIZE;
 
-	// About NULL, see note above in scsi_cmd_stack_setup()
-	pci_free_consistent(NULL, size, stk->pool, stk->cmd_pool_handle);
+	pci_free_consistent(hba[ctlr]->pdev, size, stk->pool, stk->cmd_pool_handle);
 	stk->pool = NULL;
 }
 

@@ -479,7 +479,6 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 	}
 
 	/* Clear old maps */
-	error = -ENOMEM;
 munmap_back:
 	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
 	if (vma && vma->vm_start < addr + len) {

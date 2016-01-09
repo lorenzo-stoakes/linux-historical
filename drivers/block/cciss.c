@@ -102,7 +102,6 @@ static int cciss_release(struct inode *inode, struct file *filep);
 static int cciss_ioctl(struct inode *inode, struct file *filep, 
 		unsigned int cmd, unsigned long arg);
 
-static int revalidate_allvol(kdev_t dev);
 static int revalidate_logvol(kdev_t dev, int maxusage);
 static int frevalidate_logvol(kdev_t dev);
 
@@ -414,8 +413,6 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 {
 	int ctlr = MAJOR(inode->i_rdev) - MAJOR_NR;
 	int dsk  = MINOR(inode->i_rdev) >> NWD_SHIFT;
-	int diskinfo[4];
-	struct hd_geometry *geo = (struct hd_geometry *)arg;
 
 #ifdef CCISS_DEBUG
 	printk(KERN_DEBUG "cciss_ioctl: Called with cmd=%x %lx\n", cmd, arg);
@@ -423,19 +420,45 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 	
 	switch(cmd) {
 	case HDIO_GETGEO:
+	{
+		struct hd_geometry driver_geo;
 		if (hba[ctlr]->drv[dsk].cylinders) {
-			diskinfo[0] = hba[ctlr]->drv[dsk].heads;
-			diskinfo[1] = hba[ctlr]->drv[dsk].sectors;
-			diskinfo[2] = hba[ctlr]->drv[dsk].cylinders;
+			driver_geo.heads = hba[ctlr]->drv[dsk].heads;
+			driver_geo.sectors = hba[ctlr]->drv[dsk].sectors;
+			driver_geo.cylinders = hba[ctlr]->drv[dsk].cylinders;
 		} else {
-			diskinfo[0] = 0xff;
-			diskinfo[1] = 0x3f;
-			diskinfo[2] = hba[ctlr]->drv[dsk].nr_blocks / (0xff*0x3f);		}
-		put_user(diskinfo[0], &geo->heads);
-		put_user(diskinfo[1], &geo->sectors);
-		put_user(diskinfo[2], &geo->cylinders);
-		put_user(hba[ctlr]->hd[MINOR(inode->i_rdev)].start_sect, &geo->start);
-		return 0;
+			driver_geo.heads = 0xff;
+			driver_geo.sectors = 0x3f;
+			driver_geo.cylinders = 
+				hba[ctlr]->drv[dsk].nr_blocks / (0xff*0x3f);
+		}
+		driver_geo.start=
+			hba[ctlr]->hd[MINOR(inode->i_rdev)].start_sect;
+		if (copy_to_user((void *) arg, &driver_geo,
+				sizeof( struct hd_geometry)))
+			return  -EFAULT;
+		return(0);
+	}
+	case HDIO_GETGEO_BIG:
+	{
+		struct hd_big_geometry driver_geo;
+		if (hba[ctlr]->drv[dsk].cylinders) {
+			driver_geo.heads = hba[ctlr]->drv[dsk].heads;
+			driver_geo.sectors = hba[ctlr]->drv[dsk].sectors;
+			driver_geo.cylinders = hba[ctlr]->drv[dsk].cylinders;
+		} else {
+			driver_geo.heads = 0xff;
+			driver_geo.sectors = 0x3f;
+			driver_geo.cylinders = 
+				hba[ctlr]->drv[dsk].nr_blocks / (0xff*0x3f);
+		}
+		driver_geo.start= 
+		hba[ctlr]->hd[MINOR(inode->i_rdev)].start_sect;
+		if (copy_to_user((void *) arg, &driver_geo,  
+				sizeof( struct hd_big_geometry)))
+			return  -EFAULT;
+		return(0);
+	}
 	case BLKGETSIZE:
 		put_user(hba[ctlr]->hd[MINOR(inode->i_rdev)].nr_sects, (unsigned long *)arg);
 		return 0;
@@ -620,9 +643,28 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
                 return(0);
         }
 
-	case CCISS_REVALIDVOLS:
-                return( revalidate_allvol(inode->i_rdev));
-	
+	case CCISS_GETLUNINFO:
+	{
+		LogvolInfo_struct luninfo;
+		int num_parts = 0;
+		int i, start;
+
+		luninfo.LunID = hba[ctlr]->drv[dsk].LunID;
+		luninfo.num_opens = hba[ctlr]->drv[dsk].usage_count;
+
+		/* count partitions 1 to 15 with sizes > 0 */
+  		start = (dsk << NWD_SHIFT);
+		for(i=1; i <MAX_PART; i++) {
+			int minor = start+i;
+			if(hba[ctlr]->sizes[minor] != 0)
+				num_parts++;
+		}
+		luninfo.num_parts = num_parts;
+		if (copy_to_user((void *) arg, &luninfo,
+				sizeof( LogvolInfo_struct) ))
+			return -EFAULT;
+		return(0);
+	}
 	case CCISS_PASSTHRU:
 	{
 		IOCTL_Command_struct iocommand;
@@ -795,69 +837,6 @@ static int frevalidate_logvol(kdev_t dev)
 #endif /* CCISS_DEBUG */ 
 	return revalidate_logvol(dev, 0);
 }
-
-/*
- * revalidate_allvol is for online array config utilities.  After a
- * utility reconfigures the drives in the array, it can use this function
- * (through an ioctl) to make the driver zap any previous disk structs for
- * that controller and get new ones.
- *
- * Right now I'm using the getgeometry() function to do this, but this
- * function should probably be finer grained and allow you to revalidate one
- * particualar logical volume (instead of all of them on a particular
- * controller).
- */
-static int revalidate_allvol(kdev_t dev)
-{
-	int ctlr, i;
-	unsigned long flags;
-
-	ctlr = MAJOR(dev) - MAJOR_NR;
-        if (MINOR(dev) != 0)
-                return -ENXIO;
-
-        spin_lock_irqsave(&io_request_lock, flags);
-        if (hba[ctlr]->usage_count > 1) {
-                spin_unlock_irqrestore(&io_request_lock, flags);
-                printk(KERN_WARNING "cciss: Device busy for volume"
-                        " revalidation (usage=%d)\n", hba[ctlr]->usage_count);
-                return -EBUSY;
-        }
-        spin_unlock_irqrestore(&io_request_lock, flags);
-        hba[ctlr]->usage_count++;
-
-        /*
-         * Set the partition and block size structures for all volumes
-         * on this controller to zero.  We will reread all of this data
-         */
-	memset(hba[ctlr]->hd,         0, sizeof(struct hd_struct) * 256);
-        memset(hba[ctlr]->sizes,      0, sizeof(int) * 256);
-        memset(hba[ctlr]->blocksizes, 0, sizeof(int) * 256);
-        memset(hba[ctlr]->hardsizes,  0, sizeof(int) * 256);
-        memset(hba[ctlr]->drv,        0, sizeof(drive_info_struct)
-						* CISS_MAX_LUN);
-        hba[ctlr]->gendisk.nr_real = 0;
-
-        /*
-         * Tell the array controller not to give us any interrupts while
-         * we check the new geometry.  Then turn interrupts back on when
-         * we're done.
-         */
-        hba[ctlr]->access.set_intr_mask(hba[ctlr], CCISS_INTR_OFF);
-        cciss_getgeometry(ctlr);
-        hba[ctlr]->access.set_intr_mask(hba[ctlr], CCISS_INTR_ON);
-
-        cciss_geninit(ctlr);
-        for(i=0; i<NWD; i++)
-                if (hba[ctlr]->sizes[ i<<NWD_SHIFT ])
-                        revalidate_logvol(dev+(i<<NWD_SHIFT), 2);
-
-        hba[ctlr]->usage_count--;
-        return 0;
-}
-
-
-
 /*
  *   Wait polling for a command to complete.
  *   The memory mapped FIFO is polled for the completion.
@@ -1766,7 +1745,7 @@ static void cciss_getgeometry(int cntl_num)
 	int return_code;
 	int i;
 	int listlength = 0;
-	int lunid = 0;
+	__u32 lunid = 0;
 	int block_size;
 	int total_size; 
 

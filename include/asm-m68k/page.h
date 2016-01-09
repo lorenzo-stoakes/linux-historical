@@ -163,6 +163,7 @@ static inline void *__va(unsigned long x)
 #define virt_to_page(kaddr)	(mem_map + (((unsigned long)(kaddr)-PAGE_OFFSET) >> PAGE_SHIFT))
 #define VALID_PAGE(page)	((page - mem_map) < max_mapnr)
 
+#ifdef CONFIG_DEBUG_BUGVERBOSE
 #ifndef CONFIG_SUN3
 #define BUG() do { \
 	printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
@@ -172,6 +173,11 @@ static inline void *__va(unsigned long x)
 #define BUG() do { \
 	printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
 	panic("BUG!"); \
+} while (0)
+#endif
+#else
+#define BUG() do { \
+	asm volatile("illegal"); \
 } while (0)
 #endif
 

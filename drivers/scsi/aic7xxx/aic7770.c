@@ -37,14 +37,20 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7770.c#14 $
+ * $Id$
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aic7770.c,v 1.1 2000/09/16 20:02:27 gibbs Exp $
  */
 
+#ifdef __linux__
 #include "aic7xxx_osm.h"
 #include "aic7xxx_inline.h"
 #include "aic7xxx_93cx6.h"
+#else
+#include <dev/aic7xxx/aic7xxx_osm.h>
+#include <dev/aic7xxx/aic7xxx_inline.h>
+#include <dev/aic7xxx/aic7xxx_93cx6.h>
+#endif
 
 #define ID_AIC7770	0x04907770
 #define ID_AHA_274x	0x04907771
@@ -96,7 +102,7 @@ aic7770_find_device(uint32_t id)
 }
 
 int
-aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry)
+aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 {
 	int	error;
 	u_int	hostconf;
@@ -107,9 +113,17 @@ aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry)
 	if (error != 0)
 		return (error);
 
-	error = aic7770_map_registers(ahc);
+	error = aic7770_map_registers(ahc, io);
 	if (error != 0)
 		return (error);
+
+	/*
+	 * Before we continue probing the card, ensure that
+	 * its interrupts are *disabled*.  We don't want
+	 * a misstep to hang the machine in an interrupt
+	 * storm.
+	 */
+	ahc_intr_enable(ahc, FALSE);
 
 	ahc->description = entry->name;
 	error = ahc_softc_init(ahc);
@@ -231,7 +245,6 @@ aha2840_load_seeprom(struct ahc_softc *ahc)
 {
 	struct	  seeprom_descriptor sd;
 	struct	  seeprom_config sc;
-	uint16_t  checksum = 0;
 	uint8_t   scsi_conf;
 	int	  have_seeprom;
 
@@ -249,20 +262,12 @@ aha2840_load_seeprom(struct ahc_softc *ahc)
 
 	if (bootverbose)
 		printf("%s: Reading SEEPROM...", ahc_name(ahc));
-	have_seeprom = read_seeprom(&sd,
-				    (uint16_t *)&sc,
-				    /*start_addr*/0,
-				    sizeof(sc)/2);
+	have_seeprom = ahc_read_seeprom(&sd, (uint16_t *)&sc,
+					/*start_addr*/0, sizeof(sc)/2);
 
 	if (have_seeprom) {
-		/* Check checksum */
-		int i;
-		int maxaddr = (sizeof(sc)/2) - 1;
-		uint16_t *scarray = (uint16_t *)&sc;
 
-		for (i = 0; i < maxaddr; i++)
-			checksum = checksum + scarray[i];
-		if (checksum != sc.checksum) {
+		if (ahc_verify_cksum(&sc) == 0) {
 			if(bootverbose)
 				printf ("checksum error\n");
 			have_seeprom = 0;

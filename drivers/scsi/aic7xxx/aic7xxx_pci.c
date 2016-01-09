@@ -39,14 +39,20 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_pci.c#32 $
+ * $Id$
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_pci.c,v 1.6 2000/11/10 20:13:41 gibbs Exp $
  */
 
+#ifdef __linux__
 #include "aic7xxx_osm.h"
 #include "aic7xxx_inline.h"
 #include "aic7xxx_93cx6.h"
+#else
+#include <dev/aic7xxx/aic7xxx_osm.h>
+#include <dev/aic7xxx/aic7xxx_inline.h>
+#include <dev/aic7xxx/aic7xxx_93cx6.h>
+#endif
 
 #define AHC_PCI_IOADDR	PCIR_MAPS	/* I/O Address */
 #define AHC_PCI_MEMADDR	(PCIR_MAPS + 4)	/* Mem I/O Address */
@@ -207,7 +213,7 @@ ahc_compose_id(u_int device, u_int vendor, u_int subdevice, u_int subvendor)
 	 : ((id) & 0x1000) >> 12)
 /*
  * Informational only. Should use chip register to be
- * ceratian, but may be use in identification strings.
+ * certain, but may be use in identification strings.
  */
 #define SUBID_9005_CARD_SCSIWIDTH_MASK	0x2000
 #define SUBID_9005_CARD_PCIWIDTH_MASK	0x4000
@@ -782,11 +788,19 @@ ahc_pci_config(struct ahc_softc *ahc, struct ahc_pci_identity *entry)
 	ahc->chip |= AHC_PCI;
 	ahc->description = entry->name;
 
+	ahc_power_state_change(ahc, AHC_POWER_STATE_D0);
+
 	error = ahc_pci_map_registers(ahc);
 	if (error != 0)
 		return (error);
 
-	ahc_power_state_change(ahc, AHC_POWER_STATE_D0);
+	/*
+	 * Before we continue probing the card, ensure that
+	 * its interrupts are *disabled*.  We don't want
+	 * a misstep to hang the machine in an interrupt
+	 * storm.
+	 */
+	ahc_intr_enable(ahc, FALSE);
 
 	/*
 	 * If we need to support high memory, enable dual
@@ -1212,11 +1226,12 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 
 			start_addr = 32 * (ahc->channel - 'A');
 
-			have_seeprom = read_seeprom(&sd, (uint16_t *)&sc,
-						    start_addr, sizeof(sc)/2);
+			have_seeprom = ahc_read_seeprom(&sd, (uint16_t *)&sc,
+							start_addr,
+							sizeof(sc)/2);
 
 			if (have_seeprom)
-				have_seeprom = verify_cksum(&sc);
+				have_seeprom = ahc_verify_cksum(&sc);
 
 			if (have_seeprom != 0 || sd.sd_chip == C56_66) {
 				if (bootverbose) {
@@ -1257,8 +1272,14 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 				val = ahc_inb(ahc, SRAM_BASE + j)
 				    | ahc_inb(ahc, SRAM_BASE + j + 1) << 8;
 			}
-			have_seeprom = verify_cksum(&sc);
+			have_seeprom = ahc_verify_cksum(&sc);
 		}
+		/*
+		 * Clear any SCB parity errors in case this data and
+		 * its associated parity was not initialized by the BIOS
+		 */
+		ahc_outb(ahc, CLRINT, CLRPARERR);
+		ahc_outb(ahc, CLRINT, CLRBRKADRINT);
 	}
 
 	if (!have_seeprom) {
@@ -1534,6 +1555,15 @@ configure_termination(struct ahc_softc *ahc,
 			       "Only two connectors on the "
 			       "adapter may be used at a "
 			       "time!\n", ahc_name(ahc));
+
+			/*
+			 * Pretend there are no cables in the hope
+			 * that having all of the termination on
+			 * gives us a more stable bus.
+			 */
+		 	internal50_present = 0;
+			internal68_present = 0;
+			externalcable_present = 0;
 		}
 
 		if ((ahc->features & AHC_WIDE) != 0

@@ -313,7 +313,6 @@ typedef struct page {
 #define SetPageChecked(page)	set_bit(PG_checked, &(page)->flags)
 #define PageLaunder(page)	test_bit(PG_launder, &(page)->flags)
 #define SetPageLaunder(page)	set_bit(PG_launder, &(page)->flags)
-#define __SetPageReserved(page)	__set_bit(PG_reserved, &(page)->flags)
 
 /*
  * The zone field is never updated after free_area_init_core()
@@ -669,6 +668,8 @@ static inline struct vm_area_struct * find_vma_intersection(struct mm_struct * m
 }
 
 extern struct vm_area_struct *find_extend_vma(struct mm_struct *mm, unsigned long addr);
+
+extern struct page * vmalloc_to_page(void *addr);
 
 #endif /* __KERNEL__ */
 

@@ -37,7 +37,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7xxx.h#34 $
+ * $Id$
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx.h,v 1.30 2000/11/10 20:13:40 gibbs Exp $
  */
@@ -1093,7 +1093,8 @@ int			 ahc_pci_config(struct ahc_softc *,
 /*************************** EISA/VL Front End ********************************/
 struct aic7770_identity *aic7770_find_device(uint32_t);
 int			 aic7770_config(struct ahc_softc *ahc,
-					struct aic7770_identity *);
+					struct aic7770_identity *,
+					u_int port);
 
 /************************** SCB and SCB queue management **********************/
 int		ahc_probe_scbs(struct ahc_softc *);
@@ -1157,7 +1158,8 @@ int			ahc_abort_scbs(struct ahc_softc *ahc, int target,
 				       char channel, int lun, u_int tag,
 				       role_t role, uint32_t status);
 void			ahc_restart(struct ahc_softc *ahc);
-void			ahc_calc_residual(struct scb *scb);
+void			ahc_calc_residual(struct ahc_softc *ahc,
+					  struct scb *scb);
 /*************************** Utility Functions ********************************/
 struct ahc_phase_table_entry*
 			ahc_lookup_phase_entry(int phase);
@@ -1219,6 +1221,11 @@ cam_status	ahc_find_tmode_devs(struct ahc_softc *ahc,
 #endif
 #endif
 /******************************* Debug ***************************************/
+#ifdef AHC_DEBUG
+extern int ahc_debug;
+#define	AHC_SHOWMISC	0x1
+#define	AHC_SHOWSENSE	0x2
+#endif
 void			ahc_print_scb(struct scb *scb);
 void			ahc_dump_card_state(struct ahc_softc *ahc);
 #endif /* _AIC7XXX_H_ */

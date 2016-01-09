@@ -534,7 +534,7 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		return 0;
 	}
 	default:
-		return -EINVAL;
+		return -ENOTTY;
 	}
 	return copy_to_user((void *)arg, &wtime, sizeof wtime) ? -EFAULT : 0;
 }

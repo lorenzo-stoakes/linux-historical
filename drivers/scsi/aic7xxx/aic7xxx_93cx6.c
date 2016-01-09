@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_93cx6.c#10 $
+ * $Id$
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_93cx6.c,v 1.9 2000/11/10 20:13:41 gibbs Exp $
  */
@@ -67,9 +67,15 @@
  *
  */
 
+#ifdef __linux__
 #include "aic7xxx_osm.h"
 #include "aic7xxx_inline.h"
 #include "aic7xxx_93cx6.h"
+#else
+#include <dev/aic7xxx/aic7xxx_osm.h>
+#include <dev/aic7xxx/aic7xxx_inline.h>
+#include <dev/aic7xxx/aic7xxx_93cx6.h>
+#endif
 
 /*
  * Right now, we only have to read the SEEPROM.  But we make it easier to
@@ -94,11 +100,8 @@ static struct seeprom_cmd {
  * not successful.
  */
 int
-read_seeprom(sd, buf, start_addr, count)
-	struct seeprom_descriptor *sd;
-	uint16_t *buf;
-	u_int start_addr;
-	u_int count;
+ahc_read_seeprom(struct seeprom_descriptor *sd, uint16_t *buf,
+		 u_int start_addr, u_int count)
 {
 	int i = 0;
 	u_int k = 0;
@@ -183,7 +186,7 @@ read_seeprom(sd, buf, start_addr, count)
 }
 
 int
-verify_cksum(struct seeprom_config *sc)
+ahc_verify_cksum(struct seeprom_config *sc)
 {
 	int i;
 	int maxaddr;

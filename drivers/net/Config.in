@@ -156,7 +156,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    if [ "$CONFIG_NET_PCI" = "y" ]; then
       dep_tristate '    AMD PCnet32 PCI support' CONFIG_PCNET32 $CONFIG_PCI
-      dep_tristate '    Adaptec Starfire support (EXPERIMENTAL)' CONFIG_ADAPTEC_STARFIRE $CONFIG_PCI $CONFIG_EXPERIMENTAL
+      dep_tristate '    Adaptec Starfire/DuraLAN support' CONFIG_ADAPTEC_STARFIRE $CONFIG_PCI
       if [ "$CONFIG_ISA" = "y" -o "$CONFIG_EISA" = "y" ]; then
 	 dep_tristate '    Ansel Communications EISA 3200 support (EXPERIMENTAL)' CONFIG_AC3200 $CONFIG_EXPERIMENTAL
       fi
@@ -224,7 +224,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       tristate '  Baget AMD LANCE support' CONFIG_BAGETLANCE
    fi
    if [ "$CONFIG_NEC_OSPREY" = "y" ]; then
-      bool '  Memory-mapped onboard NE2000-compatible ethernet' CONFIG_NE2000
+      tristate '  Memory-mapped onboard NE2000-compatible ethernet' CONFIG_NE2000
    fi
 fi
 
@@ -247,6 +247,7 @@ dep_tristate 'National Semiconduct DP83820 support' CONFIG_NS83820 $CONFIG_PCI
 dep_tristate 'Packet Engines Hamachi GNIC-II support' CONFIG_HAMACHI $CONFIG_PCI
 dep_tristate 'Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)' CONFIG_YELLOWFIN $CONFIG_PCI $CONFIG_EXPERIMENTAL
 dep_tristate 'SysKonnect SK-98xx support' CONFIG_SK98LIN $CONFIG_PCI
+dep_tristate 'Broadcom Tigon3 support' CONFIG_TIGON3 $CONFIG_PCI
 
 endmenu
 

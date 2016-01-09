@@ -37,7 +37,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_inline.h#31 $
+ * $Id$
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_inline.h,v 1.8 2000/11/12 05:19:46 gibbs Exp $
  */
@@ -231,7 +231,8 @@ ahc_name(struct ahc_softc *ahc)
 
 /*********************** Miscelaneous Support Functions ***********************/
 
-static __inline void	ahc_update_residual(struct scb *scb);
+static __inline void	ahc_update_residual(struct ahc_softc *ahc,
+					    struct scb *scb);
 static __inline struct ahc_initiator_tinfo *
 			ahc_fetch_transinfo(struct ahc_softc *ahc,
 					    char channel, u_int our_id,
@@ -255,13 +256,13 @@ static __inline uint32_t
  * for this SCB/transaction.
  */
 static __inline void
-ahc_update_residual(struct scb *scb)
+ahc_update_residual(struct ahc_softc *ahc, struct scb *scb)
 {
 	uint32_t sgptr;
 
 	sgptr = ahc_le32toh(scb->hscb->sgptr);
 	if ((sgptr & SG_RESID_VALID) != 0)
-		ahc_calc_residual(scb);
+		ahc_calc_residual(ahc, scb);
 }
 
 /*
@@ -517,10 +518,7 @@ ahc_intr(struct ahc_softc *ahc)
 		 * and asserted the interrupt again.
 		 */
 		ahc_flush_device_writes(ahc);
-#ifdef AHC_TARGET_MODE
-		if ((ahc->flags & AHC_INITIATORROLE) != 0)
-#endif
-			ahc_run_qoutfifo(ahc);
+		ahc_run_qoutfifo(ahc);
 #ifdef AHC_TARGET_MODE
 		if ((ahc->flags & AHC_TARGETROLE) != 0)
 			ahc_run_tqinfifo(ahc, /*paused*/FALSE);

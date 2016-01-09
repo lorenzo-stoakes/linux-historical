@@ -66,13 +66,13 @@ static inline int is_extended_partition(struct partition *p)
 }
 
 /*
- * partition_name() formats the short partition name into the supplied
+ * msdos_partition_name() formats the short partition name into the supplied
  * buffer, and returns a pointer to that buffer.
  * Used by several partition types which makes conditional inclusion messy,
  * use __attribute__ ((unused)) instead.
  */
 static char __attribute__ ((unused))
-	*partition_name (struct gendisk *hd, int minor, char *buf)
+	*msdos_partition_name (struct gendisk *hd, int minor, char *buf)
 {
 #ifdef CONFIG_DEVFS_FS
 	sprintf(buf, "p%d", (minor & ((1 << hd->minor_shift) - 1)));
@@ -225,7 +225,7 @@ solaris_x86_partition(struct gendisk *hd, struct block_device *bdev,
 		put_dev_sector(sect);
 		return;
 	}
-	printk(" %s: <solaris:", partition_name(hd, minor, buf));
+	printk(" %s: <solaris:", msdos_partition_name(hd, minor, buf));
 	if (le32_to_cpu(v->v_version) != 1) {
 		printk("  cannot handle version %d vtoc>\n",
 			le32_to_cpu(v->v_version));
@@ -319,7 +319,7 @@ static void do_bsd_partition(struct gendisk *hd, struct block_device *bdev,
 		put_dev_sector(sect);
 		return;
 	}
-	printk(" %s: <%s:", partition_name(hd, minor, buf), name);
+	printk(" %s: <%s:", msdos_partition_name(hd, minor, buf), name);
 
 	if (le16_to_cpu(l->d_npartitions) < max_partitions)
 		max_partitions = le16_to_cpu(l->d_npartitions);
@@ -385,7 +385,7 @@ static void unixware_partition(struct gendisk *hd, struct block_device *bdev,
 		put_dev_sector(sect);
 		return;
 	}
-	printk(" %s: <unixware:", partition_name(hd, minor, buf));
+	printk(" %s: <unixware:", msdos_partition_name(hd, minor, buf));
 	p = &l->vtoc.v_slice[1];
 	/* I omit the 0th slice as it is the same as whole disk. */
 	while (p - &l->vtoc.v_slice[0] < UNIXWARE_NUMSLICE) {
@@ -433,7 +433,7 @@ static void minix_partition(struct gendisk *hd, struct block_device *bdev,
 	if (msdos_magic_present (data + 510) &&
 	    SYS_IND(p) == MINIX_PARTITION) { /* subpartition table present */
 
-		printk(" %s: <minix:", partition_name(hd, minor, buf));
+		printk(" %s: <minix:", msdos_partition_name(hd, minor, buf));
 		for (i = 0; i < MINIX_NR_SUBPARTITIONS; i++, p++) {
 			if ((*current_minor & mask) == 0)
 				break;

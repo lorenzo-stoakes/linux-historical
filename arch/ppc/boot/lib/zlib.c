@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.zlib.c 1.10 01/11/02 10:46:07 trini
+ * BK Id: SCCS/s.zlib.c 1.9 12/05/01 16:19:42 mporter
  */
 /*
  * This file is derived from various .h and .c files from the zlib-0.95
@@ -928,7 +928,10 @@ int r;
       {
         r = t;
         if (r == Z_DATA_ERROR)
+	{
+          ZFREE(z, s->sub.trees.blens, s->sub.trees.nblens * sizeof(uInt));
           s->mode = BADB;
+	}
         LEAVE
       }
       s->sub.trees.index = 0;
@@ -964,6 +967,7 @@ int r;
           if (i + j > 258 + (t & 0x1f) + ((t >> 5) & 0x1f) ||
               (c == 16 && i < 1))
           {
+            ZFREE(z, s->sub.trees.blens, s->sub.trees.nblens * sizeof(uInt));
             s->mode = BADB;
             z->msg = "invalid bit length repeat";
             r = Z_DATA_ERROR;
@@ -991,7 +995,10 @@ int r;
         if (t != Z_OK)
         {
           if (t == (uInt)Z_DATA_ERROR)
+	  {
+            ZFREE(z, s->sub.trees.blens, s->sub.trees.nblens * sizeof(uInt));
             s->mode = BADB;
+	  }
           r = t;
           LEAVE
         }

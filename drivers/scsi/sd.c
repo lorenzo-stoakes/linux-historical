@@ -595,6 +595,7 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 	int this_count = SCpnt->bufflen >> 9;
 	int good_sectors = (result == 0 ? this_count : 0);
 	int block_sectors = 1;
+	long error_sector;
 
 	SCSI_LOG_HLCOMPLETE(1, sd_devname(DEVICE_NR(SCpnt->request.rq_dev), nbuff));
 
@@ -611,10 +612,11 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 	 */
 
 	/* An error occurred */
-	if (driver_byte(result) != 0) {
-		/* Sense data is valid */
-		if (SCpnt->sense_buffer[0] == 0xF0 && SCpnt->sense_buffer[2] == MEDIUM_ERROR) {
-			long error_sector = (SCpnt->sense_buffer[3] << 24) |
+	if (driver_byte(result) != 0 && 	/* An error occured */
+	    SCpnt->sense_buffer[0] != 0xF0) {	/* Sense data is valid */
+		switch (SCpnt->sense_buffer[2]) {
+		case MEDIUM_ERROR:
+			error_sector = (SCpnt->sense_buffer[3] << 24) |
 			(SCpnt->sense_buffer[4] << 16) |
 			(SCpnt->sense_buffer[5] << 8) |
 			SCpnt->sense_buffer[6];
@@ -647,13 +649,30 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 			good_sectors = error_sector - SCpnt->request.sector;
 			if (good_sectors < 0 || good_sectors >= this_count)
 				good_sectors = 0;
-		}
-		if (SCpnt->sense_buffer[2] == ILLEGAL_REQUEST) {
+			break;
+
+		case RECOVERED_ERROR:
+			/*
+			 * An error occured, but it recovered.  Inform the
+			 * user, but make sure that it's not treated as a
+			 * hard error.
+			 */
+			print_sense("sd", SCpnt);
+			result = 0;
+			SCpnt->sense_buffer[0] = 0x0;
+			good_sectors = this_count;
+			break;
+
+		case ILLEGAL_REQUEST:
 			if (SCpnt->device->ten == 1) {
 				if (SCpnt->cmnd[0] == READ_10 ||
 				    SCpnt->cmnd[0] == WRITE_10)
 					SCpnt->device->ten = 0;
 			}
+			break;
+
+		default:
+			break;
 		}
 	}
 	/*

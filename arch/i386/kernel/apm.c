@@ -275,10 +275,11 @@ extern int (*console_blank_hook)(int);
  */
 
 /*
- * Define to always call the APM BIOS busy routine even if the clock was
- * not slowed by the idle routine.
+ * Define as 1 to make the driver always call the APM BIOS busy
+ * routine even if the clock was not reported as slowed by the
+ * idle routine.  Otherwise, define as 0.
  */
-#define ALWAYS_CALL_BUSY
+#define ALWAYS_CALL_BUSY   1
 
 /*
  * Define to make the APM BIOS calls zero all data segment registers (so
@@ -380,7 +381,7 @@ static int			idle_period = DEFAULT_IDLE_PERIOD;
 static int			set_pm_idle;
 static int			suspends_pending;
 static int			standbys_pending;
-static int			waiting_for_resume;
+static int			ignore_sys_suspend;
 static int			ignore_normal_resume;
 static int			bounce_interval = DEFAULT_BOUNCE_INTERVAL;
 
@@ -724,7 +725,6 @@ static int apm_set_power_state(u_short state)
 static int apm_do_idle(void)
 {
 	u32	eax;
-	int	slowed;
 
 	if (apm_bios_call_simple(APM_FUNC_IDLE, 0, 0, &eax)) {
 		static unsigned long t;
@@ -736,13 +736,8 @@ static int apm_do_idle(void)
 		}
 		return -1;
 	}
-	slowed = (apm_info.bios.flags & APM_IDLE_SLOWS_CLOCK) != 0;
-#ifdef ALWAYS_CALL_BUSY
-	clock_slowed = 1;
-#else
-	clock_slowed = slowed;
-#endif
-	return slowed;
+	clock_slowed = (apm_info.bios.flags & APM_IDLE_SLOWS_CLOCK) != 0;
+	return clock_slowed;
 }
 
 /**
@@ -755,7 +750,7 @@ static void apm_do_busy(void)
 {
 	u32	dummy;
 
-	if (clock_slowed) {
+	if (clock_slowed || ALWAYS_CALL_BUSY) {
 		(void) apm_bios_call_simple(APM_FUNC_BUSY, 0, 0, &dummy);
 		clock_slowed = 0;
 	}
@@ -770,7 +765,7 @@ static void apm_do_busy(void)
 #define IDLE_CALC_LIMIT   (HZ * 100)
 #define IDLE_LEAKY_MAX    16
 
-static void (*sys_idle)(void);
+static void (*original_pm_idle)(void);
 
 extern void default_idle(void);
 
@@ -784,14 +779,13 @@ extern void default_idle(void);
 
 static void apm_cpu_idle(void)
 {
-	static int use_apm_idle = 0;
-	static unsigned int last_jiffies = 0;
-	static unsigned int last_stime = 0;
+	static int use_apm_idle; /* = 0 */
+	static unsigned int last_jiffies; /* = 0 */
+	static unsigned int last_stime; /* = 0 */
 
-	int apm_is_idle = 0;
+	int apm_idle_done = 0;
 	unsigned int jiffies_since_last_check = jiffies - last_jiffies;
-	unsigned int t1;
-
+	unsigned int bucket;
 
 recalc:
 	if (jiffies_since_last_check > IDLE_CALC_LIMIT) {
@@ -809,7 +803,7 @@ recalc:
 		last_stime = current->times.tms_stime;
 	}
 
-	t1 = IDLE_LEAKY_MAX;
+	bucket = IDLE_LEAKY_MAX;
 
 	while (!current->need_resched) {
 		if (use_apm_idle) {
@@ -817,23 +811,24 @@ recalc:
 
 			t = jiffies;
 			switch (apm_do_idle()) {
-			case 0: apm_is_idle = 1;
+			case 0: apm_idle_done = 1;
 				if (t != jiffies) {
-					if (t1) {
-						t1 = IDLE_LEAKY_MAX;
+					if (bucket) {
+						bucket = IDLE_LEAKY_MAX;
 						continue;
 					}
-				} else if (t1) {
-					t1--;
+				} else if (bucket) {
+					bucket--;
 					continue;
 				}
 				break;
-			case 1: apm_is_idle = 1;
+			case 1: apm_idle_done = 1;
 				break;
+			default: /* BIOS refused */
 			}
 		}
-		if (sys_idle)
-			sys_idle();
+		if (original_pm_idle)
+			original_pm_idle();
 		else
 			default_idle();
 		jiffies_since_last_check = jiffies - last_jiffies;
@@ -841,7 +836,7 @@ recalc:
 			goto recalc;
 	}
 
-	if (apm_is_idle)
+	if (apm_idle_done)
 		apm_do_busy();
 }
 
@@ -1196,7 +1191,7 @@ static int suspend(int vetoable)
 			if (apm_info.connection_version > 0x100)
 				apm_set_power_state(APM_STATE_REJECT);
 			err = -EBUSY;
-			waiting_for_resume = 0;
+			ignore_sys_suspend = 0;
 			printk(KERN_WARNING "apm: suspend was vetoed.\n");
 			goto out;
 		}
@@ -1302,9 +1297,9 @@ static void check_events(void)
 			 * sending a SUSPEND event until something else
 			 * happens!
 			 */
-			if (waiting_for_resume)
+			if (ignore_sys_suspend)
 				return;
-			waiting_for_resume = 1;
+			ignore_sys_suspend = 1;
 			queue_event(event, NULL);
 			if (suspends_pending <= 0)
 				(void) suspend(1);
@@ -1313,7 +1308,7 @@ static void check_events(void)
 		case APM_NORMAL_RESUME:
 		case APM_CRITICAL_RESUME:
 		case APM_STANDBY_RESUME:
-			waiting_for_resume = 0;
+			ignore_sys_suspend = 0;
 			last_resume = jiffies;
 			ignore_bounce = 1;
 			if ((event != APM_NORMAL_RESUME)
@@ -1964,7 +1959,7 @@ static int __init apm_init(void)
 	if (HZ != 100)
 		idle_period = (idle_period * HZ) / 100;
 	if (idle_threshold < 100) {
-		sys_idle = pm_idle;
+		original_pm_idle = pm_idle;
 		pm_idle  = apm_cpu_idle;
 		set_pm_idle = 1;
 	}
@@ -1977,7 +1972,7 @@ static void __exit apm_exit(void)
 	int	error;
 
 	if (set_pm_idle)
-		pm_idle = sys_idle;
+		pm_idle = original_pm_idle;
 	if (((apm_info.bios.flags & APM_BIOS_DISENGAGED) == 0)
 	    && (apm_info.connection_version > 0x0100)) {
 		error = apm_engage_power_management(APM_DEVICE_ALL, 0);

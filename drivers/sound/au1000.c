@@ -812,12 +812,6 @@ static void adc_dma_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 /* --------------------------------------------------------------------- */
 
-static loff_t au1000_llseek(struct file *file, loff_t offset, int origin)
-{
-	return -ESPIPE;
-}
-
-
 static int au1000_open_mixdev(struct inode *inode, struct file *file)
 {
 	file->private_data = &au1000_state;
@@ -846,7 +840,7 @@ static int au1000_ioctl_mixdev(struct inode *inode, struct file *file,
 
 static /*const */ struct file_operations au1000_mixer_fops = {
 	owner:THIS_MODULE,
-	llseek:au1000_llseek,
+	llseek:no_llseek,
 	ioctl:au1000_ioctl_mixdev,
 	open:au1000_open_mixdev,
 	release:au1000_release_mixdev,
@@ -1872,7 +1866,7 @@ static int au1000_release(struct inode *inode, struct file *file)
 
 static /*const */ struct file_operations au1000_audio_fops = {
 	owner:		THIS_MODULE,
-	llseek:		au1000_llseek,
+	llseek:		no_llseek,
 	read:		au1000_read,
 	write:		au1000_write,
 	poll:		au1000_poll,

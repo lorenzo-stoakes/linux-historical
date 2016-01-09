@@ -1471,3 +1471,24 @@ int make_pages_present(unsigned long addr, unsigned long end)
 			len, write, 0, NULL, NULL);
 	return ret == len ? 0 : -1;
 }
+
+struct page * vmalloc_to_page(void * vmalloc_addr)
+{
+	unsigned long addr = (unsigned long) vmalloc_addr;
+	struct page *page = NULL;
+	pmd_t *pmd;
+	pte_t *pte;
+	pgd_t *pgd;
+	
+	pgd = pgd_offset_k(addr);
+	if (!pgd_none(*pgd)) {
+		pmd = pmd_offset(pgd, addr);
+		if (!pmd_none(*pmd)) {
+			pte = pte_offset(pmd, addr);
+			if (pte_present(*pte)) {
+				page = pte_page(*pte);
+			}
+		}
+	}
+	return page;
+}

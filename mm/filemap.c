@@ -555,7 +555,7 @@ int filemap_fdatasync(struct address_space * mapping)
 	spin_lock(&pagecache_lock);
 
         while (!list_empty(&mapping->dirty_pages)) {
-		struct page *page = list_entry(mapping->dirty_pages.next, struct page, list);
+		struct page *page = list_entry(mapping->dirty_pages.prev, struct page, list);
 
 		list_del(&page->list);
 		list_add(&page->list, &mapping->locked_pages);
@@ -2246,23 +2246,26 @@ asmlinkage long sys_msync(unsigned long start, size_t len, int flags)
 		goto out;
 	if (flags & ~(MS_ASYNC | MS_INVALIDATE | MS_SYNC))
 		goto out;
+	if ((flags & MS_ASYNC) && (flags & MS_SYNC))
+		goto out;
+
 	error = 0;
 	if (end == start)
 		goto out;
 	/*
 	 * If the interval [start,end) covers some unmapped address ranges,
-	 * just ignore them, but return -EFAULT at the end.
+	 * just ignore them, but return -ENOMEM at the end.
 	 */
 	vma = find_vma(current->mm, start);
 	unmapped_error = 0;
 	for (;;) {
 		/* Still start < end. */
-		error = -EFAULT;
+		error = -ENOMEM;
 		if (!vma)
 			goto out;
 		/* Here start < vma->vm_end. */
 		if (start < vma->vm_start) {
-			unmapped_error = -EFAULT;
+			unmapped_error = -ENOMEM;
 			start = vma->vm_start;
 		}
 		/* Here vma->vm_start <= start < vma->vm_end. */

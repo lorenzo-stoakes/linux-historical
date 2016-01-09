@@ -1,4 +1,4 @@
-/* $Id: ebus.c,v 1.64 2001/11/08 04:41:33 davem Exp $
+/* $Id: ebus.c,v 1.64.2.1 2002/03/12 18:46:14 davem Exp $
  * ebus.c: PCI to EBus bridge device.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -208,7 +208,8 @@ void __init fill_ebus_device(int node, struct linux_ebus_device *dev)
 	dev->num_addrs = len / sizeof(struct linux_prom_registers);
 
 	for (i = 0; i < dev->num_addrs; i++) {
-		if (dev->bus->is_rio == 0)
+		/* XXX Learn how to interpret ebus ranges... -DaveM */
+		if (regs[i].which_io >= 0x10)
 			n = (regs[i].which_io - 0x10) >> 2;
 		else
 			n = regs[i].which_io;

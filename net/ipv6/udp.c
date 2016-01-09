@@ -7,7 +7,7 @@
  *
  *	Based on linux/ipv4/udp.c
  *
- *	$Id: udp.c,v 1.64 2001/09/01 00:31:50 davem Exp $
+ *	$Id: udp.c,v 1.64.2.1 2002/03/05 12:47:34 davem Exp $
  *
  *	Fixes:
  *	Hideaki YOSHIFUJI	:	sin6_scope_id support
@@ -916,7 +916,7 @@ static void get_udp6_sock(struct sock *sp, char *tmpbuf, int i)
 	srcp  = ntohs(sp->sport);
 	sprintf(tmpbuf,
 		"%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
-		"%02X %08X:%08X %02X:%08lX %08X %5d %8d %ld %d %p",
+		"%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %p",
 		i,
 		src->s6_addr32[0], src->s6_addr32[1],
 		src->s6_addr32[2], src->s6_addr32[3], srcp,

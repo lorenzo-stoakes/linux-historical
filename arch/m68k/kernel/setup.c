@@ -21,6 +21,7 @@
 #include <linux/string.h>
 #include <linux/init.h>
 #include <linux/bootmem.h>
+#include <linux/seq_file.h>
 #include <linux/module.h>
 
 #include <asm/bootinfo.h>
@@ -110,7 +111,7 @@ int mach_sysrq_shift_mask = 0;
 char *mach_sysrq_xlate = NULL;
 #endif
 
-#if defined(CONFIG_ISA)
+#if defined(CONFIG_ISA) && defined(MULTI_ISA)
 int isa_type;
 int isa_sex;
 #endif
@@ -388,7 +389,7 @@ void __init setup_arch(char **cmdline_p)
 	paging_init();
 
 /* set ISA defs early as possible */
-#if defined(CONFIG_ISA)
+#if defined(CONFIG_ISA) && defined(MULTI_ISA)
 #if defined(CONFIG_Q40) 
 	if (MACH_IS_Q40) {
 	    isa_type = Q40_ISA;
@@ -408,7 +409,7 @@ void __init setup_arch(char **cmdline_p)
 #endif
 }
 
-int get_cpuinfo(char * buffer)
+static int show_cpuinfo(struct seq_file *m, void *v)
 {
     const char *cpu, *mmu, *fpu;
     unsigned long clockfreq, clockfactor;
@@ -469,7 +470,7 @@ int get_cpuinfo(char * buffer)
 
     clockfreq = loops_per_jiffy*HZ*clockfactor;
 
-    return(sprintf(buffer, "CPU:\t\t%s\n"
+    seq_printf(m, "CPU:\t\t%s\n"
 		   "MMU:\t\t%s\n"
 		   "FPU:\t\t%s\n"
 		   "Clocking:\t%lu.%1luMHz\n"
@@ -478,9 +479,28 @@ int get_cpuinfo(char * buffer)
 		   cpu, mmu, fpu,
 		   clockfreq/1000000,(clockfreq/100000)%10,
 		   loops_per_jiffy/(500000/HZ),(loops_per_jiffy/(5000/HZ))%100,
-		   loops_per_jiffy));
-
+		   loops_per_jiffy);
+    return 0;
 }
+
+static void *c_start(struct seq_file *m, loff_t *pos)
+{
+	return *pos < 1 ? (void *)1 : NULL;
+}
+static void *c_next(struct seq_file *m, void *v, loff_t *pos)
+{
+	++*pos;
+	return NULL;
+}
+static void c_stop(struct seq_file *m, void *v)
+{
+}
+struct seq_operations cpuinfo_op = {
+	start:	c_start,
+	next:	c_next,
+	stop:	c_stop,
+	show:	show_cpuinfo,
+};
 
 int get_hardware_list(char *buffer)
 {
@@ -495,7 +515,7 @@ int get_hardware_list(char *buffer)
 	strcpy(model, "Unknown m68k");
 
     len += sprintf(buffer+len, "Model:\t\t%s\n", model);
-    len += get_cpuinfo(buffer+len);
+    //len += get_cpuinfo(buffer+len);
     for (mem = 0, i = 0; i < m68k_num_memory; i++)
 	mem += m68k_memory[i].size;
     len += sprintf(buffer+len, "System Memory:\t%ldK\n", mem>>10);

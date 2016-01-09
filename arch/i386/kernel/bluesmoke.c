@@ -169,7 +169,7 @@ static void __init intel_mcheck_init(struct cpuinfo_x86 *c)
 	if(l&(1<<8))
 		wrmsr(MSR_IA32_MCG_CTL, 0xffffffff, 0xffffffff);
 	banks = l&0xff;
-	for(i=0;i<banks;i++)
+	for(i=1;i<banks;i++)
 	{
 		wrmsr(MSR_IA32_MC0_CTL+4*i, 0xffffffff, 0xffffffff);
 	}

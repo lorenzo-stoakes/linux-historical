@@ -1,4 +1,4 @@
-/* $Id: pci_psycho.c,v 1.30.2.2 2002/02/01 00:57:47 davem Exp $
+/* $Id: pci_psycho.c,v 1.30.2.3 2002/03/03 10:31:56 davem Exp $
  * pci_psycho.c: PSYCHO/U2P specific PCI controller support.
  *
  * Copyright (C) 1997, 1998, 1999 David S. Miller (davem@caipfs.rutgers.edu)
@@ -326,15 +326,15 @@ static unsigned char psycho_pil_table[] = {
 /*0x14*/0, 0, 0, 0,	/* PCI B slot 1  Int A, B, C, D */
 /*0x18*/0, 0, 0, 0,	/* PCI B slot 2  Int A, B, C, D */
 /*0x1c*/0, 0, 0, 0,	/* PCI B slot 3  Int A, B, C, D */
-/*0x20*/3,		/* SCSI				*/
+/*0x20*/4,		/* SCSI				*/
 /*0x21*/5,		/* Ethernet			*/
 /*0x22*/8,		/* Parallel Port		*/
 /*0x23*/13,		/* Audio Record			*/
 /*0x24*/14,		/* Audio Playback		*/
 /*0x25*/15,		/* PowerFail			*/
-/*0x26*/3,		/* second SCSI			*/
+/*0x26*/4,		/* second SCSI			*/
 /*0x27*/11,		/* Floppy			*/
-/*0x28*/2,		/* Spare Hardware		*/
+/*0x28*/4,		/* Spare Hardware		*/
 /*0x29*/9,		/* Keyboard			*/
 /*0x2a*/4,		/* Mouse			*/
 /*0x2b*/12,		/* Serial			*/
@@ -344,7 +344,7 @@ static unsigned char psycho_pil_table[] = {
 /*0x2f*/15,		/* Correctable ECC		*/
 /*0x30*/15,		/* PCI Bus A Error		*/
 /*0x31*/15,		/* PCI Bus B Error		*/
-/*0x32*/1,		/* Power Management		*/
+/*0x32*/15,		/* Power Management		*/
 };
 
 static int __init psycho_ino_to_pil(struct pci_dev *pdev, unsigned int ino)
@@ -353,7 +353,7 @@ static int __init psycho_ino_to_pil(struct pci_dev *pdev, unsigned int ino)
 
 	ret = psycho_pil_table[ino];
 	if (ret == 0 && pdev == NULL) {
-		ret = 1;
+		ret = 4;
 	} else if (ret == 0) {
 		switch ((pdev->class >> 16) & 0xff) {
 		case PCI_BASE_CLASS_STORAGE:
@@ -376,7 +376,7 @@ static int __init psycho_ino_to_pil(struct pci_dev *pdev, unsigned int ino)
 			break;
 
 		default:
-			ret = 1;
+			ret = 4;
 			break;
 		};
 	}
@@ -409,6 +409,10 @@ static unsigned int __init psycho_irq_build(struct pci_pbm_info *pbm,
 
 	/* Now build the IRQ bucket. */
 	pil = psycho_ino_to_pil(pdev, ino);
+
+	if (PIL_RESERVED(pil))
+		BUG();
+
 	imap = p->controller_regs + imap_off;
 	imap += 4;
 

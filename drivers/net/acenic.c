@@ -64,6 +64,7 @@
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/sockios.h>
+#include <linux/if_vlan.h>
 
 #ifdef SIOCETHTOOL
 #include <linux/ethtool.h>
@@ -314,6 +315,12 @@ static inline void tasklet_init(struct tasklet_struct *tasklet,
 #define BOARD_IDX_STATIC	0
 #define BOARD_IDX_OVERFLOW	-1
 
+#if (defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)) && \
+	defined(NETIF_F_HW_VLAN_RX)
+#define ACENIC_DO_VLAN	1
+#else
+#define ACENIC_DO_VLAN	0
+#endif
 
 #include "acenic.h"
 
@@ -624,6 +631,11 @@ int __devinit acenic_probe (ACE_PROBE_ARG)
 		dev->open = &ace_open;
 		dev->hard_start_xmit = &ace_start_xmit;
 		dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+#if ACENIC_DO_VLAN
+		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+		dev->vlan_rx_register = ace_vlan_rx_register;
+		dev->vlan_rx_kill_vid = ace_vlan_rx_kill_vid;
+#endif
 		if (1) {
 			static void ace_watchdog(struct net_device *dev);
 			dev->tx_timeout = &ace_watchdog;
@@ -1428,6 +1440,9 @@ static int __init ace_init(struct net_device *dev)
 	set_aceaddr(&info->rx_std_ctrl.rngptr, ap->rx_ring_base_dma);
 	info->rx_std_ctrl.max_len = ACE_STD_MTU + ETH_HLEN + 4;
 	info->rx_std_ctrl.flags = RCB_FLG_TCP_UDP_SUM|RCB_FLG_NO_PSEUDO_HDR;
+#if ACENIC_DO_VLAN
+	info->rx_std_ctrl.flags |= RCB_FLG_VLAN_ASSIST;
+#endif
 
 	memset(ap->rx_std_ring, 0,
 	       RX_STD_RING_ENTRIES * sizeof(struct rx_desc));
@@ -1443,6 +1458,9 @@ static int __init ace_init(struct net_device *dev)
 		     (sizeof(struct rx_desc) * RX_STD_RING_ENTRIES)));
 	info->rx_jumbo_ctrl.max_len = 0;
 	info->rx_jumbo_ctrl.flags = RCB_FLG_TCP_UDP_SUM|RCB_FLG_NO_PSEUDO_HDR;
+#if ACENIC_DO_VLAN
+	info->rx_jumbo_ctrl.flags |= RCB_FLG_VLAN_ASSIST;
+#endif
 
 	memset(ap->rx_jumbo_ring, 0,
 	       RX_JUMBO_RING_ENTRIES * sizeof(struct rx_desc));
@@ -1465,6 +1483,9 @@ static int __init ace_init(struct net_device *dev)
 		info->rx_mini_ctrl.max_len = ACE_MINI_SIZE;
 		info->rx_mini_ctrl.flags = 
 			RCB_FLG_TCP_UDP_SUM|RCB_FLG_NO_PSEUDO_HDR;
+#if ACENIC_DO_VLAN
+		info->rx_mini_ctrl.flags |= RCB_FLG_VLAN_ASSIST;
+#endif
 
 		for (i = 0; i < RX_MINI_RING_ENTRIES; i++)
 			ap->rx_mini_ring[i].flags =
@@ -1502,6 +1523,9 @@ static int __init ace_init(struct net_device *dev)
 	tmp = RCB_FLG_TCP_UDP_SUM|RCB_FLG_NO_PSEUDO_HDR|RCB_FLG_TX_HOST_RING;
 #if TX_COAL_INTS_ONLY
 	tmp |= RCB_FLG_COAL_INT_ONLY;
+#endif
+#if ACENIC_DO_VLAN
+	tmp |= RCB_FLG_VLAN_ASSIST;
 #endif
 	info->tx_ctrl.flags = tmp;
 
@@ -2117,6 +2141,14 @@ static u32 ace_handle_event(struct net_device *dev, u32 evtcsm, u32 evtprd)
 }
 
 
+#if ACENIC_DO_VLAN
+static int ace_vlan_rx(struct ace_private *ap, struct sk_buff *skb, u16 vlan_tag)
+{
+	return vlan_hwaccel_rx(skb, ap->vlgrp, vlan_tag);
+}
+#endif
+
+
 static void ace_rx_int(struct net_device *dev, u32 rxretprd, u32 rxretcsm)
 {
 	struct ace_private *ap = dev->priv;
@@ -2201,7 +2233,15 @@ static void ace_rx_int(struct net_device *dev, u32 rxretprd, u32 rxretcsm)
 			skb->ip_summed = CHECKSUM_NONE;
 		}
 
-		netif_rx(skb);		/* send it up */
+		/* send it up */
+
+#if ACENIC_DO_VLAN
+		if (ap->vlgrp != NULL &&
+		    (bd_flags & BD_FLG_VLAN_TAG)) {
+			ace_vlan_rx(ap, skb, retdesc->vlan);
+		} else
+#endif
+			netif_rx(skb);
 
 		dev->last_rx = jiffies;
 		ap->stats.rx_packets++;
@@ -2425,6 +2465,37 @@ static void ace_interrupt(int irq, void *dev_id, struct pt_regs *ptregs)
 }
 
 
+#if ACENIC_DO_VLAN
+static void ace_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
+{
+	struct ace_private *ap = dev->priv;
+	unsigned long flags;
+
+	save_flags(flags);
+	cli();
+
+	ap->vlgrp = grp;
+
+	restore_flags(flags);
+}
+
+
+static void ace_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
+{
+	struct ace_private *ap = dev->priv;
+	unsigned long flags;
+
+	save_flags(flags);
+	cli();
+
+	if (ap->vlgrp)
+		ap->vlgrp->vlan_devices[vid] = NULL;
+
+	restore_flags(flags);
+}
+#endif /* ACENIC_DO_VLAN */
+
+
 static int ace_open(struct net_device *dev)
 {
 	struct ace_private *ap;
@@ -2582,7 +2653,7 @@ ace_map_tx_skb(struct ace_private *ap, struct sk_buff *skb,
 
 
 static inline void
-ace_load_tx_bd(struct tx_desc *desc, u64 addr, u32 flagsize)
+ace_load_tx_bd(struct tx_desc *desc, u64 addr, u32 flagsize, u32 vlan_tag)
 {
 #if !USE_TX_COAL_NOW
 	flagsize &= ~BD_FLG_COAL_NOW;
@@ -2591,6 +2662,9 @@ ace_load_tx_bd(struct tx_desc *desc, u64 addr, u32 flagsize)
 	desc->addr.addrhi = addr >> 32;
 	desc->addr.addrlo = addr;
 	desc->flagsize = flagsize;
+#if ACENIC_DO_VLAN
+	desc->vlanres = vlan_tag;
+#endif
 }
 
 
@@ -2619,11 +2693,18 @@ restart:
 #endif
 	{
 		dma_addr_t mapping;
+		u32 vlan_tag = 0;
 
 		mapping = ace_map_tx_skb(ap, skb, skb, idx);
 		flagsize = (skb->len << 16) | (BD_FLG_END);
 		if (skb->ip_summed == CHECKSUM_HW)
 			flagsize |= BD_FLG_TCP_UDP_SUM;
+#if ACENIC_DO_VLAN
+		if (vlan_tx_tag_present(skb)) {
+			flagsize |= BD_FLG_VLAN_TAG;
+			vlan_tag = vlan_tx_tag_get(skb);
+		}
+#endif
 		desc = ap->tx_ring + idx;
 		idx = (idx + 1) % TX_RING_ENTRIES;
 
@@ -2631,19 +2712,26 @@ restart:
 		if (tx_ring_full(ap->tx_ret_csm, idx))
 			flagsize |= BD_FLG_COAL_NOW;
 
-		ace_load_tx_bd(desc, mapping, flagsize);
+		ace_load_tx_bd(desc, mapping, flagsize, vlan_tag);
 	}
 #if MAX_SKB_FRAGS
 	else {
 		dma_addr_t mapping;
+		u32 vlan_tag = 0;
 		int i, len = 0;
 
 		mapping = ace_map_tx_skb(ap, skb, NULL, idx);
 		flagsize = ((skb->len - skb->data_len) << 16);
 		if (skb->ip_summed == CHECKSUM_HW)
 			flagsize |= BD_FLG_TCP_UDP_SUM;
+#if ACENIC_DO_VLAN
+		if (vlan_tx_tag_present(skb)) {
+			flagsize |= BD_FLG_VLAN_TAG;
+			vlan_tag = vlan_tx_tag_get(skb);
+		}
+#endif
 
-		ace_load_tx_bd(ap->tx_ring + idx, mapping, flagsize);
+		ace_load_tx_bd(ap->tx_ring + idx, mapping, flagsize, vlan_tag);
 
 		idx = (idx + 1) % TX_RING_ENTRIES;
 
@@ -2679,7 +2767,7 @@ restart:
 			}
 			pci_unmap_addr_set(info, mapping, mapping);
 			pci_unmap_len_set(info, maplen, frag->size);
-			ace_load_tx_bd(desc, mapping, flagsize);
+			ace_load_tx_bd(desc, mapping, flagsize, vlan_tag);
 		}
 	}
 #endif

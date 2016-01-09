@@ -629,7 +629,7 @@ static void qe_set_multicast(struct net_device *dev)
 	struct dev_mc_list *dmi = dev->mc_list;
 	u8 new_mconfig = qep->mconfig;
 	char *addrs;
-	int i, j, bit, byte;
+	int i;
 	u32 crc;
 
 	/* Lock out others. */

@@ -83,14 +83,14 @@ static void mste_write(struct MSTE_RTC *val)
 
 #define	RTC_READ(reg)				\
     ({	unsigned char	__val;			\
-		(void) writeb(reg,&tt_rtc.regsel);	\
+		(void) atari_writeb(reg,&tt_rtc.regsel);	\
 		__val = tt_rtc.data;		\
 		__val;				\
 	})
 
 #define	RTC_WRITE(reg,val)			\
     do {					\
-		writeb(reg,&tt_rtc.regsel);	\
+		atari_writeb(reg,&tt_rtc.regsel);	\
 		tt_rtc.data = (val);		\
 	} while(0)
 

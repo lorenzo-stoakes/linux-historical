@@ -1018,13 +1018,7 @@ int scsi_decide_disposition(Scsi_Cmnd * SCpnt)
 			SCpnt->flags &= ~IS_RESETTING;
 			goto maybe_retry;
 		}
-		/*
-		 * Examine the sense data to figure out how to proceed from here.
-		 * If there is no sense data, we will be forced into the error
-		 * handler thread, where we get to examine the thing in a lot more
-		 * detail.
-		 */
-		return scsi_check_sense(SCpnt);
+		return SUCCESS;
 	default:
 		return FAILED;
 	}
