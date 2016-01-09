@@ -33,64 +33,6 @@
 	.text
 
 	.align		32
-	.globl		_copy_page
-	.type		_copy_page,@function
-_copy_page: /* %o0=dest, %o1=src */
-	VISEntry
-	membar		#LoadStore | #StoreStore | #StoreLoad
-	ldda		[%o1] ASI_BLK_P, %f0
-	add		%o1, 0x40, %o1
-	ldda		[%o1] ASI_BLK_P, %f16
-	add		%o1, 0x40, %o1
-	sethi		%hi(PAGE_SIZE), %o2
-1:	TOUCH(f0, f2, f4, f6, f8, f10, f12, f14)
-	ldda		[%o1] ASI_BLK_P, %f32
-	stda		%f48, [%o0] ASI_BLK_P
-	add		%o1, 0x40, %o1
-	sub		%o2, 0x40, %o2
-	add		%o0, 0x40, %o0
-	TOUCH(f16, f18, f20, f22, f24, f26, f28, f30)
-	ldda		[%o1] ASI_BLK_P, %f0
-	stda		%f48, [%o0] ASI_BLK_P
-	add		%o1, 0x40, %o1
-	sub		%o2, 0x40, %o2
-	add		%o0, 0x40, %o0
-	TOUCH(f32, f34, f36, f38, f40, f42, f44, f46)
-	ldda		[%o1] ASI_BLK_P, %f16
-	stda		%f48, [%o0] ASI_BLK_P
-	sub		%o2, 0x40, %o2
-	add		%o1, 0x40, %o1
-	cmp		%o2, PAGE_SIZE_REM
-	bne,pt		%xcc, 1b
-	 add		%o0, 0x40, %o0
-#if (PAGE_SHIFT == 16) || (PAGE_SHIFT == 22)
-	TOUCH(f0, f2, f4, f6, f8, f10, f12, f14)
-	ldda		[%o1] ASI_BLK_P, %f32
-	stda		%f48, [%o0] ASI_BLK_P
-	add		%o1, 0x40, %o1
-	sub		%o2, 0x40, %o2
-	add		%o0, 0x40, %o0
-	TOUCH(f16, f18, f20, f22, f24, f26, f28, f30)
-	ldda		[%o1] ASI_BLK_P, %f0
-	stda		%f48, [%o0] ASI_BLK_P
-	add		%o1, 0x40, %o1
-	sub		%o2, 0x40, %o2
-	add		%o0, 0x40, %o0
-	membar		#Sync
-	stda		%f32, [%o0] ASI_BLK_P
-	add		%o0, 0x40, %o0
-	stda		%f0, [%o0] ASI_BLK_P
-#else
-	membar		#Sync
-	stda		%f0, [%o0] ASI_BLK_P
-	add		%o0, 0x40, %o0
-	stda		%f16, [%o0] ASI_BLK_P
-#endif
-	membar		#Sync
-	VISExit
-	retl
-	 nop
-
 	.globl		copy_user_page
 	.type		copy_user_page,@function
 copy_user_page: /* %o0=dest, %o1=src, %o2=vaddr */

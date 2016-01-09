@@ -55,6 +55,8 @@
 #define NDEBUG_C400_PWRITE	0x200000
 #define NDEBUG_LISTS		0x400000
 
+#define NDEBUG_ANY		0xFFFFFFFFUL
+
 /* 
  * The contents of the OUTPUT DATA register are asserted on the bus when
  * either arbitration is occurring or the phase-indicating signals (
@@ -91,10 +93,10 @@
  */
 #define MR_BLOCK_DMA_MODE	0x80	/* rw block mode DMA */
 #define MR_TARGET		0x40	/* rw target mode */
-#define MR_ENABLE_PAR_CHECK   0x20	/* rw enable parity checking */
+#define MR_ENABLE_PAR_CHECK	0x20	/* rw enable parity checking */
 #define MR_ENABLE_PAR_INTR	0x10	/* rw enable bad parity interrupt */
 #define MR_ENABLE_EOP_INTR	0x08	/* rw enable eop interrupt */
-#define MR_MONITOR_BSY	0x04	/* rw enable int on unexpected bsy fail */
+#define MR_MONITOR_BSY		0x04	/* rw enable int on unexpected bsy fail */
 #define MR_DMA_MODE		0x02	/* rw DMA / pseudo DMA mode */
 #define MR_ARBITRATE		0x01	/* rw start arbitration */
 
@@ -245,36 +247,34 @@
 
 #ifndef ASM
 struct NCR5380_hostdata {
-	NCR5380_implementation_fields;	/* implementation specific */
+	NCR5380_implementation_fields;		/* implementation specific */
 	unsigned char id_mask, id_higher_mask;	/* 1 << id, all bits greater */
-	unsigned char targets_present;	/* targets we have connected
-					   to, so we can call a select
-					   failure a retryable condition */
-	volatile unsigned char busy[8];	/* index = target, bit = lun */
+	unsigned char targets_present;		/* targets we have connected
+						   to, so we can call a select
+						   failure a retryable condition */
+	volatile unsigned char busy[8];		/* index = target, bit = lun */
 #if defined(REAL_DMA) || defined(REAL_DMA_POLL)
-	volatile int dma_len;	/* requested length of DMA */
+	volatile int dma_len;			/* requested length of DMA */
 #endif
 	volatile unsigned char last_message;	/* last message OUT */
-	volatile Scsi_Cmnd *connected;	/* currently connected command */
+	volatile Scsi_Cmnd *connected;		/* currently connected command */
 	volatile Scsi_Cmnd *issue_queue;	/* waiting to be issued */
 	volatile Scsi_Cmnd *disconnected_queue;	/* waiting for reconnect */
-	volatile int restart_select;	/* we have disconnected,
-					   used to restart 
-					   NCR5380_select() */
-	volatile unsigned aborted:1;	/* flag, says aborted */
+	volatile int restart_select;		/* we have disconnected,
+						   used to restart 
+						   NCR5380_select() */
+	volatile unsigned aborted:1;		/* flag, says aborted */
 	int flags;
-#ifdef USLEEP
-	unsigned long time_expires;	/* in jiffies, set prior to sleeping */
+	unsigned long time_expires;		/* in jiffies, set prior to sleeping */
 	struct Scsi_Host *next_timer;
-	int select_time;	/* timer in select for target response */
+	int select_time;			/* timer in select for target response */
 	volatile Scsi_Cmnd *selecting;
-#endif
 #ifdef NCR5380_STATS
-	unsigned timebase;	/* Base for time calcs */
-	long time_read[8];	/* time to do reads */
-	long time_write[8];	/* time to do writes */
-	unsigned long bytes_read[8];	/* bytes read */
-	unsigned long bytes_write[8];	/* bytes written */
+	unsigned timebase;			/* Base for time calcs */
+	long time_read[8];			/* time to do reads */
+	long time_write[8];			/* time to do writes */
+	unsigned long bytes_read[8];		/* bytes read */
+	unsigned long bytes_write[8];		/* bytes written */
 	unsigned pendingr;
 	unsigned pendingw;
 #endif
@@ -282,6 +282,10 @@ struct NCR5380_hostdata {
 
 #ifdef __KERNEL__
 static struct Scsi_Host *first_instance;	/* linked list of 5380's */
+
+#define dprintk(a,b)			do {} while(0)
+#define NCR5380_dprint(a,b)		do {} while(0)
+#define NCR5380_dprint_phase(a,b)	do {} while(0)
 
 #if defined(AUTOPROBE_IRQ)
 static int NCR5380_probe_irq(struct Scsi_Host *instance, int possible);
@@ -321,10 +325,24 @@ static int NCR5380_transfer_pio(struct Scsi_Host *instance, unsigned char *phase
 
 #if defined(i386) || defined(__alpha__)
 
+/**
+ *	NCR5380_pc_dma_setup		-	setup ISA DMA
+ *	@instance: adapter to set up
+ *	@ptr: block to transfer (virtual address)
+ *	@count: number of bytes to transfer
+ *	@mode: DMA controller mode to use
+ *
+ *	Program the DMA controller ready to perform an ISA DMA transfer
+ *	on this chip.
+ *
+ *	Locks: takes and releases the ISA DMA lock.
+ */
+ 
 static __inline__ int NCR5380_pc_dma_setup(struct Scsi_Host *instance, unsigned char *ptr, unsigned int count, unsigned char mode)
 {
 	unsigned limit;
 	unsigned long bus_addr = virt_to_bus(ptr);
+	unsigned long flags;
 
 	if (instance->dma_channel <= 3) {
 		if (count > 65536)
@@ -341,34 +359,72 @@ static __inline__ int NCR5380_pc_dma_setup(struct Scsi_Host *instance, unsigned 
 
 	if ((count & 1) || (bus_addr & 1))
 		panic("scsi%d : attempted unaligned DMA transfer\n", instance->host_no);
-	cli();
+	
+	flags=claim_dma_lock();
 	disable_dma(instance->dma_channel);
 	clear_dma_ff(instance->dma_channel);
 	set_dma_addr(instance->dma_channel, bus_addr);
 	set_dma_count(instance->dma_channel, count);
 	set_dma_mode(instance->dma_channel, mode);
 	enable_dma(instance->dma_channel);
-	sti();
+	release_dma_lock(flags);
+	
 	return count;
 }
+
+/**
+ *	NCR5380_pc_dma_write_setup		-	setup ISA DMA write
+ *	@instance: adapter to set up
+ *	@ptr: block to transfer (virtual address)
+ *	@count: number of bytes to transfer
+ *
+ *	Program the DMA controller ready to perform an ISA DMA write to the
+ *	SCSI controller.
+ *
+ *	Locks: called routines take and release the ISA DMA lock.
+ */
 
 static __inline__ int NCR5380_pc_dma_write_setup(struct Scsi_Host *instance, unsigned char *src, unsigned int count)
 {
 	return NCR5380_pc_dma_setup(instance, src, count, DMA_MODE_WRITE);
 }
 
+/**
+ *	NCR5380_pc_dma_read_setup		-	setup ISA DMA read
+ *	@instance: adapter to set up
+ *	@ptr: block to transfer (virtual address)
+ *	@count: number of bytes to transfer
+ *
+ *	Program the DMA controller ready to perform an ISA DMA read from the
+ *	SCSI controller.
+ *
+ *	Locks: called routines take and release the ISA DMA lock.
+ */
+
 static __inline__ int NCR5380_pc_dma_read_setup(struct Scsi_Host *instance, unsigned char *src, unsigned int count)
 {
 	return NCR5380_pc_dma_setup(instance, src, count, DMA_MODE_READ);
 }
 
+/**
+ *	NCR5380_pc_dma_residual		-	return bytes left 
+ *	@instance: adapter
+ *
+ *	Reports the number of bytes left over after the DMA was terminated.
+ *
+ *	Locks: takes and releases the ISA DMA lock.
+ */
+
 static __inline__ int NCR5380_pc_dma_residual(struct Scsi_Host *instance)
 {
-	register int tmp;
-	cli();
+	unsigned long flags;
+	int tmp;
+
+	flags = claim_dma_lock();
 	clear_dma_ff(instance->dma_channel);
 	tmp = get_dma_residue(instance->dma_channel);
-	sti();
+	release_dma_lock(flags);
+	
 	return tmp;
 }
 #endif				/* defined(i386) || defined(__alpha__) */

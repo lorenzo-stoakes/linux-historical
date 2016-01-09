@@ -485,7 +485,7 @@ static int __init HiSax_setup(char *line)
 		if (strlen(str) < HISAX_IDSIZE)
 			strcpy(HiSaxID, str);
 		else
-			printk(KERN_WARNING "HiSax: ID too long!")
+			printk(KERN_WARNING "HiSax: ID too long!");
 	} else
 		strcpy(HiSaxID, "HiSax");
 

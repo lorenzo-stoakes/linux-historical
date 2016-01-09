@@ -1443,13 +1443,14 @@ static unsigned int ymf_poll(struct file *file, struct poll_table_struct *wait)
 {
 	struct ymf_state *state = (struct ymf_state *)file->private_data;
 	struct ymf_dmabuf *dmabuf;
+	int redzone;
 	unsigned long flags;
 	unsigned int mask = 0;
 
 	if (file->f_mode & FMODE_WRITE)
 		poll_wait(file, &state->wpcm.dmabuf.wait, wait);
-	// if (file->f_mode & FMODE_READ)
-	// 	poll_wait(file, &dmabuf->wait, wait);
+	if (file->f_mode & FMODE_READ)
+		poll_wait(file, &state->rpcm.dmabuf.wait, wait);
 
 	spin_lock_irqsave(&state->unit->reg_lock, flags);
 	if (file->f_mode & FMODE_READ) {
@@ -1458,12 +1459,21 @@ static unsigned int ymf_poll(struct file *file, struct poll_table_struct *wait)
 			mask |= POLLIN | POLLRDNORM;
 	}
 	if (file->f_mode & FMODE_WRITE) {
+		redzone = ymf_calc_lend(state->format.rate);
+		redzone <<= state->format.shift;
+		redzone *= 3;
+
 		dmabuf = &state->wpcm.dmabuf;
 		if (dmabuf->mapped) {
 			if (dmabuf->count >= (signed)dmabuf->fragsize)
 				mask |= POLLOUT | POLLWRNORM;
 		} else {
-			if ((signed)dmabuf->dmasize >= dmabuf->count + (signed)dmabuf->fragsize)
+			/*
+			 * Don't select unless a full fragment is available.
+			 * Otherwise artsd does GETOSPACE, sees 0, and loops.
+			 */
+			if (dmabuf->count + redzone + dmabuf->fragsize
+			     <= dmabuf->dmasize)
 				mask |= POLLOUT | POLLWRNORM;
 		}
 	}
@@ -1498,6 +1508,7 @@ static int ymf_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EAGAIN;
 	dmabuf->mapped = 1;
 
+/* P3 */ printk(KERN_INFO "ymfpci: using memory mapped sound, untested!\n");
 	return 0;
 }
 
@@ -2430,6 +2441,7 @@ static int assigned;
 static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_device_id *ent)
 {
 	u16 ctrl;
+	unsigned long base;
 	ymfpci_t *codec;
 
 	int err;
@@ -2438,6 +2450,7 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 		printk(KERN_ERR "ymfpci: pci_enable_device failed\n");
 		return err;
 	}
+	base = pci_resource_start(pcidev, 0);
 
 	if ((codec = kmalloc(sizeof(ymfpci_t), GFP_KERNEL)) == NULL) {
 		printk(KERN_ERR "ymfpci: no core\n");
@@ -2452,16 +2465,21 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 	codec->pci = pcidev;
 
 	pci_read_config_byte(pcidev, PCI_REVISION_ID, &codec->rev);
-	codec->reg_area_virt = ioremap(pci_resource_start(pcidev, 0), 0x8000);
-	if (codec->reg_area_virt == NULL) {
-		printk(KERN_ERR "ymfpci: unable to map registers\n");
+
+	if (request_mem_region(base, 0x8000, "ymfpci") == NULL) {
+		printk(KERN_ERR "ymfpci: unable to request mem region\n");
 		goto out_free;
+	}
+
+	if ((codec->reg_area_virt = ioremap(base, 0x8000)) == NULL) {
+		printk(KERN_ERR "ymfpci: unable to map registers\n");
+		goto out_release_region;
 	}
 
 	pci_set_master(pcidev);
 
 	printk(KERN_INFO "ymfpci: %s at 0x%lx IRQ %d\n",
-	    (char *)ent->driver_data, pci_resource_start(pcidev, 0), pcidev->irq);
+	    (char *)ent->driver_data, base, pcidev->irq);
 
 	ymfpci_aclink_reset(pcidev);
 	if (ymfpci_codec_ready(codec, 0, 1) < 0)
@@ -2491,8 +2509,7 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 
 	/* register /dev/dsp */
 	if ((codec->dev_audio = register_sound_dsp(&ymf_fops, -1)) < 0) {
-		printk(KERN_ERR "ymfpci%d: unable to register dsp\n",
-		    codec->dev_audio);
+		printk(KERN_ERR "ymfpci: unable to register dsp\n");
 		goto out_free_irq;
 	}
 
@@ -2538,6 +2555,8 @@ static int __devinit ymf_probe_one(struct pci_dev *pcidev, const struct pci_devi
 	ymfpci_writel(codec, YDSXGR_STATUS, ~0);
  out_unmap:
 	iounmap(codec->reg_area_virt);
+ out_release_region:
+	release_mem_region(pci_resource_start(pcidev, 0), 0x8000);
  out_free:
 	kfree(codec);
 	return -ENODEV;
@@ -2561,6 +2580,7 @@ static void __devexit ymf_remove_one(struct pci_dev *pcidev)
 	ctrl = ymfpci_readw(codec, YDSXGR_GLOBALCTRL);
 	ymfpci_writew(codec, YDSXGR_GLOBALCTRL, ctrl & ~0x0007);
 	iounmap(codec->reg_area_virt);
+	release_mem_region(pci_resource_start(pcidev, 0), 0x8000);
 #ifdef CONFIG_SOUND_YMFPCI_LEGACY
 	if (codec->iomidi) {
 		unload_uart401(&codec->mpu_data);
@@ -2577,7 +2597,7 @@ static struct pci_driver ymfpci_driver = {
 	name:		"ymfpci",
 	id_table:	ymf_id_tbl,
 	probe:		ymf_probe_one,
-	remove:         ymf_remove_one,
+	remove:         __devexit_p(ymf_remove_one),
 	suspend:	ymf_suspend,
 	resume:		ymf_resume
 };

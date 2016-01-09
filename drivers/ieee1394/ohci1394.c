@@ -2374,7 +2374,7 @@ static struct pci_driver ohci1394_driver = {
 	name:		OHCI1394_DRIVER_NAME,
 	id_table:	ohci1394_pci_tbl,
 	probe:		ohci1394_add_one,
-	remove:		ohci1394_remove_one,
+	remove:		__devexit_p(ohci1394_remove_one),
 };
 
 static void __exit ohci1394_cleanup (void)

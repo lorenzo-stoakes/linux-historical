@@ -2,7 +2,7 @@
 #	Eric S. Raymond <mailto:esr@thyrsus.com>
 #	Steven Cole <mailto:elenstev@mesatop.com>
 #
-# Merged version 2.66: current with 2.4.17-pre2/2.5.1-pre5.
+# Merged version 2.67: current with 2.4.17-pre5/2.5.1-pre6.
 #
 # This version of the Linux kernel configuration help texts
 # corresponds to kernel versions 2.4.x and 2.5.x.
@@ -341,7 +341,7 @@ CONFIG_NOHIGHMEM
   "high memory".
 
   If you are compiling a kernel which will never run on a machine with
-  more than 1 Gigabyte total physical RAM, answer "off" here (default
+  more than 960 megabytes of total physical RAM, answer "off" here (default
   choice and suitable for most users). This will result in a "3GB/1GB"
   split: 3GB are mapped so that each process sees a 3GB virtual memory
   space and the remaining part of the 4GB virtual memory space is used
@@ -358,10 +358,10 @@ CONFIG_NOHIGHMEM
   processors (Pentium Pro and better). NOTE: If you say "64GB" here,
   then the kernel will not boot on CPUs that don't support PAE!
 
-  The actual amount of total physical memory will either be
-  auto detected or can be forced by using a kernel command line option
-  such as "mem=256M". (Try "man bootparam" or see the documentation of
-  your boot loader (lilo or loadlin) about how to pass options to the
+  The actual amount of total physical memory will either be auto
+  detected or can be forced by using a kernel command line option such
+  as "mem=256M". (Try "man bootparam" or see the documentation of your
+  boot loader (grub, lilo or loadlin) about how to pass options to the
   kernel at boot time.)
 
   If unsure, say "off".
@@ -5206,6 +5206,14 @@ CONFIG_IPV6
 
   It is safe to say N here for now.
 
+# 2.5 tree only
+IPv6: routing messages via old netlink
+CONFIG_IPV6_NETLINK
+  You can say Y here to receive routing messages from the IPv6 code
+  through the old netlink interface. However, a better option is to
+  say Y to "Kernel/User network link driver" and to "Routing
+  messages" instead.
+
 Kernel httpd acceleration
 CONFIG_KHTTPD
   The kernel httpd acceleration daemon (kHTTPd) is a (limited) web
@@ -5958,6 +5966,34 @@ CONFIG_PACKET_MMAP
   mechanism that results in faster communication.
 
   If unsure, say N.
+
+# 2.5 tree only
+Kernel/User network link driver
+CONFIG_NETLINK
+  This driver allows for two-way communication between the kernel and
+  user processes.  It does so by creating a new socket family,
+  PF_NETLINK.  Over this socket, the kernel can send and receive
+  datagrams carrying information.  It is documented on many systems in
+  netlink(7).
+
+  So far, the kernel uses this feature to publish some network related
+  information if you say Y to "Routing messages", below. You also need
+  to say Y here if you want to use arpd, a daemon that helps keep the
+  internal ARP cache (a mapping between IP addresses and hardware
+  addresses on the local network) small.  The ethertap device, which
+  lets user space programs read and write raw Ethernet frames, also
+  needs the network link driver.
+
+  If unsure, say Y.
+
+# 2.5 tree only
+Routing messages
+CONFIG_RTNETLINK
+  If you say Y here, user space programs can receive some network
+  related routing information over the netlink. 'rtmon', supplied
+  with the iproute2 package (<ftp://ftp.inr.ac.ru/>), can read and
+  interpret this data.  Information sent to the kernel over this link
+  is ignored.
 
 Netlink device emulation
 CONFIG_NETLINK_DEV
@@ -8697,19 +8733,6 @@ CONFIG_PCMCIA_PCNET
   inserted in and removed from the running kernel whenever you want).
   The module will be called pcnet_cs.o.  If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>. If
-  unsure, say N.
-
-Asix AX88190 PCMCIA support
-CONFIG_PCMCIA_AXNET
-  Say Y here if you intend to attach an Asix AX88190-based PCMCIA
-  (PC-card) Fast Ethernet card to your computer.  These cards are
-  nearly NE2000 compatible but need a separate driver due to a few
-  misfeatures.
-
-  This driver is also available as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want).
-  The module will be called axnet_cs.o.  If you want to compile it as
-  a module, say M here and read <file:Documentation/modules.txt>.  If
   unsure, say N.
 
 Asix AX88190 PCMCIA support
@@ -13844,7 +13867,7 @@ CONFIG_EXT2_FS
 Ext3 journalling file system support (EXPERIMENTAL)
 CONFIG_EXT3_FS
   This is the journalling version of the Second extended file system
-  (often called ext3), the de facto standard Linux file system
+  (often called ext2), the de facto standard Linux file system
   (method to organize files on a storage device) for hard disks.
 
   The journalling code included in this driver means you do not have
@@ -13961,15 +13984,41 @@ CONFIG_CMS_FS
   mainframe systems.  Only the basic format is supported so far.  If
   you don't know what CMS is you probably don't want to know any more.
 
+# When the 2.5 version of configure.help goes away, the part of this that 
+# duplicates Documentation/filesystems/tmpfs.txt can drop out.
 Virtual memory file system support
 CONFIG_TMPFS
   Tmpfs is a file system which keeps all files in virtual memory.
-
   Everything in tmpfs is temporary in the sense that no files will be
   created on your hard drive. If you reboot, everything in tmpfs will
   be lost.
 
-  See <file:Documentation/filesystems/tmpfs.txt> for details
+  In contrast to RAM disks, which get allocated a fixed amount of
+  physical RAM, tmpfs grows and shrinks to accommodate the files it
+  contains and is able to swap unneeded pages out to swap space.
+
+  Everything is "virtual" in the sense that no files will be created
+  on your hard drive; if you reboot, everything in tmpfs will be
+  lost.
+
+  You should mount the file system somewhere to be able to use
+  POSIX shared memory. Adding the following line to /etc/fstab should
+  take care of things:
+
+  tmpfs		/dev/shm	tmpfs		defaults	0 0
+
+  Remember to create the directory that you intend to mount tmpfs on
+  if necessary (/dev/shm is automagically created if you use devfs).
+
+  You can set limits for the number of blocks and inodes used by the
+  file system with the mount options "size", "nr_blocks" and
+  "nr_inodes". These parameters accept a suffix k, m or g for kilo,
+  mega and giga and can be changed on remount.
+
+  The initial permissions of the root directory can be set with the
+  mount option "mode".
+
+  See <file:Documentation/filesystems/tmpfs.txt> for details.
 
 Simple RAM-based file system support
 CONFIG_RAMFS
@@ -18846,6 +18895,26 @@ CONFIG_MIPS_UNCACHED
   hardware debugging with a logic analyzer and need to see all traffic
   on the bus.
 
+AU1000 serial console
+CONFIG_AU1000_SERIAL_CONSOLE
+  If you have an Alchemy AU1000 processor (MIPS based) and you want
+  to use a console on a serial port, say Y.  Otherwise, say N.
+
+AU1000 serial support
+CONFIG_AU1000_UART
+  If you have an Alchemy AU1000 processor (MIPS based) and you want
+  to use serial ports, say Y.  Otherwise, say N.
+
+AU1000 ethernet controller on SGI MIPS system
+CONFIG_MIPS_AU1000_ENET
+  If you have an Alchemy Semi AU1000 ethernet controller
+  on an SGI MIPS system, say Y.  Otherwise, say N.
+
+WD93 SCSI Controller on SGI MIPS system
+CONFIG_SGIWD93_SCSI
+  If you have a Western Digital WD93 SCSI controller on
+  an SGI MIPS system, say Y.  Otherwise, say N.
+
 Magic System Request Key support
 CONFIG_MAGIC_SYSRQ
   If you say Y here, you will have some control over the system even
@@ -21467,7 +21536,7 @@ CONFIG_VIDEO_W9966
   otherwise say N.
   This driver is also available as a module (w9966.o).
 
-  Check out <file:Documentation/video4linux/w9966.txt> and
+  Check out <file:drivers/media/video4linux/w9966.txt> and
   <file:drivers/media/video/w9966.c> for more information.
 
 CPiA Video For Linux
@@ -23586,6 +23655,42 @@ CONFIG_EFI_VARS
   To use this option, you have to check that the "/proc file system
   support" (CONFIG_PROC_FS) is enabled, too.
 
+Physical memory granularity (16 MB)
+CONFIG_IA64_GRANULE_16MB
+  IA64 identity-mapped regions use a large page size.  We'll call such
+  large pages "granules".  If you can think of a better name that's
+  unambiguous, let us know...  Unless your identity-mapped regions are
+  very large, select a granule size of 16MB.
+
+Physical memory granularity (64 MB)
+CONFIG_IA64_GRANULE_64MB
+  IA64 identity-mapped regions use a large page size.  We'll call such
+  large pages "granules".  If you can think of a better name that's
+  unambiguous, let us know...  Unless your identity-mapped regions are
+  very large, select a granule size of 16MB.  (This is the "large" choice.)
+
+Enable SGI SN extra debugging code
+CONFIG_IA64_SGI_SN_DEBUG
+  Turns on extra debugging code in the SGI SN (Scalable NUMA) platform
+  for IA64.  Unless you are debugging problems on an SGI SN IA64 box,
+  say N.
+
+Enable SGI Medusa Simulator Support
+CONFIG_IA64_SGI_SN_SIM
+  If you are compiling a kernel that will run under SGI's IA64
+  simulator (Medusa) then say Y, otherwise say N.
+
+PCIBA Support
+CONFIG_PCIBA
+  IRIX PCIBA-inspired user mode PCI interface for the SGI SN (Scalable
+  NUMA) platform for IA64.  Unless you are compiling a kernel for an              SGI SN IA64 box, say N.
+
+Enable protocol mode for the L1 console
+SERIAL_SGI_L1_PROTOCOL
+  Uses protocol mode instead of raw mode for the level 1 console on the
+  SGI SN (Scalable NUMA) platform for IA64.  If you are compiling for
+  an SGI SN box then Y is the recommended value, otherwise say N.
+
 Directly Connected Compact Flash support
 CONFIG_CF_ENABLER
   Compact Flash is a small, removable mass storage device introduced
@@ -23626,6 +23731,19 @@ CONFIG_DEBUG_SPINLOCK
   and certain other kinds of spinlock errors commonly made.  This is
   best used in conjunction with the NMI watchdog so that spinlock
   deadlocks are also debuggable.
+
+Read-write spinlock debugging
+CONFIG_DEBUG_RWLOCK
+  If you say Y here then read-write lock processing will count how many
+  times it has tried to get the lock and issue an error message after
+  too many attempts.  If you suspect a rwlock problem or a kernel
+  hacker asks for this option then say Y.  Otherwise say N.
+
+Semaphore debugging
+CONFIG_DEBUG_SEMAPHORE
+  If you say Y here then semaphore processing will issue lots of
+  verbose debugging messages.  If you suspect a semaphore problem or a
+  kernel hacker asks for this option then say Y.  Otherwise say N.
 
 Verbose BUG() reporting (adds 70K)
 CONFIG_DEBUG_BUGVERBOSE
@@ -24042,10 +24160,10 @@ CONFIG_GDB_CONSOLE
 # LocalWords:  filesystems smbfs ATA ppp PCTech RZ www powerquest txt CMD ESDI
 # LocalWords:  chipset FB multicast MROUTE appletalk ifconfig IBMTR multiport
 # LocalWords:  Multisession STALDRV EasyIO EC EasyConnection ISTALLION ONboard
-# LocalWords:  Brumby pci TNC cis ohio faq usenet dev hydra ca Tyne mem
+# LocalWords:  Brumby pci TNC cis ohio faq usenet NETLINK dev hydra ca Tyne mem
 # LocalWords:  carleton DECstation SUNFD JENSEN Noname XXXM SLiRP LILO's amifb
 # LocalWords:  pppd Zilog ZS SRM bootloader ez mainmenu rarp ipfwadm paride pcd
-# LocalWords:  mknod xos MTU lwared Macs netatalk macs cs Wolff
+# LocalWords:  RTNETLINK mknod xos MTU lwared Macs netatalk macs cs Wolff
 # LocalWords:  dartmouth flowerpt MultiMaster FlashPoint tudelft etherexpress
 # LocalWords:  ICL EtherTeam ETH IDESCSI TXC SmartRAID SmartCache httpd sjc dlp
 # LocalWords:  thesphere TwoServers BOOTP DHCP ncpfs BPQETHER BPQ MG HIPPI cern

@@ -107,17 +107,21 @@ static irq_info_t irq_table[NR_IRQS] = { { 0, 0, 0 }, /* etc */ };
 static struct resource *resource_parent(unsigned long b, unsigned long n,
 					int flags, struct pci_dev *dev)
 {
-	struct resource res;
+#ifdef CONFIG_PCI
+	struct resource res, *pr;
 
-	if (dev == NULL) {
-		if (flags & IORESOURCE_MEM)
-			return &iomem_resource;
-		return &ioport_resource;
+	if (dev != NULL) {
+		res.start = b;
+		res.end = b + n - 1;
+		res.flags = flags;
+		pr = pci_find_parent_resource(dev, &res);
+		if (pr)
+			return pr;
 	}
-	res.start = b;
-	res.end = b + n - 1;
-	res.flags = flags;
-	return pci_find_parent_resource(dev, &res);
+#endif /* CONFIG_PCI */
+	if (flags & IORESOURCE_MEM)
+		return &iomem_resource;
+	return &ioport_resource;
 }
 
 static inline int check_io_resource(unsigned long b, unsigned long n,

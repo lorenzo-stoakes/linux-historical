@@ -161,6 +161,8 @@ static struct dev_info device_list[] =
 	{"SONY", "TSL",       "*", BLIST_FORCELUN},  // DDS3 & DDS4 autoloaders
 	{"DELL", "PERCRAID", "*", BLIST_FORCELUN},
 	{"HP", "NetRAID-4M", "*", BLIST_FORCELUN},
+	{"ADAPTEC", "AACRAID", "*", BLIST_FORCELUN},
+	{"ADAPTEC", "Adaptec 5400S", "*", BLIST_FORCELUN},
 
 	/*
 	 * Must be at end of list...

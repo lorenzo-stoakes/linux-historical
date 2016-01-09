@@ -17,6 +17,7 @@
 #include <linux/spinlock.h>
 #include <linux/fs.h>
 #include <linux/seq_file.h>
+#include <linux/cache.h>
 
 #include <asm/head.h>
 #include <asm/ptrace.h>
@@ -49,7 +50,7 @@ static unsigned char boot_cpu_id = 0;
 static int smp_activated = 0;
 
 /* Kernel spinlock */
-spinlock_t kernel_flag = SPIN_LOCK_UNLOCKED;
+spinlock_t kernel_flag __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
 
 volatile int smp_processors_ready = 0;
 unsigned long cpu_present_map = 0;
