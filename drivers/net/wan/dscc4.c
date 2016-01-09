@@ -1634,7 +1634,7 @@ static struct net_device_stats *dscc4_get_stats(struct net_device *dev)
 	return &priv->stats;
 }
 
-static void __devexit dscc4_remove_one(struct pci_dev *pdev)
+static void __exit dscc4_remove_one(struct pci_dev *pdev)
 {
 	struct dscc4_pci_priv *ppriv;
 	struct net_device *root;
@@ -1752,7 +1752,7 @@ static struct pci_driver dscc4_driver = {
 	name:           "dscc4",
 	id_table:       dscc4_pci_tbl,
 	probe:          dscc4_init_one,
-	remove:         __devexit_p(dscc4_remove_one),
+	remove:         dscc4_remove_one,
 };
 
 static int __init dscc4_init_module(void)

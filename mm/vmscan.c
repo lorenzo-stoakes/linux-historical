@@ -588,6 +588,7 @@ int try_to_free_pages(zone_t *classzone, unsigned int gfp_mask, unsigned int ord
 	int priority = DEF_PRIORITY;
 	int nr_pages = SWAP_CLUSTER_MAX;
 
+	gfp_mask = pf_gfp_mask(gfp_mask);
 	do {
 		nr_pages = shrink_caches(classzone, priority, gfp_mask, nr_pages);
 		if (nr_pages <= 0)

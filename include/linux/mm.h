@@ -548,6 +548,15 @@ extern struct page *filemap_nopage(struct vm_area_struct *, unsigned long, int);
 
 #define GFP_DMA		__GFP_DMA
 
+static inline unsigned int pf_gfp_mask(unsigned int gfp_mask)
+{
+	/* avoid all memory balancing I/O methods if this task cannot block on I/O */
+	if (current->flags & PF_NOIO)
+		gfp_mask &= ~(__GFP_IO | __GFP_HIGHIO | __GFP_FS);
+
+	return gfp_mask;
+}
+	
 /* vma is the first one with  address < vma->vm_end,
  * and even  address < vma->vm_start. Have to extend vma. */
 static inline int expand_stack(struct vm_area_struct * vma, unsigned long address)

@@ -2327,7 +2327,7 @@ static struct page * grow_dev_page(struct block_device *bdev, unsigned long inde
 	struct buffer_head *bh;
 
 	page = find_or_create_page(bdev->bd_inode->i_mapping, index, GFP_NOFS);
-	if (IS_ERR(page))
+	if (!page)
 		return NULL;
 
 	if (!PageLocked(page))
@@ -2432,7 +2432,7 @@ static int grow_buffers(kdev_t dev, unsigned long block, int size)
 	return 1;
 }
 
-static int sync_page_buffers(struct buffer_head *head, unsigned int gfp_mask)
+static int sync_page_buffers(struct buffer_head *head)
 {
 	struct buffer_head * bh = head;
 	int tryagain = 0;
@@ -2533,9 +2533,10 @@ busy_buffer_page:
 	/* Uhhuh, start writeback so that we don't end up with all dirty pages */
 	write_unlock(&hash_table_lock);
 	spin_unlock(&lru_list_lock);
+	gfp_mask = pf_gfp_mask(gfp_mask);
 	if (gfp_mask & __GFP_IO) {
 		if ((gfp_mask & __GFP_HIGHIO) || !PageHighMem(page)) {
-			if (sync_page_buffers(bh, gfp_mask)) {
+			if (sync_page_buffers(bh)) {
 				/* no IO or waiting next time */
 				gfp_mask = 0;
 				goto cleaned_buffers_try_again;
