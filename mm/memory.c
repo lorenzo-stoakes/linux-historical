@@ -442,6 +442,13 @@ static inline struct page * get_page_map(struct page *page)
 	return page;
 }
 
+/*
+ * Please read Documentation/cachetlb.txt before using this function,
+ * accessing foreign memory spaces can cause cache coherency problems.
+ *
+ * Accessing a VM_IO area is even more dangerous, therefore the function
+ * fails if pages is != NULL and a VM_IO area is found.
+ */
 int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long start,
 		int len, int write, int force, struct page **pages, struct vm_area_struct **vmas)
 {
@@ -453,6 +460,7 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 		vma = find_extend_vma(mm, start);
 
 		if ( !vma ||
+		    (pages && vma->vm_flags & VM_IO) ||
 		    (!force &&
 		     	((write && (!(vma->vm_flags & VM_WRITE))) ||
 		    	 (!write && (!(vma->vm_flags & VM_READ))) ) )) {
@@ -486,8 +494,9 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 				/* FIXME: call the correct function,
 				 * depending on the type of the found page
 				 */
-				if (pages[i])
-					page_cache_get(pages[i]);
+				if (!pages[i])
+					goto bad_page;
+				page_cache_get(pages[i]);
 			}
 			if (vmas)
 				vmas[i] = vma;
@@ -497,7 +506,19 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 		} while(len && start < vma->vm_end);
 		spin_unlock(&mm->page_table_lock);
 	} while(len);
+out:
 	return i;
+
+	/*
+	 * We found an invalid page in the VMA.  Release all we have
+	 * so far and fail.
+	 */
+bad_page:
+	spin_unlock(&mm->page_table_lock);
+	while (i--)
+		page_cache_release(pages[i]);
+	i = -EFAULT;
+	goto out;
 }
 
 /*
