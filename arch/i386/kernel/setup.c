@@ -120,6 +120,7 @@
 #include <asm/dma.h>
 #include <asm/mpspec.h>
 #include <asm/mmu_context.h>
+#include <asm/io_apic.h>
 #include <asm/edd.h>
 /*
  * Machine setup..
@@ -184,6 +185,7 @@ static u32 disabled_x86_caps[NCAPINTS] __initdata = { 0 };
 EXPORT_SYMBOL(acpi_disabled);
 
 #ifdef	CONFIG_ACPI_BOOT
+	int acpi_irq __initdata = 1; 	/* enable IRQ */
 	int acpi_ht __initdata = 1; 	/* enable HT */
 #endif
 
@@ -849,6 +851,10 @@ static void __init parse_cmdline_early (char ** cmdline_p)
 			acpi_ht = 1; 
 			if (!acpi_force) acpi_disabled = 1; 
 		} 
+
+		else if (!memcmp(from, "pci=noacpi", 10)) { 
+			acpi_irq = 0; 
+		}
 
                 /* disable IO-APIC */
                 else if (!memcmp(from, "noapic", 6))

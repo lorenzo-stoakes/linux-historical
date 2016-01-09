@@ -691,7 +691,7 @@ void __init mp_register_lapic (
 	MP_processor_info(&processor);
 }
 
-#ifdef CONFIG_X86_IO_APIC
+#if defined(CONFIG_X86_IO_APIC) && defined(CONFIG_ACPI_INTERPRETER)
 
 #define MP_ISA_BUS		0
 #define MP_MAX_IOAPIC_PIN	127
@@ -1026,12 +1026,14 @@ void __init mp_parse_prt (void)
 			mp_ioapic_routing[ioapic].apic_id, ioapic_pin, vector, 
 			entry->irq);
 	}
-	
+
+	print_IO_APIC();
+
 	return;
 }
 
 #endif /*CONFIG_ACPI_PCI*/
 
-#endif /*CONFIG_X86_IO_APIC*/
+#endif /*CONFIG_X86_IO_APIC && CONFIG_ACPI_INTERPRETER*/
 
 #endif /*CONFIG_ACPI_BOOT*/

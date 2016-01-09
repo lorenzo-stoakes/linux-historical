@@ -776,7 +776,7 @@ void __init setup_ExtINT_IRQ0_pin(unsigned int pin, int vector)
 	entry.vector = vector;
 
 	/*
-	 * The timer IRQ doesnt have to know that behind the
+	 * The timer IRQ doesn't have to know that behind the
 	 * scene we have a 8259A-master in AEOI mode ...
 	 */
 	irq_desc[0].handler = &ioapic_edge_irq_type;
@@ -1111,10 +1111,6 @@ static void __init setup_ioapic_ids_from_mpc (void)
 	int i;
 	unsigned char old_id;
 	unsigned long flags;
-
- 	if (acpi_ioapic)
- 		/* This gets done during IOAPIC enumeration for ACPI. */
- 		return;
 
 	/*
 	 * Set the IOAPIC ID to the value stored in the MPC table.
@@ -1652,7 +1648,7 @@ static inline void check_timer(void)
 	printk(" failed.\n");
 
 	if (nmi_watchdog) {
-		printk(KERN_WARNING "timer doesnt work through the IO-APIC - disabling NMI Watchdog!\n");
+		printk(KERN_WARNING "timer doesn't work through the IO-APIC - disabling NMI Watchdog!\n");
 		nmi_watchdog = 0;
 	}
 
@@ -1713,12 +1709,14 @@ void __init setup_IO_APIC(void)
 	/*
 	 * Set up IO-APIC IRQ routing.
 	 */
-	setup_ioapic_ids_from_mpc();
+	if (!acpi_ioapic)
+		setup_ioapic_ids_from_mpc();
 	sync_Arb_IDs();
 	setup_IO_APIC_irqs();
 	init_IO_APIC_traps();
 	check_timer();
-	print_IO_APIC();
+	if (!acpi_ioapic)
+		print_IO_APIC();
 }
 
 
@@ -1826,7 +1824,7 @@ int __init io_apic_get_redir_entries (int ioapic)
 }
 
 
-int io_apic_set_pci_routing (int ioapic, int pin, int irq, int edge_level ,int active_high_low)
+int io_apic_set_pci_routing (int ioapic, int pin, int irq, int edge_level, int active_high_low)
 {
 	struct IO_APIC_route_entry entry;
 	unsigned long flags;
@@ -1849,7 +1847,7 @@ int io_apic_set_pci_routing (int ioapic, int pin, int irq, int edge_level ,int a
 	entry.dest_mode = INT_DELIVERY_MODE;
 	entry.dest.logical.logical_dest = TARGET_CPUS;
 	entry.mask = 1;					 /* Disabled (masked) */
-	entry.trigger = edge_level;	
+	entry.trigger = edge_level;
 	entry.polarity = active_high_low;
 
 	add_pin_to_irq(irq, ioapic, pin);
@@ -1857,7 +1855,7 @@ int io_apic_set_pci_routing (int ioapic, int pin, int irq, int edge_level ,int a
 	entry.vector = assign_irq_vector(irq);
 
 	printk(KERN_DEBUG "IOAPIC[%d]: Set PCI routing entry (%d-%d -> 0x%x -> "
-		"IRQ %d) Mode:%i Active:%i\n", ioapic, 
+		"IRQ %d Mode:%i Active:%i)\n", ioapic,
 		mp_ioapics[ioapic].mpc_apicid, pin, entry.vector, irq, edge_level, active_high_low);
 
 	if (edge_level)

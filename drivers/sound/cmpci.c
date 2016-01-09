@@ -1865,8 +1865,11 @@ static ssize_t cm_read(struct file *file, char *buffer, size_t count, loff_t *pp
 			cnt = count;
 		if (cnt <= 0) {
 			start_adc(s);
-			if (file->f_flags & O_NONBLOCK)
-				return ret ? ret : -EAGAIN;
+			if (file->f_flags & O_NONBLOCK) {
+				if (!ret)
+					ret = -EAGAIN;
+				goto out;
+			}
 			if (!schedule_timeout(HZ)) {
 				printk(KERN_DEBUG "cmpci: read: chip lockup? dmasz %u fragsz %u count %i hwptr %u swptr %u\n",
 				       s->dma_adc.dmasize, s->dma_adc.fragsize, s->dma_adc.count,
@@ -1879,12 +1882,18 @@ static ssize_t cm_read(struct file *file, char *buffer, size_t count, loff_t *pp
 				s->dma_adc.count = s->dma_adc.hwptr = s->dma_adc.swptr = 0;
 				spin_unlock_irqrestore(&s->lock, flags);
 			}
-			if (signal_pending(current))
-				return ret ? ret : -ERESTARTSYS;
+			if (signal_pending(current)) {
+				if (!ret)
+					ret = -ERESTARTSYS;
+				goto out;
+			}
 			continue;
 		}
-		if (copy_to_user(buffer, s->dma_adc.rawbuf + swptr, cnt))
-			return ret ? ret : -EFAULT;
+		if (copy_to_user(buffer, s->dma_adc.rawbuf + swptr, cnt)) {
+			if (!ret)
+				ret = -EFAULT;
+			goto out;
+		}
 		swptr = (swptr + cnt) % s->dma_adc.dmasize;
 		spin_lock_irqsave(&s->lock, flags);
 		s->dma_adc.swptr = swptr;
@@ -1895,7 +1904,8 @@ static ssize_t cm_read(struct file *file, char *buffer, size_t count, loff_t *pp
 		start_adc_unlocked(s);
 		spin_unlock_irqrestore(&s->lock, flags);
 	}
-        remove_wait_queue(&s->dma_adc.wait, &wait);
+out:
+	remove_wait_queue(&s->dma_adc.wait, &wait);
 	set_current_state(TASK_RUNNING);
 	return ret;
 }
@@ -1958,8 +1968,11 @@ static ssize_t cm_write(struct file *file, const char *buffer, size_t count, lof
 		    cnt = count / 2;
 		if (cnt <= 0) {
 			start_dac(s);
-			if (file->f_flags & O_NONBLOCK)
-				return ret ? ret : -EAGAIN;
+			if (file->f_flags & O_NONBLOCK) {
+				if (!ret)
+					ret = -EAGAIN;
+				goto out;
+			}
 			if (!schedule_timeout(HZ)) {
 				printk(KERN_DEBUG "cmpci: write: chip lockup? dmasz %u fragsz %u count %i hwptr %u swptr %u\n",
 				       s->dma_dac.dmasize, s->dma_dac.fragsize, s->dma_dac.count,
@@ -1976,21 +1989,22 @@ static ssize_t cm_write(struct file *file, const char *buffer, size_t count, lof
 				}
 				spin_unlock_irqrestore(&s->lock, flags);
 			}
-			if (signal_pending(current))
-				return ret ? ret : -ERESTARTSYS;
+			if (signal_pending(current)) {
+				if (!ret)
+					ret = -ERESTARTSYS;
+				goto out;
+			}
 			continue;
 		}
 		if (s->status & DO_AC3_SW) {
-			int err;
-
 			// clip exceeded data, caught by 033 and 037
 			if (swptr + 2 * cnt > s->dma_dac.dmasize)
 				cnt = (s->dma_dac.dmasize - swptr) / 2;
-			if ((err = trans_ac3(s, s->dma_dac.rawbuf + swptr, buffer, cnt)))
-				return err;
+			if ((ret = trans_ac3(s, s->dma_dac.rawbuf + swptr, buffer, cnt)))
+				goto out;
 			swptr = (swptr + 2 * cnt) % s->dma_dac.dmasize;
 		} else if (s->status & DO_DUAL_DAC) {
-			int	i, err;
+			int	i;
 			unsigned long *src, *dst0, *dst1;
 
 			src = (unsigned long *) buffer;
@@ -1998,15 +2012,18 @@ static ssize_t cm_write(struct file *file, const char *buffer, size_t count, lof
 			dst1 = (unsigned long *) (s->dma_adc.rawbuf + swptr);
 			// copy left/right sample at one time
 			for (i = 0; i <= cnt / 4; i++) {
-				if ((err = __get_user(*dst0++, src++)))
-					return err;
-				if ((err = __get_user(*dst1++, src++)))
-					return err;
+				if ((ret = __get_user(*dst0++, src++)))
+					goto out;
+				if ((ret = __get_user(*dst1++, src++)))
+					goto out;
 			}
 			swptr = (swptr + cnt) % s->dma_dac.dmasize;
 		} else {
-			if (copy_from_user(s->dma_dac.rawbuf + swptr, buffer, cnt))
-				return ret ? ret : -EFAULT;
+			if (copy_from_user(s->dma_dac.rawbuf + swptr, buffer, cnt)) {
+				if (!ret)
+					ret = -EFAULT;
+				goto out;
+			}
 			swptr = (swptr + cnt) % s->dma_dac.dmasize;
 		}
 		spin_lock_irqsave(&s->lock, flags);
@@ -2026,7 +2043,8 @@ static ssize_t cm_write(struct file *file, const char *buffer, size_t count, lof
 		}
 		start_dac(s);
 	}
-        remove_wait_queue(&s->dma_dac.wait, &wait);
+out:
+	remove_wait_queue(&s->dma_dac.wait, &wait);
 	set_current_state(TASK_RUNNING);
 	return ret;
 }

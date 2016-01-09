@@ -49,7 +49,9 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/page.h>
+#ifdef CONFIG_X86
 #include <asm/msr.h>
+#endif
 
 #include <linux/agp_backend.h>
 #include "agp.h"
@@ -3839,8 +3841,6 @@ static int nvidia_x86_64_configure(void)
 		 return -ENODEV;
 	apbase = (apbase & 0x7fff) << 25;
 
-	/* AK: most likely the shadow into the primary device is not needed */
-
 	pci_read_config_dword(agp_bridge.dev, NVIDIA_X86_64_0_APBASE, &apbar);
 	apbar &= ~PCI_BASE_ADDRESS_MEM_MASK;
 	apbar |= apbase;
@@ -4811,8 +4811,55 @@ static int nvidia_fetch_size(void)
 	return 0;
 }
 
+#define SYSCFG          0xC0010010
+#define IORR_BASE0      0xC0010016
+#define IORR_MASK0      0xC0010017
+#define AMD_K7_NUM_IORR 2
+
+static int nvidia_init_iorr(u32 base, u32 size)
+{
+	u32 base_hi, base_lo;
+	u32 mask_hi, mask_lo;
+	u32 sys_hi, sys_lo;
+	u32 iorr_addr, free_iorr_addr;
+
+	/* Find the iorr that is already used for the base */
+	/* If not found, determine the uppermost available iorr */
+	free_iorr_addr = AMD_K7_NUM_IORR;
+	for(iorr_addr = 0; iorr_addr < AMD_K7_NUM_IORR; iorr_addr++) {
+		rdmsr(IORR_BASE0 + 2 * iorr_addr, base_lo, base_hi);
+		rdmsr(IORR_MASK0 + 2 * iorr_addr, mask_lo, mask_hi);
+
+		if ((base_lo & 0xfffff000) == (base & 0xfffff000))
+			break;
+
+		if ((mask_lo & 0x00000800) == 0)
+			free_iorr_addr = iorr_addr;
+	}
+	
+	if (iorr_addr >= AMD_K7_NUM_IORR) {
+		iorr_addr = free_iorr_addr;
+		if (iorr_addr >= AMD_K7_NUM_IORR)
+			return -EINVAL;
+	}
+
+    base_hi = 0x0;
+    base_lo = (base & ~0xfff) | 0x18;
+    mask_hi = 0xf;
+    mask_lo = ((~(size - 1)) & 0xfffff000) | 0x800;
+    wrmsr(IORR_BASE0 + 2 * iorr_addr, base_lo, base_hi);
+    wrmsr(IORR_MASK0 + 2 * iorr_addr, mask_lo, mask_hi);
+
+    rdmsr(SYSCFG, sys_lo, sys_hi);
+    sys_lo |= 0x00100000;
+    wrmsr(SYSCFG, sys_lo, sys_hi);
+
+	return 0;
+}
+
 static int nvidia_configure(void)
 {
+	int err;
 	int i, num_dirs;
 	u32 apbase, aplimit;
 	aper_size_info_8 *current_size;
@@ -4833,9 +4880,9 @@ static int nvidia_configure(void)
 	pci_write_config_dword(nvidia_private.dev_2, NVIDIA_2_APLIMIT, aplimit);
 	pci_write_config_dword(nvidia_private.dev_3, NVIDIA_3_APBASE, apbase);
 	pci_write_config_dword(nvidia_private.dev_3, NVIDIA_3_APLIMIT, aplimit);
-
-	/* The original driver changed the IORR. We don't do that
-	   because this should be handled by the BIOS. */
+	err = nvidia_init_iorr(apbase, current_size->size * 1024 * 1024);
+	if (err) 
+		return err;
 
 	/* directory size is 64k */
 	num_dirs = current_size->size / 64;
@@ -4893,6 +4940,10 @@ static void nvidia_cleanup(void)
 	previous_size = A_SIZE_8(agp_bridge.previous_size);
 	pci_write_config_byte(agp_bridge.dev, NVIDIA_0_APSIZE,
 		previous_size->size_value);
+
+	/* restore iorr for previous aperture size */
+	nvidia_init_iorr(agp_bridge.gart_bus_addr,
+		previous_size->size * 1024 * 1024);
 }
 
 static void nvidia_tlbflush(agp_memory * mem)

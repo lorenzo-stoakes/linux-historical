@@ -6,7 +6,7 @@
  *  Copyright (C) 2000 Karsten Keil <kkeil@suse.de>
  *  Copyright (C) 2001,2002 Andi Kleen <ak@suse.de>
  *
- *  $Id: head.S,v 1.57 2003/07/11 15:58:46 ak Exp $
+ *  $Id: head.S,v 1.58 2003/11/02 05:05:31 ak Exp $
  */
 
 
@@ -38,6 +38,9 @@ startup_32:
 	 */
 
 	movl %ebx,%ebp	/* Save trampoline flag */
+	
+	movl $__KERNEL_DS,%eax
+	movl %eax,%ds
 	
 	/* First check if extended functions are implemented */
 	movl	$0x80000000, %eax
@@ -119,24 +122,10 @@ reach_compatibility_mode:
 	movl	$0x100F00, %eax
 	lgdt	(%eax)
 
+second:		
 	movl    $0x100F10, %eax
 	/* Finally jump in 64bit mode */
 	ljmp	*(%eax)
-
-second:
-	/* abuse syscall to get into 64bit mode. this way we don't need
-	   a working low identity mapping just for the short 32bit roundtrip. 
-	   XXX kludge. this should not be needed. */
-	movl  $MSR_STAR,%ecx
-	xorl  %eax,%eax
-	movl  $(__USER32_CS<<16)|__KERNEL_CS,%edx
-	wrmsr
-
-	movl  $MSR_CSTAR,%ecx
-	movl  $0xffffffff,%edx
-	movl  $0x80100100,%eax	# reach_long64 absolute
-	wrmsr
-	syscall
 
 	.code64
 	.org 0x100	

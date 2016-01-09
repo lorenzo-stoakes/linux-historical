@@ -570,6 +570,14 @@ void __devinit pcibios_config_init(void)
 	return;
 }
 
+static int use_acpi_pci __initdata = 1;
+
+__init void pci_disable_acpi(void)
+{
+	use_acpi_pci = 0;
+	return;
+}
+
 void __devinit pcibios_init(void)
 {
 	struct pci_ops *dir = NULL;

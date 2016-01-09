@@ -31,6 +31,7 @@
 #include <linux/spinlock.h>
 #include <linux/poll.h>
 #include <linux/delay.h>
+#include <linux/interrupt.h>
 #include <linux/sysrq.h>
 #include <linux/compatmac.h>
 #include <linux/proc_fs.h>
@@ -92,7 +93,13 @@ extern wait_queue_head_t	acpi_bus_event_queue;
 static void
 acpi_power_off (void)
 {
-	acpi_suspend(ACPI_STATE_S5);
+	if (unlikely(in_interrupt())) 
+		BUG();
+	acpi_enter_sleep_state_prep(ACPI_STATE_S5);
+	ACPI_DISABLE_IRQS();
+	acpi_enter_sleep_state(ACPI_STATE_S5);
+
+	printk(KERN_EMERG "ACPI: can not power off machine\n");
 }
 
 #endif /*CONFIG_PM*/

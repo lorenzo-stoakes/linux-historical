@@ -15,9 +15,12 @@
 #include <asm/acpi.h>
 #include <asm/apic.h>
 #include <asm/bootsetup.h>
+#include <asm/mpspec.h>
+#include <asm/io_apic.h>
 
 extern unsigned long table_start, table_end;
 extern char _end[];
+extern void pci_disable_acpi();
 
 extern struct resource code_resource, data_resource, vram_resource;
 
@@ -501,6 +504,7 @@ void __init setup_memory_region(void)
 extern char command_line[], saved_command_line[];
 extern int fallback_aper_order;
 extern int iommu_setup(char *opt);
+extern int acpi_irq;
 
 void __init parse_mem_cmdline (char ** cmdline_p)
 {
@@ -550,8 +554,10 @@ void __init parse_mem_cmdline (char ** cmdline_p)
 			disable_ioapic_setup();
 		else if (!memcmp(from, "nolocalapic", 11) || !memcmp(from,"nolapic",7))
 			apic_disabled = 1;
-		else if (!memcmp(from, "pci=noacpi", 10))
-			use_acpi_pci = 0;
+		else if (!memcmp(from, "pci=noacpi", 10)) {
+			pci_disable_acpi();
+			acpi_irq = 0;
+		}
 		else if (!memcmp(from,"apic",4)) {
 			extern int ioapic_force;
 			ioapic_force = 1;

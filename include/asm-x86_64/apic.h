@@ -102,17 +102,4 @@ extern unsigned int nmi_watchdog;
 #define esr_disable 0
 extern unsigned boot_cpu_id;
 
-extern int skip_ioapic_setup;
-
-static inline void disable_ioapic_setup(void)
-{
-	
-	skip_ioapic_setup = 1;
-}
-
-static inline int ioapic_setup_disabled(void)
-{
-	return skip_ioapic_setup;
-}
-
 #endif /* __ASM_APIC_H */

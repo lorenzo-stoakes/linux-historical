@@ -237,6 +237,14 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	if (in_interrupt() || !mm)
 		goto bad_area_nosemaphore;
 
+	/* 
+	 * Work around K8 errata #100. See the K8 specification update for 
+	 * details. Any code segment in LDT is compatibility mode.
+	 */
+	if ((regs->cs == __USER32_CS || (regs->cs & (1<<2))) &&
+		(address >> 32))
+		return;
+
 again:
 	down_read(&mm->mmap_sem);
 

@@ -1140,7 +1140,7 @@ void __init mp_override_legacy_irq (
 	 */
 	for (i = 0; i < mp_irq_entries; i++) {
 		if ((mp_irqs[i].mpc_dstapic == intsrc.mpc_dstapic) 
-			&& (mp_irqs[i].mpc_dstirq == intsrc.mpc_dstirq)) {
+			&& (mp_irqs[i].mpc_srcbusirq == intsrc.mpc_srcbusirq)) {
 			mp_irqs[i] = intsrc;
 			found = 1;
 			break;
@@ -1361,6 +1361,8 @@ void __init mp_parse_prt (void)
 			entry->irq);
 	}
 	
+	print_IO_APIC();
+
 	return;
 }
 
