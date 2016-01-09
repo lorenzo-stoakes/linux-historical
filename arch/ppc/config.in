@@ -441,11 +441,18 @@ if [ "$CONFIG_DEBUG_KERNEL" = "y" ]; then
   fi
   bool '  Include xmon kernel debugger' CONFIG_XMON
   bool '  Include BDI-2000 user context switcher' CONFIG_BDI_SWITCH
+  # CONFIG_KGDB is much more useful with -g enbaled.  This makes the
+  # following look a little odd.
   if [ "$CONFIG_KGDB" = "y" -o "$CONFIG_XMON" = "y" \
 	-o "$CONFIG_BDI_SWITCH" = "y" ]; then
     bool '  Add any additional compile options' CONFIG_MORE_COMPILE_OPTIONS
     if [ "$CONFIG_MORE_COMPILE_OPTIONS" = "y" ]; then
       string '    Additional compile arguments' CONFIG_COMPILE_OPTIONS "-g -ggdb"
+    else
+      if [ "$CONFIG_KGDB" = "y" ]; then
+        define_bool CONFIG_MORE_COMPILE_OPTIONS y
+	define_string CONFIG_COMPILE_OPTIONS "-g"
+      fi
     fi
   fi
 fi

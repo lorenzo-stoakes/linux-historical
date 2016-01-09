@@ -14,7 +14,7 @@
  *
  *	hacked by Andi Kleen for x86-64.
  * 
- *  $Id: hw_irq.h,v 1.30 2002/10/02 15:44:22 ak Exp $
+ *  $Id: hw_irq.h,v 1.31 2003/02/18 18:35:55 ak Exp $
  */
 
 #include <linux/config.h>
@@ -31,7 +31,6 @@
 #define FIRST_EXTERNAL_VECTOR	0x20
 
 #define IA32_SYSCALL_VECTOR	0x80
-#define KDBENTER_VECTOR		0x81
 
 
 /*
@@ -51,9 +50,8 @@
 #define ERROR_APIC_VECTOR	0xfe
 #define INVALIDATE_TLB_VECTOR	0xfd
 #define RESCHEDULE_VECTOR	0xfc
-#define KDB_VECTOR		0xfa
+/* 0xfa free */
 #define CALL_FUNCTION_VECTOR	0xfb
-#define KDB_VECTOR              0xfa
 
 /*
  * Local APIC timer IRQ vector is on a different priority level,

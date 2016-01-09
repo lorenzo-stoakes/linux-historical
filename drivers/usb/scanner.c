@@ -334,6 +334,12 @@
  *      <oliver@neukum.name>.
  *
  * 0.4.10  01/07/2003
+ *    - Added vendor/product ids for Artec, Canon, Compaq, Epson, HP, Microtek 
+ *      and Visioneer scanners. Thanks to William Lam <wklam@triad.rr.com>,
+ *      Till Kamppeter <till.kamppeter@gmx.net> and others for all the ids.
+ *    - Cleaned up list of vendor/product ids.
+ *    - Print ids and device number when a device was detected.
+ *    - Don't print errors when the device is busy.
  *    - Added vendor/product ids for Visioneer scanners.
  *    - Print information about user-supplied ids only once at startup instead
  *      of everytime any USB device is plugged in.
@@ -346,6 +352,10 @@
  *    - Print ids and device number when a device was detected.
  *    - Don't print errors when the device is busy.
  *      
+ * 0.4.11  2003-02-25
+ *    - Added vendor/product ids for Artec, Avision, Brother, Medion, Primax,
+ *      Prolink, Fujitsu, Plustek, and SYSCAN scanners.
+ *
  * TODO
  *    - Performance
  *    - Select/poll methods

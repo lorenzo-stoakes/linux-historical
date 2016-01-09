@@ -8,7 +8,7 @@
  * This allows to access 64bit processes too; but there is no way to see the extended 
  * register contents.
  *
- * $Id: ptrace32.c,v 1.13 2002/07/18 13:44:12 ak Exp $
+ * $Id: ptrace32.c,v 1.16 2003/03/14 16:06:35 ak Exp $
  */ 
 
 #include <linux/kernel.h>
@@ -73,8 +73,16 @@ static int putreg32(struct task_struct *child, unsigned regno, u32 val)
 		stack[offsetof(struct pt_regs, eflags)/8] = val & 0x44dd5; 
 		break;
 
-	case offsetof(struct user32, u_debugreg[0]) ... offsetof(struct user32, u_debugreg[6]):
-		child->thread.debugreg[(regno-offsetof(struct user32, u_debugreg[0]))/4] = val; 
+	case offsetof(struct user32, u_debugreg[4]): 
+	case offsetof(struct user32, u_debugreg[5]):
+		return -EIO;
+
+	case offsetof(struct user32, u_debugreg[0]) ...
+	     offsetof(struct user32, u_debugreg[3]):
+	case offsetof(struct user32, u_debugreg[6]):
+		child->thread.debugreg
+			[(regno-offsetof(struct user32, u_debugreg[0]))/4] 
+			= val; 
 		break; 
 
 	case offsetof(struct user32, u_debugreg[7]):
@@ -277,7 +285,6 @@ asmlinkage long sys32_ptrace(long request, u32 pid, u32 addr, u32 data)
 			ret = -EIO;
 			break;
 		}
-		empty_fpu(child); 
 		ret = 0; 
 		for ( i = 0; i <= 16*4; i += sizeof(u32) ) {
 			ret |= __get_user(tmp, (u32 *) (unsigned long) data);
@@ -287,33 +294,47 @@ asmlinkage long sys32_ptrace(long request, u32 pid, u32 addr, u32 data)
 		break;
 	}
 
-	case PTRACE_SETFPREGS:
-		empty_fpu(child); 
+	case PTRACE_GETFPREGS:
+		ret = -EIO; 
+		if (!access_ok(VERIFY_READ, (void *)(u64)data, 
+			       sizeof(struct user_i387_struct)))
+			break;
 		save_i387_ia32(child, (void *)(u64)data, childregs, 1);
 		ret = 0; 
 		break;
 
-	case PTRACE_GETFPREGS:
-		empty_fpu(child); 
-		restore_i387_ia32(child, (void *)(u64)data, 1);
+	case PTRACE_SETFPREGS:
+		ret = -EIO;
+		if (!access_ok(VERIFY_WRITE, (void *)(u64)data, 
+			       sizeof(struct user_i387_struct)))
+			break;
 		ret = 0;
+		/* don't check EFAULT to be bug-to-bug compatible to i386 */
+		restore_i387_ia32(child, (void *)(u64)data, 1);
 		break;
 
 	case PTRACE_GETFPXREGS: { 
 		struct user32_fxsr_struct *u = (void *)(u64)data; 
-		empty_fpu(child); 
-		ret = copy_to_user(u, &child->thread.i387.fxsave, sizeof(*u));
-		ret |= __put_user(childregs->cs, &u->fcs);
-		ret |= __put_user(child->thread.ds, &u->fos); 
-		if (ret) 
+		init_fpu(child); 
+		ret = -EIO;
+		if (!access_ok(VERIFY_WRITE, u, sizeof(*u)))
+			break;
 			ret = -EFAULT;
+		if (__copy_to_user(u, &child->thread.i387.fxsave, sizeof(*u)))
+			break;
+		ret = __put_user(childregs->cs, &u->fcs);
+		ret |= __put_user(child->thread.ds, &u->fos); 
 		break; 
 	} 
 	case PTRACE_SETFPXREGS: { 
 		struct user32_fxsr_struct *u = (void *)(u64)data; 
-		empty_fpu(child); 
-		/* no error checking to be bug to bug compatible with i386 */ 
-		copy_from_user(&child->thread.i387.fxsave, u, sizeof(*u));
+		unlazy_fpu(child);
+		ret = -EIO;
+		if (!access_ok(VERIFY_READ, u, sizeof(*u)))
+			break;
+		/* no checking to be bug-to-bug compatible with i386 */
+		__copy_from_user(&child->thread.i387.fxsave, u, sizeof(*u));
+		child->used_math = 1;
 	        child->thread.i387.fxsave.mxcsr &= 0xffbf;
 		ret = 0; 
 		break; 

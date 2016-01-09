@@ -189,7 +189,7 @@ start_ldr:
 	mr	r4,r7		/* Program length */
 	mr	r5,r6		/* Checksum */
 	mr	r6,r11		/* Residual data */
-	bl	decompress_kernel
+	bl	load_kernel
 
 	/*
 	 * Make sure the kernel knows we don't have things set  in
@@ -199,10 +199,10 @@ start_ldr:
 	li	r6,0
 
 	/*
-	 * Start at the begining.
+	 * Start at the beginning of real code (the first
+	 * three instructions are 'nop' since we 
+	 * sometimes overwrite them).
 	 */
-	li	r9,0x0000
-	mtlr	r9
-	blr
+	ba	0x000c
 
 	.comm	.stack,4096*2,4

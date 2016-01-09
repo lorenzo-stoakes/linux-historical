@@ -562,7 +562,7 @@ static void CDCEther_set_multicast( struct net_device *net )
 			MODE_FLAG_DIRECTED |
 			MODE_FLAG_BROADCAST |
 			MODE_FLAG_MULTICAST;
-		buff = kmalloc(6 * net->mc_count, in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		buff = kmalloc(6 * net->mc_count, GFP_ATOMIC);
 		for (i = 0, mclist = net->mc_list;
 			mclist && i < net->mc_count;
 			i++, mclist = mclist->next) {

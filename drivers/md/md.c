@@ -1048,7 +1048,7 @@ repeat:
 			printk("(skipping faulty ");
 		if (rdev->alias_device)
 			printk("(skipping alias ");
-		if (disk_faulty(&rdev->sb->this_disk)) {
+		if (!rdev->faulty && disk_faulty(&rdev->sb->this_disk)) {
 			printk("(skipping new-faulty %s )\n",
 			       partition_name(rdev->dev));
 			continue;
@@ -2395,13 +2395,6 @@ static int hot_add_disk(mddev_t * mddev, kdev_t dev)
 	}
 
 	persistent = !mddev->sb->not_persistent;
-	size = calc_dev_size(dev, mddev, persistent);
-
-	if (size < mddev->sb->size) {
-		printk(KERN_WARNING "md%d: disk size %d blocks < array size %d\n",
-				mdidx(mddev), size, mddev->sb->size);
-		return -ENOSPC;
-	}
 
 	rdev = find_rdev(mddev, dev);
 	if (rdev)
@@ -2421,6 +2414,14 @@ static int hot_add_disk(mddev_t * mddev, kdev_t dev)
 		printk(KERN_WARNING "md: can not hot-add faulty %s disk to md%d!\n",
 				partition_name(dev), mdidx(mddev));
 		err = -EINVAL;
+		goto abort_export;
+	}
+	size = calc_dev_size(dev, mddev, persistent);
+
+	if (size < mddev->sb->size) {
+		printk(KERN_WARNING "md%d: disk size %d blocks < array size %d\n",
+				mdidx(mddev), size, mddev->sb->size);
+		err = -ENOSPC;
 		goto abort_export;
 	}
 	bind_rdev_to_array(rdev, mddev);
@@ -3065,13 +3066,13 @@ int md_error(mddev_t *mddev, kdev_t rdev)
 	return 0;
 }
 
-static int status_unused(char * page)
+static void status_unused(struct seq_file *seq)
 {
-	int sz = 0, i = 0;
+	int i = 0;
 	mdk_rdev_t *rdev;
 	struct md_list_head *tmp;
 
-	sz += sprintf(page + sz, "unused devices: ");
+	seq_printf(seq, "unused devices: ");
 
 	ITERATE_RDEV_ALL(rdev,tmp) {
 		if (!rdev->same_set.next && !rdev->same_set.prev) {
@@ -3079,21 +3080,19 @@ static int status_unused(char * page)
 			 * The device is not yet used by any array.
 			 */
 			i++;
-			sz += sprintf(page + sz, "%s ",
+			seq_printf(seq, "%s ",
 				partition_name(rdev->dev));
 		}
 	}
 	if (!i)
-		sz += sprintf(page + sz, "<none>");
+		seq_printf(seq, "<none>");
 
-	sz += sprintf(page + sz, "\n");
-	return sz;
+	seq_printf(seq, "\n");
 }
 
 
-static int status_resync(char * page, mddev_t * mddev)
+static void status_resync(struct seq_file *seq, mddev_t * mddev)
 {
-	int sz = 0;
 	unsigned long max_blocks, resync, res, dt, db, rt;
 
 	resync = (mddev->curr_resync - atomic_read(&mddev->recovery_active))/2;
@@ -3102,32 +3101,31 @@ static int status_resync(char * page, mddev_t * mddev)
 	/*
 	 * Should not happen.
 	 */
-	if (!max_blocks) {
+	if (!max_blocks)
 		MD_BUG();
-		return 0;
-	}
+
 	res = (resync/1024)*1000/(max_blocks/1024 + 1);
 	{
 		int i, x = res/50, y = 20-x;
-		sz += sprintf(page + sz, "[");
+		seq_printf(seq, "[");
 		for (i = 0; i < x; i++)
-			sz += sprintf(page + sz, "=");
-		sz += sprintf(page + sz, ">");
+			seq_printf(seq, "=");
+		seq_printf(seq, ">");
 		for (i = 0; i < y; i++)
-			sz += sprintf(page + sz, ".");
-		sz += sprintf(page + sz, "] ");
+			seq_printf(seq, ".");
+		seq_printf(seq, "] ");
 	}
 	if (!mddev->recovery_running)
 		/*
 		 * true resync
 		 */
-		sz += sprintf(page + sz, " resync =%3lu.%lu%% (%lu/%lu)",
+		seq_printf(seq, " resync =%3lu.%lu%% (%lu/%lu)",
 				res/10, res % 10, resync, max_blocks);
 	else
 		/*
 		 * recovery ...
 		 */
-		sz += sprintf(page + sz, " recovery =%3lu.%lu%% (%lu/%lu)",
+		seq_printf(seq, " recovery =%3lu.%lu%% (%lu/%lu)",
 				res/10, res % 10, resync, max_blocks);
 
 	/*
@@ -3144,83 +3142,155 @@ static int status_resync(char * page, mddev_t * mddev)
 	db = resync - (mddev->resync_mark_cnt/2);
 	rt = (dt * ((max_blocks-resync) / (db/100+1)))/100;
 
-	sz += sprintf(page + sz, " finish=%lu.%lumin", rt / 60, (rt % 60)/6);
+	seq_printf(seq, " finish=%lu.%lumin", rt / 60, (rt % 60)/6);
 
-	sz += sprintf(page + sz, " speed=%ldK/sec", db/dt);
+	seq_printf(seq, " speed=%ldK/sec", db/dt);
 
-	return sz;
 }
 
-static int md_status_read_proc(char *page, char **start, off_t off,
-			int count, int *eof, void *data)
+
+static void *md_seq_start(struct seq_file *seq, loff_t *pos)
 {
-	int sz = 0, j, size;
-	struct md_list_head *tmp, *tmp2;
-	mdk_rdev_t *rdev;
+	struct list_head *tmp;
+	loff_t l = *pos;
 	mddev_t *mddev;
 
-	sz += sprintf(page + sz, "Personalities : ");
-	for (j = 0; j < MAX_PERSONALITY; j++)
-	if (pers[j])
-		sz += sprintf(page+sz, "[%s] ", pers[j]->name);
+	if (l > 0x10000)
+		return NULL;
+	if (!l--)
+		/* header */
+		return (void*)1;
 
-	sz += sprintf(page+sz, "\n");
+	list_for_each(tmp,&all_mddevs)
+		if (!l--) {
+			mddev = list_entry(tmp, mddev_t, all_mddevs);
+			return mddev;
+		}
+	return (void*)2;/* tail */
+}
 
+static void *md_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+{
+	struct list_head *tmp;
+	mddev_t *next_mddev, *mddev = v;
+	
+	++*pos;
+	if (v == (void*)2)
+		return NULL;
 
-	sz += sprintf(page+sz, "read_ahead ");
-	if (read_ahead[MD_MAJOR] == INT_MAX)
-		sz += sprintf(page+sz, "not set\n");
+	if (v == (void*)1)
+		tmp = all_mddevs.next;
 	else
-		sz += sprintf(page+sz, "%d sectors\n", read_ahead[MD_MAJOR]);
+		tmp = mddev->all_mddevs.next;
+	if (tmp != &all_mddevs)
+		next_mddev = list_entry(tmp,mddev_t,all_mddevs);
+	else {
+		next_mddev = (void*)2;
+		*pos = 0x10000;
+	}		
 
-	ITERATE_MDDEV(mddev,tmp) {
-		sz += sprintf(page + sz, "md%d : %sactive", mdidx(mddev),
-						mddev->pers ? "" : "in");
-		if (mddev->pers) {
-			if (mddev->ro)
-				sz += sprintf(page + sz, " (read-only)");
-			sz += sprintf(page + sz, " %s", mddev->pers->name);
-		}
+	return next_mddev;
 
-		size = 0;
-		ITERATE_RDEV(mddev,rdev,tmp2) {
-			sz += sprintf(page + sz, " %s[%d]",
-				partition_name(rdev->dev), rdev->desc_nr);
-			if (rdev->faulty) {
-				sz += sprintf(page + sz, "(F)");
-				continue;
-			}
-			size += rdev->size;
-		}
+}
 
-		if (mddev->nb_dev) {
-			if (mddev->pers)
-				sz += sprintf(page + sz, "\n      %d blocks",
-						 md_size[mdidx(mddev)]);
-			else
-				sz += sprintf(page + sz, "\n      %d blocks", size);
-		}
+static void md_seq_stop(struct seq_file *seq, void *v)
+{
 
-		if (!mddev->pers) {
-			sz += sprintf(page+sz, "\n");
+}
+
+static int md_seq_show(struct seq_file *seq, void *v)
+{
+	int j, size;
+	struct md_list_head *tmp2;
+	mdk_rdev_t *rdev;
+	mddev_t *mddev = v;
+
+	if (v == (void*)1) {
+		seq_printf(seq, "Personalities : ");
+		for (j = 0; j < MAX_PERSONALITY; j++)
+			if (pers[j])
+				seq_printf(seq, "[%s] ", pers[j]->name);
+
+		seq_printf(seq, "\n");
+		seq_printf(seq, "read_ahead ");
+		if (read_ahead[MD_MAJOR] == INT_MAX)
+			seq_printf(seq, "not set\n");
+		else
+			seq_printf(seq, "%d sectors\n", read_ahead[MD_MAJOR]);
+		return 0;
+	}
+	if (v == (void*)2) {
+		status_unused(seq);
+		return 0;
+	}
+
+	seq_printf(seq, "md%d : %sactive", mdidx(mddev),
+		   mddev->pers ? "" : "in");
+	if (mddev->pers) {
+		if (mddev->ro)
+			seq_printf(seq, " (read-only)");
+		seq_printf(seq, " %s", mddev->pers->name);
+	}
+	
+	size = 0;
+	ITERATE_RDEV(mddev,rdev,tmp2) {
+		seq_printf(seq, " %s[%d]",
+			   partition_name(rdev->dev), rdev->desc_nr);
+		if (rdev->faulty) {
+			seq_printf(seq, "(F)");
 			continue;
 		}
+		size += rdev->size;
+	}
 
-		sz += mddev->pers->status (page+sz, mddev);
+	if (mddev->nb_dev) {
+		if (mddev->pers)
+			seq_printf(seq, "\n      %d blocks",
+				   md_size[mdidx(mddev)]);
+		else
+			seq_printf(seq, "\n      %d blocks", size);
+	}
 
-		sz += sprintf(page+sz, "\n      ");
+	if (mddev->pers) {
+
+		mddev->pers->status (seq, mddev);
+
+		seq_printf(seq, "\n      ");
 		if (mddev->curr_resync) {
-			sz += status_resync (page+sz, mddev);
+			status_resync (seq, mddev);
 		} else {
 			if (sem_getcount(&mddev->resync_sem) != 1)
-				sz += sprintf(page + sz, "	resync=DELAYED");
+				seq_printf(seq, "	resync=DELAYED");
 		}
-		sz += sprintf(page + sz, "\n");
 	}
-	sz += status_unused(page + sz);
+	seq_printf(seq, "\n");
 
-	return sz;
+	return 0;
 }
+
+  
+static struct seq_operations md_seq_ops = {
+	.start  = md_seq_start,
+	.next   = md_seq_next,
+	.stop   = md_seq_stop,
+	.show   = md_seq_show,
+};
+
+static int md_seq_open(struct inode *inode, struct file *file)
+{
+	int error;
+
+	error = seq_open(file, &md_seq_ops);
+	return error;
+}
+
+static struct file_operations md_seq_fops = {
+	.open           = md_seq_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release	= seq_release,
+};
+
 
 int register_md_personality(int pnum, mdk_personality_t *p)
 {
@@ -3621,6 +3691,7 @@ struct notifier_block md_notifier = {
 
 static void md_geninit(void)
 {
+	struct proc_dir_entry *p;
 	int i;
 
 	for(i = 0; i < MAX_MD_DEVS; i++) {
@@ -3637,7 +3708,9 @@ static void md_geninit(void)
 	dprintk("md: sizeof(mdp_super_t) = %d\n", (int)sizeof(mdp_super_t));
 
 #ifdef CONFIG_PROC_FS
-	create_proc_read_entry("mdstat", 0, NULL, md_status_read_proc, NULL);
+	p = create_proc_entry("mdstat", S_IRUGO, NULL);
+	if (p)
+		p->proc_fops = &md_seq_fops;
 #endif
 }
 

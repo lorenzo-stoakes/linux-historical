@@ -1,4 +1,4 @@
-/* $Id: ia32_ioctl.c,v 1.28 2003/02/11 07:24:59 ak Exp $
+/* $Id: ia32_ioctl.c,v 1.30 2003/03/12 06:03:23 ak Exp $
  * ioctl32.c: Conversion between 32bit and 64bit native ioctls.
  *
  * Copyright (C) 1997-2000  Jakub Jelinek  (jakub@redhat.com)
@@ -38,6 +38,7 @@
 #include <linux/cdrom.h>
 #include <linux/loop.h>
 #include <linux/auto_fs.h>
+#include <linux/auto_fs4.h>
 #include <linux/devfs_fs.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>
@@ -2940,6 +2941,14 @@ static int serial_struct_ioctl(unsigned fd, unsigned cmd,  void *ptr)
 	return err;	
 }
 
+/* Bluetooth ioctls */
+#define HCIUARTSETPROTO        _IOW('U', 200, int)
+#define HCIUARTGETPROTO        _IOR('U', 201, int)
+
+#define BNEPCONNADD    _IOW('B', 200, int)
+#define BNEPCONNDEL    _IOW('B', 201, int)
+#define BNEPGETCONNLIST        _IOR('B', 210, int)
+#define BNEPGETCONNINFO        _IOR('B', 211, int)
 
 #define REISERFS_IOC_UNPACK32               _IOW(0xCD,1,int)
 
@@ -4119,6 +4128,7 @@ COMPATIBLE_IOCTL(AUTOFS_IOC_FAIL)
 COMPATIBLE_IOCTL(AUTOFS_IOC_CATATONIC)
 COMPATIBLE_IOCTL(AUTOFS_IOC_PROTOVER)
 COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE)
+COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE_MULTI)
 /* DEVFS */
 COMPATIBLE_IOCTL(DEVFSDIOC_GET_PROTO_REV)
 COMPATIBLE_IOCTL(DEVFSDIOC_SET_EVENT_MASK)

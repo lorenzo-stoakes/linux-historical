@@ -68,4 +68,38 @@
 #define VIDEO1394_IOC_LISTEN_POLL_BUFFER	\
 	_IOWR('#', 0x18, struct video1394_wait)
 
+
+/* Raw1394's ISO interface */
+#define RAW1394_IOC_ISO_XMIT_INIT		\
+	_IOW ('#', 0x1a, struct raw1394_iso_status)
+#define RAW1394_IOC_ISO_RECV_INIT		\
+	_IOWR('#', 0x1b, struct raw1394_iso_status)
+#define RAW1394_IOC_ISO_RECV_START		\
+	_IOC (_IOC_WRITE, '#', 0x1c, sizeof(int) * 3)
+#define RAW1394_IOC_ISO_XMIT_START		\
+	_IOC (_IOC_WRITE, '#', 0x1d, sizeof(int) * 2)
+#define RAW1394_IOC_ISO_XMIT_RECV_STOP		\
+	_IO  ('#', 0x1e)
+#define RAW1394_IOC_ISO_GET_STATUS		\
+	_IOR ('#', 0x1f, struct raw1394_iso_status)
+#define RAW1394_IOC_ISO_SHUTDOWN		\
+	_IO  ('#', 0x20)
+#define RAW1394_IOC_ISO_QUEUE_ACTIVITY		\
+	_IO  ('#', 0x21)
+#define RAW1394_IOC_ISO_RECV_LISTEN_CHANNEL	\
+	_IOW ('#', 0x22, unsigned char)
+#define RAW1394_IOC_ISO_RECV_UNLISTEN_CHANNEL	\
+	_IOW ('#', 0x23, unsigned char)
+#define RAW1394_IOC_ISO_RECV_SET_CHANNEL_MASK	\
+	_IOW ('#', 0x24, __u64)
+#define RAW1394_IOC_ISO_RECV_PACKETS		\
+	_IOW ('#', 0x25, struct raw1394_iso_packets)
+#define RAW1394_IOC_ISO_RECV_RELEASE_PACKETS	\
+	_IOW ('#', 0x26, unsigned int)
+#define RAW1394_IOC_ISO_XMIT_PACKETS		\
+	_IOW ('#', 0x27, struct raw1394_iso_packets)
+#define RAW1394_IOC_ISO_XMIT_SYNC		\
+	_IO  ('#', 0x28)
+
+
 #endif /* __IEEE1394_IOCTL_H */

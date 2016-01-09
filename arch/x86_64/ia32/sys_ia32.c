@@ -15,7 +15,8 @@
  * environment. In 2.5 most of this should be moved to a generic directory. 
  *
  * This file assumes that there is a hole at the end of user address space.
- * $Id: sys_ia32.c,v 1.49 2003/01/14 14:29:59 ak Exp $
+ *
+ * $Id: sys_ia32.c,v 1.53 2003/03/12 09:45:06 ak Exp $
  */
 
 #include <linux/config.h>
@@ -934,21 +935,23 @@ extern asmlinkage long sys_nanosleep(struct timespec *rqtp, struct timespec *rmt
 asmlinkage long
 sys32_nanosleep(struct timespec32 *rqtp, struct timespec32 *rmtp)
 {
-	struct timespec t;
+	struct timespec t, tout;
 	int ret;
 	mm_segment_t old_fs = get_fs ();
 	
+	if (rqtp) { 
 	if (verify_area(VERIFY_READ, rqtp, sizeof(struct timespec32)) ||
 	    __get_user (t.tv_sec, &rqtp->tv_sec) ||
 	    __get_user (t.tv_nsec, &rqtp->tv_nsec))
 		return -EFAULT;
+	}
 	set_fs (KERNEL_DS);
-	ret = sys_nanosleep(&t, rmtp ? &t : NULL);
+	ret = sys_nanosleep(rqtp ? &t : NULL, rmtp ? &tout : NULL);
 	set_fs (old_fs);
 	if (rmtp && ret == -EINTR) {
 		if (verify_area(VERIFY_WRITE, rmtp, sizeof(struct timespec32)) ||
-		    __put_user (t.tv_sec, &rmtp->tv_sec) ||
-	    	    __put_user (t.tv_nsec, &rmtp->tv_nsec))
+		    __put_user (tout.tv_sec, &rmtp->tv_sec) ||
+	    	    __put_user (tout.tv_nsec, &rmtp->tv_nsec))
 			return -EFAULT;
 	}
 	return ret;
@@ -967,10 +970,13 @@ get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type, i
 
 	/* Get the "struct iovec" from user memory */
 
+	*errp = 0; 
 	if (!count)
 		return 0;
+	*errp = -EINVAL;
 	if (count > UIO_MAXIOV)
 		return(struct iovec *)0;
+	*errp = -EFAULT;
 	if(verify_area(VERIFY_READ, iov32, sizeof(struct iovec32)*count))
 		return(struct iovec *)0;
 	if (count > UIO_FASTIOV) {
@@ -1605,8 +1611,8 @@ siginfo64to32(siginfo_t32 *d, siginfo_t *s)
 	if (s->si_signo >= SIGRTMIN) {
 		d->si_pid = s->si_pid;
 		d->si_uid = s->si_uid;
-		/* XXX: Ouch, how to find this out??? */
-		d->si_int = s->si_int;
+		memcpy(&d->si_int, &s->si_int, 
+		       sizeof(siginfo_t) - offsetof(siginfo_t,si_int));
 	} else switch (s->si_signo) {
 	/* XXX: What about POSIX1.b timers */
 	case SIGCHLD:
@@ -1643,8 +1649,9 @@ siginfo32to64(siginfo_t *d, siginfo_t32 *s)
 	if (s->si_signo >= SIGRTMIN) {
 		d->si_pid = s->si_pid;
 		d->si_uid = s->si_uid;
-		/* XXX: Ouch, how to find this out??? */
-		d->si_int = s->si_int;
+		memcpy(&d->si_int,
+		       &s->si_int,
+		       sizeof(siginfo_t) - offsetof(siginfo_t, si_int)); 
 	} else switch (s->si_signo) {
 	/* XXX: What about POSIX1.b timers */
 	case SIGCHLD:
@@ -2119,18 +2126,23 @@ static int nargs(u32 src, char **dst)
 asmlinkage long sys32_execve(char *name, u32 argv, u32 envp, struct pt_regs regs)
 { 
 	mm_segment_t oldseg; 
-	char **buf; 
-	int na,ne;
+	char **buf = NULL; 
+	int na = 0,ne = 0;
 	int ret;
-	unsigned sz; 
+	unsigned sz = 0; 
 	
+	if (argv) {
 	na = nargs(argv, NULL); 
 	if (na < 0) 
 		return -EFAULT; 
+	} 	
+	if (envp) { 
 	ne = nargs(envp, NULL); 
 	if (ne < 0) 
 		return -EFAULT; 
+	}
 
+	if (argv || envp) { 
 	sz = (na+ne)*sizeof(void *); 
 	if (sz > PAGE_SIZE) 
 		buf = vmalloc(sz); 
@@ -2138,14 +2150,19 @@ asmlinkage long sys32_execve(char *name, u32 argv, u32 envp, struct pt_regs regs
 		buf = kmalloc(sz, GFP_KERNEL); 
 	if (!buf)
 		return -ENOMEM; 
+	} 
 	
+	if (argv) { 
 	ret = nargs(argv, buf);
 	if (ret < 0)
 		goto free;
+	}
 
+	if (envp) { 
 	ret = nargs(envp, buf + na); 
 	if (ret < 0)
 		goto free; 
+	}
 
 	name = getname(name); 
 	ret = PTR_ERR(name); 
@@ -2154,7 +2171,7 @@ asmlinkage long sys32_execve(char *name, u32 argv, u32 envp, struct pt_regs regs
 
 	oldseg = get_fs(); 
 	set_fs(KERNEL_DS);
-	ret = do_execve(name, buf, buf+na, &regs);  
+	ret = do_execve(name, argv ? buf : NULL, envp ? buf+na : NULL, &regs);  
 	set_fs(oldseg); 
 
 	if (ret == 0)
@@ -2163,10 +2180,12 @@ asmlinkage long sys32_execve(char *name, u32 argv, u32 envp, struct pt_regs regs
 	putname(name);
  
 free:
+	if (argv || envp) { 
 	if (sz > PAGE_SIZE)
 		vfree(buf); 
 	else
 		kfree(buf);
+	}
 	return ret; 
 } 
 
@@ -2526,7 +2545,7 @@ struct exec_domain ia32_exec_domain = {
 
 static int __init ia32_init (void)
 {
-	printk("IA32 emulation $Id: sys_ia32.c,v 1.49 2003/01/14 14:29:59 ak Exp $\n");  
+	printk("IA32 emulation $Id: sys_ia32.c,v 1.53 2003/03/12 09:45:06 ak Exp $\n");  
 	ia32_exec_domain.signal_map = default_exec_domain.signal_map;
 	ia32_exec_domain.signal_invmap = default_exec_domain.signal_invmap;
 	register_exec_domain(&ia32_exec_domain);

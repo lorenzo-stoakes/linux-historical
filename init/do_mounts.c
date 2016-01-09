@@ -813,6 +813,8 @@ static void __init handle_initrd(void)
 	sys_fchdir(root_fd);
 	sys_chroot(".");
 	sys_umount("/old/dev", 0);
+	close(old_fd);
+	close(root_fd);
 
 	if (real_root_dev == ram0) {
 		sys_chdir("/old");

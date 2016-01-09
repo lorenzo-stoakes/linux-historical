@@ -3,7 +3,7 @@
  * Copyright (C) 1995  Linus Torvalds
  * Copyright 2001, 2002 SuSE Labs / Andi Kleen.
  * See setup.c for older changelog.
- * $Id: setup64.c,v 1.18 2003/01/24 20:02:09 ak Exp $
+ * $Id: setup64.c,v 1.19 2003/02/21 19:37:21 ak Exp $
  */ 
 #include <linux/config.h>
 #include <linux/init.h>
@@ -32,7 +32,7 @@ struct desc_ptr gdt_descr = { 0 /* filled in */, (unsigned long) gdt_table };
 struct desc_ptr idt_descr = { 256 * 16, (unsigned long) idt_table }; 
 
 unsigned long __supported_pte_mask = ~0UL; 
-static int do_not_nx = 0; 
+static int do_not_nx = 1; 
 
 char boot_cpu_stack[IRQSTACKSIZE] __cacheline_aligned;
 

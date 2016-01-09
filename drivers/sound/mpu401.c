@@ -1766,8 +1766,8 @@ EXPORT_SYMBOL(mpuintr);
 
 static struct address_info cfg;
 
-static int __initdata io = -1;
-static int __initdata irq = -1;
+static int io = -1;
+static int irq = -1;
 
 MODULE_PARM(irq, "i");
 MODULE_PARM(io, "i");

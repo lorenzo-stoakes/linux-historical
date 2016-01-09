@@ -280,7 +280,7 @@ int __init sun3lance_probe( struct net_device *dev )
 
 static int __init lance_probe( struct net_device *dev)
 {	
-	unsigned long ioaddr;
+ 	unsigned long ioaddr;
 	struct lance_private	*lp;
 	int 			i;
 	static int 		did_version;
@@ -288,26 +288,7 @@ static int __init lance_probe( struct net_device *dev)
 	unsigned short tmp1, tmp2;
 
 #ifdef CONFIG_SUN3
-	unsigned long iopte;
-	int found = 0;
-
-	/* LANCE_OBIO can be found within the IO pmeg with some effort */
-	for(ioaddr = 0xfe00000; ioaddr < (0xfe00000 +
-	    SUN3_PMEG_SIZE); ioaddr += SUN3_PTE_SIZE) {
-
-		iopte = sun3_get_pte(ioaddr);
-		if(!(iopte & SUN3_PAGE_TYPE_IO)) /* this an io page? */
-			continue;
-
-		if(((iopte & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT) ==
-		   LANCE_OBIO) {
-			found = 1;
-			break;
-		}
-	}
-	
-	if(!found)
-		return 0;
+ 	ioaddr = (unsigned long)ioremap(LANCE_OBIO, PAGE_SIZE);
 #else
 	ioaddr = SUN3X_LANCE;
 #endif

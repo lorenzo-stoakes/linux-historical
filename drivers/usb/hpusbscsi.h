@@ -20,6 +20,7 @@ struct hpusbscsi
         int ep_in;
         int ep_int;
         int interrupt_interval;
+	int need_short_workaround;
 
         struct Scsi_Host *host;
         Scsi_Host_Template ctempl;

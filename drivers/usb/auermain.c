@@ -66,10 +66,10 @@ do {			\
 extern devfs_handle_t usb_devfs_handle;
 
 /* array of pointers to our devices that are currently connected */
-static struct auerswald *auerdev_table[AUER_MAX_DEVICES];
+struct auerswald *auerdev_table[AUER_MAX_DEVICES];
 
 /* lock to protect the auerdev_table structure */
-static struct semaphore auerdev_table_mutex;
+struct semaphore auerdev_table_mutex;
 
 /*-------------------------------------------------------------------*/
 /* Forwards */

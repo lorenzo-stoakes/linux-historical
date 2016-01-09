@@ -12,7 +12,7 @@
  *  vsyscalls. One vsyscall can reserve more than 1 slot to avoid
  *  jumping out of line if necessary.
  *
- *  $Id: vsyscall.c,v 1.25 2003/02/07 01:58:27 ak Exp $
+ *  $Id: vsyscall.c,v 1.26 2003/02/18 11:55:47 ak Exp $
  */
 
 /*
@@ -49,9 +49,11 @@
 
 #define __vsyscall(nr) __attribute__ ((unused,__section__(".vsyscall_" #nr)))
 
+#define force_inline inline __attribute__((always_inline))
+
 long __vxtime_sequence[2] __section_vxtime_sequence;
 
-static inline void do_vgettimeofday(struct timeval * tv)
+static force_inline void do_vgettimeofday(struct timeval * tv)
 {
 	long sequence, t;
 	unsigned long sec, usec;
@@ -85,7 +87,7 @@ static inline void do_vgettimeofday(struct timeval * tv)
 }
 
 
-static inline void do_get_tz(struct timezone * tz)
+static force_inline void do_get_tz(struct timezone * tz)
 {
 	long sequence;
 

@@ -5,6 +5,7 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/blkdev.h>
 #include <linux/vmalloc.h>
 #include <asm/uaccess.h>
 #include <linux/reiserfs_fs.h>
@@ -420,7 +421,7 @@ typedef struct {
 
 /* possible values for "-o hash=" and bits which are to be set in s_mount_opt
    of reiserfs specific part of in-core super block */
-const arg_desc_t hash[] = {
+static const arg_desc_t hash[] = {
     {"rupasov", FORCE_RUPASOV_HASH},
     {"tea", FORCE_TEA_HASH},
     {"r5", FORCE_R5_HASH},
@@ -431,7 +432,7 @@ const arg_desc_t hash[] = {
 
 /* possible values for "-o block-allocator=" and bits which are to be set in
    s_mount_opt of reiserfs specific part of in-core super block */
-const arg_desc_t balloc[] = {
+static const arg_desc_t balloc[] = {
     {"noborder", REISERFS_NO_BORDER},
     {"no_unhashed_relocation", REISERFS_NO_UNHASHED_RELOCATION},
     {"hashed_relocation", REISERFS_HASHED_RELOCATION},
@@ -439,7 +440,7 @@ const arg_desc_t balloc[] = {
     {NULL, 0}
 };
 
-const arg_desc_t tails[] = {
+static const arg_desc_t tails[] = {
     {"on", REISERFS_LARGETAIL},
     {"off", -1},
     {"small", REISERFS_SMALLTAIL},
@@ -865,7 +866,7 @@ static int read_super_block (struct super_block * s, int size, int offset)
     brelse (bh);
 
     if (s->s_blocksize != 4096) {
-	printk("Unsupported reiserfs blocksize: %d on %s, only 4096 bytes "
+	printk("Unsupported reiserfs blocksize: %ld on %s, only 4096 bytes "
 	       "blocksize is supported.\n", s->s_blocksize, kdevname (s->s_dev));
 	return 1;
     }
@@ -941,8 +942,7 @@ static int reread_meta_blocks(struct super_block *s) {
     ll_rw_block(READ, 1, &(SB_AP_BITMAP(s)[i].bh)) ;
     wait_on_buffer(SB_AP_BITMAP(s)[i].bh) ;
     if (!buffer_uptodate(SB_AP_BITMAP(s)[i].bh)) {
-      printk("reread_meta_blocks, error reading bitmap block number %d at
-      %ld\n", i, SB_AP_BITMAP(s)[i].bh->b_blocknr) ;
+      printk("reread_meta_blocks, error reading bitmap block number %d at %ld\n", i, SB_AP_BITMAP(s)[i].bh->b_blocknr) ;
       return 1 ;
     }
   }
@@ -1112,7 +1112,6 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
     struct inode *root_inode;
     kdev_t dev = s->s_dev;
     int j;
-    extern int *blksize_size[];
     struct reiserfs_transaction_handle th ;
     int old_format = 0;
     unsigned long blocks;
@@ -1160,6 +1159,16 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
     }
 
     rs = SB_DISK_SUPER_BLOCK (s);
+
+    /* Let's do basic sanity check to verify that underlying device is not
+       smaller than the filesystem. If the check fails then abort and scream,
+       because bad stuff will happen otherwise. */
+   if ( blk_size[MAJOR(dev)][MINOR(dev)] < sb_block_count(rs)*(sb_blocksize(rs)>>10) ) {
+	printk("Filesystem on %s cannot be mounted because it is bigger than the device\n", kdevname(dev));
+	printk("You may need to run fsck or increase size of your LVM partition\n");
+	printk("Or may be you forgot to reboot after fdisk when it told you to\n");
+	return NULL;
+    }
 
     s->u.reiserfs_sb.s_mount_state = SB_REISERFS_STATE(s);
     s->u.reiserfs_sb.s_mount_state = REISERFS_VALID_FS ;

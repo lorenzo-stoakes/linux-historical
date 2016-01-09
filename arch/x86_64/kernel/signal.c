@@ -8,7 +8,7 @@
  *  2000-06-20  Pentium III FXSR, SSE support by Gareth Hughes
  *  2000-2001   x86-64 support by Andi Kleen
  * 
- *  $Id: signal.c,v 1.40 2002/11/28 06:06:43 ak Exp $
+ *  $Id: signal.c,v 1.42 2003/02/24 21:06:02 ak Exp $
  */
 
 #include <linux/sched.h>
@@ -138,18 +138,7 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext *sc, unsigned long *p
 	if ((regs->x >> 48)  != 0 && (regs->x >> 48) != 0xffff) \
 				regs->x = 0; 
 
-	{ 
-		unsigned int seg, oldseg; 
-		err |= __get_user(seg, &sc->gs); 
-		asm("movl %%gs,%0" : "=r" (oldseg)); 
-		if (oldseg != seg) {
-			seg |= 3;		       
-		load_gs_index(seg); 
-		}
-		err |= __get_user(seg, &sc->fs);
-		seg |= 3; 
-		loadsegment(fs,seg);
-	}
+	/* fs and gs are ignored because we cannot handle the 64bit base easily */ 
 
 	COPY(rdi); COPY(rsi); COPY(rbp); COPY_CANON(rsp); COPY(rbx);
 	COPY(rdx); COPY(rcx); COPY_CANON(rip);
@@ -236,10 +225,8 @@ setup_sigcontext(struct sigcontext *sc, struct pt_regs *regs, unsigned long mask
 	struct task_struct *me = current;
 
 	tmp = 0;
-	__asm__("movl %%gs,%0" : "=r"(tmp): "0"(tmp));
-	err |= __put_user(tmp, (unsigned int *)&sc->gs);
-	__asm__("movl %%fs,%0" : "=r"(tmp): "0"(tmp));
-	err |= __put_user(tmp, (unsigned int *)&sc->fs);
+	err |= __put_user(0, &sc->gs);
+	err |= __put_user(0, &sc->fs);
 
 	err |= __put_user(regs->rdi, &sc->rdi);
 	err |= __put_user(regs->rsi, &sc->rsi);
@@ -562,7 +549,8 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 		 * have been cleared if the watchpoint triggered
 		 * inside the kernel.
 		 */
-		asm volatile("movq %0,%%db7"::"r"(current->thread.debugreg[7]));
+		if (current->thread.debugreg[7])
+			asm volatile("movq %0,%%db7" :: "r" (current->thread.debugreg[7]));
 		/* Whee!  Actually deliver the signal.  */
 		handle_signal(signr, ka, &info, oldset, regs);
 		return 1;

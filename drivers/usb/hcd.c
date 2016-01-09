@@ -935,6 +935,12 @@ static int hcd_alloc_dev (struct usb_device *udev)
 
 /*-------------------------------------------------------------------------*/
 
+static void hcd_panic (void *_hcd)
+{
+	struct usb_hcd *hcd = _hcd;
+	hcd->driver->stop (hcd);
+}
+
 static void hc_died (struct usb_hcd *hcd)
 {
 	struct list_head	*devlist, *urblist;
@@ -962,7 +968,10 @@ static void hc_died (struct usb_hcd *hcd)
 
 	if (urb)
 		rh_status_dequeue (hcd, urb);
-	hcd->driver->stop (hcd);
+
+	/* hcd->stop() needs a task context */
+	INIT_TQUEUE (&hcd->work, hcd_panic, hcd);
+	(void) schedule_task (&hcd->work);
 }
 
 /*-------------------------------------------------------------------------*/

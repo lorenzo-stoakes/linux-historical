@@ -340,6 +340,7 @@ EXPORT_SYMBOL(debugger_fault_handler);
 EXPORT_SYMBOL(__res);
 EXPORT_SYMBOL(cpm_install_handler);
 EXPORT_SYMBOL(cpm_free_handler);
+EXPORT_SYMBOL(m8xx_cpm_hostalloc);
 #endif /* CONFIG_8xx */
 
 /* Those should really be inline */

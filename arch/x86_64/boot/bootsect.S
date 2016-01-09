@@ -395,9 +395,9 @@ print_digit:
 # NOTE: Doesn't save %ax or %dx; do it yourself if you need to.
 
 kill_motor:
-	xorw    %ax, %ax                # reset FDC
-        xorb    %dl, %dl
-        int     $0x13
+	xorw	%ax, %ax		# reset FDC
+	xorb	%dl, %dl
+	int	$0x13
 	ret
 
 sectors:	.word 0

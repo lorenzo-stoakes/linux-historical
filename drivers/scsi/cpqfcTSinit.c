@@ -41,6 +41,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>	// ioremap()
 #include <linux/completion.h>
+#include <linux/init.h>
 #ifdef __alpha__
 #define __KERNEL_SYSCALLS__
 #endif

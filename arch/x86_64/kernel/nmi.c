@@ -31,6 +31,8 @@ unsigned int nmi_watchdog = NMI_LOCAL_APIC;
 static unsigned int nmi_hz = HZ;
 unsigned int nmi_perfctr_msr;	/* the MSR to reset in NMI handler */
 
+int nmi_watchdog_disabled; 
+
 #define K7_EVNTSEL_ENABLE	(1 << 22)
 #define K7_EVNTSEL_INT		(1 << 20)
 #define K7_EVNTSEL_OS		(1 << 17)
@@ -341,7 +343,7 @@ void touch_nmi_watchdog (void)
 		alert_counter[i] = 0;
 }
 
-void nmi_watchdog_tick (struct pt_regs * regs)
+void nmi_watchdog_tick (struct pt_regs * regs, unsigned reason)
 {
 
 	/*
@@ -349,6 +351,9 @@ void nmi_watchdog_tick (struct pt_regs * regs)
 	 * the stack NMI-atomically, it's safe to use smp_processor_id().
 	 */
 	int sum, cpu = safe_smp_processor_id();
+
+	if (nmi_watchdog_disabled)
+		return;
 
 	sum = apic_timer_irqs[cpu];
 
@@ -359,6 +364,14 @@ void nmi_watchdog_tick (struct pt_regs * regs)
 		 */
 		alert_counter[cpu]++;
 		if (alert_counter[cpu] == 5*nmi_hz) {
+
+
+			if (notify_die(DIE_NMI, "nmi", regs, reason, 2, SIGINT) == NOTIFY_BAD) { 
+				alert_counter[cpu] = 0; 
+				return;
+			} 
+
+
 			spin_lock(&nmi_print_lock);
 			/*
 			 * We are in trouble anyway, lets at least try

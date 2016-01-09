@@ -40,7 +40,9 @@
 #include <linux/sisfb.h>
 
 #include <asm/io.h>
+#ifdef CONFIG_MTRR
 #include <asm/mtrr.h>
+#endif
 
 #include <video/fbcon.h>
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,5,33)

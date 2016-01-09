@@ -1901,9 +1901,9 @@ int __init fec_enet_init(void)
 	fep->phy_id_done = 0;
 	fep->phy_addr = 0;
 	mii_queue(dev, mk_mii_read(MII_REG_PHYIR1), mii_discover_phy, 0);
-#endif	/* CONFIG_USE_MDIO */
 
 	fep->old_status = 0;
+#endif	/* CONFIG_USE_MDIO */
 
 	return 0;
 }

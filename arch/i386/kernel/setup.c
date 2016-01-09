@@ -1266,10 +1266,19 @@ static void __init display_cacheinfo(struct cpuinfo_x86 *c)
 			l2size = 256;
 	}
 
-	/* VIA C3 CPUs (670-68F) need further shifting. */
-	if (c->x86_vendor == X86_VENDOR_CENTAUR && (c->x86 == 6) &&
-		((c->x86_model == 7) || (c->x86_model == 8))) {
-		l2size = l2size >> 8;
+	if (c->x86_vendor == X86_VENDOR_CENTAUR) {
+		/* VIA C3 CPUs (670-68F) need further shifting. */
+		if ((c->x86 == 6) &&
+		    ((c->x86_model == 7) || (c->x86_model == 8))) {
+			l2size >>= 8;
+		}
+
+		/* VIA also screwed up Nehemiah stepping 1, and made
+		   it return '65KB' instead of '64KB'
+		   - Note, it seems this may only be in engineering samples. */
+		if ((c->x86==6) && (c->x86_model==9) &&
+		    (c->x86_mask==1) && (l2size==65))
+			l2size -= 1;
 	}
 
 	/* Allow user to override all this if necessary. */
@@ -1419,7 +1428,7 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 			 * If the BIOS didn't enable it already, enable it
 			 * here.
 			 */
-			if (c->x86_model == 6 || c->x86_model == 7) {
+			if (c->x86_model >= 6 && c->x86_model <= 10) {
 				if (!test_bit(X86_FEATURE_XMM,
 					      &c->x86_capability)) {
 					printk(KERN_INFO
@@ -2084,6 +2093,10 @@ static void __init init_centaur(struct cpuinfo_x86 *c)
 					set_bit(X86_FEATURE_CX8, &c->x86_capability);
 					set_bit(X86_FEATURE_3DNOW, &c->x86_capability);
 
+					/* fall through */
+
+				case 9: /* Nehemiah */
+				default:
 					get_model_name(c);
 					display_cacheinfo(c);
 					break;
@@ -2212,6 +2225,7 @@ static struct _cache_table cache_table[] __initdata =
 	{ 0x25, LVL_3,      2048 },
 	{ 0x29, LVL_3,      4096 },
 	{ 0x39, LVL_2,      128 },
+	{ 0x3b, LVL_2,      128 },
 	{ 0x3C, LVL_2,      256 },
 	{ 0x41, LVL_2,      128 },
 	{ 0x42, LVL_2,      256 },

@@ -115,8 +115,6 @@ struct tlb_state cpu_tlbstate[NR_CPUS] __cacheline_aligned = {[0 ... NR_CPUS-1] 
 static inline unsigned int __prepare_ICR (unsigned int shortcut, int vector)
 {
 	unsigned int icr =  APIC_DM_FIXED | shortcut | vector | APIC_DEST_LOGICAL;
-	if (vector == KDB_VECTOR) 
-		icr = (icr & (~APIC_VECTOR_MASK)) | APIC_DM_NMI; 		
 	return icr;
 }
 
@@ -411,11 +409,6 @@ void flush_tlb_all(void)
 
 	do_flush_tlb_all_local();
 }
-
-void smp_kdb_stop(void)
-{
-	send_IPI_allbutself(KDB_VECTOR);
-} 
 
 /*
  * this function sends a 'reschedule' IPI to another CPU.

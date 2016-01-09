@@ -1348,6 +1348,16 @@ static int netdrv_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	void *ioaddr = tp->mmio_addr;
 	int entry;
 
+	/* If we don't have auto-pad remember not to send random
+	   memory! */
+	   
+	if (skb->len < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+	}
+	
 	/* Calculate the next Tx descriptor entry. */
 	entry = atomic_read (&tp->cur_tx) % NUM_TX_DESC;
 
@@ -1358,9 +1368,8 @@ static int netdrv_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	/* tp->tx_info[entry].mapping = 0; */
 	memcpy (tp->tx_buf[entry], skb->data, skb->len);
 
-	/* Note: the chip doesn't have auto-pad! */
 	NETDRV_W32 (TxStatus0 + (entry * sizeof(u32)),
-		 tp->tx_flag | (skb->len >= ETH_ZLEN ? skb->len : ETH_ZLEN));
+		 tp->tx_flag | skb->len);
 
 	dev->trans_start = jiffies;
 	atomic_inc (&tp->cur_tx);

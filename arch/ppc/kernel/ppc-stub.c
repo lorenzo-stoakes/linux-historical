@@ -347,18 +347,6 @@ static void kgdb_flush_cache_all(void)
 	flush_instruction_cache();
 }
 
-static inline int get_msr(void)
-{
-	int msr;
-	asm volatile("mfmsr %0" : "=r" (msr):);
-	return msr;
-}
-
-static inline void set_msr(int msr)
-{
-	asm volatile("mtmsr %0" : : "r" (msr));
-}
-
 /* Set up exception handlers for tracing and breakpoints
  * [could be called kgdb_init()]
  */
@@ -498,8 +486,8 @@ handle_exception (struct pt_regs *regs)
 
 	kgdb_interruptible(0);
 	lock_kernel();
-	msr = get_msr();
-	set_msr(msr & ~MSR_EE);	/* disable interrupts */
+	msr = mfmsr();
+	mtmsr(msr & ~MSR_EE);	/* disable interrupts */
 
 	if (regs->nip == (unsigned long)breakinst) {
 		/* Skip over breakpoint trap insn */
@@ -521,7 +509,7 @@ handle_exception (struct pt_regs *regs)
 	*ptr++ = hexchars[PC_REGNUM >> 4];
 	*ptr++ = hexchars[PC_REGNUM & 0xf];
 	*ptr++ = ':';
-	ptr = mem2hex((char *)&regs->nip, ptr, 4);
+	ptr = mem2hex((char *)regs->nip, ptr, 4);
 	*ptr++ = ';';
 	*ptr++ = hexchars[SP_REGNUM >> 4];
 	*ptr++ = hexchars[SP_REGNUM & 0xf];
@@ -685,7 +673,7 @@ handle_exception (struct pt_regs *regs)
  * some location may have changed something that is in the instruction cache.
  */
 			kgdb_flush_cache_all();
-			set_msr(msr);
+			mtmsr(msr);
 			kgdb_interruptible(1);
 			unlock_kernel();
 			kgdb_active = 0;
@@ -694,9 +682,6 @@ handle_exception (struct pt_regs *regs)
 		case 's':
 			kgdb_flush_cache_all();
 			regs->msr |= MSR_SE;
-#if 0
-			set_msr(msr | MSR_SE);
-#endif
 			unlock_kernel();
 			kgdb_active = 0;
 			return;

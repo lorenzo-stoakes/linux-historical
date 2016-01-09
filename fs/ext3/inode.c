@@ -2068,6 +2068,22 @@ int ext3_get_inode_loc (struct inode *inode, struct ext3_iloc *iloc)
 	return -EIO;
 }
 
+void ext3_set_inode_flags(struct inode *inode)
+{
+	unsigned int flags = inode->u.ext3_i.i_flags;
+
+	inode->i_flags &= ~(S_SYNC|S_APPEND|S_IMMUTABLE|S_NOATIME);
+	if (flags & EXT3_SYNC_FL)
+		inode->i_flags |= S_SYNC;
+	if (flags & EXT3_APPEND_FL)
+		inode->i_flags |= S_APPEND;
+	if (flags & EXT3_IMMUTABLE_FL)
+		inode->i_flags |= S_IMMUTABLE;
+	if (flags & EXT3_NOATIME_FL)
+		inode->i_flags |= S_NOATIME;
+}
+
+
 void ext3_read_inode(struct inode * inode)
 {
 	struct ext3_iloc iloc;
@@ -2165,23 +2181,7 @@ void ext3_read_inode(struct inode * inode)
 	} else 
 		init_special_inode(inode, inode->i_mode,
 				   le32_to_cpu(iloc.raw_inode->i_block[0]));
-	/* inode->i_attr_flags = 0;				unused */
-	if (inode->u.ext3_i.i_flags & EXT3_SYNC_FL) {
-		/* inode->i_attr_flags |= ATTR_FLAG_SYNCRONOUS; unused */
-		inode->i_flags |= S_SYNC;
-	}
-	if (inode->u.ext3_i.i_flags & EXT3_APPEND_FL) {
-		/* inode->i_attr_flags |= ATTR_FLAG_APPEND;	unused */
-		inode->i_flags |= S_APPEND;
-	}
-	if (inode->u.ext3_i.i_flags & EXT3_IMMUTABLE_FL) {
-		/* inode->i_attr_flags |= ATTR_FLAG_IMMUTABLE;	unused */
-		inode->i_flags |= S_IMMUTABLE;
-	}
-	if (inode->u.ext3_i.i_flags & EXT3_NOATIME_FL) {
-		/* inode->i_attr_flags |= ATTR_FLAG_NOATIME;	unused */
-		inode->i_flags |= S_NOATIME;
-	}
+	ext3_set_inode_flags(inode);
 	return;
 	
 bad_inode:

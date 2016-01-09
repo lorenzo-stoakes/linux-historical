@@ -129,6 +129,7 @@ static unsigned long break_pressed; /* break, really ... */
 #define smc_scc_num	hub6
 #define NUM_IS_SCC	((int)0x00010000)
 #define PORT_NUM(P)	((P) & 0x0000ffff)
+#define PORT_IS_SCC(P)	((P) & NUM_IS_SCC)
 
 /* The serial port to use for KGDB. */
 #ifdef CONFIG_KGDB_TTYS1
@@ -283,7 +284,7 @@ static void rs_8xx_stop(struct tty_struct *tty)
 	
 	save_flags(flags); cli();
 	idx = PORT_NUM(info->state->smc_scc_num);
-	if (info->state->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(info->state->smc_scc_num)) {
 		sccp = &cpmp->cp_scc[idx];
 		sccp->scc_sccm &= ~UART_SCCM_TX;
 	}
@@ -307,7 +308,7 @@ static void rs_8xx_start(struct tty_struct *tty)
 	
 	idx = PORT_NUM(info->state->smc_scc_num);
 	save_flags(flags); cli();
-	if (info->state->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(info->state->smc_scc_num)) {
 		sccp = &cpmp->cp_scc[idx];
 		sccp->scc_sccm |= UART_SCCM_TX;
 	}
@@ -640,7 +641,7 @@ static void rs_8xx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	info = (ser_info_t *)dev_id;
 
 	idx = PORT_NUM(info->state->smc_scc_num);
-	if (info->state->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(info->state->smc_scc_num)) {
 		sccp = &cpmp->cp_scc[idx];
 		events = sccp->scc_scce;
 		if (events & SMCM_BRKE)
@@ -786,7 +787,7 @@ static int startup(ser_info_t *info)
 	change_speed(info);
 	
 	idx = PORT_NUM(info->state->smc_scc_num);
-	if (info->state->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(info->state->smc_scc_num)) {
 		sccp = &cpmp->cp_scc[idx];
 		scup = (scc_uart_t *)&cpmp->cp_dparam[state->port];
 		scup->scc_genscc.scc_mrblr = RX_BUF_SIZE;
@@ -850,7 +851,7 @@ static void shutdown(ser_info_t * info)
 	save_flags(flags); cli(); /* Disable interrupts */
 
 	idx = PORT_NUM(state->smc_scc_num);
-	if (state->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(state->smc_scc_num)) {
 		sccp = &cpmp->cp_scc[idx];
 		sccp->scc_gsmrl &= ~(SCC_GSMRL_ENR | SCC_GSMRL_ENT);
 #ifdef CONFIG_SERIAL_CONSOLE
@@ -1005,7 +1006,7 @@ static void change_speed(ser_info_t *info)
 	 */
 	bits++;
 	idx = PORT_NUM(state->smc_scc_num);
-	if (state->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(state->smc_scc_num)) {
 		sccp = &cpmp->cp_scc[idx];
 		new_mode = (sbits << 12) | scval;
 		prev_mode = sccp->scc_pmsr;
@@ -1404,7 +1405,7 @@ static void begin_break(ser_info_t *info)
 	cp = cpmp;
 
 	idx = PORT_NUM(info->state->smc_scc_num);
-	if (info->state->smc_scc_num & NUM_IS_SCC)
+	if (PORT_IS_SCC(info->state->smc_scc_num))
 		chan = scc_chan_map[idx];
 	else
 		chan = smc_chan_map[idx];
@@ -1421,7 +1422,7 @@ static void end_break(ser_info_t *info)
 	cp = cpmp;
 
 	idx = PORT_NUM(info->state->smc_scc_num);
-	if (info->state->smc_scc_num & NUM_IS_SCC)
+	if (PORT_IS_SCC(info->state->smc_scc_num))
 		chan = scc_chan_map[idx];
 	else
 		chan = smc_chan_map[idx];
@@ -1726,7 +1727,7 @@ static void rs_8xx_close(struct tty_struct *tty, struct file * filp)
 	info->read_status_mask &= ~BD_SC_EMPTY;
 	if (info->flags & ASYNC_INITIALIZED) {
 		idx = PORT_NUM(info->state->smc_scc_num);
-		if (info->state->smc_scc_num & NUM_IS_SCC) {
+		if (PORT_IS_SCC(info->state->smc_scc_num)) {
 			sccp = &cpmp->cp_scc[idx];
 			sccp->scc_sccm &= ~UART_SCCM_RX;
 			sccp->scc_gsmrl &= ~SCC_GSMRL_ENR;
@@ -1917,7 +1918,7 @@ static int block_til_ready(struct tty_struct *tty, struct file * filp,
 	 */
 	if ((filp->f_flags & O_NONBLOCK) ||
 	    (tty->flags & (1 << TTY_IO_ERROR)) ||
-	    !(info->state->smc_scc_num & NUM_IS_SCC)) {
+	    !(PORT_IS_SCC(info->state->smc_scc_num))) {
 		if (info->flags & ASYNC_CALLOUT_ACTIVE)
 			return -EBUSY;
 		info->flags |= ASYNC_NORMAL_ACTIVE;
@@ -2095,7 +2096,7 @@ static int inline line_info(char *buf, struct serial_state *state)
 
 	ret = sprintf(buf, "%d: uart:%s port:%X irq:%d",
 		      state->line,
-		      (state->smc_scc_num & NUM_IS_SCC) ? "SCC" : "SMC",
+		      (PORT_IS_SCC(state->smc_scc_num)) ? "SCC" : "SMC",
 		      (unsigned int)(state->port), state->irq);
 
 	if (!state->port || (state->type == PORT_UNKNOWN)) {
@@ -2333,6 +2334,7 @@ xmon_8xx_write(const char *s, unsigned count)
 }
 #endif
 
+#if defined(CONFIG_KGDB) || defined(CONFIG_XMON)
 /*
  * Receive character from the serial port.  This only works well
  * before the port is initialized for real use.
@@ -2405,6 +2407,7 @@ static int my_console_wait_key(int idx, int xmon, char *obuf)
 
 	return((int)c);
 }
+#endif /* CONFIG_KGDB || CONFIG_XMON */
 
 #ifdef CONFIG_XMON
 int
@@ -2667,7 +2670,7 @@ int __init rs_8xx_init(void)
 		state->icount.overrun = state->icount.brk = 0;
 		printk(KERN_INFO "ttyS%02d at 0x%04x is a %s\n",
 		       i, (unsigned int)(state->port),
-		       (state->smc_scc_num & NUM_IS_SCC) ? "SCC" : "SMC");
+		       PORT_IS_SCC(state->smc_scc_num) ? "SCC" : "SMC");
 #ifdef CONFIG_SERIAL_CONSOLE
 		/* If we just printed the message on the console port, and
 		 * we are about to initialize it for general use, we have
@@ -2719,7 +2722,7 @@ int __init rs_8xx_init(void)
 			bdp->cbd_sc = BD_SC_WRAP | BD_SC_EMPTY | BD_SC_INTRPT;
 
 			idx = PORT_NUM(info->state->smc_scc_num);
-			if (info->state->smc_scc_num & NUM_IS_SCC) {
+			if (PORT_IS_SCC(info->state->smc_scc_num)) {
 				scp = &cp->cp_scc[idx];
 				sup = (scc_uart_t *)&cp->cp_dparam[state->port];
 				sup->scc_genscc.scc_rbase = dp_addr;
@@ -2752,7 +2755,7 @@ int __init rs_8xx_init(void)
 			bdp->cbd_bufaddr = __pa(mem_addr);
 			bdp->cbd_sc = (BD_SC_WRAP | BD_SC_INTRPT);
 
-			if (info->state->smc_scc_num & NUM_IS_SCC) {
+			if (PORT_IS_SCC(info->state->smc_scc_num)) {
 				sup->scc_genscc.scc_tbase = dp_addr;
 
 				/* Set up the uart parameters in the
@@ -2941,7 +2944,7 @@ static int __init serial_console_setup(struct console *co, char *options)
 	cp = cpmp;	/* Get pointer to Communication Processor */
 
 	idx = PORT_NUM(ser->smc_scc_num);
-	if (ser->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(ser->smc_scc_num)) {
 		scp = &cp->cp_scc[idx];
 		sup = (scc_uart_t *)&cp->cp_dparam[ser->port];
 	}
@@ -2979,7 +2982,7 @@ static int __init serial_console_setup(struct console *co, char *options)
 
 	/* Set up the uart parameters in the parameter ram.
 	*/
-	if (ser->smc_scc_num & NUM_IS_SCC) {
+	if (PORT_IS_SCC(ser->smc_scc_num)) {
 
 		sup->scc_genscc.scc_rbase = dp_addr;
 		sup->scc_genscc.scc_tbase = dp_addr + sizeof(cbd_t);

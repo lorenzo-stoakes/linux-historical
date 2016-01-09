@@ -75,6 +75,14 @@ extern void serial_close(unsigned long com_port);
 extern void gunzip(void *, int, unsigned char *, int *);
 extern void serial_fixups(void);
 
+/* Allow decompress_kernel to be hooked into.  This is the default. */
+void * __attribute__ ((weak))
+load_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
+		void *bp)
+{
+	return decompress_kernel(load_addr, num_words, cksum, bp);
+}
+
 struct bi_record *
 decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 {

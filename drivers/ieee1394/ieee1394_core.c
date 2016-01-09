@@ -43,6 +43,7 @@
 #include "nodemgr.h"
 #include "ieee1394_hotplug.h"
 #include "dma.h"
+#include "iso.h"
 
 /*
  * Disable the nodemgr detection and config rom reading functionality.
@@ -1144,14 +1145,17 @@ module_init(ieee1394_init);
 module_exit(ieee1394_cleanup);
 
 /* Exported symbols */
+
+/** hosts.c **/
 EXPORT_SYMBOL(hpsb_alloc_host);
 EXPORT_SYMBOL(hpsb_add_host);
 EXPORT_SYMBOL(hpsb_remove_host);
 EXPORT_SYMBOL(hpsb_ref_host);
 EXPORT_SYMBOL(hpsb_unref_host);
+
+/** ieee1394_core.c **/
 EXPORT_SYMBOL(hpsb_speedto_str);
 EXPORT_SYMBOL(hpsb_add_packet_complete_task);
-
 EXPORT_SYMBOL(alloc_hpsb_packet);
 EXPORT_SYMBOL(free_hpsb_packet);
 EXPORT_SYMBOL(hpsb_send_packet);
@@ -1161,7 +1165,12 @@ EXPORT_SYMBOL(hpsb_selfid_received);
 EXPORT_SYMBOL(hpsb_selfid_complete);
 EXPORT_SYMBOL(hpsb_packet_sent);
 EXPORT_SYMBOL(hpsb_packet_received);
+EXPORT_SYMBOL(ieee1394_register_chardev);
+EXPORT_SYMBOL(ieee1394_unregister_chardev);
+EXPORT_SYMBOL(ieee1394_devfs_handle);
+EXPORT_SYMBOL(ieee1394_procfs_entry);
 
+/** ieee1394_transactions.c **/
 EXPORT_SYMBOL(get_tlabel);
 EXPORT_SYMBOL(free_tlabel);
 EXPORT_SYMBOL(fill_async_readquad);
@@ -1188,6 +1197,7 @@ EXPORT_SYMBOL(hpsb_read);
 EXPORT_SYMBOL(hpsb_write);
 EXPORT_SYMBOL(hpsb_lock);
 
+/** highlevel.c **/
 EXPORT_SYMBOL(hpsb_register_highlevel);
 EXPORT_SYMBOL(hpsb_unregister_highlevel);
 EXPORT_SYMBOL(hpsb_register_addrspace);
@@ -1202,6 +1212,7 @@ EXPORT_SYMBOL(highlevel_add_host);
 EXPORT_SYMBOL(highlevel_remove_host);
 EXPORT_SYMBOL(highlevel_host_reset);
 
+/** nodemgr.c **/
 EXPORT_SYMBOL(hpsb_guid_get_entry);
 EXPORT_SYMBOL(hpsb_nodeid_get_entry);
 EXPORT_SYMBOL(hpsb_node_fill_packet);
@@ -1214,12 +1225,6 @@ EXPORT_SYMBOL(hpsb_register_protocol);
 EXPORT_SYMBOL(hpsb_unregister_protocol);
 EXPORT_SYMBOL(hpsb_release_unit_directory);
 
-EXPORT_SYMBOL(ieee1394_register_chardev);
-EXPORT_SYMBOL(ieee1394_unregister_chardev);
-EXPORT_SYMBOL(ieee1394_devfs_handle);
-
-EXPORT_SYMBOL(ieee1394_procfs_entry);
-
 /** dma.c **/
 EXPORT_SYMBOL(dma_prog_region_init);
 EXPORT_SYMBOL(dma_prog_region_alloc);
@@ -1230,4 +1235,22 @@ EXPORT_SYMBOL(dma_region_free);
 EXPORT_SYMBOL(dma_region_sync);
 EXPORT_SYMBOL(dma_region_mmap);
 EXPORT_SYMBOL(dma_region_offset_to_bus);
+
+/** iso.c **/
+EXPORT_SYMBOL(hpsb_iso_xmit_init);
+EXPORT_SYMBOL(hpsb_iso_recv_init);
+EXPORT_SYMBOL(hpsb_iso_xmit_start);
+EXPORT_SYMBOL(hpsb_iso_recv_start);
+EXPORT_SYMBOL(hpsb_iso_recv_listen_channel);
+EXPORT_SYMBOL(hpsb_iso_recv_unlisten_channel);
+EXPORT_SYMBOL(hpsb_iso_recv_set_channel_mask);
+EXPORT_SYMBOL(hpsb_iso_stop);
+EXPORT_SYMBOL(hpsb_iso_shutdown);
+EXPORT_SYMBOL(hpsb_iso_xmit_queue_packet);
+EXPORT_SYMBOL(hpsb_iso_xmit_sync);
+EXPORT_SYMBOL(hpsb_iso_recv_release_packets);
+EXPORT_SYMBOL(hpsb_iso_n_ready);
+EXPORT_SYMBOL(hpsb_iso_packet_sent);
+EXPORT_SYMBOL(hpsb_iso_packet_received);
+EXPORT_SYMBOL(hpsb_iso_wake);
 

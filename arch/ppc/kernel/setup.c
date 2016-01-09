@@ -476,6 +476,12 @@ void parse_bootinfo(struct bi_record *rec)
 		case BI_MEMSIZE:
 			boot_mem_size = data[0];
 			break;
+		case BI_BOARD_INFO:
+			/* data is typically a bd_t */
+			if (ppc_md.board_info)
+				ppc_md.board_info((void *)data,
+					rec->size - sizeof(struct bi_record));
+			break;
 		}
 		rec = (struct bi_record *)((ulong)rec + rec->size);
 	}

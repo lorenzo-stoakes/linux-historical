@@ -52,6 +52,10 @@ static int initialized = 0;
 
 #define MAX_EVENTS_IN_QUEUE	25
 
+/* Don't let a message sit in a queue forever, always time it with at lest
+   the max message timer. */
+#define MAX_MSG_TIMEOUT		60000
+
 struct ipmi_user
 {
 	struct list_head link;
@@ -76,6 +80,38 @@ struct cmd_rcvr
 	unsigned char cmd;
 };
 
+struct seq_table
+{
+	int                  inuse : 1;
+
+	unsigned long        timeout;
+	unsigned long        orig_timeout;
+	unsigned int         retries_left;
+
+	/* To verify on an incoming send message response that this is
+           the message that the response is for, we keep a sequence id
+           and increment it every time we send a message. */
+	long                 seqid;
+
+	/* This is held so we can properly respond to the message on a
+           timeout, and it is used to hold the temporary data for
+           retransmission, too. */
+	struct ipmi_recv_msg *recv_msg;
+};
+
+/* Store the information in a msgid (long) to allow us to find a
+   sequence table entry from the msgid. */
+#define STORE_SEQ_IN_MSGID(seq, seqid) (((seq&0xff)<<26) | (seqid&0x3ffffff))
+
+#define GET_SEQ_FROM_MSGID(msgid, seq, seqid) \
+	do {								\
+		seq = ((msgid >> 26) & 0x3f);				\
+		seqid = (msgid & 0x3fffff);				\
+        } while(0)
+
+#define NEXT_SEQID(seqid) (((seqid) + 1) & 0x3fffff)
+
+
 #define IPMI_IPMB_NUM_SEQ	64
 struct ipmi_smi
 {
@@ -99,12 +135,8 @@ struct ipmi_smi
            sequence numbers for IPMB messages that go out of the
            interface to match them up with their responses.  A routine
            is called periodically to time the items in this list. */
-	spinlock_t              seq_lock;
-	struct {
-		unsigned long   timeout;
-		int             inuse;
-		struct ipmi_recv_msg *recv_msg;
-	} seq_table[IPMI_IPMB_NUM_SEQ];
+	spinlock_t       seq_lock;
+	struct seq_table seq_table[IPMI_IPMB_NUM_SEQ];
 	int curr_seq;
 
 	/* Messages that were delayed for some reason (out of memory,
@@ -300,19 +332,20 @@ static void deliver_response(struct ipmi_recv_msg *msg)
 }
 
 /* Find the next sequence number not being used and add the given
-   message with the given timeout to the sequence table. */
+   message with the given timeout to the sequence table.  This must be
+   called with the interface's seq_lock held. */
 static int intf_next_seq(ipmi_smi_t           intf,
 			 struct ipmi_recv_msg *recv_msg,
 			 unsigned long        timeout,
-			 unsigned char        *seq)
+			 int                  retries,
+			 unsigned char        *seq,
+			 long                 *seqid)
 {
-	int           rv = 0;
-	unsigned long flags;
-	unsigned int  i;
+	int          rv = 0;
+	unsigned int i;
 
-	spin_lock_irqsave(&(intf->seq_lock), flags);
 	for (i=intf->curr_seq;
-	     i!=(intf->curr_seq-1);
+	     (i+1)%IPMI_IPMB_NUM_SEQ != intf->curr_seq;
 	     i=(i+1)%IPMI_IPMB_NUM_SEQ)
 	{
 		if (! intf->seq_table[i].inuse)
@@ -321,16 +354,21 @@ static int intf_next_seq(ipmi_smi_t           intf,
 
 	if (! intf->seq_table[i].inuse) {
 		intf->seq_table[i].recv_msg = recv_msg;
-		intf->seq_table[i].timeout = timeout;
+
+		/* Start with the maximum timeout, when the send response
+		   comes in we will start the real timer. */
+		intf->seq_table[i].timeout = MAX_MSG_TIMEOUT;
+		intf->seq_table[i].orig_timeout = timeout;
+		intf->seq_table[i].retries_left = retries;
 		intf->seq_table[i].inuse = 1;
+		intf->seq_table[i].seqid = NEXT_SEQID(intf->seq_table[i].seqid);
 		*seq = i;
+		*seqid = intf->seq_table[i].seqid;
 		intf->curr_seq = (i+1)%IPMI_IPMB_NUM_SEQ;
 	} else {
 		rv = -EAGAIN;
 	}
 	
-	spin_unlock_irqrestore(&(intf->seq_lock), flags);
-
 	return rv;
 }
 
@@ -366,6 +404,33 @@ static int intf_find_seq(ipmi_smi_t           intf,
 			intf->seq_table[seq].inuse = 0;
 			rv = 0;
 		}
+	}
+	spin_unlock_irqrestore(&(intf->seq_lock), flags);
+
+	return rv;
+}
+
+
+/* Start the timer for a specific sequence table entry. */
+static int intf_start_seq_timer(ipmi_smi_t           intf,
+				long                 msgid)
+{
+	int           rv = -ENODEV;
+	unsigned long flags;
+	unsigned char seq;
+	unsigned long seqid;
+
+
+	GET_SEQ_FROM_MSGID(msgid, seq, seqid);
+
+	spin_lock_irqsave(&(intf->seq_lock), flags);
+	/* We do this verification because the user can be deleted
+           while a message is outstanding. */
+	if ((intf->seq_table[seq].inuse)
+	    && (intf->seq_table[seq].seqid == seqid))
+	{
+		struct seq_table *ent = &(intf->seq_table[seq]);
+		ent->timeout = ent->orig_timeout;
 	}
 	spin_unlock_irqrestore(&(intf->seq_lock), flags);
 
@@ -649,6 +714,48 @@ ipmb_checksum(unsigned char *data, int size)
 	return -csum;
 }
 
+static inline void format_ipmb_msg(struct ipmi_smi_msg   *smi_msg,
+				   struct ipmi_msg       *msg,
+				   struct ipmi_ipmb_addr *ipmb_addr,
+				   long                  msgid,
+				   unsigned char         ipmb_seq,
+				   int                   broadcast,
+				   unsigned char         source_address,
+				   unsigned char         source_lun)
+{
+	int i = broadcast;
+
+	/* Format the IPMB header data. */
+	smi_msg->data[0] = (IPMI_NETFN_APP_REQUEST << 2);
+	smi_msg->data[1] = IPMI_SEND_MSG_CMD;
+	smi_msg->data[2] = ipmb_addr->channel;
+	if (broadcast)
+		smi_msg->data[3] = 0;
+	smi_msg->data[i+3] = ipmb_addr->slave_addr;
+	smi_msg->data[i+4] = (msg->netfn << 2) | (ipmb_addr->lun & 0x3);
+	smi_msg->data[i+5] = ipmb_checksum(&(smi_msg->data[i+3]), 2);
+	smi_msg->data[i+6] = source_address;
+	smi_msg->data[i+7] = (ipmb_seq << 2) | source_lun;
+	smi_msg->data[i+8] = msg->cmd;
+
+	/* Now tack on the data to the message. */
+	if (msg->data_len > 0)
+		memcpy(&(smi_msg->data[i+9]), msg->data,
+		       msg->data_len);
+	smi_msg->data_size = msg->data_len + 9;
+
+	/* Now calculate the checksum and tack it on. */
+	smi_msg->data[i+smi_msg->data_size]
+		= ipmb_checksum(&(smi_msg->data[i+6]),
+				smi_msg->data_size-6);
+
+	/* Add on the checksum size and the offset from the
+	   broadcast. */
+	smi_msg->data_size += 1 + i;
+
+	smi_msg->msgid = msgid;
+}
+
 /* Separate from ipmi_request so that the user does not have to be
    supplied in certain circumstances (mainly at panic time).  If
    messages are supplied, they will be freed, even if an error
@@ -667,6 +774,7 @@ static inline int i_ipmi_request(ipmi_user_t          user,
 	int                  rv = 0;
 	struct ipmi_smi_msg  *smi_msg;
 	struct ipmi_recv_msg *recv_msg;
+	unsigned long        flags;
 
 
 	if (supplied_recv) {
@@ -693,12 +801,21 @@ static inline int i_ipmi_request(ipmi_user_t          user,
 	    goto out_err;
 	}
 
+	recv_msg->user = user;
+	recv_msg->msgid = msgid;
+	/* Store the message to send in the receive message so timeout
+	   responses can get the proper response data. */
+	recv_msg->msg = *msg;
+
 	if (addr->addr_type == IPMI_SYSTEM_INTERFACE_ADDR_TYPE) {
 		struct ipmi_system_interface_addr *smi_addr;
+
 
 		smi_addr = (struct ipmi_system_interface_addr *) addr;
 		if (smi_addr->lun > 3)
 			return -EINVAL;
+
+		memcpy(&recv_msg->addr, smi_addr, sizeof(*smi_addr));
 
 		if ((msg->netfn == IPMI_NETFN_APP_REQUEST)
 		    && ((msg->cmd == IPMI_SEND_MSG_CMD)
@@ -716,11 +833,6 @@ static inline int i_ipmi_request(ipmi_user_t          user,
 			goto out_err;
 		}
 
-		recv_msg->user = user;
-		recv_msg->addr = *addr;
-		recv_msg->msgid = msgid;
-		recv_msg->msg = *msg;
-
 		smi_msg->data[0] = (msg->netfn << 2) | (smi_addr->lun & 0x3);
 		smi_msg->data[1] = msg->cmd;
 		smi_msg->msgid = msgid;
@@ -733,7 +845,9 @@ static inline int i_ipmi_request(ipmi_user_t          user,
 	{
 		struct ipmi_ipmb_addr *ipmb_addr;
 		unsigned char         ipmb_seq;
-		int                   i;
+		long                  seqid;
+		int                   broadcast;
+		int                   retries;
 
 		if (addr == NULL) {
 			rv = -EINVAL;
@@ -744,75 +858,80 @@ static inline int i_ipmi_request(ipmi_user_t          user,
 		    /* Broadcasts add a zero at the beginning of the
 		       message, but otherwise is the same as an IPMB
 		       address. */
-		    smi_msg->data[3] = 0;
 		    addr->addr_type = IPMI_IPMB_ADDR_TYPE;
-		    i = 1;
+		    broadcast = 1;
+		    retries = 0; /* Don't retry broadcasts. */
 		} else {
-		    i = 0;
+		    broadcast = 0;
+		    retries = 4;
 		}
 
 		/* 9 for the header and 1 for the checksum, plus
                    possibly one for the broadcast. */
-		if ((msg->data_len + 10 + i) > IPMI_MAX_MSG_LENGTH) {
+		if ((msg->data_len + 10 + broadcast) > IPMI_MAX_MSG_LENGTH) {
 			rv = -EMSGSIZE;
 			goto out_err;
 		}
 
 		ipmb_addr = (struct ipmi_ipmb_addr *) addr;
-		if (ipmb_addr->lun > 3)
-			return -EINVAL;
+		if (ipmb_addr->lun > 3) {
+			rv = -EINVAL;
+			goto out_err;
+		}
 
-		memcpy(&(recv_msg->addr), ipmb_addr, sizeof(*ipmb_addr));
-
-		recv_msg->user = user;
-		recv_msg->msgid = msgid;
-		recv_msg->msg = *msg;
+		memcpy(&recv_msg->addr, ipmb_addr, sizeof(*ipmb_addr));
 
 		if (recv_msg->msg.netfn & 0x1) {
-			/* It's a response, so use the user's sequence. */
-			ipmb_seq = msgid;
+			/* It's a response, so use the user's sequence
+                           from msgid. */
+			format_ipmb_msg(smi_msg, msg, ipmb_addr, msgid,
+					msgid, broadcast,
+					source_address, source_lun);
 		} else {
 			/* It's a command, so get a sequence for it. */
-			/* Create a sequence number with a 5 second timeout. */
+
+			spin_lock_irqsave(&(intf->seq_lock), flags);
+
+			/* Create a sequence number with a 1 second
+                           timeout and 4 retries. */
 			/* FIXME - magic number for the timeout. */
 			rv = intf_next_seq(intf,
 					   recv_msg,
-					   5000,
-					   &ipmb_seq);
+					   1000,
+					   retries,
+					   &ipmb_seq,
+					   &seqid);
 			if (rv) {
 				/* We have used up all the sequence numbers,
 				   probably, so abort. */
-				ipmi_free_recv_msg(recv_msg);
-				smi_msg->done(smi_msg);
+				spin_unlock_irqrestore(&(intf->seq_lock),
+						       flags);
 				goto out_err;
 			}
+
+			/* Store the sequence number in the message,
+                           so that when the send message response
+                           comes back we can start the timer. */
+			format_ipmb_msg(smi_msg, msg, ipmb_addr,
+					STORE_SEQ_IN_MSGID(ipmb_seq, seqid),
+					ipmb_seq, broadcast,
+					source_address, source_lun);
+
+			/* Copy the message into the recv message data, so we
+			   can retransmit it later if necessary. */
+			memcpy(recv_msg->msg_data, smi_msg->data,
+			       smi_msg->data_size);
+			recv_msg->msg.data = recv_msg->msg_data;
+			recv_msg->msg.data_len = smi_msg->data_size;
+
+			/* We don't unlock until here, because we need
+                           to copy the completed message into the
+                           recv_msg before we release the lock.
+                           Otherwise, race conditions may bite us.  I
+                           know that's pretty paranoid, but I prefer
+                           to be correct. */
+			spin_unlock_irqrestore(&(intf->seq_lock), flags);
 		}
-
-		/* Format the IPMB header data. */
-		smi_msg->data[0] = (IPMI_NETFN_APP_REQUEST << 2);
-		smi_msg->data[1] = IPMI_SEND_MSG_CMD;
-		smi_msg->data[2] = addr->channel;
-		smi_msg->data[i+3] = ipmb_addr->slave_addr;
-		smi_msg->data[i+4] = (msg->netfn << 2) | (ipmb_addr->lun & 0x3);
-		smi_msg->data[i+5] = ipmb_checksum(&(smi_msg->data[i+3]), 2);
-		smi_msg->data[i+6] = source_address;
-		smi_msg->data[i+7] = (ipmb_seq << 2) | source_lun;
-		smi_msg->data[i+8] = msg->cmd;
-
-		/* Now tack on the data to the message. */
-		if (msg->data_len > 0)
-			memcpy(&(smi_msg->data[i+9]), msg->data, msg->data_len);
-		smi_msg->data_size = msg->data_len + 9;
-
-		/* Now calculate the checksum and tack it on. */
-		smi_msg->data[i+smi_msg->data_size]
-		    = ipmb_checksum(&(smi_msg->data[i+6]), smi_msg->data_size-6);
-
-		/* Add on the checksum size and the offset from the
-                   broadcast. */
-		smi_msg->data_size += 1 + i;
-		
-		smi_msg->msgid = msgid;
 	} else {
 	    /* Unknown address type. */
 	    rv = -EINVAL;
@@ -832,8 +951,8 @@ static inline int i_ipmi_request(ipmi_user_t          user,
 	return 0;
 
  out_err:
-	smi_msg->done(smi_msg);
-	recv_msg->done(recv_msg);
+	ipmi_free_smi_msg(smi_msg);
+	ipmi_free_recv_msg(recv_msg);
 	return rv;
 }
 
@@ -936,8 +1055,10 @@ int ipmi_register_smi(struct ipmi_smi_handlers *handlers,
 			new_intf->handlers = handlers;
 			new_intf->send_info = send_info;
 			spin_lock_init(&(new_intf->seq_lock));
-			for (j=0; j<IPMI_IPMB_NUM_SEQ; j++)
-			    new_intf->seq_table[j].inuse = 0;
+			for (j=0; j<IPMI_IPMB_NUM_SEQ; j++) {
+				new_intf->seq_table[j].inuse = 0;
+				new_intf->seq_table[j].seqid = 0;
+			}
 			new_intf->curr_seq = 0;
 			spin_lock_init(&(new_intf->waiting_msgs_lock));
 			INIT_LIST_HEAD(&(new_intf->waiting_msgs));
@@ -1426,16 +1547,17 @@ void ipmi_smi_msg_received(ipmi_smi_t          intf,
 	int           rv;
 
 
-	if ((msg->data_size >= 2) && (msg->data[1] == IPMI_SEND_MSG_CMD)) {
-		/* This is the local response to a send, we just
-                   ignore these. */
-		msg->done(msg);
-		return;
-	}
-
 	/* Lock the user lock so the user can't go away while we are
 	   working on it. */
 	read_lock(&(intf->users_lock));
+
+	if ((msg->data_size >= 2) && (msg->data[1] == IPMI_SEND_MSG_CMD)) {
+		/* This is the local response to a send, start the
+                   timer for these. */
+		intf_start_seq_timer(intf, msg->msgid);
+		ipmi_free_smi_msg(msg);
+		goto out_unlock;
+	}
 
 	/* To preserve message order, if the list is not empty, we
            tack this message onto the end of the list. */
@@ -1443,7 +1565,7 @@ void ipmi_smi_msg_received(ipmi_smi_t          intf,
 	if (!list_empty(&(intf->waiting_msgs))) {
 		list_add_tail(&(msg->link), &(intf->waiting_msgs));
 		spin_unlock(&(intf->waiting_msgs_lock));
-		return;
+		goto out_unlock;
 	}
 	spin_unlock_irqrestore(&(intf->waiting_msgs_lock), flags);
 		
@@ -1455,9 +1577,10 @@ void ipmi_smi_msg_received(ipmi_smi_t          intf,
 		list_add_tail(&(msg->link), &(intf->waiting_msgs));
 		spin_unlock(&(intf->waiting_msgs_lock));
 	} else if (rv == 0) {
-		msg->done(msg);
+		ipmi_free_smi_msg(msg);
 	}
 
+ out_unlock:
 	read_unlock(&(intf->users_lock));
 }
 
@@ -1490,6 +1613,39 @@ handle_msg_timeout(struct ipmi_recv_msg *msg)
 }
 
 static void
+send_from_recv_msg(ipmi_smi_t intf, struct ipmi_recv_msg *recv_msg,
+		   struct ipmi_smi_msg *smi_msg,
+		   unsigned char seq, long seqid)
+{
+	if (!smi_msg)
+		smi_msg = ipmi_alloc_smi_msg();
+	if (!smi_msg)
+		/* If we can't allocate the message, then just return, we
+		   get 4 retries, so this should be ok. */
+		return;
+
+	memcpy(smi_msg->data, recv_msg->msg.data, recv_msg->msg.data_len);
+	smi_msg->data_size = recv_msg->msg.data_len;
+	smi_msg->msgid = STORE_SEQ_IN_MSGID(seq, seqid);
+		
+	/* Send the new message.  We send with a zero priority.  It
+	   timed out, I doubt time is that critical now, and high
+	   priority messages are really only for messages to the local
+	   MC, which don't get resent. */
+	intf->handlers->sender(intf->send_info, smi_msg, 0);
+
+#if DEBUG_MSGING
+	{
+		int m;
+		printk("Resend: ");
+		for (m=0; m<smi_msg->data_size; m++)
+			printk(" %2.2x", smi_msg->data[m]);
+		printk("\n");
+	}
+#endif
+}
+
+static void
 ipmi_timeout_handler(long timeout_period)
 {
 	ipmi_smi_t           intf;
@@ -1516,7 +1672,7 @@ ipmi_timeout_handler(long timeout_period)
 			smi_msg = list_entry(entry, struct ipmi_smi_msg, link);
 			if (! handle_new_recv_msg(intf, smi_msg)) {
 				list_del(entry);
-				smi_msg->done(smi_msg);
+				ipmi_free_smi_msg(smi_msg);
 			} else {
 				/* To preserve message order, quit if we
 				   can't handle a message. */
@@ -1530,13 +1686,28 @@ ipmi_timeout_handler(long timeout_period)
 		   list. */
 		spin_lock_irqsave(&(intf->seq_lock), flags);
 		for (j=0; j<IPMI_IPMB_NUM_SEQ; j++) {
-			if (intf->seq_table[j].inuse) {
-				intf->seq_table[j].timeout -= timeout_period;
-				if (intf->seq_table[j].timeout <= 0) {
-					intf->seq_table[j].inuse = 0;
-					msg = intf->seq_table[j].recv_msg;
-					list_add_tail(&(msg->link), &timeouts);
-				}
+			struct seq_table *ent = &(intf->seq_table[j]);
+			if (!ent->inuse)
+				continue;
+
+			ent->timeout -= timeout_period;
+			if (ent->timeout > 0)
+				continue;
+
+			if (ent->retries_left == 0) {
+				/* The message has used all its retries. */
+				ent->inuse = 0;
+				msg = ent->recv_msg;
+				list_add_tail(&(msg->link), &timeouts);
+			} else {
+				/* More retries, send again. */
+
+				/* Start with the max timer, set to normal
+				   timer after the message is sent. */
+				ent->timeout = MAX_MSG_TIMEOUT;
+				ent->retries_left--;
+				send_from_recv_msg(intf, ent->recv_msg, NULL,
+						   j, ent->seqid);
 			}
 		}
 		spin_unlock_irqrestore(&(intf->seq_lock), flags);

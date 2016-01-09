@@ -8,7 +8,7 @@
  * See Documentation/DMA-mapping.txt for the interface specification.
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: pci-gart.c,v 1.19 2003/02/03 14:53:03 ak Exp $
+ * $Id: pci-gart.c,v 1.20 2003/03/12 08:23:29 ak Exp $
  */
 
 /* 
@@ -153,7 +153,7 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 		int high = (unsigned long)virt_to_bus(memory) + size
 			>= 0xffffffff;
 		int mmu = high;
-		if (force_mmu) 
+		if (force_mmu && !(gfp & GFP_DMA)) 
 			mmu = 1;
 		if (no_iommu) { 
 			if (high) goto error;

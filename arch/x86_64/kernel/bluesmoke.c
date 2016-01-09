@@ -105,7 +105,7 @@ static void (*machine_check_vector)(struct pt_regs *, long error_code) = unexpec
 
 void do_machine_check(struct pt_regs * regs, long error_code)
 {
-	notify_die(DIE_NMI, "machine check", regs, error_code);
+	notify_die(DIE_NMI, "machine check", regs, error_code, 255, SIGKILL);
 	machine_check_vector(regs, error_code);
 }
 

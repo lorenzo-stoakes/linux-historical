@@ -1401,6 +1401,10 @@ static int journal_transaction_is_valid(struct super_block *p_s_sb, struct buffe
 		     *newest_mount_id) ;
       return -1 ;
     }
+    if ( le32_to_cpu(desc->j_len) > sb_journal_trans_max(SB_DISK_SUPER_BLOCK(p_s_sb)) ) {
+      reiserfs_warning("journal-2018: Bad transaction length %d encountered, ignoring transaction\n", le32_to_cpu(desc->j_len));
+      return -1 ;
+    }
     offset = d_bh->b_blocknr - reiserfs_get_journal_block(p_s_sb) ;
 
     /* ok, we have a journal description block, lets see if the transaction was valid */
@@ -1416,11 +1420,12 @@ static int journal_transaction_is_valid(struct super_block *p_s_sb, struct buffe
 		     le32_to_cpu(commit->j_trans_id), 
 		     le32_to_cpu(commit->j_len));
       brelse(c_bh) ;
-      if (oldest_invalid_trans_id)
-        *oldest_invalid_trans_id = le32_to_cpu(desc->j_trans_id) ;
+      if (oldest_invalid_trans_id) {
+	*oldest_invalid_trans_id = le32_to_cpu(desc->j_trans_id) ;
 	reiserfs_debug(p_s_sb, REISERFS_DEBUG_CODE, "journal-1004: "
 	               "transaction_is_valid setting oldest invalid trans_id "
 		       "to %d\n", le32_to_cpu(desc->j_trans_id)) ;
+	}
       return -1; 
     }
     brelse(c_bh) ;
@@ -1517,9 +1522,14 @@ static int journal_read_transaction(struct super_block *p_s_sb, unsigned long cu
     } else {
       real_blocks[i] = sb_getblk(p_s_sb, le32_to_cpu(commit->j_realblock[i - JOURNAL_TRANS_HALF])) ;
     }
+    if ( real_blocks[i]->b_blocknr > SB_BLOCK_COUNT(p_s_sb) ) {
+      reiserfs_warning("journal-1207: REPLAY FAILURE fsck required! Block to replay is outside of filesystem\n");
+      goto abort_replay;
+    }
     if (real_blocks[i]->b_blocknr >= reiserfs_get_journal_block(p_s_sb) &&
         real_blocks[i]->b_blocknr < (reiserfs_get_journal_block(p_s_sb)+JOURNAL_BLOCK_COUNT)) {
       reiserfs_warning("journal-1204: REPLAY FAILURE fsck required! Trying to replay onto a log block\n") ;
+abort_replay:
       brelse_array(log_blocks, i) ;
       brelse_array(real_blocks, i) ;
       brelse(c_bh) ;

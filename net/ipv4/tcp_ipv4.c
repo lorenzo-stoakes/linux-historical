@@ -1663,12 +1663,6 @@ static int tcp_v4_checksum_init(struct sk_buff *skb)
  */
 int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 {
-#ifdef CONFIG_FILTER
-	struct sk_filter *filter = sk->filter;
-	if (filter && sk_filter(skb, filter))
-		goto discard;
-#endif /* CONFIG_FILTER */
-
   	IP_INC_STATS_BH(IpInDelivers);
 
 	if (sk->state == TCP_ESTABLISHED) { /* Fast path */
@@ -1771,6 +1765,9 @@ process:
 
 	if (sk->state == TCP_TIME_WAIT)
 		goto do_time_wait;
+
+	if (sk_filter(sk, skb, 0))
+		goto discard_and_relse;
 
 	skb->dev = NULL;
 

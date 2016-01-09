@@ -524,6 +524,24 @@ xcall_flush_tlb_range:
 	nop
 	nop
 
+	/* This runs in a very controlled environment, so we do
+	 * not need to worry about BH races etc.
+	 */
+	.globl		xcall_sync_tick
+xcall_sync_tick:
+	rdpr		%pstate, %g2
+	wrpr		%g2, PSTATE_IG | PSTATE_AG, %pstate
+	rdpr		%pil, %g2
+	wrpr		%g0, 15, %pil
+	sethi		%hi(109f), %g7
+	b,pt		%xcc, etrap_irq
+109:	 or		%g7, %lo(109b), %g7
+	call		smp_synchronize_tick_client
+	 nop
+	clr		%l6
+	b		rtrap_xcall
+	 ldx		[%sp + PTREGS_OFF + PT_V9_TSTATE], %l1
+
 	/* NOTE: This is SPECIAL!!  We do etrap/rtrap however
 	 *       we choose to deal with the "BH's run with
 	 *       %pil==15" problem (described in asm/pil.h)

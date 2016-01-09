@@ -500,8 +500,7 @@ repeat:
 #endif
 	inode->u.ext3_i.i_block_group = i;
 	
-	if (inode->u.ext3_i.i_flags & EXT3_SYNC_FL)
-		inode->i_flags |= S_SYNC;
+	ext3_set_inode_flags(inode);
 	if (IS_SYNC(inode))
 		handle->h_sync = 1;
 	insert_inode_hash(inode);

@@ -405,7 +405,7 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 #define pml4_offset_k(address) ((pml4_t *)read_pda(level4_pgt) + pml4_index(address))
 #define level3_offset_k(dir, address) ((pgd_t *) pml4_page(*(dir)) + pgd_index(address))
 #define mk_kernel_pml4(address,prot) ((pml4_t){(address) | pgprot_val(prot)})
-
+#define pml4_present(pml4) (pml4_val(pml4) & _PAGE_PRESENT)
 
 /*
  * x86 doesn't have any external MMU info: the kernel page

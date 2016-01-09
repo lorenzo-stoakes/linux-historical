@@ -173,7 +173,7 @@ static struct dev_info device_list[] =
 	{"HP", "NetRAID-4M", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "AACRAID", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "Adaptec 5400S", "*", BLIST_FORCELUN},
-	{"COMPAQ", "MSA1000", "*", BLIST_FORCELUN},
+	{"COMPAQ", "MSA1000", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 	{"HP", "C1557A", "*", BLIST_FORCELUN},
 	{"IBM", "AuSaV1S2", "*", BLIST_FORCELUN},
 	{"FSC", "CentricStor", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
@@ -182,6 +182,11 @@ static struct dev_info device_list[] =
 	{"HITACHI", "DF500", "*", BLIST_SPARSELUN},
 	{"HITACHI", "DF600", "*", BLIST_SPARSELUN},
 	{"IBM", "ProFibre 4000R", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"HITACHI", "OPEN-", "*", BLIST_SPARSELUN},		/* HITACHI XP Arrays */
+	{"WINSYS","FLASHDISK G6", "*", BLIST_SPARSELUN},
+	{"DotHill","SANnet RAID X300", "*", BLIST_SPARSELUN},	
+	{"SUN", "T300", "*", BLIST_SPARSELUN},
+	{"SUN", "T4", "*", BLIST_SPARSELUN},
 
 	/*
 	 * Must be at end of list...

@@ -279,7 +279,7 @@ static void alloc586(struct net_device *dev)
 
 int __init sun3_82586_probe(struct net_device *dev)
 {
-	unsigned long ioaddr, iopte;
+ 	unsigned long ioaddr;
 	static int found = 0;
 	
 	/* check that this machine has an onboard 82586 */
@@ -296,22 +296,8 @@ int __init sun3_82586_probe(struct net_device *dev)
 	if(found)
 		return -ENODEV;
 	
-	for(ioaddr = 0xfe00000; ioaddr < (0xfe00000 +
-	    SUN3_PMEG_SIZE); ioaddr += SUN3_PTE_SIZE) {
-
-		iopte = sun3_get_pte(ioaddr);
-		if(!(iopte & SUN3_PAGE_TYPE_IO)) /* this an io page? */
-			continue;
-
-		if(((iopte & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT) ==
-		   IE_OBIO) {
-			found = 1;
-			break;
-		}
-	}
-	
-	if(!found)
-		return 0;
+	ioaddr = (unsigned long)ioremap(IE_OBIO, PAGE_SIZE);
+	found = 1;
 	
 	SET_MODULE_OWNER(dev);
 

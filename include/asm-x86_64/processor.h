@@ -51,6 +51,8 @@ struct cpuinfo_x86 {
 				    call  */
 	int	x86_clflush_size;
 	int	x86_tlbsize;	/* number of 4K pages in DTLB/ITLB combined(in pages)*/
+        __u8    x86_virt_bits, x86_phys_bits;
+        __u32   x86_power; 
 	unsigned long loops_per_jiffy;
 } ____cacheline_aligned;
 
@@ -302,7 +304,7 @@ struct tss_struct {
 	u16 reserved5;
 	u16 io_map_base;
 	u32 io_bitmap[IO_BITMAP_SIZE];
-} __attribute__((packed));
+} __attribute__((packed)) ____cacheline_aligned;
 
 struct thread_struct {
 	unsigned long	rsp0;

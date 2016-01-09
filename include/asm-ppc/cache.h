@@ -39,6 +39,8 @@
 
 #ifndef __ASSEMBLY__
 extern void flush_dcache_range(unsigned long start, unsigned long stop);
+extern void invalidate_dcache_range(unsigned long start, unsigned long stop);
+extern void clean_dcache_range(unsigned long start, unsigned long stop);
 #endif /* __ASSEMBLY__ */
 
 /* prep registers for L2 */

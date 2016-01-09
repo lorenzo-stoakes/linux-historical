@@ -994,6 +994,27 @@ void matroxfb_read_pins(WPMINFO2) {
 	parse_bios(vaddr_va(ACCESS_FBINFO(video).vbase), &ACCESS_FBINFO(bios));
 	pci_write_config_dword(pdev, PCI_ROM_ADDRESS, biosbase);
 	pci_write_config_dword(pdev, PCI_OPTION_REG, opt);
+#ifdef CONFIG_X86
+	if (!ACCESS_FBINFO(bios).bios_valid) {
+		unsigned char* b;
+		
+		b = ioremap(0x000C0000, 65536);
+		if (!b) {
+			printk(KERN_INFO "matroxfb: Unable to map legacy BIOS\n");
+		} else {
+			unsigned int ven = readb(b+0x64+0) | (readb(b+0x64+1) << 8);
+			unsigned int dev = readb(b+0x64+2) | (readb(b+0x64+3) << 8);
+			
+			if (ven != pdev->vendor || dev != pdev->device) {
+				printk(KERN_INFO "matroxfb: Legacy BIOS is for %04X:%04X, while this device is %04X:%04X\n",
+					ven, dev, pdev->vendor, pdev->device);
+			} else {
+				parse_bios(b, &ACCESS_FBINFO(bios));
+			}
+			iounmap(b);
+		}
+	}
+#endif
 	matroxfb_set_limits(PMINFO &ACCESS_FBINFO(bios));
 }
 

@@ -146,6 +146,12 @@
 #define VIA_INTR_FM			((1<<2) |  (1<<6) | (1<<10))
 #define VIA_INTR_MASK		(VIA_INTR_OUT | VIA_INTR_IN | VIA_INTR_FM)
 
+/* Newer VIA we need to monitor the low 3 bits of each channel. This
+   mask covers the channels we don't yet use as well 
+ */
+ 
+#define VIA_NEW_INTR_MASK		0x77077777UL
+
 /* VIA_BASE0_AUDIO_xxx_CHAN_TYPE bits */
 #define VIA_IRQ_ON_FLAG			(1<<0)	/* int on each flagged scatter block */
 #define VIA_IRQ_ON_EOL			(1<<1)	/* int at end of scatter list */
@@ -300,12 +306,20 @@ struct via_info {
 	unsigned legacy: 1;	/* Has legacy ports */
 	unsigned intmask: 1;	/* Needs int bits */
 	unsigned sixchannel: 1;	/* 8233/35 with 6 channel support */
+	unsigned volume: 1;
 
 	int locked_rate : 1;
+	
+	int mixer_vol;		/* 8233/35 volume  - not yet implemented */
 
 	struct semaphore syscall_sem;
 	struct semaphore open_sem;
 
+	/* The 8233/8235 have 4 DX audio channels, two record and
+	   one six channel out. We bind ch_in to DX 1, ch_out to multichannel
+	   and ch_fm to DX 2. DX 3 and REC0/REC1 are unused at the
+	   moment */
+	   
 	struct via_channel ch_in;
 	struct via_channel ch_out;
 	struct via_channel ch_fm;
@@ -605,6 +619,9 @@ static int via_set_rate (struct ac97_codec *ac97,
 {
 	struct via_info *card = ac97->private_data;
 	int rate_reg;
+	u32 dacp;
+	u32 mast_vol, phone_vol, mono_vol, pcm_vol;
+	u32 mute_vol = 0x8000;	/* The mute volume? -- Seems to work! */
 
 	DPRINTK ("ENTER, rate = %d\n", rate);
 
@@ -621,16 +638,32 @@ static int via_set_rate (struct ac97_codec *ac97,
 	rate_reg = chan->is_record ? AC97_PCM_LR_ADC_RATE :
 			    AC97_PCM_FRONT_DAC_RATE;
 
-	via_ac97_write_reg (ac97, AC97_POWER_CONTROL,
-		(via_ac97_read_reg (ac97, AC97_POWER_CONTROL) & ~0x0200) |
-		0x0200);
+	/* Save current state */
+	dacp=via_ac97_read_reg(ac97, AC97_POWER_CONTROL);
+	mast_vol = via_ac97_read_reg(ac97, AC97_MASTER_VOL_STEREO);
+	mono_vol = via_ac97_read_reg(ac97, AC97_MASTER_VOL_MONO);
+	phone_vol = via_ac97_read_reg(ac97, AC97_HEADPHONE_VOL);
+	pcm_vol = via_ac97_read_reg(ac97, AC97_PCMOUT_VOL);
+	/* Mute - largely reduces popping */
+	via_ac97_write_reg(ac97, AC97_MASTER_VOL_STEREO, mute_vol);
+	via_ac97_write_reg(ac97, AC97_MASTER_VOL_MONO, mute_vol);
+	via_ac97_write_reg(ac97, AC97_HEADPHONE_VOL, mute_vol);
+       	via_ac97_write_reg(ac97, AC97_PCMOUT_VOL, mute_vol);
+	/* Power down the DAC */
+	via_ac97_write_reg(ac97, AC97_POWER_CONTROL, dacp|0x0200);
 
+        /* Set new rate */
 	via_ac97_write_reg (ac97, rate_reg, rate);
 
-	via_ac97_write_reg (ac97, AC97_POWER_CONTROL,
-		via_ac97_read_reg (ac97, AC97_POWER_CONTROL) & ~0x0200);
+	/* Power DAC back up */
+	via_ac97_write_reg(ac97, AC97_POWER_CONTROL, dacp);
+	udelay (200); /* reduces popping */
 
-	udelay (10);
+	/* Restore volumes */
+	via_ac97_write_reg(ac97, AC97_MASTER_VOL_STEREO, mast_vol);
+	via_ac97_write_reg(ac97, AC97_MASTER_VOL_MONO, mono_vol);
+	via_ac97_write_reg(ac97, AC97_HEADPHONE_VOL, phone_vol);
+	via_ac97_write_reg(ac97, AC97_PCMOUT_VOL, pcm_vol);
 
 	/* the hardware might return a value different than what we
 	 * passed to it, so read the rate value back from hardware
@@ -1555,7 +1588,30 @@ static int via_mixer_ioctl (struct inode *inode, struct file *file, unsigned int
 
 	rc = via_syscall_down (card, nonblock);
 	if (rc) goto out;
-
+	
+#if 0
+	/*
+	 *	Intercept volume control on 8233 and 8235
+	 */
+	if(card->volume)
+	{
+		switch(cmd)
+		{
+			case SOUND_MIXER_READ_VOLUME:
+				return card->mixer_vol;
+			case SOUND_MIXER_WRITE_VOLUME:
+			{
+				int v;
+				if(get_user(v, (int *)arg))
+				{
+					rc = -EFAULT;
+					goto out;
+				}
+				card->mixer_vol = v;
+			}
+		}
+	}		
+#endif
 	rc = codec->mixer_ioctl(codec, cmd, arg);
 
 	up (&card->syscall_sem);
@@ -1893,7 +1949,16 @@ static void via_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 static void via_new_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct via_info *card = dev_id;
+	u32 status32;
 
+	/* to minimize interrupt sharing costs, we use the SGD status
+	 * shadow register to check the status of all inputs and
+	 * outputs with a single 32-bit bus read.  If no interrupt
+	 * conditions are flagged, we exit immediately
+	 */
+	status32 = inl (card->baseaddr + VIA_BASE0_SGD_STATUS_SHADOW);
+	if (!(status32 & VIA_NEW_INTR_MASK))
+		return;
 	/*
 	 * goes away completely on UP
 	 */

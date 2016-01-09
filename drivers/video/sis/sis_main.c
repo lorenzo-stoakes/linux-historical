@@ -51,7 +51,9 @@
 #include <linux/sisfb.h>
 
 #include <asm/io.h>
+#ifdef CONFIG_MTRR
 #include <asm/mtrr.h>
+#endif
 
 #include <video/fbcon.h>
 #include <video/fbcon-cfb8.h>

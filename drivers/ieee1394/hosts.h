@@ -19,6 +19,7 @@
 #define CSR_CONFIG_ROM_SIZE       0x100
 
 struct hpsb_packet;
+struct hpsb_iso;
 
 struct hpsb_host {
         struct list_head host_list;
@@ -109,6 +110,31 @@ enum devctl_cmd {
         ISO_UNLISTEN_CHANNEL
 };
 
+enum isoctl_cmd {
+	/* rawiso API - see iso.h for the meanings of these commands
+	 * INIT = allocate resources
+	 * START = begin transmission/reception
+	 * STOP = halt transmission/reception
+	 * QUEUE/RELEASE = produce/consume packets
+	 * SHUTDOWN = deallocate resources
+	 */
+
+	XMIT_INIT,
+	XMIT_START,
+	XMIT_STOP,
+	XMIT_QUEUE,
+	XMIT_SHUTDOWN,
+
+	RECV_INIT,
+	RECV_LISTEN_CHANNEL,   /* multi-channel only */
+	RECV_UNLISTEN_CHANNEL, /* multi-channel only */
+	RECV_SET_CHANNEL_MASK, /* multi-channel only; arg is a *u64 */
+	RECV_START,
+	RECV_STOP,
+	RECV_RELEASE,
+	RECV_SHUTDOWN,
+};
+
 enum reset_types {
         /* 166 microsecond reset -- only type of reset available on
            non-1394a capable IEEE 1394 controllers */
@@ -145,6 +171,12 @@ struct hpsb_host_driver {
          * command, though that should never happen.
          */
         int (*devctl) (struct hpsb_host *host, enum devctl_cmd command, int arg);
+
+	 /* rawiso transmission/reception functions. Return 0 on success, -1
+	  * (or -EXXX errno code) on failure. If the low-level driver does not
+	  * support the rawiso API, set isoctl to NULL.
+	  */
+	int (*isoctl) (struct hpsb_iso *iso, enum isoctl_cmd command, unsigned long arg);
 
         /* This function is mainly to redirect local CSR reads/locks to the iso
          * management registers (bus manager id, bandwidth available, channels

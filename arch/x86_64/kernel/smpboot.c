@@ -410,8 +410,6 @@ void __init smp_callin(void)
 	 */
  	smp_store_cpu_info(cpuid);
 
-	notify_die(DIE_CPUINIT, "cpuinit", NULL, 0);
-
 	/*
 	 * Allow the master to continue.
 	 */

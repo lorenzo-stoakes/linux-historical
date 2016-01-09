@@ -431,7 +431,7 @@ static void floppy_off (unsigned int nr)
 	motor_off_timer[drive].expires = jiffies + 3*HZ;
 	/* called this way it is always from interrupt */
 	motor_off_timer[drive].data = nr | 0x80000000;
-	add_timer(motor_off_timer + nr);
+	add_timer(motor_off_timer + drive);
 }
 
 static int fd_calibrate(int drive)

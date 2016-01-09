@@ -37,6 +37,7 @@
 #include <linux/cdrom.h>
 #include <linux/loop.h>
 #include <linux/auto_fs.h>
+#include <linux/auto_fs4.h>
 #include <linux/devfs_fs.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>
@@ -3219,6 +3220,175 @@ static int do_lvm_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 }
 #endif
 
+#if defined(CONFIG_IEEE1394) || defined(CONFIG_IEEE1394_MODULE)
+#include "../../../drivers/ieee1394/ieee1394-ioctl.h"
+#include "../../../drivers/ieee1394/amdtp.h"
+#include "../../../drivers/ieee1394/dv1394.h"
+#include "../../../drivers/ieee1394/video1394.h"
+
+#define DV1394_IOC32_INIT	_IOW('#', 0x06, struct dv1394_init32)
+#define DV1394_IOC32_GET_STATUS	_IOR('#', 0x0c, struct dv1394_status32)
+
+struct dv1394_init32 {
+	u32 api_version;
+	u32 channel;
+	u32 n_frames;
+	u32 format;
+	u32 cip_n;
+	u32 cip_d;
+	u32 syt_offset;
+};
+
+struct dv1394_status32 {
+	struct dv1394_init32 init;
+	s32 active_frame;
+	u32 first_clear_frame;
+	u32 n_clear_frames;
+	u32 dropped_frames;
+};
+
+static int handle_dv1394_init(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct dv1394_init32 dv32;
+	struct dv1394_init dv;
+	mm_segment_t old_fs;
+	int ret;
+
+	if (copy_from_user(&dv32, (void *)arg, sizeof(dv32)))
+		return -EFAULT;
+
+	dv.api_version = dv32.api_version;
+	dv.channel = dv32.channel;
+	dv.n_frames = dv32.n_frames;
+	dv.format = dv32.format;
+	dv.cip_n = (unsigned long)dv32.cip_n;
+	dv.cip_d = (unsigned long)dv32.cip_d;
+	dv.syt_offset = dv32.syt_offset;
+
+        old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	ret = sys_ioctl(fd, DV1394_IOC_INIT, (unsigned long) &dv);
+	set_fs(old_fs);
+
+	return ret;
+}
+
+static int handle_dv1394_get_status(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct dv1394_status32 dv32;
+	struct dv1394_status dv;
+	mm_segment_t old_fs;
+	int ret;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	ret = sys_ioctl(fd, DV1394_IOC_GET_STATUS, (unsigned long) &dv);
+	set_fs(old_fs);
+
+	if (!ret) {
+		dv32.init.api_version = dv.init.api_version;
+		dv32.init.channel = dv.init.channel;
+		dv32.init.n_frames = dv.init.n_frames;
+		dv32.init.format = dv.init.format;
+		dv32.init.cip_n = (u32)dv.init.cip_n;
+		dv32.init.cip_d = (u32)dv.init.cip_d;
+		dv32.init.syt_offset = dv.init.syt_offset;
+		dv32.active_frame = dv.active_frame;
+		dv32.first_clear_frame = dv.first_clear_frame;
+		dv32.n_clear_frames = dv.n_clear_frames;
+		dv32.dropped_frames = dv.dropped_frames;
+
+		if (copy_to_user((struct dv1394_status32 *)arg, &dv32, sizeof(dv32)))
+			ret = -EFAULT;
+	}
+
+	return ret;
+}
+
+#define VIDEO1394_IOC32_LISTEN_QUEUE_BUFFER	\
+	_IOW ('#', 0x12, struct video1394_wait32)
+#define VIDEO1394_IOC32_LISTEN_WAIT_BUFFER	\
+	_IOWR('#', 0x13, struct video1394_wait32)
+#define VIDEO1394_IOC32_TALK_WAIT_BUFFER	\
+        _IOW ('#', 0x17, struct video1394_wait32)
+#define VIDEO1394_IOC32_LISTEN_POLL_BUFFER	\
+        _IOWR('#', 0x18, struct video1394_wait32)
+
+struct video1394_wait32 {
+	u32 channel;
+	u32 buffer;
+        struct timeval32 filltime;
+};
+
+static int video1394_wr_wait32(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct video1394_wait32 wait32;
+	struct video1394_wait wait;
+	mm_segment_t old_fs;
+	int ret;
+
+	if (copy_from_user(&wait32, (void *)arg, sizeof(wait32)))
+		return -EFAULT;
+
+	wait.channel = wait32.channel;
+	wait.buffer = wait32.buffer;
+	wait.filltime.tv_sec = (time_t)wait32.filltime.tv_sec;
+	wait.filltime.tv_usec = (suseconds_t)wait32.filltime.tv_usec;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	if (cmd == VIDEO1394_IOC32_LISTEN_WAIT_BUFFER)
+		ret = sys_ioctl(fd, VIDEO1394_IOC_LISTEN_WAIT_BUFFER, (unsigned long) &wait);
+	else
+		ret = sys_ioctl(fd, VIDEO1394_IOC_LISTEN_POLL_BUFFER, (unsigned long) &wait);
+	set_fs(old_fs);
+
+	if (!ret) {
+		wait32.channel = wait.channel;
+		wait32.buffer = wait.buffer;
+		wait32.filltime.tv_sec = (int)wait.filltime.tv_sec;
+		wait32.filltime.tv_usec = (int)wait.filltime.tv_usec;
+
+		if (copy_to_user((struct video1394_wait32 *)arg, &wait32, sizeof(wait32)))
+			ret = -EFAULT;
+	}
+
+	return ret;
+}
+
+static int video1394_w_wait32(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct video1394_wait32 wait32;
+	struct video1394_wait wait;
+	mm_segment_t old_fs;
+	int ret;
+
+	if (copy_from_user(&wait32, (void *)arg, sizeof(wait32)))
+		return -EFAULT;
+
+	wait.channel = wait32.channel;
+	wait.buffer = wait32.buffer;
+	wait.filltime.tv_sec = (time_t)wait32.filltime.tv_sec;
+	wait.filltime.tv_usec = (suseconds_t)wait32.filltime.tv_usec;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	if (cmd == VIDEO1394_IOC32_LISTEN_QUEUE_BUFFER)
+		ret = sys_ioctl(fd, VIDEO1394_IOC_LISTEN_QUEUE_BUFFER, (unsigned long) &wait);
+	else
+		ret = sys_ioctl(fd, VIDEO1394_IOC_TALK_WAIT_BUFFER, (unsigned long) &wait);
+	set_fs(old_fs);
+
+	return ret;
+}
+
+static int video1394_queue_buf32(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return -EFAULT;
+}
+
+#endif /* CONFIG_IEEE1394 */
+
 #if defined(CONFIG_DRM_NEW) || defined(CONFIG_DRM_NEW_MODULE)
 /* This really belongs in include/linux/drm.h -DaveM */
 #include "../../../drivers/char/drm/drm.h"
@@ -4318,6 +4488,7 @@ COMPATIBLE_IOCTL(TCSETA)
 COMPATIBLE_IOCTL(TCSETAW)
 COMPATIBLE_IOCTL(TCSETAF)
 COMPATIBLE_IOCTL(TCSBRK)
+COMPATIBLE_IOCTL(TCSBRKP)
 COMPATIBLE_IOCTL(TCXONC)
 COMPATIBLE_IOCTL(TCFLSH)
 COMPATIBLE_IOCTL(TCGETS)
@@ -4881,6 +5052,7 @@ COMPATIBLE_IOCTL(AUTOFS_IOC_FAIL)
 COMPATIBLE_IOCTL(AUTOFS_IOC_CATATONIC)
 COMPATIBLE_IOCTL(AUTOFS_IOC_PROTOVER)
 COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE)
+COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE_MULTI)
 /* DEVFS */
 COMPATIBLE_IOCTL(DEVFSDIOC_GET_PROTO_REV)
 COMPATIBLE_IOCTL(DEVFSDIOC_SET_EVENT_MASK)
@@ -5049,7 +5221,33 @@ COMPATIBLE_IOCTL(NBD_CLEAR_QUE)
 COMPATIBLE_IOCTL(NBD_PRINT_DEBUG)
 COMPATIBLE_IOCTL(NBD_SET_SIZE_BLOCKS)
 COMPATIBLE_IOCTL(NBD_DISCONNECT)
+/* Linux-1394 */
+#if defined(CONFIG_IEEE1394) || defined(CONFIG_IEEE1394_MODULE)
+COMPATIBLE_IOCTL(AMDTP_IOC_CHANNEL)
+COMPATIBLE_IOCTL(AMDTP_IOC_PLUG)
+COMPATIBLE_IOCTL(AMDTP_IOC_PING)
+COMPATIBLE_IOCTL(AMDTP_IOC_ZAP)
+COMPATIBLE_IOCTL(DV1394_IOC_SHUTDOWN)
+COMPATIBLE_IOCTL(DV1394_IOC_SUBMIT_FRAMES)
+COMPATIBLE_IOCTL(DV1394_IOC_WAIT_FRAMES)
+COMPATIBLE_IOCTL(DV1394_IOC_RECEIVE_FRAMES)
+COMPATIBLE_IOCTL(DV1394_IOC_START_RECEIVE)
+COMPATIBLE_IOCTL(VIDEO1394_IOC_LISTEN_CHANNEL)
+COMPATIBLE_IOCTL(VIDEO1394_IOC_UNLISTEN_CHANNEL)
+COMPATIBLE_IOCTL(VIDEO1394_IOC_TALK_CHANNEL)
+COMPATIBLE_IOCTL(VIDEO1394_IOC_UNTALK_CHANNEL)
+#endif
+
 /* And these ioctls need translation */
+#if defined(CONFIG_IEEE1394) || defined(CONFIG_IEEE1394_MODULE)
+HANDLE_IOCTL(DV1394_IOC32_INIT, handle_dv1394_init)
+HANDLE_IOCTL(DV1394_IOC32_GET_STATUS, handle_dv1394_get_status)
+HANDLE_IOCTL(VIDEO1394_IOC32_LISTEN_QUEUE_BUFFER, video1394_w_wait32)
+HANDLE_IOCTL(VIDEO1394_IOC32_LISTEN_WAIT_BUFFER, video1394_wr_wait32)
+HANDLE_IOCTL(VIDEO1394_IOC_TALK_QUEUE_BUFFER, video1394_queue_buf32)
+HANDLE_IOCTL(VIDEO1394_IOC32_TALK_WAIT_BUFFER, video1394_w_wait32)
+HANDLE_IOCTL(VIDEO1394_IOC32_LISTEN_POLL_BUFFER, video1394_wr_wait32)
+#endif
 HANDLE_IOCTL(MEMREADOOB32, mtd_rw_oob)
 HANDLE_IOCTL(MEMWRITEOOB32, mtd_rw_oob)
 #ifdef CONFIG_NET

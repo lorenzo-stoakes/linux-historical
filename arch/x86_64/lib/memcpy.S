@@ -24,16 +24,16 @@ memcpy:
 #ifdef FIX_ALIGNMENT
 	movl %edi,%ecx
 	andl $7,%ecx
-	jnz  bad_alignment	
-after_bad_alignment:
+	jnz  .Lbad_alignment	
+.Lafter_bad_alignment:
 #endif
 
 	movq %rdx,%rcx
 	movl $64,%ebx
 	shrq $6,%rcx
-	jz handle_tail
+	jz .Lhandle_tail
 	
-loop_64:
+.Lloop_64:
 	movq (%rsi),%r11
 	movq 8(%rsi),%r8
 	movq 2*8(%rsi),%r9
@@ -55,35 +55,35 @@ loop_64:
 	addq %rbx,%rsi	
 	addq %rbx,%rdi
 	decl %ecx
-	jnz  loop_64
+	jnz  .Lloop_64
 
-handle_tail:
+.Lhandle_tail:
 	movl %edx,%ecx
 	andl $63,%ecx
 	shrl $3,%ecx
-	jz   handle_7
+	jz   .Lhandle_7
 	movl $8,%ebx
-loop_8: 
+.Lloop_8: 
 	movq (%rsi),%r8
 	movq %r8,(%rdi) 
 	addq %rbx,%rdi
 	addq %rbx,%rsi
 	decl %ecx
-	jnz  loop_8
+	jnz  .Lloop_8
 
-handle_7:
+.Lhandle_7:
 	movl %edx,%ecx
 	andl $7,%ecx
-	jz ende
-loop_1:
+	jz .Lende
+.Lloop_1:
 	movb (%rsi),%r8b
 	movb %r8b,(%rdi) 
 	incq %rdi
 	incq %rsi
 	decl %ecx
-	jnz loop_1
+	jnz .Lloop_1
 	
-ende: 	
+.Lende: 	
 	sfence
 	popq %rbx
 	ret
@@ -93,22 +93,22 @@ ende:
 	/* align destination */
 	/* This is simpleminded. For bigger blocks it may make sense to align
 	   src and dst to their aligned subset and handle the rest separately */
-bad_alignment:
+.Lbad_alignment:
 	movl $8,%r9d
 	subl %ecx,%r9d
 	movl %r9d,%ecx
 	subq %r9,%rdx
-	js   small_alignment
-	jz   small_alignment
-align_1:
+	js   .Lsmall_alignment
+	jz   .Lsmall_alignment
+.Lalign_1:
 	movb (%rsi),%r8b
 	movb %r8b,(%rdi) 
 	incq %rdi
 	incq %rsi
 	decl %ecx
-	jnz  align_1
-	jmp after_bad_alignment
-small_alignment:
+	jnz  .Lalign_1
+	jmp .Lafter_bad_alignment
+.Lsmall_alignment:
 	addq %r9,%rdx
-	jmp handle_7
+	jmp .Lhandle_7
 #endif	

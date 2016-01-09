@@ -257,6 +257,13 @@ M:	layes@loran.com
 L:	linux-net@vger.kernel.org
 S:	Maintained
 
+ATM
+P:	Chas Williams
+M:	chas@cmf.nrl.navy.mil
+L:	linux-atm-general@lists.sourceforge.net
+W:	http://linux-atm.sourceforge.net
+S:	Maintained
+
 AX.25 NETWORK LAYER
 P:	Matthias Welwarsky
 M:	dg2fef@afthd.tu-darmstadt.de
@@ -306,6 +313,15 @@ P:	Marcel Holtmann
 M:	marcel@holtmann.org
 W:	http://www.holtmann.org/linux/bluetooth/
 S:	Maintained
+
+BONDING DRIVER
+P:   Chad Tindel
+M:   ctindel@users.sourceforge.net
+P:   Jay Vosburgh
+M:   fubar@us.ibm.com
+L:   bonding-devel@lists.sourceforge.net
+W:   http://sourceforge.net/projects/bonding/
+S:   Supported
 
 BTTV VIDEO4LINUX DRIVER
 P:	Gerd Knorr
@@ -1157,6 +1173,8 @@ P:	Alexey Kuznetsov
 M:	kuznet@ms2.inr.ac.ru
 P:	Pekka Savola (ipv6)
 M:	pekkas@netcore.fi
+P:	James Morris
+M:	jmorris@intercode.com.au
 L:	netdev@oss.sgi.com
 S:	Maintained
 

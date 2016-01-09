@@ -67,6 +67,14 @@
 	.text
 _GLOBAL(_stext)
 _GLOBAL(_start)
+
+	/* To accomodate some SMP systems that overwrite the first few
+	 * locations before cpu 0 starts, the bootloader starts us at 0xc.
+	 */
+	nop
+	nop
+	nop
+
 	## Save residual data, init RAM disk, and command line parameters
 	
 	mr	r31,r3

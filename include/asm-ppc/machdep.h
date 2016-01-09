@@ -104,6 +104,9 @@ struct machdep_calls {
 	 */
 	int (*feature_call)(unsigned int feature, ...);
 
+	/* Hook for board-specific info passed by the bootloader */
+	void (*board_info)(void *bdinfo, int bdinfo_size);
+
 #ifdef CONFIG_SMP
 	/* functions for dealing with other cpus */
 	struct smp_ops_t *smp_ops;

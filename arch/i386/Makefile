@@ -90,6 +90,10 @@ CFLAGS += $(call check_gcc,-march=c3,-march=i486)
 CFLAGS += $(call check_gcc,-falign-functions=0 -falign-jumps=0 -falign-loops=0,-malign-functions=0 -malign-jumps=0 -malign-loops=0)
 endif
 
+ifdef CONFIG_MVIAC3_2
+CFLAGS += $(call check_gcc,-march=c3-2,-march=i686)
+endif
+
 HEAD := arch/i386/kernel/head.o arch/i386/kernel/init_task.o
 
 SUBDIRS += arch/i386/kernel arch/i386/mm arch/i386/lib

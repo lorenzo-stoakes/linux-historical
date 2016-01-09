@@ -9,7 +9,7 @@
  *  X86-64 port
  *	Andi Kleen.
  * 
- *  $Id: process.c,v 1.61 2003/02/11 03:08:27 kkeil Exp $
+ *  $Id: process.c,v 1.63 2003/02/19 13:23:19 ak Exp $
  */
 
 /*
@@ -242,7 +242,6 @@ void machine_restart(char * __unused)
 	 * Stop all CPUs and turn off local APICs and the IO-APIC, so
 	 * other OSs see a clean IRQ state.
 	 */
-	if (notify_die(DIE_STOP,"cpustop",0,0) != NOTIFY_BAD)
 		smp_send_stop();
 	disable_IO_APIC();
 #endif
@@ -319,6 +318,8 @@ void show_regs(struct pt_regs * regs)
 	       fs,fsindex,gs,gsindex,shadowgs); 
 	printk("CS:  %04x DS: %04x ES: %04x CR0: %016lx\n", cs, ds, es, cr0); 
 	printk("CR2: %016lx CR3: %016lx CR4: %016lx\n", cr2, cr3, cr4);
+
+	show_trace(&regs->rsp);
 }
 
 /*

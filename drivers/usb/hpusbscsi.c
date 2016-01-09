@@ -127,6 +127,9 @@ hpusbscsi_usb_probe (struct usb_device *dev, unsigned int interface,
 	init_waitqueue_head (&new->deathrow);
 	init_MUTEX(&new->lock);
 	INIT_LIST_HEAD (&new->lh);
+	
+	if (id->idVendor == 0x0686 && id->idProduct == 0x4004)
+		new->need_short_workaround = 1;
 
 
 
@@ -340,7 +343,7 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 {
 	struct hpusbscsi* hpusbscsi = (struct hpusbscsi*)(srb->host->hostdata[0]);
 	usb_urb_callback usb_callback;
-	int res;
+	int res, passed_length;
 
 	spin_unlock_irq(&io_request_lock);
 
@@ -359,6 +362,19 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 		callback(srb);
 		goto out;
 	}
+	
+	/* otto fix - the Scan Elite II has a 5 second
+	* delay anytime the srb->cmd_len=6
+	* This causes it to run very slowly unless we
+	* pad the command length to 10 */
+        
+	if (hpusbscsi -> need_short_workaround && srb->cmd_len < 10) {
+		memset(srb->cmnd + srb->cmd_len, 0, 10 - srb->cmd_len);
+		passed_length = 10;
+	} else {
+		passed_length = srb->cmd_len;
+	}
+        
 
 	/* Now we need to decide which callback to give to the urb we send the command with */
 
@@ -404,7 +420,7 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 		hpusbscsi->dev,
 		usb_sndbulkpipe(hpusbscsi->dev,hpusbscsi->ep_out),
 		srb->cmnd,
-		srb->cmd_len,
+		passed_length,
 		usb_callback,
 		hpusbscsi
 	);

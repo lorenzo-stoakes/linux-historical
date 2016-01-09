@@ -1843,7 +1843,7 @@ do_gettimeofday:	/* %o0 = timevalp */
 	sub	%o1, %g7, %o1
 	mulx	%o3, %o1, %o1
 	brz,pt	%o2, 1f
-	 srlx	%o1, 32, %o1
+	 srlx	%o1, 30, %o1
 	sethi	%hi(10000), %g2
 	or	%g2, %lo(10000), %g2
 	add	%o1, %g2, %o1

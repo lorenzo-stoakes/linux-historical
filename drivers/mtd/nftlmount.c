@@ -94,7 +94,7 @@ static int find_boot_record(struct NFTLrecord *nftl)
 
 		/* To be safer with BIOS, also use erase mark as discriminant */
 		if ((ret = MTD_READOOB(nftl->mtd, block * nftl->EraseSize + SECTORSIZE + 8,
-				8, &retlen, (char *)&h1) < 0)) {
+				8, &retlen, (char *)&h1)) < 0) {
 			printk(KERN_WARNING "ANAND header found at 0x%x in mtd%d, but OOB data read failed (err %d)\n",
 			       block * nftl->EraseSize, nftl->mtd->index, ret);
 			continue;
@@ -113,7 +113,7 @@ static int find_boot_record(struct NFTLrecord *nftl)
 
 		/* Finally reread to check ECC */
 		if ((ret = MTD_READECC(nftl->mtd, block * nftl->EraseSize, SECTORSIZE,
-				&retlen, buf, (char *)&oob, NAND_ECC_DISKONCHIP) < 0)) {
+				&retlen, buf, (char *)&oob, NAND_ECC_DISKONCHIP)) < 0) {
 			printk(KERN_NOTICE "ANAND header found at 0x%x in mtd%d, but ECC read failed (err %d)\n",
 			       block * nftl->EraseSize, nftl->mtd->index, ret);
 			continue;

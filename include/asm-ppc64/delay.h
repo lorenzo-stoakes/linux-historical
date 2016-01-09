@@ -45,6 +45,13 @@ static inline void udelay(unsigned long usecs)
 
 	__delay(loops);
 }
+
+static inline void ndelay(unsigned long nsecs)
+{
+	unsigned long loops = (tb_ticks_per_usec * nsecs) / 1000;
+
+	__delay(loops);
+}
 #endif /* !__ASSEMBLY__ */
 
 #endif /* _PPC64_DELAY_H */

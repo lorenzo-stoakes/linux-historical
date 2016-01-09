@@ -53,23 +53,24 @@ obj-$(CONFIG_USB)		+= usbcore.o
 
 # EHCI should initialize/link before the other HCDs
 ifeq ($(CONFIG_USB_EHCI_HCD),y)
-	obj-y += hcd/ehci-hcd.o
+	obj-y += host/ehci-hcd.o
 endif
-
-obj-$(CONFIG_USB_UHCI)		+= usb-uhci.o
-obj-$(CONFIG_USB_UHCI_ALT)	+= uhci.o
-obj-$(CONFIG_USB_OHCI)		+= usb-ohci.o
 
 ifneq ($(CONFIG_USB_EHCI_HCD),n)
 	usbcore-objs		+= hcd.o
 endif
-subdir-$(CONFIG_USB_EHCI_HCD)	+= hcd
+
+subdir-$(CONFIG_USB_EHCI_HCD)	+= host
+subdir-$(CONFIG_USB_UHCI_ALT)	+= host
+subdir-$(CONFIG_USB_UHCI)	+= host
+subdir-$(CONFIG_USB_OHCI)	+= host
 
 obj-$(CONFIG_USB_MOUSE)		+= usbmouse.o
 obj-$(CONFIG_USB_HID)		+= hid.o
 obj-$(CONFIG_USB_KBD)		+= usbkbd.o
 obj-$(CONFIG_USB_AIPTEK)	+= aiptek.o
 obj-$(CONFIG_USB_WACOM)		+= wacom.o
+obj-$(CONFIG_USB_KBTAB)		+= kbtab.o
 obj-$(CONFIG_USB_POWERMATE)	+= powermate.o
 
 obj-$(CONFIG_USB_SCANNER)	+= scanner.o
@@ -106,7 +107,7 @@ obj-$(CONFIG_USB_BRLVGER)	+= brlvger.o
 obj-$(CONFIG_USB_LCD)		+= usblcd.o
 
 # Object files in subdirectories
-mod-subdirs	:= serial hcd
+mod-subdirs	:= serial host
 
 subdir-$(CONFIG_USB_SERIAL)	+= serial
 subdir-$(CONFIG_USB_STORAGE)	+= storage

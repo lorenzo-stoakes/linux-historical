@@ -782,7 +782,7 @@ out_err:
  * cases, we know no other thread can recycle our address, since we must
  * already have been serialized enough to prevent that.
  */
-static void call_policy (char *verb, struct usb_device *dev)
+static void call_policy_interface (char *verb, struct usb_device *dev, int interface)
 {
 	char *argv [3], **envp, *buf, *scratch;
 	int i = 0, value;
@@ -861,20 +861,14 @@ static void call_policy (char *verb, struct usb_device *dev)
 			    dev->descriptor.bDeviceSubClass,
 			    dev->descriptor.bDeviceProtocol) + 1;
 	if (dev->descriptor.bDeviceClass == 0) {
-		int alt = dev->actconfig->interface [0].act_altsetting;
+		int alt = dev->actconfig->interface [interface].act_altsetting;
 
-		/* a simple/common case: one config, one interface, one driver
-		 * with current altsetting being a reasonable setting.
-		 * everything needs a smart agent and usbdevfs; or can rely on
-		 * device-specific binding policies.
-		 */
 		envp [i++] = scratch;
 		scratch += sprintf (scratch, "INTERFACE=%d/%d/%d",
-			dev->actconfig->interface [0].altsetting [alt].bInterfaceClass,
-			dev->actconfig->interface [0].altsetting [alt].bInterfaceSubClass,
-			dev->actconfig->interface [0].altsetting [alt].bInterfaceProtocol)
+			dev->actconfig->interface [interface].altsetting [alt].bInterfaceClass,
+			dev->actconfig->interface [interface].altsetting [alt].bInterfaceSubClass,
+			dev->actconfig->interface [interface].altsetting [alt].bInterfaceProtocol)
 			+ 1;
-		/* INTERFACE-0, INTERFACE-1, ... ? */
 	}
 	envp [i++] = 0;
 	/* assert: (scratch - buf) < sizeof buf */
@@ -887,6 +881,14 @@ static void call_policy (char *verb, struct usb_device *dev)
 	kfree (envp);
 	if (value != 0)
 		dbg ("kusbd policy returned 0x%x", value);
+}
+
+static void call_policy (char *verb, struct usb_device *dev)
+{
+	int i;
+	for (i = 0; i < dev->actconfig->bNumInterfaces; i++) {
+		call_policy_interface (verb, dev, i);
+	}
 }
 
 #else

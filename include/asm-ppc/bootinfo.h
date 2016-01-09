@@ -29,6 +29,7 @@ struct bi_record {
 #define BI_SYSMAP		0x1015
 #define BI_MACHTYPE		0x1016
 #define BI_MEMSIZE		0x1017
+#define BI_BOARD_INFO		0x1018
 
 extern struct bi_record *find_bootinfo(void);
 extern void parse_bootinfo(struct bi_record *rec);

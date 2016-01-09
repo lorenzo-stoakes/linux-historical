@@ -4936,7 +4936,7 @@ static int megadev_ioctl (struct inode *inode, struct file *filep,
 		if( ioc.mbox[0] == MEGA_MBOXCMD_PASSTHRU ) {
 			put_user( scsicmd->result, &uioc->pthru.scsistatus );
 			if (copy_to_user( uioc->pthru.reqsensearea, scsicmd->sense_buffer,
-							  MAX_REQ_SENSE_LEN ));
+							  MAX_REQ_SENSE_LEN ))
 				ret= -EFAULT;
 		} else {
 			put_user(1, &uioc->mbox[16]);	/* numstatus */

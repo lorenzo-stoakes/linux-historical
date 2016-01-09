@@ -265,7 +265,7 @@ struct sbp2_status_block {
 #define SBP2_CLUSTERING			ENABLE_CLUSTERING
 #define SBP2_MAX_SG_ELEMENT_LENGTH	0xf000
 #define SBP2SCSI_MAX_SCSI_IDS		16	/* Max sbp2 device instances supported */
-#define SBP2SCSI_MAX_OUTSTANDING_CMDS	8	/* Max total outstanding sbp2 commands allowed at a time! */
+#define SBP2SCSI_MAX_OUTSTANDING_CMDS	64	/* Max total outstanding sbp2 commands allowed at a time! */
 #define SBP2SCSI_MAX_CMDS_PER_LUN	1 	/* Max outstanding sbp2 commands per device - tune as needed */
 #define SBP2_MAX_SECTORS		255	/* Max sectors supported */
 
@@ -319,7 +319,7 @@ struct sbp2_request_packet {
 
 	struct list_head list;
 	struct hpsb_packet *packet;
-	struct hpsb_queue_struct tq;
+	struct tq_struct tq;
 	void *hi_context;
 
 };

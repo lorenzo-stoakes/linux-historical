@@ -433,7 +433,7 @@ extern void release_thread(struct task_struct *);
 /*
  * create a kernel thread without removing it from tasklists
  */
-extern int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
+extern int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
 /* Copy and release all segment info associated with a VM */
 extern void copy_segments(struct task_struct *p, struct mm_struct * mm);
@@ -483,7 +483,7 @@ static inline void rep_nop(void)
 #define cpu_relax()	rep_nop()
 
 /* Prefetch instructions for Pentium III and AMD Athlon */
-#ifdef 	CONFIG_MPENTIUMIII
+#if defined(CONFIG_MPENTIUMIII) || defined (CONFIG_MPENTIUM4)
 
 #define ARCH_HAS_PREFETCH
 extern inline void prefetch(const void *x)

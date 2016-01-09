@@ -220,6 +220,7 @@ static inline int check_ibf(struct kcs_data *kcs,
 		kcs->ibf_timeout -= time;
 		if (kcs->ibf_timeout < 0) {
 			start_error_recovery(kcs, "IBF not ready in time");
+			kcs->ibf_timeout = IBF_RETRY_TIMEOUT;
 			return 1;
 		}
 		return 0;
@@ -331,6 +332,9 @@ enum kcs_result kcs_event(struct kcs_data *kcs, long time)
 
 	switch (kcs->state) {
 	case KCS_IDLE:
+		/* If there's and interrupt source, turn it off. */
+		clear_obf(kcs, status);
+
 		if (GET_STATUS_ATN(status))
 			return KCS_ATTN;
 		else
@@ -398,13 +402,20 @@ enum kcs_result kcs_event(struct kcs_data *kcs, long time)
 				"Not in read or idle in read state");
 			break;
 		}
-		if (! check_obf(kcs, status, time))
-			return KCS_CALL_WITH_DELAY;
 
 		if (state == KCS_READ_STATE) {
+			if (! check_obf(kcs, status, time))
+				return KCS_CALL_WITH_DELAY;
 			read_next_byte(kcs);
 		} else {
-			read_data(kcs);
+			/* We don't implement this exactly like the state
+			   machine in the spec.  Some broken hardware
+			   does not write the final dummy byte to the
+			   read register.  Thus obf will never go high
+			   here.  We just go straight to idle, and we
+			   handle clearing out obf in idle state if it
+			   happens to come in. */
+			clear_obf(kcs, status);
 			kcs->orig_write_count = 0;
 			kcs->state = KCS_IDLE;
 			return KCS_TRANSACTION_COMPLETE;

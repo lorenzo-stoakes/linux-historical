@@ -42,7 +42,8 @@ choice 'Processor family' \
 	 Winchip-C6				CONFIG_MWINCHIPC6 \
 	 Winchip-2				CONFIG_MWINCHIP2 \
 	 Winchip-2A/Winchip-3			CONFIG_MWINCHIP3D \
-	 CyrixIII/VIA-C3/VIA-C5			CONFIG_MCYRIXIII" Pentium-Pro
+	 CyrixIII/VIA-C3			CONFIG_MCYRIXIII \
+	 VIA-C3-2				CONFIG_MVIAC3_2" Pentium-Pro
 #
 # Define implied options from the CPU selection here
 #
@@ -153,6 +154,14 @@ if [ "$CONFIG_MCYRIXIII" = "y" ]; then
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_USE_3DNOW y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
+fi
+if [ "$CONFIG_MVIAC3_2" = "y" ]; then
+   define_int  CONFIG_X86_L1_CACHE_SHIFT 5
+   define_bool CONFIG_X86_HAS_TSC y
+   define_bool CONFIG_X86_ALIGNMENT_16 y
+   define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MCRUSOE" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5

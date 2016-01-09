@@ -6,7 +6,7 @@
  * Instead the northbridge registers are read directly. 
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: k8topology.c,v 1.4 2003/02/11 04:52:33 ak Exp $
+ * $Id: k8topology.c,v 1.5 2003/03/10 14:33:40 ak Exp $
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -23,7 +23,7 @@
 int memnode_shift;
 u8  memnodemap[NODEMAPSIZE];
 
-static int find_northbridge(void)
+static __init int find_northbridge(void)
 {
 	int num; 
 
@@ -53,7 +53,7 @@ struct node {
 #define for_all_nodes(n) \
 	for (n=0; n<MAXNODE;n++) if (nodes[n].start!=nodes[n].end)
 
-static int compute_hash_shift(struct node *nodes, int numnodes, u64 maxmem)
+static __init int compute_hash_shift(struct node *nodes, int numnodes, u64 maxmem)
 {
 	int i; 
 	int shift = 24;

@@ -404,7 +404,7 @@ void __init init_IRQ(void)
 	 */
 	for (i = 0; i < NR_IRQS; i++) {
 		int vector = FIRST_EXTERNAL_VECTOR + i;
-		if (vector != IA32_SYSCALL_VECTOR && vector != KDBENTER_VECTOR) {
+		if (vector != IA32_SYSCALL_VECTOR) {
 			set_intr_gate(vector, interrupt[i]);
 		}
 	}

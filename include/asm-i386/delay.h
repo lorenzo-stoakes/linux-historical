@@ -11,7 +11,7 @@ extern void __bad_udelay(void);
 extern void __bad_ndelay(void);
 
 extern void __udelay(unsigned long usecs);
-extern void __ndelay(unsigned long usecs);
+extern void __ndelay(unsigned long nsecs);
 extern void __const_udelay(unsigned long usecs);
 extern void __delay(unsigned long loops);
 

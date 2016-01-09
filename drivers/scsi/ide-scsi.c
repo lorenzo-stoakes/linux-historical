@@ -1107,7 +1107,12 @@ int idescsi_reset (Scsi_Cmnd *cmd, unsigned int resetflags)
 {
 	ide_drive_t *drive	= idescsi_drives[cmd->target];
 
+	/* We cannot reset the interface holding the lock. We can
+	   drop the lock here however */
+	   
+	spin_unlock(&io_request_lock);
 	(void) ide_do_reset(drive);
+	spin_lock(&io_request_lock);
 	return SCSI_RESET_SUCCESS;
 }
 

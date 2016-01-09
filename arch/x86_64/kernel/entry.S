@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.89 2003/02/11 03:08:27 kkeil Exp $		
+ *  $Id: entry.S,v 1.93 2003/02/20 12:52:08 ak Exp $		
  */
 
 /*
@@ -86,6 +86,7 @@ ENTRY(ret_from_fork)
 2:
 	movq %rsp,%rdi	
 	call syscall_trace
+	GET_CURRENT(%rcx)
 	jmp 1b
 
 /*
@@ -310,8 +311,13 @@ ENTRY(common_interrupt)
 	je   1f
 	swapgs
 1:	cld
+#ifdef CONFIG_KGDB
+	SAVE_ALL
+	movq %rsp,%rdi
+#else			
 	SAVE_ARGS
 	leaq -ARGOFFSET(%rsp),%rdi	# arg1 for handler
+#endif	
 	addl $1,PDAREF(pda_irqcount)	# XXX: should be merged with irq.c irqcount
 	movq PDAREF(pda_irqstackptr),%rax
 	cmoveq %rax,%rsp
@@ -518,7 +524,7 @@ ENTRY(load_gs_index)
 	swapgs
 gs_change:	
 	movl %edi,%gs	
-2:	sfence
+2:	mfence
 	swapgs
 	popf
 	ret
@@ -609,18 +615,6 @@ ENTRY(execve)
 	ret
 
 ENTRY(page_fault)
-#ifdef CONFIG_KDB
-	pushq %rcx
-	pushq %rdx
-	pushq %rax
-	movl  $473,%ecx
-	rdmsr
-	andl  $0xfffffffe,%eax		/* Disable last branch recording */
-	wrmsr
-	popq  %rax
-	popq  %rdx
-	popq  %rcx
-#endif	
 	errorentry do_page_fault
 
 ENTRY(coprocessor_error)

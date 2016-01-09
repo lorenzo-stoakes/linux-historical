@@ -26,7 +26,7 @@ asmlinkage long long __muldi3 (long long, long long);
 extern char m68k_debug_device[];
 
 extern void dump_thread(struct pt_regs *, struct user *);
-extern int dump_fpu(elf_fpregset_t *);
+extern int dump_fpu (struct pt_regs *regs, struct user_m68kfp_struct *fpu);
 
 /* platform dependent support */
 
