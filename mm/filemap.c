@@ -154,11 +154,14 @@ void set_page_dirty(struct page *page)
 
 		if (mapping) {
 			spin_lock(&pagecache_lock);
-			list_del(&page->list);
-			list_add(&page->list, &mapping->dirty_pages);
+			mapping = page->mapping;
+			if (mapping) {	/* may have been truncated */
+				list_del(&page->list);
+				list_add(&page->list, &mapping->dirty_pages);
+			}
 			spin_unlock(&pagecache_lock);
 
-			if (mapping->host)
+			if (mapping && mapping->host)
 				mark_inode_dirty_pages(mapping->host);
 		}
 	}

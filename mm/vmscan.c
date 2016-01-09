@@ -649,10 +649,9 @@ static void kswapd_balance(void)
 
 	do {
 		need_more_balance = 0;
-		pgdat = pgdat_list;
-		do
+
+		for_each_pgdat(pgdat)
 			need_more_balance |= kswapd_balance_pgdat(pgdat);
-		while ((pgdat = pgdat->node_next));
 	} while (need_more_balance);
 }
 
@@ -675,12 +674,10 @@ static int kswapd_can_sleep(void)
 {
 	pg_data_t * pgdat;
 
-	pgdat = pgdat_list;
-	do {
-		if (kswapd_can_sleep_pgdat(pgdat))
-			continue;
-		return 0;
-	} while ((pgdat = pgdat->node_next));
+	for_each_pgdat(pgdat) {
+		if (!kswapd_can_sleep_pgdat(pgdat))
+			return 0;
+	}
 
 	return 1;
 }

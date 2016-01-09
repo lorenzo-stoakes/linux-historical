@@ -497,14 +497,14 @@ static int CDCEther_ioctl( struct net_device *net, struct ifreq *rq, int cmd )
 static void CDC_SetEthernetPacketFilter (ether_dev_t *ether_dev)
 {
 #if 0
-	devrequest *dr = &ether_dev->ctrl_dr;
+	struct usb_ctrlrequest *dr = &ether_dev->ctrl_dr;
 	int res;
 
-	dr->requesttype = USB_TYPE_CLASS | USB_DIR_OUT | USB_RECIP_INTERFACE;
-	dr->request = SET_ETHERNET_PACKET_FILTER;
-	dr->value = cpu_to_le16(ether_dev->mode_flags);
-	dr->index = cpu_to_le16((u16)ether_dev->comm_interface);
-	dr->length = 0;
+	dr->bRequestType = USB_TYPE_CLASS | USB_DIR_OUT | USB_RECIP_INTERFACE;
+	dr->bRequest = SET_ETHERNET_PACKET_FILTER;
+	dr->wValue = cpu_to_le16(ether_dev->mode_flags);
+	dr->wIndex = cpu_to_le16((u16)ether_dev->comm_interface);
+	dr->wLength = 0;
 
 	FILL_CONTROL_URB(&ether_dev->ctrl_urb,
 			ether_dev->usb,

@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.misc.S 1.44 06/25/02 17:24:30 benh
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * This file contains miscellaneous low-level functions.
@@ -23,7 +23,9 @@
 #include <asm/page.h>
 #include <asm/cache.h>
 #include <asm/cputable.h>
-#include "ppc_asm.h"
+#include <asm/mmu.h>
+#include <asm/ppc_asm.h>
+#include "ppc_defs.h"
 
 	.text
 

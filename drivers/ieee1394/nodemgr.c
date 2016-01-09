@@ -1300,10 +1300,12 @@ static void nodemgr_host_reset(struct hpsb_host *host)
 	}
 
 	if (hi != NULL)
+	{
 #ifdef CONFIG_IEEE1394_VERBOSEDEBUG
-	HPSB_DEBUG ("NodeMgr: Processing host reset for %s", host->driver->name);
+		HPSB_DEBUG ("NodeMgr: Processing host reset for %s", host->driver->name);
 #endif
 		up(&hi->reset_sem);
+	}
 	else
 		HPSB_ERR ("NodeMgr: could not process reset of non-existent host");
 

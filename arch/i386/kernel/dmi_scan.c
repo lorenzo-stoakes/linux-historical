@@ -190,7 +190,6 @@ struct dmi_blacklist
  *	KT7 series. On these it seems the newer BIOS has fixed them. The
  *	rule needs to be improved to match specific BIOS revisions with
  *	corruption problems
- */ 
  
 static __init int disable_ide_dma(struct dmi_blacklist *d)
 {
@@ -204,6 +203,7 @@ static __init int disable_ide_dma(struct dmi_blacklist *d)
 #endif	
 	return 0;
 }
+ */ 
 
 /* 
  * Reboot options and system auto-detection code provided by

@@ -19,6 +19,7 @@
 //
 
 #include <asm/types.h>
+#include <asm/page.h>
 
 
 
@@ -57,7 +58,6 @@ u32 keyed_hash(const signed char *msg, int len)
 	u32 pad;
 	int i;
  
-
 	//	assert(len >= 0 && len < 256);
 
 	pad = (u32)len | ((u32)len << 8);
@@ -92,7 +92,7 @@ u32 keyed_hash(const signed char *msg, int len)
 	{
 	    	//assert(len < 16);
 		if (len >= 16)
-		    *(int *)0 = 0;
+		    BUG();
 
 		a = (u32)msg[ 0]      |
 		    (u32)msg[ 1] << 8 |
@@ -118,7 +118,7 @@ u32 keyed_hash(const signed char *msg, int len)
 	{
 	    	//assert(len < 12);
 		if (len >= 12)
-		    *(int *)0 = 0;
+		    BUG();
 		a = (u32)msg[ 0]      |
 		    (u32)msg[ 1] << 8 |
 		    (u32)msg[ 2] << 16|
@@ -139,7 +139,7 @@ u32 keyed_hash(const signed char *msg, int len)
 	{
 	    	//assert(len < 8);
 		if (len >= 8)
-		    *(int *)0 = 0;
+		    BUG();
 		a = (u32)msg[ 0]      |
 		    (u32)msg[ 1] << 8 |
 		    (u32)msg[ 2] << 16|
@@ -156,7 +156,7 @@ u32 keyed_hash(const signed char *msg, int len)
 	{
 	    	//assert(len < 4);
 		if (len >= 4)
-		    *(int *)0 = 0;
+		    BUG();
 		a = b = c = d = pad;
 		for(i = 0; i < len; i++)
 		{
@@ -171,7 +171,7 @@ u32 keyed_hash(const signed char *msg, int len)
 	return h0^h1;
 }
 
-/* What follows in this file is copyright 2000 by Hans Reiser, and the
+/* What follows in this file is copyright 2000-2002 by Hans Reiser, and the
  * licensing of what follows is governed by reiserfs/README */
 
 u32 yura_hash (const signed char *msg, int len)

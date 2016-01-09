@@ -1251,6 +1251,7 @@ EXPORT_SYMBOL(bh_cachep);
 
 extern void bdev_cache_init(void);
 extern void cdev_cache_init(void);
+extern void iobuf_cache_init(void);
 
 void __init vfs_caches_init(unsigned long mempages)
 {
@@ -1285,4 +1286,5 @@ void __init vfs_caches_init(unsigned long mempages)
 	mnt_init(mempages);
 	bdev_cache_init();
 	cdev_cache_init();
+	iobuf_cache_init();
 }

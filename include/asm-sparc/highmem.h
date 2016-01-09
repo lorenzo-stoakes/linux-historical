@@ -36,8 +36,10 @@ extern pte_t *kmap_pte;
 extern pgprot_t kmap_prot;
 extern pte_t *pkmap_page_table;
 
-/* these two get calculated in arch/sparc/mm/srmmu.c */
+/* This gets set in {srmmu,sun4c}_paging_init() */
 extern unsigned long fix_kmap_begin;
+
+/* Only used and set with srmmu? */
 extern unsigned long pkmap_base;
 
 extern void kmap_init(void) __init;

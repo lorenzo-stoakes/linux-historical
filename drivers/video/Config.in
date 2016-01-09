@@ -152,16 +152,16 @@ if [ "$CONFIG_FB" = "y" ]; then
 	 tristate '  Trident support (EXPERIMENTAL)' CONFIG_FB_TRIDENT
       fi
    fi
-   if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
+   if [ "$CONFIG_SPARC32" = "y" -o "$CONFIG_SPARC64" = "y" ]; then
       bool '  SBUS and UPA framebuffers' CONFIG_FB_SBUS
       if [ "$CONFIG_FB_SBUS" != "n" ]; then
-	 if [ "$ARCH" = "sparc64" ]; then
+	 if [ "$CONFIG_SPARC64" = "y" ]; then
 	    bool '    Creator/Creator3D support' CONFIG_FB_CREATOR
 	 fi
 	 bool '    CGsix (GX,TurboGX) support' CONFIG_FB_CGSIX
 	 bool '    BWtwo support' CONFIG_FB_BWTWO
 	 bool '    CGthree support' CONFIG_FB_CGTHREE
-	 if [ "$ARCH" = "sparc" ]; then
+	 if [ "$CONFIG_SPARC32" = "y" ]; then
 	    bool '    TCX (SS4/SS5 only) support' CONFIG_FB_TCX
 	    bool '    CGfourteen (SX) support' CONFIG_FB_CGFOURTEEN
 	    bool '    P9100 (Sparcbook 3 only) support' CONFIG_FB_P9100
@@ -169,7 +169,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	 bool '    Leo (ZX) support' CONFIG_FB_LEO
       fi
    fi
-   if [ "$ARCH" = "sparc" ]; then
+   if [ "$CONFIG_SPARC32" = "y" ]; then
       if [ "$CONFIG_PCI" != "n" ]; then
 	 bool '  PCI framebuffers' CONFIG_FB_PCI
 	 if [ "$CONFIG_FB_PCI" != "n" ]; then
@@ -177,7 +177,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	 fi
       fi
    fi
-   if [ "$ARCH" = "sparc64" ]; then
+   if [ "$CONFIG_SPARC64" = "y" ]; then
       if [ "$CONFIG_PCI" != "n" ]; then
 	 bool '  PCI framebuffers' CONFIG_FB_PCI
 	 if [ "$CONFIG_FB_PCI" != "n" ]; then
@@ -202,7 +202,7 @@ if [ "$CONFIG_FB" = "y" ]; then
       bool '  TMPTX3912/PR31700 frame buffer support' CONFIG_FB_TX3912
    fi
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-      tristate '  Virtual Frame Buffer support (ONLY FOR TESTING!)' CONFIG_FB_VIRTUAL
+      tristate '  Virtual Frame Buffer support (ONLY FOR TESTING!) (EXPERIMENTAL)' CONFIG_FB_VIRTUAL
    fi
 
    bool '  Advanced low level driver options' CONFIG_FBCON_ADVANCED
@@ -274,7 +274,8 @@ if [ "$CONFIG_FB" = "y" ]; then
 	   "$CONFIG_FB_SA1100" = "y" -o "$CONFIG_FB_3DFX" = "y" -o \
 	   "$CONFIG_FB_PMAG_BA" = "y" -o "$CONFIG_FB_PMAGB_B" = "y" -o \
 	   "$CONFIG_FB_MAXINE" = "y" -o "$CONFIG_FB_TX3912" = "y" -o \
-	   "$CONFIG_FB_SIS" = "y" -o "$CONFIG_FB_NEOMAGIC" = "y" ]; then
+	   "$CONFIG_FB_SIS" = "y" -o "$CONFIG_FB_NEOMAGIC" = "y" -o \
+	   "$CONFIG_FB_STI" = "y" ]; then
 	 define_tristate CONFIG_FBCON_CFB8 y
       else
 	 if [ "$CONFIG_FB_ACORN" = "m" -o "$CONFIG_FB_ATARI" = "m" -o \
@@ -295,7 +296,8 @@ if [ "$CONFIG_FB" = "y" ]; then
 	      "$CONFIG_FB_PMAG_BA" = "m" -o "$CONFIG_FB_PMAGB_B" = "m" -o \
 	      "$CONFIG_FB_MAXINE" = "m" -o "$CONFIG_FB_RADEON" = "m" -o \
 	      "$CONFIG_FB_SA1100" = "m" -o "$CONFIG_FB_SIS" = "m" -o \
-	      "$CONFIG_FB_TX3912" = "m" -o "$CONFIG_FB_NEOMAGIC" = "m" ]; then
+	      "$CONFIG_FB_TX3912" = "m" -o "$CONFIG_FB_NEOMAGIC" = "m" -o \
+	      "$CONFIG_FB_STI" = "m" ]; then
 	    define_tristate CONFIG_FBCON_CFB8 m
 	 fi
       fi
@@ -361,7 +363,8 @@ if [ "$CONFIG_FB" = "y" ]; then
 	   "$CONFIG_FB_FM2" = "y" -o "$CONFIG_FB_SGIVW" = "y" -o \
 	   "$CONFIG_FB_RADEON" = "y" -o "$CONFIG_FB_PVR2" = "y" -o \
 	   "$CONFIG_FB_3DFX" = "y" -o "$CONFIG_FB_SIS" = "y" -o \
-	   "$CONFIG_FB_VOODOO1" = "y" -o "$CONFIG_FB_CYBER2000" = "y" ]; then
+	   "$CONFIG_FB_VOODOO1" = "y" -o "$CONFIG_FB_CYBER2000" = "y" -o \
+	   "$CONFIG_FB_STI" = "y" ]; then
 	 define_tristate CONFIG_FBCON_CFB32 y
       else
 	 if [ "$CONFIG_FB_ATARI" = "m" -o "$CONFIG_FB_ATY" = "m" -o \
@@ -374,7 +377,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	      "$CONFIG_FB_3DFX" = "m" -o "$CONFIG_FB_RADEON" = "m" -o \
 	      "$CONFIG_FB_SGIVW" = "m" -o "$CONFIG_FB_SIS" = "m" -o \
 	      "$CONFIG_FB_PVR2" = "m" -o "$CONFIG_FB_VOODOO1" = "m" -o \
-	      "$CONFIG_FB_CYBER2000" = "m" ]; then
+	      "$CONFIG_FB_CYBER2000" = "m" -o "$CONFIG_FB_STI" = "y" ]; then
 	    define_tristate CONFIG_FBCON_CFB32 m
 	 fi
       fi
@@ -426,7 +429,7 @@ if [ "$CONFIG_FB" = "y" ]; then
       fi
    fi
    bool '  Support only 8 pixels wide fonts' CONFIG_FBCON_FONTWIDTH8_ONLY
-   if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
+   if [ "$CONFIG_SPARC32" = "y" -o "$CONFIG_SPARC64" = "y" ]; then
       bool '  Sparc console 8x16 font' CONFIG_FONT_SUN8x16
       if [ "$CONFIG_FBCON_FONTWIDTH8_ONLY" = "n" ]; then
 	 bool '  Sparc console 12x22 font (not supported by all drivers)' CONFIG_FONT_SUN12x22

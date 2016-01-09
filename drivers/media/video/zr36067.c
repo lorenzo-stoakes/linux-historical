@@ -4163,7 +4163,6 @@ static int do_zoran_ioctl(struct zoran *zr, unsigned int cmd,
 		{
 			struct zoran_status bs;
 			int norm, input, status;
-			unsigned long timeout;
 
 			if (zr->codec_mode != BUZ_MODE_IDLE) {
 				DEBUG1(printk(KERN_ERR

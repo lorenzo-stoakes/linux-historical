@@ -9,7 +9,7 @@
 #include <linux/sched.h>
 #include <linux/signal.h>
 #include <asm/io.h>
-#include "i8259.h"
+#include <asm/i8259.h>
 
 static volatile char *pci_intack; /* RO, gives us the irq vector */
 

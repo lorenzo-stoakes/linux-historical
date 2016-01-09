@@ -1207,7 +1207,7 @@ static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case SIOCDEVPRIVATE+1:		/* Read the specified MII register. */
 		{
 			int saved_window;
-			long flags;
+			unsigned long flags;
 
 			save_flags(flags);
 			cli();
@@ -1221,7 +1221,7 @@ static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case SIOCDEVPRIVATE+2:		/* Write the specified MII register */
 		{
 			int saved_window;
-			long flags;
+			unsigned long flags;
 
 			if (!capable(CAP_NET_ADMIN))
 				return -EPERM;

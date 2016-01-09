@@ -110,7 +110,7 @@ static void *kaweth_probe(
 	);
 static void kaweth_disconnect(struct usb_device *dev, void *ptr);
 int kaweth_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe,
-				devrequest *cmd, void *data, int len,
+				struct usb_ctrlrequest *cmd, void *data, int len,
 				int timeout);
 
 /****************************************************************
@@ -230,7 +230,7 @@ static int kaweth_control(struct kaweth_device *kaweth,
 			  __u16 size, 
 			  int timeout)
 {
-	devrequest *dr;
+	struct usb_ctrlrequest *dr;
 
 	kaweth_dbg("kaweth_control()");
 
@@ -239,7 +239,7 @@ static int kaweth_control(struct kaweth_device *kaweth,
 		return -EBUSY;
 	}
 
-	dr = kmalloc(sizeof(devrequest), GFP_ATOMIC);
+	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
 
 	if(!dr)
 	{
@@ -247,11 +247,11 @@ static int kaweth_control(struct kaweth_device *kaweth,
 		return -ENOMEM;
 	}
 	
-	dr->requesttype = requesttype;
-	dr->request = request;
-	dr->value = cpu_to_le16p(&value);
-	dr->index = cpu_to_le16p(&index);
-	dr->length = cpu_to_le16p(&size);
+	dr->bRequestType = requesttype;
+	dr->bRequest = request;
+	dr->wValue = cpu_to_le16p(&value);
+	dr->wIndex = cpu_to_le16p(&index);
+	dr->wLength = cpu_to_le16p(&size);
 
 	return kaweth_internal_control_msg(kaweth->dev,
 					pipe,
@@ -948,7 +948,7 @@ static void kaweth_disconnect(struct usb_device *dev, void *ptr)
 /*-------------------------------------------------------------------*
  * completion handler for compatibility wrappers (sync control/bulk) *
  *-------------------------------------------------------------------*/
-static void usb_api_blocking_completion(urb_t *urb)
+static void usb_api_blocking_completion(struct urb *urb)
 {
         struct usb_api_data *awd = (struct usb_api_data *)urb->context;
 
@@ -961,7 +961,7 @@ static void usb_api_blocking_completion(urb_t *urb)
  *-------------------------------------------------------------------*/
 
 // Starts urb and waits for completion or timeout
-static int usb_start_wait_urb(urb_t *urb, int timeout, int* actual_length)
+static int usb_start_wait_urb(struct urb *urb, int timeout, int* actual_length)
 {
         DECLARE_WAITQUEUE(wait, current);
 	struct usb_api_data awd;
@@ -1009,9 +1009,9 @@ static int usb_start_wait_urb(urb_t *urb, int timeout, int* actual_length)
 /*-------------------------------------------------------------------*/
 // returns status (negative) or length (positive)
 int kaweth_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe,
-                            devrequest *cmd,  void *data, int len, int timeout)
+                            struct usb_ctrlrequest *cmd,  void *data, int len, int timeout)
 {
-        urb_t *urb;
+        struct urb *urb;
         int retv;
         int length;
 

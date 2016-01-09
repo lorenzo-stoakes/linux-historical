@@ -91,7 +91,7 @@ struct rtl8150 {
 	struct net_device_stats	stats;
 	struct net_device	*netdev;
 	struct urb		*rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
-	devrequest		dr;
+	struct usb_ctrlrequest	dr;
 	int			intr_interval;
 	u16			rx_creg;
 	u8			rx_buff[RTL8150_MAX_MTU];
@@ -169,11 +169,11 @@ static int async_set_registers(rtl8150_t *dev, u16 indx, u16 size, void *data)
 	if (test_bit(RX_REG_SET, &dev->flags))
 		return -EAGAIN;
 	
-	dev->dr.requesttype = RTL8150_REQT_WRITE;
-	dev->dr.request = RTL8150_REQ_SET_REGS;
-	dev->dr.value = cpu_to_le16(indx);
-	dev->dr.index = 0;
-	dev->dr.length = cpu_to_le16(2);
+	dev->dr.bRequestType = RTL8150_REQT_WRITE;
+	dev->dr.bRequest = RTL8150_REQ_SET_REGS;
+	dev->dr.wValue = cpu_to_le16(indx);
+	dev->dr.wIndex = 0;
+	dev->dr.wLength = cpu_to_le16(2);
 	dev->ctrl_urb->transfer_buffer_length = 2;
 	FILL_CONTROL_URB(dev->ctrl_urb, dev->udev, usb_sndctrlpipe(dev->udev,0),
 	                 (char*)&dev->dr, &dev->rx_creg, 2, ctrl_callback, dev);

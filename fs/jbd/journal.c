@@ -459,9 +459,9 @@ int journal_write_metadata_buffer(transaction_t *transaction,
 	do {
 		new_bh = get_unused_buffer_head(0);
 		if (!new_bh) {
-			printk (KERN_NOTICE __FUNCTION__
-				": ENOMEM at get_unused_buffer_head, "
-				"trying again.\n");
+			printk (KERN_NOTICE "%s: ENOMEM at "
+				"get_unused_buffer_head, trying again.\n",
+				__FUNCTION__);
 			current->policy |= SCHED_YIELD;
 			schedule();
 		}
@@ -588,9 +588,8 @@ void log_wait_commit (journal_t *journal, tid_t tid)
 #ifdef CONFIG_JBD_DEBUG
 	lock_journal(journal);
 	if (!tid_geq(journal->j_commit_request, tid)) {
-		printk(KERN_EMERG __FUNCTION__
-			": error: j_commit_request=%d, tid=%d\n",
-			journal->j_commit_request, tid);
+		printk(KERN_EMERG "%s: error: j_commit_request=%d, tid=%d\n",
+			__FUNCTION__, journal->j_commit_request, tid);
 	}
 	unlock_journal(journal);
 #endif
@@ -639,9 +638,8 @@ int journal_bmap(journal_t *journal, unsigned long blocknr,
 		if (ret)
 			*retp = ret;
 		else {
-			printk (KERN_ALERT __FUNCTION__ 
-				": journal block not found "
-				"at offset %lu on %s\n",
+			printk (KERN_ALERT "%s: journal block not found "
+				"at offset %lu on %s\n", __FUNCTION__,
 				blocknr, bdevname(journal->j_dev));
 			err = -EIO;
 			__journal_abort_soft(journal, err);
@@ -788,8 +786,8 @@ journal_t * journal_init_inode (struct inode *inode)
 	err = journal_bmap(journal, 0, &blocknr);
 	/* If that failed, give up */
 	if (err) {
-		printk(KERN_ERR __FUNCTION__ ": Cannnot locate journal "
-		       "superblock\n");
+		printk(KERN_ERR "%s: Cannnot locate journal superblock\n",
+			__FUNCTION__);
 		kfree(journal);
 		return NULL;
 	}
@@ -875,8 +873,8 @@ int journal_create (journal_t *journal)
 		/*
 		 * We don't know what block to start at!
 		 */
-		printk(KERN_EMERG __FUNCTION__
-			": creation of journal on external device!\n");
+		printk(KERN_EMERG "%s: creation of journal on external "
+			"device!\n", __FUNCTION__);
 		BUG();
 	}
 
@@ -1597,8 +1595,8 @@ static struct journal_head *journal_alloc_journal_head(void)
 	if (ret == 0) {
 		jbd_debug(1, "out of memory for journal_head\n");
 		if (time_after(jiffies, last_warning + 5*HZ)) {
-			printk(KERN_NOTICE "ENOMEM in " __FUNCTION__
-			       ", retrying.\n");
+			printk(KERN_NOTICE "ENOMEM in %s, retrying.\n",
+				__FUNCTION__);
 			last_warning = jiffies;
 		}
 		while (ret == 0) {

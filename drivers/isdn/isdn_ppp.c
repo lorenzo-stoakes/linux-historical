@@ -2230,7 +2230,7 @@ static void isdn_ppp_ccp_reset_trans(struct ippp_struct *is,
 				return;
 			}
 			rs->state = CCPResetSentReq;
-			/* We always expect an Ack if the decompressor doesnt
+			/* We always expect an Ack if the decompressor doesn't
 			   know	better */
 			rs->expra = 1;
 			rs->dlen = 0;

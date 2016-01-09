@@ -29,7 +29,10 @@ LIST_HEAD(inactive_list);
 LIST_HEAD(active_list);
 pg_data_t *pgdat_list;
 
-/* Used to look up the address of the struct zone encoded in page->zone */
+/*
+ * Used by page_zone() to look up the address of the struct zone whose
+ * id is encoded in the upper bits of page->flags
+ */
 zone_t *zone_table[MAX_NR_ZONES*MAX_NR_NODES];
 EXPORT_SYMBOL(zone_table);
 
@@ -79,11 +82,15 @@ static void __free_pages_ok (struct page *page, unsigned int order)
 	struct page *base;
 	zone_t *zone;
 
-	/* Yes, think what happens when other parts of the kernel take 
+	/*
+	 * Yes, think what happens when other parts of the kernel take 
 	 * a reference to a page in order to pin it for io. -ben
 	 */
-	if (PageLRU(page))
+	if (PageLRU(page)) {
+		if (unlikely(in_interrupt()))
+			BUG();
 		lru_cache_del(page);
+	}
 
 	if (page->buffers)
 		BUG();
@@ -456,16 +463,12 @@ void free_pages(unsigned long addr, unsigned int order)
  */
 unsigned int nr_free_pages (void)
 {
-	unsigned int sum;
+	unsigned int sum = 0;
 	zone_t *zone;
-	pg_data_t *pgdat = pgdat_list;
 
-	sum = 0;
-	while (pgdat) {
-		for (zone = pgdat->node_zones; zone < pgdat->node_zones + MAX_NR_ZONES; zone++)
-			sum += zone->free_pages;
-		pgdat = pgdat->node_next;
-	}
+	for_each_zone(zone)
+		sum += zone->free_pages;
+
 	return sum;
 }
 
@@ -474,10 +477,10 @@ unsigned int nr_free_pages (void)
  */
 unsigned int nr_free_buffer_pages (void)
 {
-	pg_data_t *pgdat = pgdat_list;
+	pg_data_t *pgdat;
 	unsigned int sum = 0;
 
-	do {
+	for_each_pgdat(pgdat) {
 		zonelist_t *zonelist = pgdat->node_zonelists + (GFP_USER & GFP_ZONEMASK);
 		zone_t **zonep = zonelist->zones;
 		zone_t *zone;
@@ -488,9 +491,7 @@ unsigned int nr_free_buffer_pages (void)
 			if (size > high)
 				sum += size - high;
 		}
-
-		pgdat = pgdat->node_next;
-	} while (pgdat);
+	}
 
 	return sum;
 }
@@ -498,16 +499,34 @@ unsigned int nr_free_buffer_pages (void)
 #if CONFIG_HIGHMEM
 unsigned int nr_free_highpages (void)
 {
-	pg_data_t *pgdat = pgdat_list;
+	pg_data_t *pgdat;
 	unsigned int pages = 0;
 
-	while (pgdat) {
+	for_each_pgdat(pgdat)
 		pages += pgdat->node_zones[ZONE_HIGHMEM].free_pages;
-		pgdat = pgdat->node_next;
-	}
+
 	return pages;
 }
 #endif
+
+int try_to_free_pages_nozone(unsigned int gfp_mask)
+{
+	pg_data_t *pgdat;
+	zonelist_t *zonelist;
+	unsigned long pf_free_pages;
+	int error = 0;
+
+	pf_free_pages = current->flags & PF_FREE_PAGES;
+	current->flags &= ~PF_FREE_PAGES;
+
+	for_each_pgdat(pgdat) {
+		zonelist = pgdat->node_zonelists + (gfp_mask & GFP_ZONEMASK);
+		error |= try_to_free_pages(zonelist->zones[0], gfp_mask, 0);
+	}
+
+	current->flags |= pf_free_pages;
+	return error;
+}
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
 

@@ -471,11 +471,11 @@ tty3270_read_proc(char *buf, char **start, off_t off, int count,
 			tubp = (*tubminors)[i];
 #ifdef CONFIG_TN3270_CONSOLE
 			if (CONSOLE_IS_3270 && tubp == tub3270_con_tubp)
-				len += sprintf(buf + len, "%.3x CONSOLE %d\n",
+				len += sprintf(buf + len, "%.4x CONSOLE %d\n",
 					       tubp->devno, i);
 			else
 #endif
-				len += sprintf(buf + len, "%.3x %d %d\n",
+				len += sprintf(buf + len, "%.4x %d %d\n",
 					       tubp->devno, tty3270_major, i);
 			if (begin + len > off + count)
 				break;

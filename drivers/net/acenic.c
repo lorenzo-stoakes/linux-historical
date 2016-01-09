@@ -1164,14 +1164,8 @@ static int __init ace_init(struct net_device *dev)
 	 * This will most likely need BYTE_SWAP once we switch
 	 * to using __raw_writel()
 	 */
-#ifdef __parisc__
-	writel((WORD_SWAP | BYTE_SWAP | CLR_INT |
-		((WORD_SWAP | BYTE_SWAP | CLR_INT) << 24)),
-	       &regs->HostCtrl);
-#else
 	writel((WORD_SWAP | CLR_INT | ((WORD_SWAP | CLR_INT) << 24)),
 	       &regs->HostCtrl);
-#endif
 #else
 	writel((CLR_INT | WORD_SWAP | ((CLR_INT | WORD_SWAP) << 24)),
 	       &regs->HostCtrl);

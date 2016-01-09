@@ -16,8 +16,8 @@
 #define USB_CLASS_MASS_STORAGE		8
 #define USB_CLASS_HUB			9
 #define USB_CLASS_CDC_DATA		0x0a
-#define USB_CLASS_CSCID		0x0b /* chip+ smart card */
-#define USB_CLASS_CONTENT_SEC		0x0d /* content security */
+#define USB_CLASS_CSCID			0x0b	/* chip+ smart card */
+#define USB_CLASS_CONTENT_SEC		0x0d	/* content security */
 #define USB_CLASS_APP_SPEC		0xfe
 #define USB_CLASS_VENDOR_SPEC		0xff
 
@@ -42,8 +42,8 @@
 /*
  * USB directions
  */
-#define USB_DIR_OUT			0
-#define USB_DIR_IN			0x80
+#define USB_DIR_OUT			0		/* to device */
+#define USB_DIR_IN			0x80		/* to host */
 
 /*
  * Descriptor types
@@ -85,23 +85,23 @@
 /*
  * USB Packet IDs (PIDs)
  */
-#define USB_PID_UNDEF_0                        0xf0
-#define USB_PID_OUT                            0xe1
-#define USB_PID_ACK                            0xd2
-#define USB_PID_DATA0                          0xc3
-#define USB_PID_PING                           0xb4	/* USB 2.0 */
-#define USB_PID_SOF                            0xa5
-#define USB_PID_NYET                           0x96	/* USB 2.0 */
-#define USB_PID_DATA2                          0x87	/* USB 2.0 */
-#define USB_PID_SPLIT                          0x78	/* USB 2.0 */
-#define USB_PID_IN                             0x69
-#define USB_PID_NAK                            0x5a
-#define USB_PID_DATA1                          0x4b
-#define USB_PID_PREAMBLE                       0x3c	/* Token mode */
-#define USB_PID_ERR                            0x3c	/* USB 2.0: handshake mode */
-#define USB_PID_SETUP                          0x2d
-#define USB_PID_STALL                          0x1e
-#define USB_PID_MDATA                          0x0f	/* USB 2.0 */
+#define USB_PID_UNDEF_0			0xf0
+#define USB_PID_OUT			0xe1
+#define USB_PID_ACK			0xd2
+#define USB_PID_DATA0			0xc3
+#define USB_PID_PING			0xb4	/* USB 2.0 */
+#define USB_PID_SOF			0xa5
+#define USB_PID_NYET			0x96	/* USB 2.0 */
+#define USB_PID_DATA2			0x87	/* USB 2.0 */
+#define USB_PID_SPLIT			0x78	/* USB 2.0 */
+#define USB_PID_IN			0x69
+#define USB_PID_NAK			0x5a
+#define USB_PID_DATA1			0x4b
+#define USB_PID_PREAMBLE		0x3c	/* Token mode */
+#define USB_PID_ERR			0x3c	/* USB 2.0: handshake mode */
+#define USB_PID_SETUP			0x2d
+#define USB_PID_STALL			0x1e
+#define USB_PID_MDATA			0x0f	/* USB 2.0 */
 
 /*
  * Standard requests
@@ -152,13 +152,26 @@ static __inline__ void wait_ms(unsigned int ms)
 		mdelay(ms);
 }
 
-typedef struct {
-	__u8 requesttype;
-	__u8 request;
-	__u16 value;
-	__u16 index;
-	__u16 length;
-} devrequest __attribute__ ((packed));
+/**
+ * struct usb_ctrlrequest - structure used to make USB device control requests easier to create and decode
+ * @bRequestType: matches the USB bmRequestType field
+ * @bRequest: matches the USB bRequest field
+ * @wValue: matches the USB wValue field
+ * @wIndex: matches the USB wIndex field
+ * @wLength: matches the USB wLength field
+ *
+ * This structure is used to send control requests to a USB device.  It matches
+ * the different fields of the USB 2.0 Spec section 9.3, table 9-2.  See the
+ * USB spec for a fuller description of the different fields, and what they are
+ * used for.
+ */
+struct usb_ctrlrequest {
+	__u8 bRequestType;
+	__u8 bRequest;
+	__u16 wValue;
+	__u16 wIndex;
+	__u16 wLength;
+} __attribute__ ((packed));
 
 /*
  * USB-status codes:
@@ -174,10 +187,10 @@ typedef struct {
 #define USB_ST_BUFFEROVERRUN	(-ECOMM)
 #define USB_ST_BUFFERUNDERRUN	(-ENOSR)
 #define USB_ST_INTERNALERROR	(-EPROTO) 			/* unknown error */
-#define USB_ST_SHORT_PACKET    	(-EREMOTEIO)
-#define USB_ST_PARTIAL_ERROR  	(-EXDEV)			/* ISO transfer only partially completed */
-#define USB_ST_URB_KILLED     	(-ENOENT)			/* URB canceled by user */
-#define USB_ST_URB_PENDING       (-EINPROGRESS)
+#define USB_ST_SHORT_PACKET	(-EREMOTEIO)
+#define USB_ST_PARTIAL_ERROR	(-EXDEV)			/* ISO transfer only partially completed */
+#define USB_ST_URB_KILLED	(-ENOENT)			/* URB canceled by user */
+#define USB_ST_URB_PENDING	(-EINPROGRESS)
 #define USB_ST_REMOVED		(-ENODEV) 			/* device not existing or removed */
 #define USB_ST_TIMEOUT		(-ETIMEDOUT)			/* communication timed out, also in urb->status**/
 #define USB_ST_NOTSUPPORTED	(-ENOSYS)			
@@ -423,28 +436,28 @@ struct usb_driver {
 /*
  * urb->transfer_flags:
  */
-#define USB_DISABLE_SPD         0x0001
-#define USB_ISO_ASAP            0x0002
-#define USB_ASYNC_UNLINK        0x0008
-#define USB_QUEUE_BULK          0x0010
+#define USB_DISABLE_SPD		0x0001
+#define USB_ISO_ASAP		0x0002
+#define USB_ASYNC_UNLINK	0x0008
+#define USB_QUEUE_BULK		0x0010
 #define USB_NO_FSBR		0x0020
-#define USB_ZERO_PACKET         0x0040  // Finish bulk OUTs always with zero length packet
+#define USB_ZERO_PACKET		0x0040  // Finish bulk OUTs always with zero length packet
 #define URB_NO_INTERRUPT	0x0080	/* HINT: no non-error interrupt needed */
 					/* ... less overhead for QUEUE_BULK */
 #define USB_TIMEOUT_KILLED	0x1000	// only set by HCD!
 
-typedef struct
+struct iso_packet_descriptor
 {
 	unsigned int offset;
 	unsigned int length;		// expected length
 	unsigned int actual_length;
 	unsigned int status;
-} iso_packet_descriptor_t, *piso_packet_descriptor_t;
+};
 
 struct urb;
 typedef void (*usb_complete_t)(struct urb *);
 
-typedef struct urb
+struct urb
 {
 	spinlock_t lock;		// lock for the URB
 	void *hcpriv;			// private data for host controller
@@ -469,8 +482,8 @@ typedef struct urb
 	void *context;			// context for completion routine
 	usb_complete_t complete;	// pointer to completion routine
 	//
-	iso_packet_descriptor_t iso_frame_desc[0];
-} urb_t, *purb_t;
+	struct iso_packet_descriptor iso_frame_desc[0];
+};
 
 /**
  * FILL_CONTROL_URB - macro to help initialize a control urb
@@ -675,11 +688,11 @@ static inline void usb_fill_int_urb (struct urb *urb,
 	urb->start_frame = -1;
 }
 
-purb_t usb_alloc_urb(int iso_packets);
-void usb_free_urb (purb_t purb);
-int usb_submit_urb(purb_t purb);
-int usb_unlink_urb(purb_t purb);
-int usb_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe, devrequest *cmd,  void *data, int len, int timeout);
+struct urb *usb_alloc_urb(int iso_packets);
+void usb_free_urb (struct urb *urb);
+int usb_submit_urb(struct urb *urb);
+int usb_unlink_urb(struct urb *urb);
+int usb_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe, struct usb_ctrlrequest *cmd,  void *data, int len, int timeout);
 int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe, void *data, int len, int *actual_length, int timeout);
 
 /*-------------------------------------------------------------------*

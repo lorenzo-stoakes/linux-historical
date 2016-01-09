@@ -18,23 +18,22 @@
 
 	See the file COPYING in this distribution for more information.
 
-	Contribuitors:
+	Contributors:
 	
 		Wake-on-LAN support - Felipe Damasio <felipewd@terra.com.br>
 		PCI suspend/resume  - Felipe Damasio <felipewd@terra.com.br>
 			
 	TODO, in rough priority order:
+	* Test Tx checksumming thoroughly
 	* dev->tx_timeout
 	* LinkChg interrupt
 	* Support forcing media type with a module parameter,
 	  like dl2k.c/sundance.c
 	* Constants (module parms?) for Rx work limit
-	* support 64-bit PCI DMA
 	* Complete reset on PciErr
 	* Consider Rx interrupt mitigation using TimerIntr
 	* Implement 8139C+ statistics dump; maybe not...
 	  h/w stats can be reset only by software reset
-	* Tx checksumming
 	* Handle netif_rx return value
 	* Investigate using skb->priority with h/w VLAN priority
 	* Investigate using High Priority Tx Queue with skb->priority
@@ -50,8 +49,8 @@
  */
 
 #define DRV_NAME		"8139cp"
-#define DRV_VERSION		"0.1.0"
-#define DRV_RELDATE		"Jun 14, 2002"
+#define DRV_VERSION		"0.2.1"
+#define DRV_RELDATE		"Aug 9, 2002"
 
 
 #include <linux/config.h>
@@ -67,9 +66,17 @@
 #include <linux/mii.h>
 #include <linux/if_vlan.h>
 #include <linux/crc32.h>
+#include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 
+/* experimental TX checksumming feature enable/disable */
+#undef CP_TX_CHECKSUM
+
+/* VLAN tagging feature enable/disable */
 #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
 #define CP_VLAN_TAG_USED 1
 #define CP_VLAN_TX_TAG(tx_desc,vlan_tag_value) \
@@ -188,8 +195,8 @@ enum {
 	NormalTxPoll	= (1 << 6),  /* One or more normal Tx packets to send */
 	PID1		= (1 << 17), /* 2 protocol id bits:  0==non-IP, */
 	PID0		= (1 << 16), /* 1==UDP/IP, 2==TCP/IP, 3==IP */
-	RxProtoTCP	= 2,
-	RxProtoUDP	= 1,
+	RxProtoTCP	= 1,
+	RxProtoUDP	= 2,
 	RxProtoIP	= 3,
 	TxFIFOUnder	= (1 << 25), /* Tx FIFO underrun */
 	TxOWC		= (1 << 22), /* Tx Out-of-window collision */
@@ -245,6 +252,7 @@ enum {
 	/* C+ mode command register */
 	RxVlanOn	= (1 << 6),  /* Rx VLAN de-tagging enable */
 	RxChkSum	= (1 << 5),  /* Rx checksum offload enable */
+	PCIDAC		= (1 << 4),  /* PCI Dual Address Cycle (64-bit PCI) */
 	PCIMulRW	= (1 << 3),  /* Enable PCI read/write multiple */
 	CpRxOn		= (1 << 1),  /* Rx mode enable */
 	CpTxOn		= (1 << 0),  /* Tx mode enable */
@@ -301,7 +309,7 @@ struct cp_desc {
 
 struct ring_info {
 	struct sk_buff		*skb;
-	dma_addr_t		mapping;
+	dma64_addr_t		mapping;
 	unsigned		frag;
 };
 
@@ -357,6 +365,7 @@ struct cp_private {
 
 	struct sk_buff		*frag_skb;
 	unsigned		dropping_frag : 1;
+	unsigned		pci_using_dac : 1;
 	unsigned int		board_type;
 
 	unsigned int		wol_enabled : 1; /* Is Wake-on-LAN enabled? */
@@ -570,7 +579,7 @@ static void cp_rx (struct cp_private *cp)
 
 	while (rx_work--) {
 		u32 status, len;
-		dma_addr_t mapping;
+		dma64_addr_t mapping;
 		struct sk_buff *skb, *new_skb;
 		struct cp_desc *desc;
 		unsigned buflen;
@@ -637,7 +646,8 @@ rx_next:
 		else
 			desc->opts1 = cpu_to_le32(DescOwn | cp->rx_buf_sz);
 		cp->rx_ring[rx_tail].opts2 = 0;
-		cp->rx_ring[rx_tail].addr_lo = cpu_to_le32(mapping);
+		cp->rx_ring[rx_tail].addr_lo = cpu_to_le32(mapping & 0xffffffff);
+		cp->rx_ring[rx_tail].addr_hi = cpu_to_le32(mapping >> 32);
 		rx_tail = NEXT_RX(rx_tail);
 	}
 
@@ -768,22 +778,34 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 	eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
 	if (skb_shinfo(skb)->nr_frags == 0) {
 		struct cp_desc *txd = &cp->tx_ring[entry];
-		u32 mapping, len;
+		u32 len;
+		dma64_addr_t mapping;
 
 		len = skb->len;
 		mapping = pci_map_single(cp->pdev, skb->data, len, PCI_DMA_TODEVICE);
 		eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
 		CP_VLAN_TX_TAG(txd, vlan_tag);
-		txd->addr_lo = cpu_to_le32(mapping);
+		txd->addr_lo = cpu_to_le32(mapping & 0xffffffff);
+		txd->addr_hi = cpu_to_le32(mapping >> 32);
 		wmb();
 
 #ifdef CP_TX_CHECKSUM
-		txd->opts1 = cpu_to_le32(eor | len | DescOwn | FirstFrag |
-			LastFrag | IPCS | UDPCS | TCPCS);
-#else
-		txd->opts1 = cpu_to_le32(eor | len | DescOwn | FirstFrag |
-			LastFrag);
+		if (skb->ip_summed == CHECKSUM_HW) {
+			const struct iphdr *ip = skb->nh.iph;
+			if (ip->protocol == IPPROTO_TCP)
+				txd->opts1 = cpu_to_le32(eor | len | DescOwn |
+							 FirstFrag | LastFrag |
+							 IPCS | TCPCS);
+			else if (ip->protocol == IPPROTO_UDP)
+				txd->opts1 = cpu_to_le32(eor | len | DescOwn |
+							 FirstFrag | LastFrag |
+							 IPCS | UDPCS);
+			else
+				BUG();
+		} else
 #endif
+			txd->opts1 = cpu_to_le32(eor | len | DescOwn |
+						 FirstFrag | LastFrag);
 		wmb();
 
 		cp->tx_skb[entry].skb = skb;
@@ -792,8 +814,12 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 		entry = NEXT_TX(entry);
 	} else {
 		struct cp_desc *txd;
-		u32 first_len, first_mapping;
+		u32 first_len;
+		dma64_addr_t first_mapping;
 		int frag, first_entry = entry;
+#ifdef CP_TX_CHECKSUM
+		const struct iphdr *ip = skb->nh.iph;
+#endif
 
 		/* We must give this initial chunk to the device last.
 		 * Otherwise we could race with the device.
@@ -808,8 +834,9 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 
 		for (frag = 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
 			skb_frag_t *this_frag = &skb_shinfo(skb)->frags[frag];
-			u32 len, mapping;
+			u32 len;
 			u32 ctrl;
+			dma64_addr_t mapping;
 
 			len = this_frag->size;
 			mapping = pci_map_single(cp->pdev,
@@ -818,16 +845,25 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 						 len, PCI_DMA_TODEVICE);
 			eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
 #ifdef CP_TX_CHECKSUM
-			ctrl = eor | len | DescOwn | IPCS | UDPCS | TCPCS;
-#else
-			ctrl = eor | len | DescOwn;
+			if (skb->ip_summed == CHECKSUM_HW) {
+				ctrl = eor | len | DescOwn | IPCS;
+				if (ip->protocol == IPPROTO_TCP)
+					ctrl |= TCPCS;
+				else if (ip->protocol == IPPROTO_UDP)
+					ctrl |= UDPCS;
+				else
+					BUG();
+			} else
 #endif
+				ctrl = eor | len | DescOwn;
+
 			if (frag == skb_shinfo(skb)->nr_frags - 1)
 				ctrl |= LastFrag;
 
 			txd = &cp->tx_ring[entry];
 			CP_VLAN_TX_TAG(txd, vlan_tag);
-			txd->addr_lo = cpu_to_le32(mapping);
+			txd->addr_lo = cpu_to_le32(mapping & 0xffffffff);
+			txd->addr_hi = cpu_to_le32(mapping >> 32);
 			wmb();
 
 			txd->opts1 = cpu_to_le32(ctrl);
@@ -841,14 +877,24 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 
 		txd = &cp->tx_ring[first_entry];
 		CP_VLAN_TX_TAG(txd, vlan_tag);
-		txd->addr_lo = cpu_to_le32(first_mapping);
+		txd->addr_lo = cpu_to_le32(first_mapping & 0xffffffff);
+		txd->addr_hi = cpu_to_le32(first_mapping >> 32);
 		wmb();
 
 #ifdef CP_TX_CHECKSUM
-		txd->opts1 = cpu_to_le32(first_len | FirstFrag | DescOwn | IPCS | UDPCS | TCPCS);
-#else
-		txd->opts1 = cpu_to_le32(first_len | FirstFrag | DescOwn);
+		if (skb->ip_summed == CHECKSUM_HW) {
+			if (ip->protocol == IPPROTO_TCP)
+				txd->opts1 = cpu_to_le32(first_len | FirstFrag |
+							DescOwn | IPCS | TCPCS);
+			else if (ip->protocol == IPPROTO_UDP)
+				txd->opts1 = cpu_to_le32(first_len | FirstFrag |
+							DescOwn | IPCS | UDPCS);
+			else
+				BUG();
+		} else
 #endif
+			txd->opts1 = cpu_to_le32(first_len | FirstFrag |
+						 DescOwn);
 		wmb();
 	}
 	cp->tx_head = entry;
@@ -975,10 +1021,11 @@ static void cp_reset_hw (struct cp_private *cp)
 
 static inline void cp_start_hw (struct cp_private *cp)
 {
+	u16 pci_dac = cp->pci_using_dac ? PCIDAC : 0;
 	if (cp->board_type == RTL8169)
-		cpw16(CpCmd, PCIMulRW | RxChkSum);
+		cpw16(CpCmd, pci_dac | PCIMulRW | RxChkSum);
 	else
-		cpw16(CpCmd, PCIMulRW | RxChkSum | CpRxOn | CpTxOn);
+		cpw16(CpCmd, pci_dac | PCIMulRW | RxChkSum | CpRxOn | CpTxOn);
 	cpw8(Cmd, RxOn | TxOn);
 }
 
@@ -1051,8 +1098,10 @@ static int cp_refill_rx (struct cp_private *cp)
 			cp->rx_ring[i].opts1 =
 				cpu_to_le32(DescOwn | cp->rx_buf_sz);
 		cp->rx_ring[i].opts2 = 0;
-		cp->rx_ring[i].addr_lo = cpu_to_le32(cp->rx_skb[i].mapping);
-		cp->rx_ring[i].addr_hi = 0;
+		cp->rx_ring[i].addr_lo =
+			cpu_to_le32(cp->rx_skb[i].mapping & 0xffffffff);
+		cp->rx_ring[i].addr_hi =
+			cpu_to_le32(cp->rx_skb[i].mapping >> 32);
 	}
 
 	return 0;
@@ -1716,7 +1765,7 @@ static int __devinit cp_init_one (struct pci_dev *pdev,
 	int rc;
 	void *regs;
 	long pciaddr;
-	unsigned addr_len, i;
+	unsigned int addr_len, i;
 	u8 pci_rev, cache_size;
 	u16 pci_command;
 	unsigned int board_type = (unsigned int) ent->driver_data;
@@ -1779,6 +1828,19 @@ static int __devinit cp_init_one (struct pci_dev *pdev,
 		printk(KERN_ERR PFX "MMIO resource (%lx) too small on pci dev %s\n",
 		       pci_resource_len(pdev, 1), pdev->slot_name);
 		goto err_out_res;
+	}
+
+	/* Configure DMA attributes. */
+	if (!pci_set_dma_mask(pdev, (u64) 0xffffffffffffffff)) {
+		cp->pci_using_dac = 1;
+	} else {
+		rc = pci_set_dma_mask(pdev, (u64) 0xffffffff);
+		if (rc) {
+			printk(KERN_ERR PFX "No usable DMA configuration, "
+			       "aborting.\n");
+			goto err_out_res;
+		}
+		cp->pci_using_dac = 0;
 	}
 
 	regs = ioremap_nocache(pciaddr, CP_REGS_SIZE);

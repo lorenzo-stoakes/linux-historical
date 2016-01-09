@@ -129,7 +129,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       tristate '    EtherExpress 16 support' CONFIG_EEXPRESS
       tristate '    EtherExpressPro support/EtherExpress 10 (i82595) support' CONFIG_EEXPRESS_PRO
       if [ "$CONFIG_OBSOLETE" = "y" ]; then
-         tristate '    FMV-181/182/183/184 support' CONFIG_FMV18X
+         tristate '    FMV-181/182/183/184 support (OBSOLETE)' CONFIG_FMV18X
       fi
       tristate '    HP PCLAN+ (27247B and 27252A) support' CONFIG_HPLAN_PLUS
       tristate '    HP PCLAN (27245 and other 27xxx series) support' CONFIG_HPLAN
@@ -177,18 +177,15 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       dep_tristate '    Mylex EISA LNE390A/B support (EXPERIMENTAL)' CONFIG_LNE390 $CONFIG_EISA $CONFIG_EXPERIMENTAL
       dep_tristate '    Myson MTD-8xx PCI Ethernet support' CONFIG_FEALNX $CONFIG_PCI
       dep_tristate '    National Semiconductor DP8381x series PCI Ethernet support' CONFIG_NATSEMI $CONFIG_PCI
-      if [ "$CONFIG_NATSEMI" = "y" -o "$CONFIG_NATSEMI" = "m" ]; then
-        bool       '      NatSemi workaround for high errors' CONFIG_NATSEMI_CABLE_MAGIC
-      fi
       dep_tristate '    PCI NE2000 and clones support (see help)' CONFIG_NE2K_PCI $CONFIG_PCI
       dep_tristate '    Novell/Eagle/Microdyne NE3210 EISA support (EXPERIMENTAL)' CONFIG_NE3210 $CONFIG_EISA $CONFIG_EXPERIMENTAL
       dep_tristate '    Racal-Interlan EISA ES3210 support (EXPERIMENTAL)' CONFIG_ES3210 $CONFIG_EISA $CONFIG_EXPERIMENTAL
       dep_tristate '    RealTek RTL-8139 C+ PCI Fast Ethernet Adapter support (EXPERIMENTAL)' CONFIG_8139CP $CONFIG_PCI $CONFIG_EXPERIMENTAL
       dep_tristate '    RealTek RTL-8139 PCI Fast Ethernet Adapter support' CONFIG_8139TOO $CONFIG_PCI
       dep_mbool '      Use PIO instead of MMIO' CONFIG_8139TOO_PIO $CONFIG_8139TOO
-      dep_mbool '      Support for automatic channel equalization (EXPERIMENTAL)' CONFIG_8139TOO_TUNE_TWISTER $CONFIG_8139TOO $CONFIG_EXPERIMENTAL
+      dep_mbool '      Support for uncommon RTL-8139 rev. K (automatic channel equalization)' CONFIG_8139TOO_TUNE_TWISTER $CONFIG_8139TOO
       dep_mbool '      Support for older RTL-8129/8130 boards' CONFIG_8139TOO_8129 $CONFIG_8139TOO
-      dep_mbool '      Experiment for better RX reset (EXPERIMENTAL)' CONFIG_8139_NEW_RX_RESET $CONFIG_8139TOO $CONFIG_EXPERIMENTAL
+      dep_mbool '      Use older RX-reset method' CONFIG_8139_OLD_RX_RESET $CONFIG_8139TOO
       dep_tristate '    SiS 900/7016 PCI Fast Ethernet Adapter support' CONFIG_SIS900 $CONFIG_PCI
       dep_tristate '    SMC EtherPower II' CONFIG_EPIC100 $CONFIG_PCI
       dep_tristate '    Sundance Alta support' CONFIG_SUNDANCE $CONFIG_PCI
@@ -200,7 +197,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       dep_mbool '      Use MMIO instead of PIO (EXPERIMENTAL)' CONFIG_VIA_RHINE_MMIO $CONFIG_VIA_RHINE $CONFIG_EXPERIMENTAL
       dep_tristate '    Winbond W89c840 Ethernet support' CONFIG_WINBOND_840 $CONFIG_PCI
       if [ "$CONFIG_OBSOLETE" = "y" ]; then
-	 dep_bool '    Zenith Z-Note support (EXPERIMENTAL)' CONFIG_ZNET $CONFIG_ISA
+	 dep_bool '    Zenith Z-Note support (OBSOLETE)' CONFIG_ZNET $CONFIG_ISA
       fi
       if [ "$CONFIG_EXPERIMENTAL" = "y" -a "$CONFIG_MIPS" = "y" ]; then
 	 bool '    Philips SAA9730 Ethernet support (EXPERIMENTAL)' CONFIG_LAN_SAA9730
@@ -268,9 +265,9 @@ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    if [ "$CONFIG_INET" = "y" ]; then
       bool 'HIPPI driver support (EXPERIMENTAL)' CONFIG_HIPPI
       if [ "$CONFIG_HIPPI" = "y" -a "$CONFIG_PCI" = "y" ]; then
-         dep_tristate '  Essential RoadRunner HIPPI PCI adapter support' CONFIG_ROADRUNNER $CONFIG_PCI
+         dep_tristate '  Essential RoadRunner HIPPI PCI adapter support (EXPERIMENTAL)' CONFIG_ROADRUNNER $CONFIG_PCI
          if [ "$CONFIG_ROADRUNNER" != "n" ]; then
-   	    bool '    Use large TX/RX rings' CONFIG_ROADRUNNER_LARGE_RINGS
+   	    bool '    Use large TX/RX rings (EXPERIMENTAL)' CONFIG_ROADRUNNER_LARGE_RINGS
          fi
       fi
    fi
@@ -309,7 +306,7 @@ if [ "$CONFIG_NET_RADIO" = "y" ]; then
    dep_tristate '  STRIP (Metricom starmode radio IP)' CONFIG_STRIP $CONFIG_INET
    tristate '  AT&T WaveLAN & DEC RoamAbout DS support' CONFIG_WAVELAN
    if [ "$CONFIG_X86_64" != "y" ]; then
-   tristate '  Aironet Arlan 655 & IC2200 DS support' CONFIG_ARLAN
+      tristate '  Aironet Arlan 655 & IC2200 DS support' CONFIG_ARLAN
    fi
    tristate '  Aironet 4500/4800 series adapters' CONFIG_AIRONET4500
    dep_tristate '   Aironet 4500/4800 ISA/PCI/PNP/365 support ' CONFIG_AIRONET4500_NONCS $CONFIG_AIRONET4500

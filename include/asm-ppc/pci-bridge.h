@@ -1,9 +1,12 @@
 /*
- * BK Id: SCCS/s.pci-bridge.h 1.11 05/21/01 01:31:30 cort
+ * BK Id: %F% %I% %G% %U% %#%
  */
 #ifdef __KERNEL__
 #ifndef _ASM_PCI_BRIDGE_H
 #define _ASM_PCI_BRIDGE_H
+
+#include <linux/ioport.h>
+#include <linux/pci.h>
 
 struct device_node;
 struct pci_controller;
@@ -15,6 +18,9 @@ struct pci_controller;
 extern void *pci_bus_io_base(unsigned int bus);
 extern unsigned long pci_bus_io_base_phys(unsigned int bus);
 extern unsigned long pci_bus_mem_base_phys(unsigned int bus);
+
+/* Allocate a new PCI host bridge structure */
+extern struct pci_controller* pcibios_alloc_controller(void);
 
 /*
  * PCI <-> OF matching functions 
@@ -75,6 +81,10 @@ int early_read_config_dword(struct pci_controller *hose, int bus, int dev_fn, in
 int early_write_config_byte(struct pci_controller *hose, int bus, int dev_fn, int where, u8 val);
 int early_write_config_word(struct pci_controller *hose, int bus, int dev_fn, int where, u16 val);
 int early_write_config_dword(struct pci_controller *hose, int bus, int dev_fn, int where, u32 val);
+
+extern void setup_indirect_pci(struct pci_controller* hose, u32 cfg_addr,
+		u32 cfg_data);
+extern void setup_grackle(struct pci_controller *hose);
 
 #endif
 #endif /* __KERNEL__ */

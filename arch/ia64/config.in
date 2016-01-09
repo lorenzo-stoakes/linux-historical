@@ -75,15 +75,15 @@ fi
 
 if [ "$CONFIG_IA64_SGI_SN1" = "y" ] || [ "$CONFIG_IA64_SGI_SN2" = "y" ]; then
 	define_bool CONFIG_IA64_SGI_SN y
-	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG n
+	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG
 	bool '  Enable SGI Medusa Simulator Support' CONFIG_IA64_SGI_SN_SIM
 	bool '  Enable autotest (llsc). Option to run cache test instead of booting' \
-			CONFIG_IA64_SGI_AUTOTEST n
+			CONFIG_IA64_SGI_AUTOTEST
 	define_bool CONFIG_DEVFS_FS y
 	if [ "$CONFIG_DEVFS_FS" = "y" ]; then
-	  bool '    Enable DEVFS Debug Code' CONFIG_DEVFS_DEBUG n
+	  bool '    Enable DEVFS Debug Code' CONFIG_DEVFS_DEBUG
 	fi
-	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL y
+	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL
 	define_bool CONFIG_DISCONTIGMEM y
 	define_bool CONFIG_IA64_MCA y
 	define_bool CONFIG_NUMA y
@@ -195,7 +195,7 @@ endmenu
 mainmenu_option next_comment
 comment 'CD-ROM drivers (not for SCSI or IDE/ATAPI drives)'
 
-bool 'Support non-SCSI/IDE/ATAPI drives' CONFIG_CD_NO_IDESCSI
+bool 'Support non-SCSI/IDE/ATAPI CDROM drives' CONFIG_CD_NO_IDESCSI
 if [ "$CONFIG_CD_NO_IDESCSI" != "n" ]; then
   source drivers/cdrom/Config.in
 fi
@@ -238,6 +238,8 @@ fi
 endmenu
 
 source drivers/usb/Config.in
+
+source lib/Config.in
 
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    source net/bluetooth/Config.in

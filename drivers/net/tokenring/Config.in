@@ -5,18 +5,11 @@
 mainmenu_option next_comment
 comment 'Token Ring devices'
 
-#x86-64 disabled by now because the drivers look largely not 64bit clean
-if [ "$CONFIG_X86_64" = "y" ]; then
-   define_bool CONFIG_TR n
-else
-
 # So far, we only have PCI, ISA, and MCA token ring devices
 if [ "$CONFIG_PCI" = "y" -o "$CONFIG_ISA" = "y" -o "$CONFIG_MCA" = "y" ]; then
    bool 'Token Ring driver support' CONFIG_TR
 else
    define_bool CONFIG_TR n
-fi
-
 fi
 
 if [ "$CONFIG_TR" != "n" ]; then

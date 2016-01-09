@@ -42,7 +42,7 @@
 */
 #include <asm/processor.h>
 #include <asm/cputable.h>
-#include "ppc_asm.h"
+#include <asm/ppc_asm.h>
 
 /* Usage:
 	

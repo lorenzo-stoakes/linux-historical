@@ -61,7 +61,9 @@ unsigned long totalhigh_pages;
 pte_t *kmap_pte;
 pgprot_t kmap_prot;
 
-extern unsigned long fix_kmap_begin;	/* calculated in srmmu.c */
+/* These are set in {srmmu,sun4c}_paging_init() */
+unsigned long fix_kmap_begin;
+unsigned long fix_kmap_end;
 
 #define kmap_get_fixed_pte(vaddr) \
 	pte_offset(pmd_offset(pgd_offset_k(vaddr), (vaddr)), (vaddr))

@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pci.c 1.43 05/08/02 15:01:15 benh
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * Common pmac/prep/chrp pci routines. -- Cort
@@ -21,15 +21,11 @@
 #include <asm/prom.h>
 #include <asm/sections.h>
 #include <asm/pci-bridge.h>
-#include <asm/residual.h>
 #include <asm/byteorder.h>
 #include <asm/irq.h>
-#include <asm/gg2.h>
 #include <asm/uaccess.h>
 
-#include "pci.h"
-
-#define DEBUG
+#undef DEBUG
 
 #ifdef DEBUG
 #define DBG(x...) printk(x)
@@ -838,12 +834,6 @@ pcibios_init(void)
 	/* Call machine dependent post-init code */
 	if (ppc_md.pcibios_after_init)
 		ppc_md.pcibios_after_init();
-}
-
-int __init
-pcibios_assign_all_busses(void)
-{
-	return pci_assign_all_busses;
 }
 
 void __init

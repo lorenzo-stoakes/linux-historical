@@ -42,14 +42,12 @@ fi
 # The Etinc driver has not been tested as non-modular yet.
 #
 
-   if [ "$CONFIG_X86_64" != "y" ]; then	
    dep_tristate '  Etinc PCISYNC serial board support (EXPERIMENTAL)' CONFIG_DSCC4 m
 
 # FarSite Communications' cards
 
    tristate '  FarSync T-Series X.21 (and V.35/V.24) cards' CONFIG_FARSYNC
 
-   fi
 #
 # Lan Media's board. Currently 1000, 1200, 5200, 5245
 #
@@ -60,9 +58,7 @@ fi
 # ATI's sync/async boards. Currently 2520, 4020, 4520, 8520 -- 0 in second digit means async only
 #
 
-   if [ "$CONFIG_X86_64" != "y" ]; then	
    tristate '  Aurora Technology, Inc. synchronous asynchronous PCI cards V2' CONFIG_ATI_XX20
-   fi
 
 # There is no way to detect a Sealevel board. Force it modular
 
@@ -105,7 +101,7 @@ fi
 	 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
 	    dep_tristate '    Cyclom 2X(tm) cards (EXPERIMENTAL)' CONFIG_CYCLADES_SYNC $CONFIG_WAN_ROUTER_DRIVERS $CONFIG_ISA
 	    if [ "$CONFIG_CYCLADES_SYNC" != "n" ]; then
-	       bool '      Cyclom 2X X.25 support' CONFIG_CYCLOMX_X25
+	       bool '      Cyclom 2X X.25 support (EXPERIMENTAL)' CONFIG_CYCLOMX_X25
 	    fi
 	 fi
       fi

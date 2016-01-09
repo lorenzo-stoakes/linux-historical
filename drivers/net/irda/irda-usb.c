@@ -112,9 +112,9 @@ static void irda_usb_change_speed_xbofs(struct irda_usb_cb *self);
 static int irda_usb_hard_xmit(struct sk_buff *skb, struct net_device *dev);
 static int irda_usb_open(struct irda_usb_cb *self);
 static int irda_usb_close(struct irda_usb_cb *self);
-static void speed_bulk_callback(purb_t purb);
-static void write_bulk_callback(purb_t purb);
-static void irda_usb_receive(purb_t purb);
+static void speed_bulk_callback(struct urb *urb);
+static void write_bulk_callback(struct urb *urb);
+static void irda_usb_receive(struct urb *urb);
 static int irda_usb_net_init(struct net_device *dev);
 static int irda_usb_net_open(struct net_device *dev);
 static int irda_usb_net_close(struct net_device *dev);
@@ -248,7 +248,7 @@ static void irda_usb_change_speed_xbofs(struct irda_usb_cb *self)
 {
 	unsigned long flags;
 	__u8 *frame;
-	purb_t purb;
+	struct urb *urb;
 	int ret;
 
 	IRDA_DEBUG(2, __FUNCTION__ "(), speed=%d, xbofs=%d\n",
@@ -288,7 +288,7 @@ static void irda_usb_change_speed_xbofs(struct irda_usb_cb *self)
 /*
  * Note : this function will be called with both speed_urb and empty_urb...
  */
-static void speed_bulk_callback(purb_t purb)
+static void speed_bulk_callback(struct urb *purb)
 {
 	struct irda_usb_cb *self = purb->context;
 	
@@ -329,7 +329,7 @@ static void speed_bulk_callback(purb_t purb)
 static int irda_usb_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
 	struct irda_usb_cb *self = netdev->priv;
-	purb_t purb = &self->tx_urb;
+	struct urb *purb = &self->tx_urb;
 	unsigned long flags;
 	s32 speed;
 	s16 xbofs;
@@ -479,7 +479,7 @@ static int irda_usb_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
 /*
  * Note : this function will be called only for tx_urb...
  */
-static void write_bulk_callback(purb_t purb)
+static void write_bulk_callback(struct urb *purb)
 {
 	struct sk_buff *skb = purb->context;
 	struct irda_usb_cb *self = ((struct irda_skb_cb *) skb->cb)->context;
@@ -541,7 +541,7 @@ static void write_bulk_callback(purb_t purb)
 static void irda_usb_net_timeout(struct net_device *netdev)
 {
 	struct irda_usb_cb *self = netdev->priv;
-	purb_t purb;
+	struct urb *purb;
 	int	done = 0;	/* If we have made any progress */
 
 	IRDA_DEBUG(0, __FUNCTION__ "(), Network layer thinks we timed out!\n");
@@ -692,7 +692,7 @@ static void irda_usb_net_timeout(struct net_device *netdev)
  *
  * Jean II
  */
-static void irda_usb_submit(struct irda_usb_cb *self, struct sk_buff *skb, purb_t purb)
+static void irda_usb_submit(struct irda_usb_cb *self, struct sk_buff *skb, struct urb *purb)
 {
 	struct irda_skb_cb *cb;
 	int ret;
@@ -752,7 +752,7 @@ static void irda_usb_submit(struct irda_usb_cb *self, struct sk_buff *skb, purb_
  *     Called by the USB subsystem when a frame has been received
  *
  */
-static void irda_usb_receive(purb_t purb) 
+static void irda_usb_receive(struct urb *purb) 
 {
 	struct sk_buff *skb = (struct sk_buff *) purb->context;
 	struct irda_usb_cb *self; 
@@ -1003,7 +1003,7 @@ static int irda_usb_net_close(struct net_device *netdev)
 
 	/* Deallocate all the Rx path buffers (URBs and skb) */
 	for (i = 0; i < IU_MAX_RX_URBS; i++) {
-		purb_t purb = &(self->rx_urb[i]);
+		struct urb *purb = &(self->rx_urb[i]);
 		struct sk_buff *skb = (struct sk_buff *) purb->context;
 		/* Cancel the receive command */
 		usb_unlink_urb(purb);

@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.m8xx_setup.c 1.40 11/13/01 21:26:07 paulus
+ * BK Id: %F% %I% %G% %U% %#%
  *
  *  linux/arch/ppc/kernel/setup.c
  *
@@ -43,8 +43,9 @@
 #include <asm/mpc8xx.h>
 #include <asm/8xx_immap.h>
 #include <asm/machdep.h>
-
+#include <asm/bootinfo.h>
 #include <asm/time.h>
+
 #include "ppc8xx_pic.h"
 
 static int m8xx_set_rtc_time(unsigned long time);

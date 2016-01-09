@@ -96,10 +96,10 @@ static void hci_usb_interrupt(struct urb *urb);
 static void hci_usb_rx_complete(struct urb *urb);
 static void hci_usb_tx_complete(struct urb *urb);
 
-static purb_t hci_usb_get_completed(struct hci_usb *husb)
+static struct urb *hci_usb_get_completed(struct hci_usb *husb)
 {
 	struct sk_buff *skb;
-	purb_t urb = NULL;
+	struct urb *urb = NULL;
 
 	skb = skb_dequeue(&husb->completed_q);
 	if (skb) {
@@ -240,7 +240,7 @@ static int hci_usb_flush(struct hci_dev *hdev)
 static inline void hci_usb_unlink_urbs(struct hci_usb *husb)
 {
 	struct sk_buff *skb;
-	purb_t urb;
+	struct urb *urb;
 
 	BT_DBG("%s", husb->hdev.name);
 
@@ -280,8 +280,8 @@ static int hci_usb_close(struct hci_dev *hdev)
 static inline int hci_usb_send_ctrl(struct hci_usb *husb, struct sk_buff *skb)
 {
 	struct hci_usb_scb *scb = (void *) skb->cb;
-	purb_t urb = hci_usb_get_completed(husb);
-	devrequest *dr;
+	struct urb *urb = hci_usb_get_completed(husb);
+	struct usb_ctrlrequest *dr;
 	int pipe, err;
 
 	if (!urb && !(urb = usb_alloc_urb(0)))
@@ -294,11 +294,11 @@ static inline int hci_usb_send_ctrl(struct hci_usb *husb, struct sk_buff *skb)
 	
 	pipe = usb_sndctrlpipe(husb->udev, 0);
 
-	dr->requesttype = HCI_CTRL_REQ;
-	dr->request = 0;
-	dr->index   = 0;
-	dr->value   = 0;
-	dr->length  = __cpu_to_le16(skb->len);
+	dr->bRequestType = HCI_CTRL_REQ;
+	dr->bRequest = 0;
+	dr->wIndex   = 0;
+	dr->wValue   = 0;
+	dr->wLength  = __cpu_to_le16(skb->len);
 
 	FILL_CONTROL_URB(urb, husb->udev, pipe, (void *) dr,
 			skb->data, skb->len, hci_usb_tx_complete, skb);
@@ -321,7 +321,7 @@ static inline int hci_usb_send_ctrl(struct hci_usb *husb, struct sk_buff *skb)
 static inline int hci_usb_send_bulk(struct hci_usb *husb, struct sk_buff *skb)
 {
 	struct hci_usb_scb *scb = (void *) skb->cb;
-	purb_t urb = hci_usb_get_completed(husb);
+	struct urb *urb = hci_usb_get_completed(husb);
 	int pipe, err;
 
 	if (!urb && !(urb = usb_alloc_urb(0)))

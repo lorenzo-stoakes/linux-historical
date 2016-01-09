@@ -178,7 +178,7 @@ static void urb_free_priv (struct ohci *hc, urb_priv_t * urb_priv)
 	kfree (urb_priv);
 }
  
-static void urb_rm_priv_locked (urb_t * urb) 
+static void urb_rm_priv_locked (struct urb * urb) 
 {
 	urb_priv_t * urb_priv = urb->hcpriv;
 	
@@ -212,7 +212,7 @@ static void urb_rm_priv_locked (urb_t * urb)
 	}
 }
 
-static void urb_rm_priv (urb_t * urb)
+static void urb_rm_priv (struct urb * urb)
 {
 	unsigned long flags;
 
@@ -229,7 +229,7 @@ static int sohci_get_current_frame_number (struct usb_device * dev);
 /* debug| print the main components of an URB     
  * small: 0) header + data packets 1) just header */
  
-static void urb_print (urb_t * urb, char * str, int small)
+static void urb_print (struct urb * urb, char * str, int small)
 {
 	unsigned int pipe= urb->pipe;
 	
@@ -458,10 +458,10 @@ static void ohci_dump (ohci_t *controller, int verbose)
 
 /* return a request to the completion handler */
  
-static int sohci_return_urb (struct ohci *hc, urb_t * urb)
+static int sohci_return_urb (struct ohci *hc, struct urb * urb)
 {
 	urb_priv_t * urb_priv = urb->hcpriv;
-	urb_t * urbt;
+	struct urb * urbt;
 	unsigned long flags;
 	int i;
 	
@@ -536,7 +536,7 @@ static int sohci_return_urb (struct ohci *hc, urb_t * urb)
 
 /* get a transfer request */
  
-static int sohci_submit_urb (urb_t * urb)
+static int sohci_submit_urb (struct urb * urb)
 {
 	ohci_t * ohci;
 	ed_t * ed;
@@ -720,7 +720,7 @@ static int sohci_submit_urb (urb_t * urb)
 /* deactivate all TDs and remove the private part of the URB */
 /* interrupt callers must use async unlink mode */
 
-static int sohci_unlink_urb (urb_t * urb)
+static int sohci_unlink_urb (struct urb * urb)
 {
 	unsigned long flags;
 	ohci_t * ohci;
@@ -1295,7 +1295,7 @@ static void ep_rm_ed (struct usb_device * usb_dev, ed_t * ed)
 static void
 td_fill (ohci_t * ohci, unsigned int info,
 	dma_addr_t data, int len,
-	urb_t * urb, int index)
+	struct urb * urb, int index)
 {
 	volatile td_t  * td, * td_pt;
 	urb_priv_t * urb_priv = urb->hcpriv;
@@ -1344,7 +1344,7 @@ td_fill (ohci_t * ohci, unsigned int info,
  
 /* prepare all TDs of a transfer */
 
-static void td_submit_urb (urb_t * urb)
+static void td_submit_urb (struct urb * urb)
 { 
 	urb_priv_t * urb_priv = urb->hcpriv;
 	ohci_t * ohci = (ohci_t *) urb->dev->bus->hcpriv;
@@ -1457,7 +1457,7 @@ static void dl_transfer_length(td_t * td)
 {
 	__u32 tdINFO, tdBE, tdCBP;
  	__u16 tdPSW;
- 	urb_t * urb = td->urb;
+ 	struct urb * urb = td->urb;
  	urb_priv_t * urb_priv = urb->hcpriv;
 	int dlen = 0;
 	int cc = 0;
@@ -1498,7 +1498,7 @@ static void dl_transfer_length(td_t * td)
 
 /* handle an urb that is being unlinked */
 
-static void dl_del_urb (urb_t * urb)
+static void dl_del_urb (struct urb * urb)
 {
 	wait_queue_head_t * wait_head = ((urb_priv_t *)(urb->hcpriv))->wait;
 
@@ -1587,7 +1587,7 @@ static void dl_del_list (ohci_t  * ohci, unsigned int frame)
 		td_p = &ed->hwHeadP;
 
 		for (td = tdHeadP; td != tdTailP; td = td_next) { 
-			urb_t * urb = td->urb;
+			struct urb * urb = td->urb;
 			urb_priv_t * urb_priv = td->urb->hcpriv;
 			
 			td_next = dma_to_td (ohci, le32_to_cpup (&td->hwNextTD) & 0xfffffff0);
@@ -1675,7 +1675,7 @@ static void dl_done_list (ohci_t * ohci, td_t * td_list)
   	td_t * td_list_next = NULL;
 	ed_t * ed;
 	int cc = 0;
-	urb_t * urb;
+	struct urb * urb;
 	urb_priv_t * urb_priv;
  	__u32 tdINFO, edHeadP, edTailP;
  	
@@ -1851,7 +1851,7 @@ static void rh_int_timer_do (unsigned long ptr)
 {
 	int len; 
 
-	urb_t * urb = (urb_t *) ptr;
+	struct urb * urb = (struct urb *) ptr;
 	ohci_t * ohci = urb->dev->bus->hcpriv;
 
 	if (ohci->disabled)
@@ -1880,7 +1880,7 @@ static void rh_int_timer_do (unsigned long ptr)
 
 /* Root Hub INTs are polled by this timer */
 
-static int rh_init_int_timer (urb_t * urb) 
+static int rh_init_int_timer (struct urb * urb) 
 {
 	ohci_t * ohci = urb->dev->bus->hcpriv;
 
@@ -1905,12 +1905,12 @@ static int rh_init_int_timer (urb_t * urb)
 
 /* request to virtual root hub */
 
-static int rh_submit_urb (urb_t * urb)
+static int rh_submit_urb (struct urb * urb)
 {
 	struct usb_device * usb_dev = urb->dev;
 	ohci_t * ohci = usb_dev->bus->hcpriv;
 	unsigned int pipe = urb->pipe;
-	devrequest * cmd = (devrequest *) urb->setup_packet;
+	struct usb_ctrlrequest * cmd = (struct usb_ctrlrequest *) urb->setup_packet;
 	void * data = urb->transfer_buffer;
 	int leni = urb->transfer_buffer_length;
 	int len = 0;
@@ -1934,10 +1934,10 @@ static int rh_submit_urb (urb_t * urb)
 		return 0;
 	}
 
-	bmRType_bReq  = cmd->requesttype | (cmd->request << 8);
-	wValue        = le16_to_cpu (cmd->value);
-	wIndex        = le16_to_cpu (cmd->index);
-	wLength       = le16_to_cpu (cmd->length);
+	bmRType_bReq  = cmd->bRequestType | (cmd->bRequest << 8);
+	wValue        = le16_to_cpu (cmd->wValue);
+	wIndex        = le16_to_cpu (cmd->wIndex);
+	wLength       = le16_to_cpu (cmd->wLength);
 
 	switch (bmRType_bReq) {
 	/* Request Destination:
@@ -2111,7 +2111,7 @@ static int rh_submit_urb (urb_t * urb)
 
 /*-------------------------------------------------------------------------*/
 
-static int rh_unlink_urb (urb_t * urb)
+static int rh_unlink_urb (struct urb * urb)
 {
 	ohci_t * ohci = urb->dev->bus->hcpriv;
  

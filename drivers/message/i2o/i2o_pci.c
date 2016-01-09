@@ -35,6 +35,7 @@
 
 static int dpt = 0;
 
+extern void i2o_sys_init(void);
 
 /**
  *	i2o_pci_dispose		-	Free bus specific resources

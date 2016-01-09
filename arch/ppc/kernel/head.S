@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.head.S 1.43 06/25/02 17:24:29 benh
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  *  PowerPC version 
@@ -26,13 +26,14 @@
  */
 
 #include <linux/config.h>
-#include "ppc_asm.h"
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
 #include <asm/pgtable.h>
 #include <asm/cputable.h>
 #include <asm/cache.h>
+#include <asm/ppc_asm.h>
+#include "ppc_defs.h"
 
 #ifdef CONFIG_APUS
 #include <asm/amigappc.h>

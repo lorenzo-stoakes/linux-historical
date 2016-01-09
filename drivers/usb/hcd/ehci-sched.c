@@ -881,7 +881,7 @@ itd_complete (
 	unsigned long	flags
 ) {
 	struct urb				*urb = itd->urb;
-	iso_packet_descriptor_t			*desc;
+	struct iso_packet_descriptor		*desc;
 	u32					t;
 
 	/* update status for this uframe's transfers */

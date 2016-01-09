@@ -378,7 +378,7 @@ static ssize_t ppp_read(struct file *file, char *buf,
 {
 	struct ppp_file *pf = file->private_data;
 	DECLARE_WAITQUEUE(wait, current);
-	ssize_t ret;
+	ssize_t ret = 0;
 	struct sk_buff *skb = 0;
 
 	if (pf == 0)

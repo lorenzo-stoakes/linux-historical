@@ -866,7 +866,7 @@ send_packet(endpoint_t * ep, u8 * data, int data_len, int from_user)
 
 // SETUP packet request parser
 static void
-process_setup (struct usb_serial* serial, devrequest* setup)
+process_setup (struct usb_serial* serial, struct usb_ctrlrequest* setup)
 {
 	int desc_len, strnum;
 
@@ -874,7 +874,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 
 	switch (setup->request) {
 	case USB_REQ_SET_ADDRESS:
-		serial->address = le16_to_cpu(setup->value);
+		serial->address = le16_to_cpu(setup->wValue);
 		dbg(__FUNCTION__ ": our address=%d", serial->address);
 		if (serial->address > 127 || serial->state == CONFIGURED) {
 			// usb spec doesn't tell us what to do, so just go to
@@ -887,8 +887,8 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 			serial->state = DEFAULT;
 		break;
 	case USB_REQ_GET_DESCRIPTOR:
-		desc_len = le16_to_cpu(setup->length);
-		switch (le16_to_cpu(setup->value) >> 8) {
+		desc_len = le16_to_cpu(setup->wLength);
+		switch (le16_to_cpu(setup->wValue) >> 8) {
 		case USB_DT_DEVICE:
 			// send device descriptor!
 			desc_len = desc_len > serial->dev_desc->bLength ?
@@ -901,7 +901,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 			// If the config descr index in low-byte of
 			// setup->value	is valid, send config descr,
 			// otherwise stall ep0.
-			if ((le16_to_cpu(setup->value) & 0xff) == 0) {
+			if ((le16_to_cpu(setup->wValue) & 0xff) == 0) {
 				// send config descriptor!
 				if (desc_len <= USB_DT_CONFIG_SIZE) {
 					dbg("sending partial config desc, size=%d",
@@ -943,7 +943,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 		case USB_DT_STRING:
 			// If the string descr index in low-byte of setup->value
 			// is valid, send string descr, otherwise stall ep0.
-			strnum = le16_to_cpu(setup->value) & 0xff;
+			strnum = le16_to_cpu(setup->wValue) & 0xff;
 			if (strnum >= 0 && strnum < 6) {
 				struct usb_string_descriptor *desc =
 				    serial->str_desc[strnum];
@@ -957,7 +957,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 			break;
 		default:	// Invalid request
 			dbg("invalid get desc=%d, stalled",
-			    le16_to_cpu(setup->value) >> 8);
+			    le16_to_cpu(setup->wValue) >> 8);
 			endpoint_stall(&serial->ep_ctrl);	// Stall endpoint 0
 			break;
 		}
@@ -967,7 +967,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 		break;
 	case USB_REQ_GET_INTERFACE:
 		// interface must be zero.
-		if ((le16_to_cpu(setup->index) & 0xff) ||
+		if ((le16_to_cpu(setup->wIndex) & 0xff) ||
 		    serial->state == ADDRESS) {
 			// FIXME: respond with "request error". how?
 		} else if (serial->state == CONFIGURED) {
@@ -981,9 +981,9 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 		if (serial->state == ADDRESS) {
 			// FIXME: respond with "request error". how?
 		} else if (serial->state == CONFIGURED) {
-			serial->interface = le16_to_cpu(setup->index) & 0xff;
+			serial->interface = le16_to_cpu(setup->wIndex) & 0xff;
 			serial->alternate_setting =
-			    le16_to_cpu(setup->value) & 0xff;
+			    le16_to_cpu(setup->wValue) & 0xff;
 			// interface and alternate_setting must be zero
 			if (serial->interface || serial->alternate_setting) {
 				// FIXME: respond with "request error". how?
@@ -992,7 +992,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 		break;
 	case USB_REQ_SET_CONFIGURATION:
 		// set active config to low-byte of serial.value
-		serial->configuration = le16_to_cpu(setup->value) & 0xff;
+		serial->configuration = le16_to_cpu(setup->wValue) & 0xff;
 		dbg("set config, config=%d", serial->configuration);
 		if (!serial->configuration && serial->state > DEFAULT)
 			serial->state = ADDRESS;
@@ -1009,7 +1009,7 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 		break;
 	case USB_REQ_GET_STATUS:
 		// FIXME: looks like the h/w handles this one
-		switch (setup->requesttype) {
+		switch (setup->bRequestType) {
 		case 0x80:	// Device
 			// FIXME: send device status
 			break;
@@ -1027,16 +1027,16 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 	case USB_REQ_CLEAR_FEATURE:
 		switch (setup->requesttype) {
 		case 0x00:	// Device
-			if ((le16_to_cpu(setup->value) & 0xff) == 1)
+			if ((le16_to_cpu(setup->wValue) & 0xff) == 1)
 				serial->remote_wakeup_en = 0;
 			else
 				endpoint_stall(&serial->ep_ctrl);
 			break;
 		case 0x02:	// End Point
-			if ((le16_to_cpu(setup->value) & 0xff) == 0) {
+			if ((le16_to_cpu(setup->wValue) & 0xff) == 0) {
 				endpoint_t *ep =
 				    epnum_to_ep(serial,
-						    le16_to_cpu(setup->index) & 0xff);
+						    le16_to_cpu(setup->wIndex) & 0xff);
 
 				endpoint_unstall(ep);
 				endpoint_reset_datatoggle(ep);
@@ -1046,18 +1046,18 @@ process_setup (struct usb_serial* serial, devrequest* setup)
 		}
 		break;
 	case USB_REQ_SET_FEATURE:
-		switch (setup->requesttype) {
+		switch (setup->bRequestType) {
 		case 0x00:	// Device
-			if ((le16_to_cpu(setup->value) & 0xff) == 1)
+			if ((le16_to_cpu(setup->wValue) & 0xff) == 1)
 				serial->remote_wakeup_en = 1;
 			else
 				endpoint_stall(&serial->ep_ctrl);
 			break;
 		case 0x02:	// End Point
-			if ((le16_to_cpu(setup->value) & 0xff) == 0) {
+			if ((le16_to_cpu(setup->wValue) & 0xff) == 0) {
 				endpoint_t *ep =
 				    epnum_to_ep(serial,
-						    le16_to_cpu(setup->index) & 0xff);
+						    le16_to_cpu(setup->wIndex) & 0xff);
 
 				endpoint_stall(ep);
 			} else
@@ -1100,14 +1100,14 @@ process_complete (struct usb_serial* serial, int fifo_num)
 	
 		// SETUP packet received ?
 		//if (cs & USBDEV_CS_SU) { FIXME: uncomment!
-			if (pkt->size == sizeof(devrequest)) {
-				devrequest setup;
+			if (pkt->size == sizeof(struct usb_ctrlrequest)) {
+				struct usb_ctrlrequest setup;
 			if ((cs & (USBDEV_CS_NAK | USBDEV_CS_ACK)) ==
 			    USBDEV_CS_ACK)
 					dbg("got SETUP");
 				else
 					dbg("got NAK SETUP, cs=%08x", cs);
-			memcpy(&setup, pkt->bufptr, sizeof(devrequest));
+			memcpy(&setup, pkt->bufptr, sizeof(struct usb_ctrlrequest));
 				process_setup(serial, &setup);
 			//} else  FIXME: uncomment!
 			//dbg(__FUNCTION__ ": wrong size SETUP received");

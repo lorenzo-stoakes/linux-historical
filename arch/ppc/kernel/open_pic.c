@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.open_pic.c 1.33 12/19/01 09:45:54 trini
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  *  arch/ppc/kernel/open_pic.c -- OpenPIC Interrupt Handling
@@ -17,18 +17,16 @@
 #include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/irq.h>
-#include <linux/init.h>
 #include <asm/ptrace.h>
 #include <asm/signal.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/prom.h>
 #include <asm/sections.h>
+#include <asm/open_pic.h>
+#include <asm/i8259.h>
 
-#include "local_irq.h"
-#include "open_pic.h"
 #include "open_pic_defs.h"
-#include "i8259.h"
 
 void* OpenPIC_Addr;
 static volatile struct OpenPIC *OpenPIC = NULL;

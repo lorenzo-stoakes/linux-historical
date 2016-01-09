@@ -171,9 +171,13 @@ extern void dmi_scan_machine(void);
 extern int root_mountflags;
 extern char _text, _etext, _edata, _end;
 
+static int have_cpuid_p(void) __init;
+
 static int disable_x86_serial_nr __initdata = 1;
 static int disable_x86_fxsr __initdata = 0;
 static int disable_x86_ht __initdata = 0;
+
+extern int blk_nohighio;
 
 int enable_acpi_smp_table;
 
@@ -871,11 +875,15 @@ nextchar:
 void __init setup_arch(char **cmdline_p)
 {
 	unsigned long bootmap_size, low_mem_size;
-	unsigned long start_pfn, max_pfn, max_low_pfn;
+	unsigned long start_pfn, max_low_pfn;
 	int i;
 
 #ifdef CONFIG_VISWS
 	visws_get_board_type_and_rev();
+#endif
+
+#ifndef CONFIG_HIGHIO
+	blk_nohighio = 1;
 #endif
 
  	ROOT_DEV = to_kdev_t(ORIG_ROOT_DEV);
@@ -1206,6 +1214,14 @@ static int __init tsc_setup(char *str)
 __setup("notsc", tsc_setup);
 #endif
 
+static int __init highio_setup(char *str)
+{
+	printk("i386: disabling HIGHMEM block I/O\n");
+	blk_nohighio = 1;
+	return 1;
+}
+__setup("nohighio", highio_setup);
+
 static int __init get_model_name(struct cpuinfo_x86 *c)
 {
 	unsigned int *v;
@@ -1534,7 +1550,7 @@ static void __init do_cyrix_devid(unsigned char *dir0, unsigned char *dir1)
  * Cx86_dir0_msb is a HACK needed by check_cx686_cpuid/slop in bugs.h in
  * order to identify the Cyrix CPU model after we're out of setup.c
  *
- * Actually since bugs.h doesnt even reference this perhaps someone should
+ * Actually since bugs.h doesn't even reference this perhaps someone should
  * fix the documentation ???
  */
 static unsigned char Cx86_dir0_msb __initdata = 0;
@@ -2270,29 +2286,26 @@ static struct _cache_table cache_table[] __initdata =
 
 static void __init init_intel(struct cpuinfo_x86 *c)
 {
-#ifndef CONFIG_M686
-	static int f00f_workaround_enabled = 0;
-#endif
-	char *p = NULL;
 	unsigned int l1i = 0, l1d = 0, l2 = 0, l3 = 0; /* Cache sizes */
+	char *p = NULL;
+#ifndef CONFIG_X86_F00F_WORKS_OK
+	static int f00f_workaround_enabled = 0;
 
-#ifndef CONFIG_M686
 	/*
 	 * All current models of Pentium and Pentium with MMX technology CPUs
 	 * have the F0 0F bug, which lets nonpriviledged users lock up the system.
 	 * Note that the workaround only should be initialized once...
 	 */
 	c->f00f_bug = 0;
-	if ( c->x86 == 5 ) {
+	if (c->x86 == 5) {
 		c->f00f_bug = 1;
-		if ( !f00f_workaround_enabled ) {
+		if (!f00f_workaround_enabled) {
 			trap_init_f00f_bug();
 			printk(KERN_NOTICE "Intel Pentium with F0 0F bug - workaround enabled.\n");
 			f00f_workaround_enabled = 1;
 		}
 	}
-#endif
-
+#endif /* CONFIG_X86_F00F_WORKS_OK */
 
 	if (c->cpuid_level > 1) {
 		/* supports eax=2  call */
@@ -2415,7 +2428,7 @@ static void __init init_intel(struct cpuinfo_x86 *c)
 			if (smp_num_siblings != NR_SIBLINGS) {
 				printk(KERN_WARNING "CPU: Unsupported number of the siblings %d", smp_num_siblings);
 				smp_num_siblings = 1;
-				goto too_many_siblings;
+				return;
 			}
 			tmp = smp_num_siblings;
 			while ((tmp & 1) == 0) {
@@ -2437,7 +2450,6 @@ static void __init init_intel(struct cpuinfo_x86 *c)
 		}
 
 	}
-too_many_siblings:
 #endif
 }
 

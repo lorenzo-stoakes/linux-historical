@@ -395,6 +395,8 @@ source drivers/usb/Config.in
 
 source net/bluetooth/Config.in
 
+source lib/Config.in
+
 mainmenu_option next_comment
 comment 'Kernel hacking'
 

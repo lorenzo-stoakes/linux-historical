@@ -1161,15 +1161,6 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 	/* END HORRIBLE HACK FOR PL2303 */
 #endif
 	
-	/* verify that we found all of the endpoints that we need */
-	if (!((interrupt_pipe & type->needs_interrupt_in) &&
-	      (bulk_in_pipe & type->needs_bulk_in) &&
-	      (bulk_out_pipe & type->needs_bulk_out))) {
-		/* nope, they don't match what we expected */
-		info("descriptors matched, but endpoints did not");
-		return NULL;
-	}
-
 	/* found all that we need */
 	info("%s converter detected", type->name);
 
@@ -1200,15 +1191,6 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 	serial->num_interrupt_in = num_interrupt_in;
 	serial->vendor = dev->descriptor.idVendor;
 	serial->product = dev->descriptor.idProduct;
-
-	/* if this device type has a startup function, call it */
-	if (type->startup) {
-		i = type->startup (serial);
-		if (i < 0)
-			goto probe_error;
-		if (i > 0)
-			return serial;
-	}
 
 	/* set up the endpoint information */
 	for (i = 0; i < num_bulk_in; ++i) {
@@ -1298,7 +1280,16 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 		port->tqueue.data = port;
 		init_MUTEX (&port->sem);
 	}
-	
+
+	/* if this device type has a startup function, call it */
+	if (type->startup) {
+		i = type->startup (serial);
+		if (i < 0)
+			goto probe_error;
+		if (i > 0)
+			return serial;
+	}
+
 	/* initialize the devfs nodes for this device and let the user know what ports we are bound to */
 	for (i = 0; i < serial->num_ports; ++i) {
 		tty_register_devfs (&serial_tty_driver, 0, serial->port[i].number);

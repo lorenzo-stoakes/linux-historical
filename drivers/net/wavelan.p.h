@@ -345,6 +345,10 @@
  *	- Fix spinlock stupid bugs that I left in. The driver is now SMP
  *		compliant and doesn't lockup at startup.
  *
+ * Changes made for release in 2.4.20 :
+ * ----------------------------------
+ *	- Set dev->trans_start to avoid filling the logs
+ *
  * Wishes & dreams:
  * ----------------
  *	- roaming (see Pcmcia driver)

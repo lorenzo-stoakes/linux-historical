@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.setup.c 1.75 04/16/02 20:08:22 paulus
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * Common prep/pmac/chrp boot and setup code.
@@ -29,17 +29,6 @@
 #include <asm/smp.h>
 #include <asm/elf.h>
 #include <asm/cputable.h>
-#ifdef CONFIG_8xx
-#include <asm/mpc8xx.h>
-#include <asm/8xx_immap.h>
-#endif
-#ifdef CONFIG_8260
-#include <asm/mpc8260.h>
-#include <asm/immap_8260.h>
-#endif
-#ifdef CONFIG_4xx
-#include <asm/ppc4xx.h>
-#endif
 #include <asm/bootx.h>
 #include <asm/btext.h>
 #include <asm/machdep.h>

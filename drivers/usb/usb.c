@@ -985,11 +985,11 @@ void usb_inc_dev_use(struct usb_device *dev)
  *
  *	The driver should call usb_free_urb() when it is finished with the urb.
  */
-urb_t *usb_alloc_urb(int iso_packets)
+struct urb *usb_alloc_urb(int iso_packets)
 {
-	urb_t *urb;
+	struct urb *urb;
 
-	urb = (urb_t *)kmalloc(sizeof(urb_t) + iso_packets * sizeof(iso_packet_descriptor_t),
+	urb = (struct urb *)kmalloc(sizeof(struct urb) + iso_packets * sizeof(struct iso_packet_descriptor),
 	      in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 	if (!urb) {
 		err("alloc_urb: kmalloc failed");
@@ -1011,13 +1011,13 @@ urb_t *usb_alloc_urb(int iso_packets)
  *	cleaned up with a call to usb_free_urb() when the driver is finished
  *	with it.
  */
-void usb_free_urb(urb_t* urb)
+void usb_free_urb(struct urb* urb)
 {
 	if (urb)
 		kfree(urb);
 }
 /*-------------------------------------------------------------------*/
-int usb_submit_urb(urb_t *urb)
+int usb_submit_urb(struct urb *urb)
 {
 	if (urb && urb->dev && urb->dev->bus && urb->dev->bus->op)
 		return urb->dev->bus->op->submit_urb(urb);
@@ -1026,7 +1026,7 @@ int usb_submit_urb(urb_t *urb)
 }
 
 /*-------------------------------------------------------------------*/
-int usb_unlink_urb(urb_t *urb)
+int usb_unlink_urb(struct urb *urb)
 {
 	if (urb && urb->dev && urb->dev->bus && urb->dev->bus->op)
 		return urb->dev->bus->op->unlink_urb(urb);
@@ -1040,7 +1040,7 @@ int usb_unlink_urb(urb_t *urb)
 /*-------------------------------------------------------------------*
  * completion handler for compatibility wrappers (sync control/bulk) *
  *-------------------------------------------------------------------*/
-static void usb_api_blocking_completion(urb_t *urb)
+static void usb_api_blocking_completion(struct urb *urb)
 {
 	struct usb_api_data *awd = (struct usb_api_data *)urb->context;
 
@@ -1054,7 +1054,7 @@ static void usb_api_blocking_completion(urb_t *urb)
  *-------------------------------------------------------------------*/
 
 // Starts urb and waits for completion or timeout
-static int usb_start_wait_urb(urb_t *urb, int timeout, int* actual_length)
+static int usb_start_wait_urb(struct urb *urb, int timeout, int* actual_length)
 { 
 	DECLARE_WAITQUEUE(wait, current);
 	struct usb_api_data awd;
@@ -1110,9 +1110,9 @@ static int usb_start_wait_urb(urb_t *urb, int timeout, int* actual_length)
 /*-------------------------------------------------------------------*/
 // returns status (negative) or length (positive)
 int usb_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe, 
-			    devrequest *cmd,  void *data, int len, int timeout)
+			    struct usb_ctrlrequest *cmd,  void *data, int len, int timeout)
 {
-	urb_t *urb;
+	struct urb *urb;
 	int retv;
 	int length;
 
@@ -1154,17 +1154,17 @@ int usb_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe,
 int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u8 requesttype,
 			 __u16 value, __u16 index, void *data, __u16 size, int timeout)
 {
-	devrequest *dr = kmalloc(sizeof(devrequest), GFP_KERNEL);
+	struct usb_ctrlrequest *dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
 	int ret;
 	
 	if (!dr)
 		return -ENOMEM;
 
-	dr->requesttype = requesttype;
-	dr->request = request;
-	dr->value = cpu_to_le16p(&value);
-	dr->index = cpu_to_le16p(&index);
-	dr->length = cpu_to_le16p(&size);
+	dr->bRequestType = requesttype;
+	dr->bRequest = request;
+	dr->wValue = cpu_to_le16p(&value);
+	dr->wIndex = cpu_to_le16p(&index);
+	dr->wLength = cpu_to_le16p(&size);
 
 	//dbg("usb_control_msg");	
 
@@ -1199,7 +1199,7 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u
 int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe, 
 			void *data, int len, int *actual_length, int timeout)
 {
-	urb_t *urb;
+	struct urb *urb;
 
 	if (len < 0)
 		return -EINVAL;

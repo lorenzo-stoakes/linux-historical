@@ -47,7 +47,6 @@
 #include <linux/highmem.h>
 #include <linux/module.h>
 #include <linux/completion.h>
-#include <linux/compiler.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -210,7 +209,7 @@ static int write_some_buffers(kdev_t dev)
 		struct buffer_head * bh = next;
 		next = bh->b_next_free;
 
-		if (dev && bh->b_dev != dev)
+		if (dev != NODEV && bh->b_dev != dev)
 			continue;
 		if (test_and_set_bit(BH_Lock, &bh->b_state))
 			continue;
@@ -267,7 +266,7 @@ static int wait_for_buffers(kdev_t dev, int index, int refile)
 				__refile_buffer(bh);
 			continue;
 		}
-		if (dev && bh->b_dev != dev)
+		if (dev != NODEV && bh->b_dev != dev)
 			continue;
 
 		get_bh(bh);
@@ -730,15 +729,11 @@ void __invalidate_buffers(kdev_t dev, int destroy_dirty_buffers)
 
 static void free_more_memory(void)
 {
-	zone_t * zone = contig_page_data.node_zonelists[GFP_NOFS & GFP_ZONEMASK].zones[0];
-	
 	balance_dirty();
 	wakeup_bdflush();
-	try_to_free_pages(zone, GFP_NOFS, 0);
+	try_to_free_pages_nozone(GFP_NOIO);
 	run_task_queue(&tq_disk);
-	current->policy |= SCHED_YIELD;
-	__set_current_state(TASK_RUNNING);
-	schedule();
+	yield();
 }
 
 void init_buffer(struct buffer_head *bh, bh_end_io_t *handler, void *private)
@@ -958,8 +953,10 @@ struct buffer_head * getblk(kdev_t dev, int block, int size)
 		struct buffer_head * bh;
 
 		bh = get_hash_table(dev, block, size);
-		if (bh)
+		if (bh) {
+			touch_buffer(bh);
 			return bh;
+		}
 
 		if (!grow_buffers(dev, block, size))
 			free_more_memory();
@@ -1122,7 +1119,6 @@ struct buffer_head * bread(kdev_t dev, int block, int size)
 	struct buffer_head * bh;
 
 	bh = getblk(dev, block, size);
-	touch_buffer(bh);
 	if (buffer_uptodate(bh))
 		return bh;
 	ll_rw_block(READ, 1, &bh);
@@ -1211,16 +1207,14 @@ EXPORT_SYMBOL(get_unused_buffer_head);
 
 void set_bh_page (struct buffer_head *bh, struct page *page, unsigned long offset)
 {
-	bh->b_page = page;
 	if (offset >= PAGE_SIZE)
 		BUG();
-	if (PageHighMem(page))
-		/*
-		 * This catches illegal uses and preserves the offset:
-		 */
-		bh->b_data = (char *)(0 + offset);
-	else
-		bh->b_data = page_address(page) + offset;
+
+	/*
+	 * page_address will return NULL anyways for highmem pages
+	 */
+	bh->b_data = page_address(page) + offset;
+	bh->b_page = page;
 }
 EXPORT_SYMBOL(set_bh_page);
 

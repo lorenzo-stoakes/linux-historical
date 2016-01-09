@@ -118,11 +118,11 @@ int srmmu_cache_pagetables;
 int srmmu_nocache_npages;
 unsigned long srmmu_nocache_size;
 unsigned long srmmu_nocache_end;
-unsigned long fix_kmap_begin;
-unsigned long fix_kmap_end;
 unsigned long pkmap_base;
 unsigned long pkmap_base_end;
 unsigned long srmmu_nocache_bitmap_size;
+extern unsigned long fix_kmap_begin;
+extern unsigned long fix_kmap_end;
 
 #define SRMMU_NOCACHE_BITMAP_SHIFT (PAGE_SHIFT - 4)
 

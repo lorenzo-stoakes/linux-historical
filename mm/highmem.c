@@ -332,7 +332,7 @@ struct page *alloc_bounce_page (void)
 	if (page)
 		return page;
 	/*
-	 * No luck. First, kick the VM so it doesnt idle around while
+	 * No luck. First, kick the VM so it doesn't idle around while
 	 * we are using up our emergency rations.
 	 */
 	wakeup_bdflush();
@@ -370,7 +370,7 @@ struct buffer_head *alloc_bounce_bh (void)
 	if (bh)
 		return bh;
 	/*
-	 * No luck. First, kick the VM so it doesnt idle around while
+	 * No luck. First, kick the VM so it doesn't idle around while
 	 * we are using up our emergency rations.
 	 */
 	wakeup_bdflush();

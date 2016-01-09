@@ -53,6 +53,7 @@ if [ "$CONFIG_M386" = "y" ]; then
    define_bool CONFIG_RWSEM_GENERIC_SPINLOCK y
    define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM n
    define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK n
 else
    define_bool CONFIG_X86_WP_WORKS_OK y
    define_bool CONFIG_X86_INVLPG y
@@ -68,12 +69,14 @@ if [ "$CONFIG_M486" = "y" ]; then
    define_bool CONFIG_X86_USE_STRING_486 y
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK n
 fi
 if [ "$CONFIG_M586" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
    define_bool CONFIG_X86_USE_STRING_486 y
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK n
 fi
 if [ "$CONFIG_M586TSC" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -81,6 +84,7 @@ if [ "$CONFIG_M586TSC" = "y" ]; then
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_TSC y
    define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK n
 fi
 if [ "$CONFIG_M586MMX" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -89,6 +93,7 @@ if [ "$CONFIG_M586MMX" = "y" ]; then
    define_bool CONFIG_X86_TSC y
    define_bool CONFIG_X86_GOOD_APIC y
    define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK n
 fi
 if [ "$CONFIG_M686" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -97,6 +102,7 @@ if [ "$CONFIG_M686" = "y" ]; then
    define_bool CONFIG_X86_PGE y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
    define_bool CONFIG_X86_PPRO_FENCE y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MPENTIUMIII" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -104,6 +110,7 @@ if [ "$CONFIG_MPENTIUMIII" = "y" ]; then
    define_bool CONFIG_X86_GOOD_APIC y
    define_bool CONFIG_X86_PGE y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MPENTIUM4" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 7
@@ -111,6 +118,7 @@ if [ "$CONFIG_MPENTIUM4" = "y" ]; then
    define_bool CONFIG_X86_GOOD_APIC y
    define_bool CONFIG_X86_PGE y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MK6" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -125,11 +133,13 @@ if [ "$CONFIG_MK7" = "y" ]; then
    define_bool CONFIG_X86_USE_3DNOW y
    define_bool CONFIG_X86_PGE y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MELAN" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 4
    define_bool CONFIG_X86_USE_STRING_486 y
    define_bool CONFIG_X86_ALIGNMENT_16 y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MCYRIXIII" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -141,12 +151,14 @@ fi
 if [ "$CONFIG_MCRUSOE" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
    define_bool CONFIG_X86_TSC y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MWINCHIPC6" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
    define_bool CONFIG_X86_OOSTORE y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MWINCHIP2" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -154,6 +166,7 @@ if [ "$CONFIG_MWINCHIP2" = "y" ]; then
    define_bool CONFIG_X86_TSC y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
    define_bool CONFIG_X86_OOSTORE y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 if [ "$CONFIG_MWINCHIP3D" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
@@ -161,6 +174,7 @@ if [ "$CONFIG_MWINCHIP3D" = "y" ]; then
    define_bool CONFIG_X86_TSC y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
    define_bool CONFIG_X86_OOSTORE y
+   define_bool CONFIG_X86_F00F_WORKS_OK y
 fi
 
 bool 'Machine Check Exception' CONFIG_X86_MCE
@@ -176,12 +190,17 @@ choice 'High Memory Support' \
 	"off    CONFIG_NOHIGHMEM \
 	 4GB    CONFIG_HIGHMEM4G \
 	 64GB   CONFIG_HIGHMEM64G" off
-if [ "$CONFIG_HIGHMEM4G" = "y" ]; then
+if [ "$CONFIG_HIGHMEM4G" = "y" -o "$CONFIG_HIGHMEM64G" = "y" ]; then
    define_bool CONFIG_HIGHMEM y
+else
+   define_bool CONFIG_HIGHMEM n
 fi
 if [ "$CONFIG_HIGHMEM64G" = "y" ]; then
-   define_bool CONFIG_HIGHMEM y
    define_bool CONFIG_X86_PAE y
+fi
+
+if [ "$CONFIG_HIGHMEM" = "y" ]; then
+   bool 'HIGHMEM I/O support' CONFIG_HIGHIO
 fi
 
 bool 'Math emulation' CONFIG_MATH_EMULATION
@@ -200,8 +219,6 @@ else
    bool 'Multiquad NUMA system' CONFIG_MULTIQUAD
 fi
 
-bool 'ISA bus support' CONFIG_ISA
-
 if [ "$CONFIG_SMP" = "y" -a "$CONFIG_X86_CMPXCHG" = "y" ]; then
    define_bool CONFIG_HAVE_DEC_LOCK y
 fi
@@ -219,6 +236,7 @@ if [ "$CONFIG_VISWS" = "y" ]; then
    define_bool CONFIG_X86_VISWS_APIC y
    define_bool CONFIG_X86_LOCAL_APIC y
    define_bool CONFIG_PCI y
+   define_bool CONFIG_ISA n
 else
    if [ "$CONFIG_SMP" = "y" ]; then
       define_bool CONFIG_X86_IO_APIC y
@@ -237,6 +255,7 @@ else
          define_bool CONFIG_PCI_DIRECT y
       fi
    fi
+   bool 'ISA bus support' CONFIG_ISA
 fi
 
 source drivers/pci/Config.in
@@ -368,14 +387,14 @@ fi
 endmenu
 
 if [ "$CONFIG_ISA" = "y" ]; then
-mainmenu_option next_comment
-comment 'Old CD-ROM drivers (not SCSI, not IDE)'
+    mainmenu_option next_comment
+    comment 'Old CD-ROM drivers (not SCSI, not IDE)'
 
-bool 'Support non-SCSI/IDE/ATAPI CDROM drives' CONFIG_CD_NO_IDESCSI
-if [ "$CONFIG_CD_NO_IDESCSI" != "n" ]; then
-   source drivers/cdrom/Config.in
-fi
-endmenu
+    bool 'Support non-SCSI/IDE/ATAPI CDROM drives' CONFIG_CD_NO_IDESCSI
+    if [ "$CONFIG_CD_NO_IDESCSI" != "n" ]; then
+       source drivers/cdrom/Config.in
+    fi
+    endmenu
 fi
 
 #
@@ -420,6 +439,7 @@ comment 'Kernel hacking'
 
 bool 'Kernel debugging' CONFIG_DEBUG_KERNEL
 if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
+   bool '  Check for stack overflows' CONFIG_DEBUG_STACKOVERFLOW
    bool '  Debug high memory support' CONFIG_DEBUG_HIGHMEM
    bool '  Debug memory allocations' CONFIG_DEBUG_SLAB
    bool '  Memory mapped I/O debugging' CONFIG_DEBUG_IOVIRT
@@ -429,3 +449,5 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
 fi
 
 endmenu
+
+source lib/Config.in

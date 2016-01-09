@@ -40,9 +40,9 @@
 
 #include <asm/smp.h>
 #include <asm/pgalloc.h>
+#include <asm/fixmap.h>
 
 #ifdef CONFIG_X86_VISWS_APIC
-#include <asm/fixmap.h>
 #include <asm/cobalt.h>
 #include <asm/lithium.h>
 #endif
@@ -184,6 +184,14 @@ void show_stack(unsigned long * esp)
 	}
 	printk("\n");
 	show_trace(esp);
+}
+
+/*
+ * The architecture-independent backtrace generator
+ */
+void dump_stack(void)
+{
+	show_stack(0);
 }
 
 void show_registers(struct pt_regs *regs)
@@ -758,35 +766,17 @@ asmlinkage void math_emulate(long arg)
 
 #endif /* CONFIG_MATH_EMULATION */
 
-#ifndef CONFIG_M686
+#ifndef CONFIG_X86_F00F_WORKS_OK
 void __init trap_init_f00f_bug(void)
 {
-	unsigned long page;
-	pgd_t * pgd;
-	pmd_t * pmd;
-	pte_t * pte;
-
-	/*
-	 * Allocate a new page in virtual address space, 
-	 * move the IDT into it and write protect this page.
-	 */
-	page = (unsigned long) vmalloc(PAGE_SIZE);
-	pgd = pgd_offset(&init_mm, page);
-	pmd = pmd_offset(pgd, page);
-	pte = pte_offset(pmd, page);
-	__free_page(pte_page(*pte));
-	*pte = mk_pte_phys(__pa(&idt_table), PAGE_KERNEL_RO);
-	/*
-	 * Not that any PGE-capable kernel should have the f00f bug ...
-	 */
-	__flush_tlb_all();
-
 	/*
 	 * "idt" is magic - it overlaps the idt_descr
 	 * variable so that updating idt will automatically
 	 * update the idt descriptor..
 	 */
-	idt = (struct desc_struct *)page;
+	__set_fixmap(FIX_F00F, __pa(&idt_table), PAGE_KERNEL_RO);
+	idt = (struct desc_struct *)__fix_to_virt(FIX_F00F);
+
 	__asm__ __volatile__("lidt %0": "=m" (idt_descr));
 }
 #endif

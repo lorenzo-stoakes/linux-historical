@@ -59,7 +59,6 @@ static unsigned int io[]  = { ~0, ~0, ~0, ~0 };
 static unsigned int irq[] = { 0, 0, 0, 0 };
 static unsigned int dma[] = { 0, 0, 0, 0 };
 
-static int  ali_ircc_probe_43(ali_chip_t *chip, chipio_t *info);
 static int  ali_ircc_probe_53(ali_chip_t *chip, chipio_t *info);
 static int  ali_ircc_init_43(ali_chip_t *chip, chipio_t *info);
 static int  ali_ircc_init_53(ali_chip_t *chip, chipio_t *info);
@@ -255,7 +254,6 @@ static int ali_ircc_open(int i, chipio_t *info)
 	struct ali_ircc_cb *self;
 	struct pm_dev *pmdev;
 	int dongle_id;
-	int ret;
 	int err;
 			
 	IRDA_DEBUG(2, "%s(), ---------------- Start ----------------\n", __FUNCTION__);	
@@ -451,16 +449,6 @@ static int ali_ircc_init_53(ali_chip_t *chip, chipio_t *info)
 	 */
 	
 	return 0;
-}
-
-/*
- * Function ali_ircc_probe_43 (chip, info)
- *    	
- *	Probes for the ALi M1543
- */
-static int ali_ircc_probe_43(ali_chip_t *chip, chipio_t *info)
-{
-	return 0;	
 }
 
 /*

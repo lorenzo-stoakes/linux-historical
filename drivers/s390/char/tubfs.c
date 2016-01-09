@@ -42,11 +42,11 @@ void fs3270_devfs_register(tub_t *tubp)
 {
 	char name[16];
 
-	sprintf(name, "tub%.3x", tubp->devno);
+	sprintf(name, "tub%.4x", tubp->devno);
 	devfs_register(fs3270_devfs_dir, name, DEVFS_FL_DEFAULT,
 		       IBM_FS3270_MAJOR, tubp->minor,
 		       S_IFCHR | S_IRUSR | S_IWUSR, &fs3270_fops, NULL);
-	sprintf(name, "tty%.3x", tubp->devno);
+	sprintf(name, "tty%.4x", tubp->devno);
 	tty_register_devfs_name(&tty3270_driver, 0, tubp->minor,
 				fs3270_devfs_dir, name);
 }
@@ -56,12 +56,12 @@ void fs3270_devfs_unregister(tub_t *tubp)
 	char name[16];
 	devfs_handle_t handle;
 
-	sprintf(name, "tub%.3x", tubp->devno);
+	sprintf(name, "tub%.4x", tubp->devno);
 	handle = devfs_find_handle (fs3270_devfs_dir, name,
 				    IBM_FS3270_MAJOR, tubp->minor,
 				    DEVFS_SPECIAL_CHR, 0);
 	devfs_unregister (handle);
-	sprintf(name, "tty%.3x", tubp->devno);
+	sprintf(name, "tty%.4x", tubp->devno);
 	handle = devfs_find_handle (fs3270_devfs_dir, name,
 				    IBM_TTY3270_MAJOR, tubp->minor,
 				    DEVFS_SPECIAL_CHR, 0);

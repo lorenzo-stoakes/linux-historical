@@ -1071,6 +1071,24 @@ asmlinkage long sys_sched_yield(void)
 	return 0;
 }
 
+/**
+ * yield - yield the current processor to other threads.
+ *
+ * this is a shortcut for kernel-space yielding - it marks the
+ * thread runnable and calls sys_sched_yield().
+ */
+void yield(void)
+{
+	set_current_state(TASK_RUNNING);
+	sys_sched_yield();
+}
+
+void __cond_resched(void)
+{
+	set_current_state(TASK_RUNNING);
+	schedule();
+}
+
 asmlinkage long sys_sched_get_priority_max(int policy)
 {
 	int ret = -EINVAL;

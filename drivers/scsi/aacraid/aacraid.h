@@ -806,12 +806,6 @@ struct aac_dev
 	u8			pae_support;
 };
 
-#define AllocateAndMapFibSpace(dev, MapFibContext) \
-	dev->a_ops.AllocateAndMapFibSpace(dev, MapFibContext)
-
-#define UnmapAndFreeFibSpace(dev, MapFibContext) \
-	dev->a_ops.UnmapAndFreeFibSpace(dev, MapFibContext)
-
 #define aac_adapter_interrupt(dev) \
 	dev->a_ops.adapter_interrupt(dev)
 

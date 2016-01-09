@@ -24,7 +24,7 @@ obj-y	 += mem.o tty_io.o n_tty.o tty_ioctl.o raw.o pty.o misc.o random.o
 export-objs     :=	busmouse.o console.o keyboard.o sysrq.o \
 			misc.o pty.o random.o selection.o serial.o \
 			sonypi.o tty_io.o tty_ioctl.o generic_serial.o \
-			au1000_gpio.o
+			au1000_gpio.o hp_psaux.o
 
 mod-subdirs	:=	joystick ftape drm drm-4.0 pcmcia
 
@@ -69,6 +69,17 @@ endif
 ifdef CONFIG_Q40
   KEYBD += q40_keyb.o
   SERIAL = serial.o
+endif
+
+ifeq ($(ARCH),parisc)
+   ifdef CONFIG_GSC_PS2
+      KEYBD   = hp_psaux.o hp_keyb.o
+   else
+      KEYBD   =
+   endif
+   ifdef CONFIG_PDC_CONSOLE
+      CONSOLE += pdc_console.o
+   endif
 endif
 
 ifeq ($(ARCH),arm)
@@ -150,6 +161,7 @@ else
   obj-$(CONFIG_PCI) += keyboard.o $(KEYMAP)
 endif
 
+obj-$(CONFIG_HIL) += hp_keyb.o
 obj-$(CONFIG_MAGIC_SYSRQ) += sysrq.o
 obj-$(CONFIG_ATARI_DSP56K) += dsp56k.o
 obj-$(CONFIG_ROCKETPORT) += rocket.o

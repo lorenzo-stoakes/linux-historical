@@ -1913,7 +1913,8 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 			dev->dev_addr[i] = tmp.addr[i];
 		}
 		netif_stop_queue(dev);
-		while (lp->tx_old != lp->tx_new);	/* Wait for the ring to empty */
+		while (lp->tx_old != lp->tx_new)
+			cpu_relax();	/* Wait for the ring to empty */
 
 		STOP_DEPCA;	/* Temporarily stop the depca.  */
 		depca_init_ring(dev);	/* Initialize the descriptor rings */
@@ -1926,7 +1927,8 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		if (!capable(CAP_NET_ADMIN))
 			return -EPERM;
 		netif_stop_queue(dev);
-		while (lp->tx_old != lp->tx_new);	/* Wait for the ring to empty */
+		while (lp->tx_old != lp->tx_new)
+			cpu_relax();	/* Wait for the ring to empty */
 
 		STOP_DEPCA;	/* Temporarily stop the depca.  */
 		depca_init_ring(dev);	/* Initialize the descriptor rings */
@@ -1941,7 +1943,8 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		if (!capable(CAP_NET_ADMIN))
 			return -EPERM;
 		netif_stop_queue(dev);
-		while (lp->tx_old != lp->tx_new);	/* Wait for the ring to empty */
+		while (lp->tx_old != lp->tx_new)
+			cpu_relax();	/* Wait for the ring to empty */
 
 		STOP_DEPCA;	/* Temporarily stop the depca.  */
 		depca_init_ring(dev);	/* Initialize the descriptor rings */
@@ -1953,6 +1956,8 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 
 	case DEPCA_SAY_BOO:	/* Say "Boo!" to the kernel log file */
+		if(!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		printk("%s: Boo!\n", dev->name);
 		break;
 
@@ -1965,6 +1970,8 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case DEPCA_SET_MCA:	/* Set a multicast address */
 		if (!capable(CAP_NET_ADMIN))
 			return -EPERM;
+		if (ioc->len >= HASH_TABLE_LEN || ioc->len < 0)
+			return -EINVAL;
 		if (copy_from_user(tmp.addr, ioc->data, ETH_ALEN * ioc->len))
 			return -EFAULT;
 		set_multicast_list(dev);

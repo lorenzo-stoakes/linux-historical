@@ -208,8 +208,7 @@ static u16 get_desc (IADEV *dev, struct ia_vcc *iavcc) {
         ltimeout = dev->desc_tbl[i].iavcc->ltimeout; 
         delta = jiffies - dev->desc_tbl[i].timestamp;
         if (delta >= ltimeout) {
-           IF_ABR(printk("RECOVER run!! desc_tbl %d = %d  delta = %ld, 
-               time = %ld\n", i,dev->desc_tbl[i].timestamp, delta, jiffies);)
+           IF_ABR(printk("RECOVER run!! desc_tbl %d = %d  delta = %ld,  time = %ld\n", i,dev->desc_tbl[i].timestamp, delta, jiffies);)
            if (dev->ffL.tcq_rd == dev->ffL.tcq_st) 
               dev->ffL.tcq_rd =  dev->ffL.tcq_ed;
            else 

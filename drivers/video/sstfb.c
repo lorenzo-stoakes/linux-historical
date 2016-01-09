@@ -774,13 +774,13 @@ static int sstfb_get_fix(struct fb_fix_screeninfo *fix,
 {
 #define sst_info	((struct sstfb_info *) info)
 
-	struct fb_var_screeninfo *var;
+	struct fb_var_screeninfo tmpvar;
 
 	f_dprintk("sstfb_get_fix(con: %d)\n",con);
 	if (con == -1)
-		sstfb_encode_var(var, &sst_info->current_par, sst_info);
+		sstfb_encode_var(&tmpvar, &sst_info->current_par, sst_info);
 	else
-		var = &fb_display[con].var;
+		tmpvar = fb_display[con].var;
 
 	strcpy(fix->id, sst_info->info.modename);
 	/* lfb phys address = membase + 4Mb */
@@ -793,7 +793,7 @@ static int sstfb_get_fix(struct fb_fix_screeninfo *fix,
 	 *   According to the specs, the linelength must be of 1024 *pixels*.
 	 * and the 24bpp mode is in fact a 32 bpp mode.
 	 */
-	fix->line_length = (var->bits_per_pixel == 16) ? 2048 : 4096 ;
+	fix->line_length = (tmpvar.bits_per_pixel == 16) ? 2048 : 4096 ;
 	return 0;
 #undef sst_info
 }

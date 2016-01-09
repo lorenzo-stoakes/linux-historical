@@ -63,8 +63,6 @@
 #include <asm/amigappc.h>
 #include <asm/ptrace.h>
 
-#include "local_irq.h"
-
 extern atomic_t ipi_recv;
 extern atomic_t ipi_sent;
 void enable_irq(unsigned int irq_nr);

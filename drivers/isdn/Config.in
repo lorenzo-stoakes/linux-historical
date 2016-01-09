@@ -47,15 +47,15 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    int  '  Maximum number of cards supported by HiSax' CONFIG_HISAX_MAX_CARDS 8
    comment '  HiSax supported cards'
    if [ "$CONFIG_ISA" != "n" ]; then
-   bool '  Teles 16.0/8.0' CONFIG_HISAX_16_0
-   bool '  Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3
-   bool '  AVM A1 (Fritz)' CONFIG_HISAX_AVM_A1
-   bool '  ITK ix1-micro Revision 2' CONFIG_HISAX_IX1MICROR2
-   bool '  ASUSCOM ISA cards' CONFIG_HISAX_ASUSCOM
-   bool '  TELEINT cards' CONFIG_HISAX_TELEINT
-   bool '  HFC-S based cards' CONFIG_HISAX_HFCS
-   bool '  USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
-   bool '  MIC card' CONFIG_HISAX_MIC
+      bool '  Teles 16.0/8.0' CONFIG_HISAX_16_0
+      bool '  Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3
+      bool '  AVM A1 (Fritz)' CONFIG_HISAX_AVM_A1
+      bool '  ITK ix1-micro Revision 2' CONFIG_HISAX_IX1MICROR2
+      bool '  ASUSCOM ISA cards' CONFIG_HISAX_ASUSCOM
+      bool '  TELEINT cards' CONFIG_HISAX_TELEINT
+      bool '  HFC-S based cards' CONFIG_HISAX_HFCS
+      bool '  USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
+      bool '  MIC card' CONFIG_HISAX_MIC
       bool '  Siemens I-Surf card' CONFIG_HISAX_ISURF
       bool '  HST Saphir card' CONFIG_HISAX_HSTSAPHIR
    fi
