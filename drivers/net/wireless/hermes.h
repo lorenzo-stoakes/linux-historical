@@ -153,6 +153,11 @@
  * Frame structures and constants
  */
 
+#define HERMES_DESCRIPTOR_OFFSET	0
+#define HERMES_802_11_OFFSET		(14)
+#define HERMES_802_3_OFFSET		(14+32)
+#define HERMES_802_2_OFFSET		(14+32+14)
+
 struct hermes_rx_descriptor {
 	u16 status;
 	u32 time;

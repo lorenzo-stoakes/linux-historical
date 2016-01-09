@@ -1,4 +1,4 @@
-/* airport.c 0.09
+/* airport.c 0.09b
  *
  * A driver for "Hermes" chipset based Apple Airport wireless
  * card.
@@ -42,7 +42,7 @@
 #include "hermes.h"
 #include "orinoco.h"
 
-static char version[] __initdata = "airport.c 0.09 (Benjamin Herrenschmidt <benh@kernel.crashing.org>)";
+static char version[] __initdata = "airport.c 0.09b (Benjamin Herrenschmidt <benh@kernel.crashing.org>)";
 MODULE_AUTHOR("Benjamin Herrenschmidt <benh@kernel.crashing.org>");
 MODULE_DESCRIPTION("Driver for the Apple Airport wireless card.");
 MODULE_LICENSE("Dual MPL/GPL");
@@ -70,7 +70,6 @@ static struct pmu_sleep_notifier airport_sleep_notifier = {
 
 static struct orinoco_private* airport_attach(struct device_node *of_node);
 static void airport_detach(struct orinoco_private* priv);
-static int airport_init(struct net_device *dev);
 static int airport_open(struct net_device *dev);
 static int airport_stop(struct net_device *dev);
 
@@ -85,19 +84,6 @@ static int airport_stop(struct net_device *dev);
 */
 
 static struct orinoco_private *airport_dev;
-
-static int airport_init(struct net_device *dev)
-{
-	int rc;
-	
-	MOD_INC_USE_COUNT;
-
-	rc = orinoco_init(dev);
-
-	MOD_DEC_USE_COUNT;
-
-	return rc;
-}
 
 static int
 airport_open(struct net_device *dev)
@@ -223,8 +209,11 @@ airport_attach(struct device_node* of_node)
 		return NULL;
 	}
 
+
+	ndev->name[0] = '\0';	/* register_netdev will give us an ethX name */
+	SET_MODULE_OWNER(ndev);
+
 	/* Overrides */
-	ndev->init = airport_init;
 	ndev->open = airport_open;
 	ndev->stop = airport_stop;
 
@@ -248,8 +237,6 @@ airport_attach(struct device_node* of_node)
 	}
 	card->irq_requested = 1;
 	
-	/* register_netdev will give us an ethX name */
-	ndev->name[0] = '\0';
 	/* Tell the stack we exist */
 	if (register_netdev(ndev) != 0) {
 		printk(KERN_ERR "airport: register_netdev() failed\n");
@@ -257,8 +244,6 @@ airport_attach(struct device_node* of_node)
 	}
 	printk(KERN_DEBUG "airport: card registered for interface %s\n", ndev->name);
 	card->ndev_registered = 1;
-
-	SET_MODULE_OWNER(ndev);
 
 	/* And give us the proc nodes for debugging */
 	if (orinoco_proc_dev_init(priv) != 0)

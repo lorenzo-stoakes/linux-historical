@@ -1180,7 +1180,7 @@ via_pmu_interrupt(int irq, void *arg, struct pt_regs *regs)
 		out_8(&via[IFR], intr);
 		if (intr & SR_INT)
 			pmu_sr_intr(regs);
-		else if (intr & CB1_INT)
+		if (intr & CB1_INT)
 			adb_int_pending = 1;
 	}
 

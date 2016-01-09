@@ -455,13 +455,16 @@ static int apm_emu_get_info(char *buf, char **start, off_t fpos, int length)
 			if (!ac_line_status)
 				time_units += pmu_batteries[i].time_remaining / 60;
 			real_count++;
-			if (pmu_batteries[i].flags & PMU_BATT_CHARGING)
-				battery_flag |= 0x08;
+			if (!(pmu_batteries[i].flags & PMU_BATT_CHARGING))
+				battery_flag &= ~0x08;
 		}
 	}
 	if (real_count) {
 		percentage /= real_count;
-		if (percentage <= APM_CRITICAL) {
+		if (battery_flag & 0x08) {
+			battery_status = 0x03;
+			battery_flag = 0x08;
+		} else if (percentage <= APM_CRITICAL) {
 			battery_status = 0x02;
 			battery_flag = 0x04;
 		} else if (percentage <= APM_LOW) {
@@ -471,8 +474,6 @@ static int apm_emu_get_info(char *buf, char **start, off_t fpos, int length)
 			battery_status = 0x00;
 			battery_flag = 0x01;
 		}
-		if (battery_flag & 0x08)
-			battery_status = 0x03;
 	}
 	p += sprintf(p, "%s %d.%d 0x%02x 0x%02x 0x%02x 0x%02x %d%% %d %s\n",
 		     driver_version,

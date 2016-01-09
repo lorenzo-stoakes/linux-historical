@@ -81,7 +81,7 @@ extern const char * kdevname(kdev_t);	/* note: returns pointer to static data! *
 #define major(d) MAJOR(d)
 #define minor(d) MINOR(d)
 #define kdev_same(a,b) (a==b)
-#define kdev_none(d) (!d)
+#define kdev_none(d) (!(d))
 
 /*
 As long as device numbers in the outside world have 16 bits only,

@@ -25,12 +25,14 @@
     1.06	2001/12/13	Fixed disconnect bug at 10Mbps mode.
     				Fixed tx_full flag incorrect.
 				Added tx_coalesce paramter.
-*/
+    1.07	2002/01/03	Fixed miscount of RX frame error.
+    1.08	2002/01/17	Fixed the multicast bug.
+ */
 
 #include "dl2k.h"
 
 static char version[] __devinitdata =
-    KERN_INFO "D-Link DL2000-based linux driver v1.06 2001/12/13\n";
+    KERN_INFO "D-Link DL2000-based linux driver v1.08 2002/01/17\n";
 
 #define MAX_UNITS 8
 static int mtu[MAX_UNITS];
@@ -40,9 +42,9 @@ static char *media[MAX_UNITS];
 static int tx_flow[MAX_UNITS];
 static int rx_flow[MAX_UNITS];
 static int copy_thresh;
-static int rx_coalesce = 5;	/* Rx frame count each interrupt */
-static int rx_timeout = 750;	/* Rx DMA wait time in 64ns increments */
-static int tx_coalesce = 8;	/* HW xmit count each TxComplete */
+static int rx_coalesce = DEFAULT_RXC;
+static int rx_timeout = DEFAULT_RXT;	
+static int tx_coalesce = DEFAULT_TXC;	
 
 MODULE_AUTHOR ("Edward Peng");
 MODULE_DESCRIPTION ("D-Link DL2000-based Gigabit Ethernet Adapter");
@@ -54,9 +56,10 @@ MODULE_PARM (jumbo, "1-" __MODULE_STRING (MAX_UNITS) "i");
 MODULE_PARM (tx_flow, "1-" __MODULE_STRING (MAX_UNITS) "i");
 MODULE_PARM (rx_flow, "1-" __MODULE_STRING (MAX_UNITS) "i");
 MODULE_PARM (copy_thresh, "i");
-MODULE_PARM (rx_coalesce, "i");
-MODULE_PARM (rx_timeout, "i");
-MODULE_PARM (tx_coalesce, "i");
+MODULE_PARM (rx_coalesce, "i");	/* Rx frame count each interrupt */
+MODULE_PARM (rx_timeout, "i");	/* Rx DMA wait time in 64ns increments */
+MODULE_PARM (tx_coalesce, "i"); /* HW xmit count each TxComplete [1-8] */
+
 
 /* Enable the default interrupts */
 #define DEFAULT_INTR (RxDMAComplete | HostError | IntRequested | TxComplete| \
@@ -201,6 +204,8 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 		np->rx_flow = (rx_flow[card_idx]) ? 1 : 0;
 		if (tx_coalesce < 1)
 			tx_coalesce = 1;
+		if (tx_coalesce > 8)
+			tx_coalesce = 8;
 	}
 	dev->open = &rio_open;
 	dev->hard_start_xmit = &start_xmit;
@@ -799,7 +804,7 @@ receive_packet (struct net_device *dev)
 			if (frame_status & 0x00300000)
 				np->stats.rx_length_errors++;
 			if (frame_status & 0x00010000)
-				np->stats.rx_fifo_errors++;
+	 			np->stats.rx_fifo_errors++;
 			if (frame_status & 0x00060000)
 				np->stats.rx_frame_errors++;
 			if (frame_status & 0x00080000)
@@ -948,11 +953,11 @@ get_stats (struct net_device *dev)
 	    readl (ioaddr + FramesWDeferredXmt) + temp2;
 
 	/* detailed rx_error */
-	np->stats.rx_length_errors += readw (ioaddr + InRangeLengthErrors) +
-	    readw (ioaddr + FrameTooLongErrors);
+	np->stats.rx_length_errors += readw (ioaddr + FrameTooLongErrors);
 	np->stats.rx_crc_errors += readw (ioaddr + FrameCheckSeqError);
 
 	/* Clear all other statistic register. */
+	readw (ioaddr + InRangeLengthErrors);
 	readw (ioaddr + MacControlFramesXmtd);
 	readw (ioaddr + BcstFramesXmtdOk);
 	readl (ioaddr + McstFramesXmtdOk);
@@ -1012,36 +1017,42 @@ set_multicast (struct net_device *dev)
 	u32 hash_table[2];
 	u16 rx_mode = 0;
 	int i;
+	int bit;
+	int index, crc;
 	struct dev_mc_list *mclist;
 	struct netdev_private *np = dev->priv;
-
-	/* Default: receive broadcast and unicast */
-	rx_mode = ReceiveBroadcast | ReceiveUnicast;
+	
+	hash_table[0] = hash_table[1] = 0;
+	/* RxFlowcontrol DA: 01-80-C2-00-00-01. Hash index=0x39 */
+	hash_table[1] |= 0x02000000;
 	if (dev->flags & IFF_PROMISC) {
 		/* Receive all frames promiscuously. */
-		rx_mode |= ReceiveAllFrames;
-	} else if (((dev->flags & IFF_MULTICAST)
-		    && (dev->mc_count > multicast_filter_limit))
-		   || (dev->flags & IFF_ALLMULTI)) {
+		rx_mode = ReceiveAllFrames;
+	} else if ((dev->flags & IFF_ALLMULTI) || 
+			(dev->mc_count > multicast_filter_limit)) {
 		/* Receive broadcast and multicast frames */
-		rx_mode |= ReceiveBroadcast | ReceiveMulticast | ReceiveUnicast;
-	} else if ((dev->flags & IFF_MULTICAST) & (dev->mc_count > 0)) {
-		/* Receive broadcast frames and multicast frames filtering by Hashtable */
-		rx_mode |=
+		rx_mode = ReceiveBroadcast | ReceiveMulticast | ReceiveUnicast;
+	} else if (dev->mc_count > 0) {
+		/* Receive broadcast frames and multicast frames filtering 
+		   by Hashtable */
+		rx_mode =
 		    ReceiveBroadcast | ReceiveMulticastHash | ReceiveUnicast;
+		for (i=0, mclist = dev->mc_list; mclist && i < dev->mc_count; 
+				i++, mclist=mclist->next) {
+			crc = get_crc (mclist->dmi_addr, ETH_ALEN);
+			for (index=0, bit=0; bit<6; bit++, crc<<=1) {
+				if (crc & 0x80000000) index |= 1 << bit;
+			}
+			hash_table[index / 32] |= (1 << (index % 32));
+		}
+	} else {
+		rx_mode = ReceiveBroadcast | ReceiveUnicast;
 	}
 	if (np->vlan) {
 		/* ReceiveVLANMatch field in ReceiveMode */
 		rx_mode |= ReceiveVLANMatch;
 	}
-	hash_table[0] = 0x00000000;
-	hash_table[1] = 0x00000000;
 
-	for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
-	     i++, mclist = mclist->next) {
-		set_bit (get_crc (mclist->dmi_addr, ETH_ALEN) & 0x3f,
-			 hash_table);
-	}
 	writel (hash_table[0], ioaddr + HashTable0);
 	writel (hash_table[1], ioaddr + HashTable1);
 	writew (rx_mode, ioaddr + ReceiveMode);
@@ -1074,6 +1085,8 @@ rio_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 		miidata->out_value = mii_read (dev, phy_addr, miidata->reg_num);
 		break;
 	case SIOCDEVPRIVATE + 2:
+		if (!capable(CAP_NET_ADMIN))
+			return -EPERM;
 		mii_write (dev, phy_addr, miidata->reg_num, miidata->in_value);
 		break;
 	case SIOCDEVPRIVATE + 3:

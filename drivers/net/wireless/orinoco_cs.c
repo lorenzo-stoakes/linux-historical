@@ -1,4 +1,4 @@
-/* orinoco_cs.c 0.09	- (formerly known as dldwd_cs.c)
+/* orinoco_cs.c 0.09b	- (formerly known as dldwd_cs.c)
  *
  * A driver for "Hermes" chipset based PCMCIA wireless adaptors, such
  * as the Lucent WavelanIEEE/Orinoco cards and their OEM (Cabletron/
@@ -44,11 +44,13 @@
 
 /*====================================================================*/
 
-static char version[] __initdata = "orinoco_cs.c 0.09 (David Gibson <hermes@gibson.dropbear.id.au> and others)";
+static char version[] __initdata = "orinoco_cs.c 0.09b (David Gibson <hermes@gibson.dropbear.id.au> and others)";
 
 MODULE_AUTHOR("David Gibson <hermes@gibson.dropbear.id.au>");
 MODULE_DESCRIPTION("Driver for PCMCIA Lucent Orinoco, Prism II based and similar wireless cards");
+#ifdef MODULE_LICENSE
 MODULE_LICENSE("Dual MPL/GPL");
+#endif
 
 /* Parameters that can be set with 'insmod' */
 

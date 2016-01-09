@@ -2042,7 +2042,7 @@ static int reiserfs_commit_write(struct file *f, struct page *page,
     /* we test for O_SYNC here so we can commit the transaction
     ** for any packed tails the file might have had
     */
-    if (f->f_flags & O_SYNC) {
+    if (f && (f->f_flags & O_SYNC)) {
 	lock_kernel() ;
  	reiserfs_commit_for_inode(inode) ;
 	unlock_kernel();

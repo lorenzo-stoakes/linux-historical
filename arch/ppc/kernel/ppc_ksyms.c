@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.ppc_ksyms.c 1.61 12/01/01 20:09:06 benh
+ * BK Id: SCCS/s.ppc_ksyms.c 1.63 01/20/02 23:53:11 benh
  */
 #include <linux/config.h>
 #include <linux/module.h>
@@ -285,6 +285,7 @@ EXPORT_SYMBOL_NOVERS(memset);
 EXPORT_SYMBOL_NOVERS(memmove);
 EXPORT_SYMBOL_NOVERS(memscan);
 EXPORT_SYMBOL_NOVERS(memcmp);
+EXPORT_SYMBOL_NOVERS(memchr);
 
 EXPORT_SYMBOL(abs);
 

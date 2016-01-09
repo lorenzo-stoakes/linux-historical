@@ -1617,7 +1617,7 @@ S:	Maintained
 
 USB OV511 DRIVER
 P:     Mark McClelland
-M:     mwm@i.am
+M:     mmcclell@bigfoot.com
 L:     linux-usb-users@lists.sourceforge.net
 L:     linux-usb-devel@lists.sourceforge.net
 W:     http://alpha.dyndns.org/ov511/

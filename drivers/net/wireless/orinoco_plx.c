@@ -1,4 +1,4 @@
-/* orinoco_plx.c 0.09
+/* orinoco_plx.c 0.09b
  * 
  * Driver for Prism II devices which would usually be driven by orinoco_cs,
  * but are connected to the PCI bus by a PLX9052. 
@@ -140,12 +140,12 @@ not have time for a while..
 #include "hermes.h"
 #include "orinoco.h"
 
-static char version[] __initdata = "orinoco_plx.c 0.09 (Daniel Barlow <dan@telent.net>)";
+static char version[] __initdata = "orinoco_plx.c 0.09b (Daniel Barlow <dan@telent.net>)";
 MODULE_AUTHOR("Daniel Barlow <dan@telent.net>");
 MODULE_DESCRIPTION("Driver for wireless LAN cards using the PLX9052 PCI bridge");
+#ifdef MODULE_LICENSE
 MODULE_LICENSE("Dual MPL/GPL");
-
-
+#endif
 
 static dev_info_t dev_info = "orinoco_plx";
 

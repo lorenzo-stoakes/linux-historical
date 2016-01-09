@@ -29,6 +29,7 @@
 #include <linux/locks.h>
 #include <linux/blkdev.h>
 #include <linux/smp_lock.h>
+#include <linux/random.h>
 #include <asm/uaccess.h>
 
 #ifdef CONFIG_JBD_DEBUG
@@ -1115,6 +1116,7 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	sbi->s_loaded_inode_bitmaps = 0;
 	sbi->s_loaded_block_bitmaps = 0;
 	sbi->s_gdb_count = db_count;
+	get_random_bytes(&sbi->s_next_generation, sizeof(u32));
 	/*
 	 * set up enough so that it can read an inode
 	 */

@@ -53,10 +53,12 @@
 
 #include "hermes.h"
 
-static char version[] __initdata = "hermes.c: 3 Oct 2001 David Gibson <hermes@gibson.dropbear.id.au>";
+static char version[] __initdata = "hermes.c: 16 Jan 2002 David Gibson <hermes@gibson.dropbear.id.au>";
 MODULE_DESCRIPTION("Low-level driver helper for Lucent Hermes chipset and Prism II HFA384x wireless MAC controller");
 MODULE_AUTHOR("David Gibson <hermes@gibson.dropbear.id.au>");
+#ifdef MODULE_LICENSE
 MODULE_LICENSE("Dual MPL/GPL");
+#endif
 
 /* These are maximum timeouts. Most often, card wil react much faster */
 #define CMD_BUSY_TIMEOUT (100) /* In iterations of ~1us */
@@ -103,7 +105,7 @@ static int hermes_issue_cmd(hermes_t *hw, u16 cmd, u16 param0)
 
 	/* First wait for the command register to unbusy */
 	reg = hermes_read_regn(hw, CMD);
-	while ( (reg % HERMES_CMD_BUSY) && k ) {
+	while ( (reg & HERMES_CMD_BUSY) && k ) {
 		k--;
 		udelay(1);
 		reg = hermes_read_regn(hw, CMD);

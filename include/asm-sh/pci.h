@@ -97,21 +97,21 @@ static inline dma_addr_t pci_map_single(struct pci_dev *hwdev, void *ptr,
 	dma_addr_t ADDR_NAME;
 #define DECLARE_PCI_UNMAP_LEN(LEN_NAME)		\
 	__u32 LEN_NAME;
-#define PCI_UNMAP_ADDR(PTR, ADDR_NAME)			\
+#define pci_unmap_addr(PTR, ADDR_NAME)			\
 	((PTR)->ADDR_NAME)
-#define PCI_UNMAP_ADDR_SET(PTR, ADDR_NAME, VAL)		\
+#define pci_unmap_addr_set(PTR, ADDR_NAME, VAL)		\
 	(((PTR)->ADDR_NAME) = (VAL))
-#define PCI_UNMAP_LEN(PTR, LEN_NAME)			\
+#define pci_unmap_len(PTR, LEN_NAME)			\
 	((PTR)->LEN_NAME)
-#define PCI_UNMAP_LEN_SET(PTR, LEN_NAME, VAL)		\
+#define pci_unmap_len_set(PTR, LEN_NAME, VAL)		\
 	(((PTR)->LEN_NAME) = (VAL))
 #else
 #define DECLARE_PCI_UNMAP_ADDR(ADDR_NAME)
 #define DECLARE_PCI_UNMAP_LEN(LEN_NAME)
-#define PCI_UNMAP_ADDR(PTR, ADDR_NAME)		(0)
-#define PCI_UNMAP_ADDR_SET(PTR, ADDR_NAME, VAL)	do { } while (0)
-#define PCI_UNMAP_LEN(PTR, LEN_NAME)		(0)
-#define PCI_UNMAP_LEN_SET(PTR, LEN_NAME, VAL)	do { } while (0)
+#define pci_unmap_addr(PTR, ADDR_NAME)		(0)
+#define pci_unmap_addr_set(PTR, ADDR_NAME, VAL)	do { } while (0)
+#define pci_unmap_len(PTR, LEN_NAME)		(0)
+#define pci_unmap_len_set(PTR, LEN_NAME, VAL)	do { } while (0)
 #endif
 
 /* Unmap a single streaming mode DMA translation.  The dma_addr and size

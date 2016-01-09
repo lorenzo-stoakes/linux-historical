@@ -1,4 +1,4 @@
-/* orinoco.c 0.09a	- (formerly known as dldwd_cs.c and orinoco_cs.c)
+/* orinoco.c 0.09b	- (formerly known as dldwd_cs.c and orinoco_cs.c)
  *
  * A driver for "Hermes" chipset based PCMCIA wireless adaptors, such
  * as the Lucent WavelanIEEE/Orinoco cards and their OEM (Cabletron/
@@ -226,10 +226,31 @@
  *	o Fixed stupid mistake in multicast list handling, triggering
  *	  a BUG()
  *
- * TODO - Jean II
- *	o inline functions (lots of candidate, need to reorder code)
- *	o Test PrismII/Symbol cards & firmware versions
- *	o Find and kill remaining Tx timeout problems */
+ * v0.09a -> v0.09b - 16/1/2002 - David Gibson
+ *	o Fixed even stupider mistake in new interrupt handling, which
+ *	  seriously broke things on big-endian machines.
+ *	o Removed a bunch of redundand includes and exports.
+ *	o Removed a redundant MOD_{INC,DEC}_USE_COUNT pair in airport.c
+ *	o Don't attempt to do hardware level multicast reception on
+ *	  Intersil firmware, just go promisc instead.
+ *	o Typo fixed in hermes_issue_cmd()
+ *	o Eliminated WIRELESS_SPY #ifdefs
+ *	o Status code reported on Tx exceptions
+ *	o Moved netif_wake_queue() from ALLOC interrupts to TX and TXEXC
+ *	  interrupts, which should fix the timeouts we're seeing.
+ *
+ * TODO
+ *	o Find and kill remaining Tx timeout problems
+ *	o Fix WEP / order of iwconfig wierdness on Intersil firmware
+ *	o Convert /proc debugging stuff to seqfile
+ *	o Re-assess our encapsulation detection strategy
+ *	o Handle de-encapsulation within NET framework, provide 802.11
+ *	  headers
+ *	o Fix possible races in SPY handling.
+ *	o Take the xmit lock when calling orinoco_reset from an
+ *	  ioctl(), because that protects the multicast list.
+ *	o Fix allocation lengths.
+ */
 /* Notes on locking:
  *
  * The basic principle of operation is that everything except the
@@ -244,10 +265,11 @@
  * that the Rx path uses one of the Hermes chipset's BAPs while
  * everything else uses the other.
  *
- * Actually, the current updating of the statistics from the interrupt
- * handler is unsafe.  However all it can do is perturb the
- * packet/byte counts slightly, so we just put up with it.  We could
- * fix this to use atomic types, but it's probably not worth it.
+ * Actually, strictly speaking, the updating of the statistics from
+ * the interrupt handler isn't safe without a lock.  However the worst
+ * that can happen is that we perturb the packet/byte counts slightly.
+ * We could fix this to use atomic types, but it's probably not worth
+ * it.
  *
  * The big exception is that that we don't want the irq handler
  * running when we actually reset or shut down the card, because
@@ -279,14 +301,6 @@
 #include <linux/wireless.h>
 #include <linux/list.h>
 
-#include <pcmcia/version.h>
-#include <pcmcia/cs_types.h>
-#include <pcmcia/cs.h>
-#include <pcmcia/cistpl.h>
-#include <pcmcia/cisreg.h>
-#include <pcmcia/ds.h>
-#include <pcmcia/bus_ops.h>
-
 #include "hermes.h"
 #include "hermes_rid.h"
 #include "orinoco.h"
@@ -297,10 +311,19 @@
 #define SIOCIWFIRSTPRIV		SIOCDEVPRIVATE
 #endif /* SIOCIWFIRSTPRIV */
 
-static char version[] __initdata = "orinoco.c 0.09a (David Gibson <hermes@gibson.dropbear.id.au> and others)";
+/* We do this this way to avoid ifdefs in the actual code */
+#ifdef WIRELESS_SPY
+#define SPY_NUMBER(priv)	(priv->spy_number)
+#else
+#define SPY_NUMBER(priv)	0
+#endif /* WIRELESS_SPY */
+
+static char version[] __initdata = "orinoco.c 0.09b (David Gibson <hermes@gibson.dropbear.id.au> and others)";
 MODULE_AUTHOR("David Gibson <hermes@gibson.dropbear.id.au>");
 MODULE_DESCRIPTION("Driver for Lucent Orinoco, Prism II based and similar wireless cards");
+#ifdef MODULE_LICENSE
 MODULE_LICENSE("Dual MPL/GPL");
+#endif
 
 /* Level of debugging. Used in the macros in orinoco.h */
 #ifdef ORINOCO_DEBUG
@@ -327,6 +350,14 @@ MODULE_PARM(orinoco_debug, "i");
 
 #define DUMMY_FID		0xFFFF
 
+#define MAX_MULTICAST(priv)	(priv->firmware_type == FIRMWARE_TYPE_AGERE ? \
+				 HERMES_MAX_MULTICAST : 0)
+
+/*
+ * Data tables
+ */
+
+/* The frequency of each channel in MHz */
 const long channel_frequency[] = {
 	2412, 2417, 2422, 2427, 2432, 2437, 2442,
 	2447, 2452, 2457, 2462, 2467, 2472, 2484
@@ -334,8 +365,7 @@ const long channel_frequency[] = {
 
 #define NUM_CHANNELS ( sizeof(channel_frequency) / sizeof(channel_frequency[0]) )
 
-/* This tables gives the actual meanings of the bitrate IDs returned by the firmware.
-   It gives the rate in halfMb/s, negative indicates auto mode */
+/* This tables gives the actual meanings of the bitrate IDs returned by the firmware. */
 struct {
 	int bitrate; /* in 100s of kilbits */
 	int automatic;
@@ -385,9 +415,6 @@ struct orinoco_txframe_hdr {
 struct p8022_hdr encaps_hdr = {
 	0xaa, 0xaa, 0x03, {0x00, 0x00, 0x00}
 };
-
-/* How many times to retry if we get an EIO reading the BAP in the Rx path */
-#define RX_EIO_RETRY		10
 
 typedef struct orinoco_commsqual {
 	u16 qual, signal, noise;
@@ -1017,6 +1044,7 @@ static int orinoco_hw_get_bitratelist(struct orinoco_private *priv, int *numrate
 	return 0;
 }
 
+#if 0
 #ifndef ORINOCO_DEBUG
 static inline void show_rx_frame(struct orinoco_rxframe_hdr *frame) {}
 #else
@@ -1077,6 +1105,7 @@ static void show_rx_frame(struct orinoco_rxframe_hdr *frame)
 	printk(KERN_DEBUG "  ethertype  = 0x%04x\n", frame->ethertype);
 }
 #endif
+#endif
 
 /*
  * Interrupt handler
@@ -1109,7 +1138,7 @@ void orinoco_interrupt(int irq, void * dev_id, struct pt_regs *regs)
 	
 	if (! events) { /* Sometimes the card generates Tx interrupts without setting EVSTAT,
 			   or so I've heard - FIXME does it really happen? */
-		printk(KERN_WARNING "%s: NULL event in orinoco_interrupt!\n", priv->ndev.name);
+		printk(KERN_WARNING "%s: Null event in orinoco_interrupt!\n", priv->ndev.name);
 		__orinoco_ev_alloc(priv, hw);
 	}
 
@@ -1260,7 +1289,6 @@ static void __orinoco_ev_rx(struct orinoco_private *priv, hermes_t *hw)
 	struct net_device_stats *stats = &priv->stats;
 	struct iw_statistics *wstats = &priv->wstats;
 	struct sk_buff *skb = NULL;
-	int l = RX_EIO_RETRY;
 	u16 rxfid, status;
 	int length, data_len, data_off;
 	char *p;
@@ -1275,16 +1303,10 @@ static void __orinoco_ev_rx(struct orinoco_private *priv, hermes_t *hw)
 	   necessary, since we ignore most of it, but it's
 	   conceptually simpler. We can tune this later if
 	   necessary. */
-	do {
-		err = hermes_bap_pread(hw, IRQ_BAP, &hdr, sizeof(hdr),
-				       rxfid, 0);
-	} while ( (err == -EIO) && (--l) );
+	err = hermes_bap_pread(hw, IRQ_BAP, &hdr, sizeof(hdr), rxfid, 0);
 	if (err) {
-		if (err == -EIO)
-			DEBUG(1, "%s: EIO reading frame header.\n", dev->name);
-		else
-			printk(KERN_ERR "%s: error %d reading frame header. "
-			       "Frame dropped.\n", dev->name, err);
+		printk(KERN_ERR "%s: error %d reading frame header. "
+		       "Frame dropped.\n", dev->name, err);
 		stats->rx_errors++;
 		goto drop;
 	}
@@ -1374,10 +1396,8 @@ static void __orinoco_ev_rx(struct orinoco_private *priv, hermes_t *hw)
 	}
 
 	p = skb_put(skb, data_len);
-	do {
-		err = hermes_bap_pread(hw, IRQ_BAP, p, RUP_EVEN(data_len),
-				       rxfid, data_off);
-	} while ( (err == -EIO) && (--l) );
+	err = hermes_bap_pread(hw, IRQ_BAP, p, RUP_EVEN(data_len),
+			       rxfid, data_off);
 	if (err) {
 		if (err == -EIO)
 			DEBUG(1, "%s: EIO reading frame header.\n", dev->name);
@@ -1414,24 +1434,43 @@ static void __orinoco_ev_txexc(struct orinoco_private *priv, hermes_t *hw)
 	struct net_device *dev = &priv->ndev;
 	struct net_device_stats *stats = &priv->stats;
 	u16 fid = hermes_read_regn(hw, TXCOMPLFID);
+	struct hermes_tx_descriptor desc;
+	int err = 0;
 
-	if (fid != DUMMY_FID) {
-		printk(KERN_INFO "%s: Tx error (FID=%04X)!\n", dev->name, fid);
-		stats->tx_errors++;
-		stats->tx_packets--; /* Reverse the increment done in _ev_alloc */
+	if (fid == DUMMY_FID)
+		return; /* Nothing's really happened */
+
+	err = hermes_bap_pread(hw, USER_BAP, &desc, sizeof(desc), fid, 0);
+	if (err) {
+		printk(KERN_WARNING "%s: Unable to read descriptor on Tx error "
+		       "(FID=%04X error %d)\n",
+		       dev->name, fid, err);
+	} else {
+		printk(KERN_INFO "%s: Tx error, status %d (FID=%04X)\n",
+		       dev->name, le16_to_cpu(desc.status), fid);
 	}
+	
+	stats->tx_errors++;
+	netif_wake_queue(dev);
 
 	hermes_write_regn(hw, TXCOMPLFID, DUMMY_FID);
 }
 
 static void __orinoco_ev_tx(struct orinoco_private *priv, hermes_t *hw)
 {
+	struct net_device *dev = &priv->ndev;
+	struct net_device_stats *stats = &priv->stats;
+/*  	u16 fid = hermes_read_regn(hw, TXCOMPLFID); */
+
 	/* We don't generally use the Tx event (to cut down on
 	   interrupts) - we do the transmit complet processing once
 	   the transmit buffer is reclaimed in __orinoco_ev_alloc() ,
 	   hence nothing here */
 
-	DEBUG(2, "%s: Transmit completed (FID=%04X)\n", priv->ndev.name, fid);
+/*  	DEBUG(2, "%s: Transmit completed (FID=%04X)\n", priv->ndev.name, fid); */
+
+	stats->tx_packets++;
+	netif_wake_queue(dev);
 
 	hermes_write_regn(hw, TXCOMPLFID, DUMMY_FID);
 }
@@ -1439,7 +1478,6 @@ static void __orinoco_ev_tx(struct orinoco_private *priv, hermes_t *hw)
 static void __orinoco_ev_alloc(struct orinoco_private *priv, hermes_t *hw)
 {
 	struct net_device *dev = &priv->ndev;
-	struct net_device_stats *stats = &priv->stats;
 	u16 fid = hermes_read_regn(hw, ALLOCFID);
 
 	DEBUG(3, "%s: Allocation complete FID=0x%04x\n", priv->ndev.name, fid);
@@ -1450,12 +1488,11 @@ static void __orinoco_ev_alloc(struct orinoco_private *priv, hermes_t *hw)
 	   with the transmit buffer */
 
 	if (fid != priv->txfid) {
-		printk(KERN_WARNING "%s: Allocate event on unexpected fid (%04X)\n",
-		      dev->name, fid);
+		if (fid != DUMMY_FID)
+			printk(KERN_WARNING "%s: Allocate event on unexpected fid (%04X)\n",
+			       dev->name, fid);
 		return;
 	}
-	stats->tx_packets++;
-	netif_wake_queue(dev);
 
 	hermes_write_regn(hw, ALLOCFID, DUMMY_FID);
 }
@@ -1774,16 +1811,14 @@ orinoco_get_wireless_stats(struct net_device *dev)
 
 	if (priv->iw_mode == IW_MODE_ADHOC) {
 		memset(&wstats->qual, 0, sizeof(wstats->qual));
-#ifdef WIRELESS_SPY
 		/* If a spy address is defined, we report stats of the
 		 * first spy address - Jean II */
-		if (priv->spy_number > 0) {
+		if (SPY_NUMBER(priv)) {
 			wstats->qual.qual = priv->spy_stat[0].qual;
 			wstats->qual.level = priv->spy_stat[0].level;
 			wstats->qual.noise = priv->spy_stat[0].noise;
 			wstats->qual.updated = priv->spy_stat[0].updated;
 		}
-#endif /* WIRELESS_SPY */
 	} else {
 		orinoco_commsqual_t cq;
 
@@ -1802,8 +1837,8 @@ orinoco_get_wireless_stats(struct net_device *dev)
 	/* We can't really wait for the tallies inquiry command to
 	 * complete, so we just use the previous results and trigger
 	 * a new tallies inquiry command for next time - Jean II */
-	/* Hmm.. seems a bit ugly, I wonder if there's a way to do
-	   better - dgibson */
+	/* FIXME: Hmm.. seems a bit ugly, I wonder if there's a way to
+	   do better - dgibson */
 	err = hermes_inquire(hw, HERMES_INQ_TALLIES);
                
 	orinoco_unlock(priv);
@@ -1814,7 +1849,6 @@ orinoco_get_wireless_stats(struct net_device *dev)
 	return wstats;
 }
 
-#ifdef WIRELESS_SPY
 static inline void orinoco_spy_gather(struct net_device *dev, u_char *mac,
 				    int level, int noise)
 {
@@ -1831,7 +1865,6 @@ static inline void orinoco_spy_gather(struct net_device *dev, u_char *mac,
 			priv->spy_stat[i].updated = 7;
 		}
 }
-#endif /* WIRELESS_SPY */
 
 void
 orinoco_stat_gather( struct net_device *dev,
@@ -1848,14 +1881,12 @@ orinoco_stat_gather( struct net_device *dev,
 	 * Note that to get here, you need both WIRELESS_SPY
 	 * compiled in AND some addresses in the list !!!
 	 */
-#ifdef WIRELESS_SPY
 	/* Note : gcc will optimise the whole section away if
 	 * WIRELESS_SPY is not defined... - Jean II */
-	if (priv->spy_number > 0) {
+	if (SPY_NUMBER(priv)) {
 		orinoco_spy_gather(dev, skb->mac.raw + ETH_ALEN,
 				   hdr->desc.signal, hdr->desc.silence);
 	}
-#endif /* WIRELESS_SPY */
 }
 
 int
@@ -1888,6 +1919,7 @@ orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
 	orinoco_lock(priv);
 
 	/* Length of the packet body */
+	/* FIXME: what if the skb is smaller than this? */
 	len = max_t(int,skb->len - ETH_HLEN, ETH_ZLEN);
 
 	eh = (struct ethhdr *)skb->data;
@@ -1900,7 +1932,7 @@ orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	/* Request an interrupt on Tx failures, but not sucesses (we
            use the buffer reclaim allocation event instead */
-	hdr.desc.tx_control = HERMES_TXCTRL_TX_EX;
+	hdr.desc.tx_control = cpu_to_le16(HERMES_TXCTRL_TX_EX | HERMES_TXCTRL_TX_OK);
 
 	/* Encapsulate Ethernet-II frames */
 	if (ntohs(eh->h_proto) > 1500) { /* Ethernet-II frame */
@@ -1923,15 +1955,6 @@ orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
 		err  = hermes_bap_pwrite(hw, USER_BAP, &hdr, sizeof(hdr),
 					 txfid, 0);
 		if (err) {
-#if 0
-			if (err == -EIO)
-				/* We get these errors reported by the
-				   firmware every so often apparently at
-				   random.  Let the upper layers
-				   handle the retry */
-				DEBUG(1, "%s: DEBUG: EIO writing packet header to BAP\n", dev->name);
-			else
-#endif
 				printk(KERN_ERR "%s: Error %d writing packet header to BAP\n",
 				       dev->name, err);
 			stats->tx_errors++;
@@ -1958,11 +1981,8 @@ orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* Round up for odd length packets */
 	err = hermes_bap_pwrite(hw, USER_BAP, p, RUP_EVEN(data_len), txfid, data_off);
 	if (err) {
-/*  		if (err == -EIO) */
-/*  			DEBUG(1, "%s: DEBUG: EIO writing packet header to BAP\n", dev->name); */
-/*  		else */
-			printk(KERN_ERR "%s: Error %d writing packet header to BAP\n",
-			       dev->name, err);
+		printk(KERN_ERR "%s: Error %d writing packet header to BAP\n",
+		       dev->name, err);
 		stats->tx_errors++;
 		goto fail;
 	}
@@ -1975,6 +1995,7 @@ orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto fail;
 	}
 
+	atomic_inc(&priv->queue_length);
 	dev->trans_start = jiffies;
 	stats->tx_bytes += data_off + data_len;
 
@@ -3386,13 +3407,10 @@ __orinoco_set_multicast_list(struct net_device *dev)
 
 	TRACE_ENTER(dev->name);
 
-	DEBUG(3, "dev->flags=0x%x, priv->promiscuous=%d, dev->mc_count=%d priv->mc_count=%d\n",
-	      dev->flags, priv->promiscuous, dev->mc_count, priv->mc_count);
-
 	/* The Hermes doesn't seem to have an allmulti mode, so we go
 	 * into promiscuous mode and let the upper levels deal. */
 	if ( (dev->flags & IFF_PROMISC) || (dev->flags & IFF_ALLMULTI) ||
-	     (dev->mc_count > HERMES_MAX_MULTICAST) ) {
+	     (dev->mc_count > MAX_MULTICAST(priv)) ) {
 		promisc = 1;
 		mc_count = 0;
 	} else {
@@ -3429,11 +3447,9 @@ __orinoco_set_multicast_list(struct net_device *dev)
 			p = p->next;
 		}
 		
-		/* More paranoia */
-		if (p != dev->mc_list) {
-			printk(KERN_ERR "Multicast list is longer than mc_count\n");
-		}
-		
+		if (p)
+			printk(KERN_WARNING "Multicast list is longer than mc_count\n");
+
 		err = hermes_write_ltv(hw, USER_BAP, HERMES_RID_CNFGROUPADDRESSES,
 				       HERMES_BYTES_TO_RECLEN(priv->mc_count * ETH_ALEN),
 				       &mclist);
@@ -3925,12 +3941,6 @@ orinoco_setup(struct orinoco_private* priv)
 #ifdef ORINOCO_DEBUG
 EXPORT_SYMBOL(orinoco_debug);
 #endif
-EXPORT_SYMBOL(orinoco_init);
-EXPORT_SYMBOL(orinoco_xmit);
-EXPORT_SYMBOL(orinoco_tx_timeout);
-EXPORT_SYMBOL(orinoco_ioctl);
-EXPORT_SYMBOL(orinoco_change_mtu);
-EXPORT_SYMBOL(orinoco_set_multicast_list);
 EXPORT_SYMBOL(orinoco_shutdown);
 EXPORT_SYMBOL(orinoco_reset);
 EXPORT_SYMBOL(orinoco_setup);

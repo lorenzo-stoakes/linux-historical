@@ -1056,6 +1056,7 @@ mount_it:
 	putname(fs_names);
 	if (path_start >= 0) {
 		name = path + path_start;
+		devfs_unregister (devfs_find_handle(NULL, "root", 0, 0, 0, 0));
 		devfs_mk_symlink (NULL, "root", DEVFS_FL_DEFAULT,
 				  name + 5, NULL, NULL);
 		memcpy (name, "/dev/", 5);

@@ -18,13 +18,14 @@
  *	2001-11-17	Radeon M6 (ppc) support, Daniel Berlin, 0.1.2
  *	2001-11-18	DFP fixes, Kevin Hendricks, 0.1.3
  *	2001-11-29	more cmap, backlight fixes, Benjamin Herrenschmidt
+ *	2002-01-18	DFP panel detection via BIOS, Michael Clark, 0.1.4
  *
  *	Special thanks to ATI DevRel team for their hardware donations.
  *
  */
 
 
-#define RADEON_VERSION	"0.1.3"
+#define RADEON_VERSION	"0.1.4"
 
 
 #include <linux/config.h>
@@ -263,6 +264,7 @@ struct radeonfb_info {
 	struct pci_dev *pdev;
 
 	unsigned char *EDID;
+	unsigned char *bios_seg;
 
 	struct display disp;
 	int currcon;
@@ -277,6 +279,7 @@ struct radeonfb_info {
 	int xres, yres, pixclock;
 
 	int use_default_var;
+	int got_dfpinfo;
 
 	int hasCRTC2;
 	int crtDisp_type;
@@ -646,6 +649,7 @@ static char *radeon_find_rom(struct radeonfb_info *rinfo);
 static void radeon_get_pllinfo(struct radeonfb_info *rinfo, char *bios_seg);
 static void radeon_get_moninfo (struct radeonfb_info *rinfo);
 static int radeon_get_dfpinfo (struct radeonfb_info *rinfo);
+static int radeon_get_dfpinfo_BIOS(struct radeonfb_info *rinfo);
 static void radeon_get_EDID(struct radeonfb_info *rinfo);
 static int radeon_dfp_parse_EDID(struct radeonfb_info *rinfo);
 static void radeon_update_default_var(struct radeonfb_info *rinfo);
@@ -750,7 +754,6 @@ static int radeonfb_pci_register (struct pci_dev *pdev,
 	struct radeonfb_info *rinfo;
 	u32 tmp;
 	int i, j;
-	char *bios_seg = NULL;
 
 	RTRACE("radeonfb_pci_register BEGIN\n");
 
@@ -909,8 +912,8 @@ static int radeonfb_pci_register (struct pci_dev *pdev,
 			break;
 	}
 
-	bios_seg = radeon_find_rom(rinfo);
-	radeon_get_pllinfo(rinfo, bios_seg);
+	rinfo->bios_seg = radeon_find_rom(rinfo);
+	radeon_get_pllinfo(rinfo, rinfo->bios_seg);
 
 	RTRACE("radeonfb: probed %s %dk videoram\n", (rinfo->ram_type), (rinfo->video_ram/1024));
 
@@ -1327,6 +1330,11 @@ static int radeon_dfp_parse_EDID(struct radeonfb_info *rinfo)
 			rinfo->vAct_high = 1;
 	}
 
+	printk("radeonfb: detected DFP panel size from EDID: %dx%d\n",
+		rinfo->panel_xres, rinfo->panel_yres);
+
+	rinfo->got_dfpinfo = 1;
+
 	return 1;
 }
 
@@ -1364,77 +1372,139 @@ static void radeon_update_default_var(struct radeonfb_info *rinfo)
 }
 
 
+static int radeon_get_dfpinfo_BIOS(struct radeonfb_info *rinfo)
+{
+	char *fpbiosstart, *tmp, *tmp0;
+	char stmp[30];
+	int i;
+
+	if (!rinfo->bios_seg)
+		return 0;
+
+	if (!(fpbiosstart = rinfo->bios_seg + readw(rinfo->bios_seg + 0x48))) {
+		printk("radeonfb: Failed to detect DFP panel info using BIOS\n");
+		return 0;
+	}
+
+	if (!(tmp = rinfo->bios_seg + readw(fpbiosstart + 0x40))) {
+		printk("radeonfb: Failed to detect DFP panel info using BIOS\n");
+		return 0;
+	}
+
+	for(i=0; i<24; i++)
+		stmp[i] = readb(tmp+i+1);
+	stmp[24] = 0;
+	printk("radeonfb: panel ID string: %s\n", stmp);
+	rinfo->panel_xres = readw(tmp + 25);
+	rinfo->panel_yres = readw(tmp + 27);
+	printk("radeonfb: detected DFP panel size from BIOS: %dx%d\n",
+		rinfo->panel_xres, rinfo->panel_yres);
+
+	for(i=0; i<20; i++) {
+		tmp0 = rinfo->bios_seg + readw(tmp+64+i*2);
+		if (tmp0 == 0)
+			break;
+		if ((readw(tmp0) == rinfo->panel_xres) &&
+		    (readw(tmp0+2) == rinfo->panel_yres)) {
+			rinfo->hblank = (readw(tmp0+17) - readw(tmp0+19)) * 8;
+			rinfo->hOver_plus = ((readw(tmp0+21) - readw(tmp0+19) -1) * 8) & 0x7fff;
+			rinfo->hSync_width = readb(tmp0+23) * 8;
+			rinfo->vblank = readw(tmp0+24) - readw(tmp0+26);
+			rinfo->vOver_plus = (readw(tmp0+28) & 0x7ff) - readw(tmp0+26);
+			rinfo->vSync_width = (readw(tmp0+28) & 0xf800) >> 11;
+			rinfo->clock = readw(tmp0+9);
+
+			rinfo->got_dfpinfo = 1;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+
 
 static int radeon_get_dfpinfo (struct radeonfb_info *rinfo)
 {
 	unsigned int tmp;
 	unsigned short a, b;
 
+	if (radeon_get_dfpinfo_BIOS(rinfo))
+		radeon_update_default_var(rinfo);
+
 	if (radeon_dfp_parse_EDID(rinfo))
 		radeon_update_default_var(rinfo);
 
-	if (panel_yres) {
-		rinfo->panel_yres = panel_yres;
-	} else {
-		tmp = INREG(FP_VERT_STRETCH);
-		tmp &= 0x00fff000;
-		rinfo->panel_yres = (unsigned short)(tmp >> 0x0c) + 1;
-	}
+	if (!rinfo->got_dfpinfo) {
+		/*
+		 * it seems all else has failed now and we
+		 * resort to probing registers for our DFP info
+	         */
+		if (panel_yres) {
+			rinfo->panel_yres = panel_yres;
+		} else {
+			tmp = INREG(FP_VERT_STRETCH);
+			tmp &= 0x00fff000;
+			rinfo->panel_yres = (unsigned short)(tmp >> 0x0c) + 1;
+		}
 
-	switch (rinfo->panel_yres) {
-		case 480:
-			rinfo->panel_xres = 640;
-			break;
-		case 600:
-			rinfo->panel_xres = 800;
-			break;
-		case 768:
+		switch (rinfo->panel_yres) {
+			case 480:
+				rinfo->panel_xres = 640;
+				break;
+			case 600:
+				rinfo->panel_xres = 800;
+				break;
+			case 768:
 #if defined(__powerpc__)
-			if (rinfo->dviDisp_type == MT_LCD)
-				rinfo->panel_xres = 1152;
-			else
+				if (rinfo->dviDisp_type == MT_LCD)
+					rinfo->panel_xres = 1152;
+				else
 #endif
-			rinfo->panel_xres = 1024;
-			break;
-		case 1024:
-			rinfo->panel_xres = 1280;
-			break;
-		case 1050:
-			rinfo->panel_xres = 1400;
-			break;
-		case 1200:
-			rinfo->panel_xres = 1600;
-			break;
-		default:
-			printk("radeonfb: Failed to detect DFP panel size\n");
-			return 0;
+				rinfo->panel_xres = 1024;
+				break;
+			case 1024:
+				rinfo->panel_xres = 1280;
+				break;
+			case 1050:
+				rinfo->panel_xres = 1400;
+				break;
+			case 1200:
+				rinfo->panel_xres = 1600;
+				break;
+			default:
+				printk("radeonfb: Failed to detect DFP panel size\n");
+				return 0;
+		}
+
+		printk("radeonfb: detected DFP panel size from registers: %dx%d\n",
+			rinfo->panel_xres, rinfo->panel_yres);
+
+		tmp = INREG(FP_CRTC_H_TOTAL_DISP);
+		a = (tmp & FP_CRTC_H_TOTAL_MASK) + 4;
+		b = (tmp & 0x01ff0000) >> FP_CRTC_H_DISP_SHIFT;
+		rinfo->hblank = (a - b + 1) * 8;
+
+		tmp = INREG(FP_H_SYNC_STRT_WID);
+		rinfo->hOver_plus = (unsigned short) ((tmp & FP_H_SYNC_STRT_CHAR_MASK) >>
+					FP_H_SYNC_STRT_CHAR_SHIFT) - b - 1;
+		rinfo->hOver_plus *= 8;
+		rinfo->hSync_width = (unsigned short) ((tmp & FP_H_SYNC_WID_MASK) >>
+					FP_H_SYNC_WID_SHIFT);
+		rinfo->hSync_width *= 8;
+		tmp = INREG(FP_CRTC_V_TOTAL_DISP);
+		a = (tmp & FP_CRTC_V_TOTAL_MASK) + 1;
+		b = (tmp & FP_CRTC_V_DISP_MASK) >> FP_CRTC_V_DISP_SHIFT;
+		rinfo->vblank = a - b /* + 24 */ ;
+
+		tmp = INREG(FP_V_SYNC_STRT_WID);
+		rinfo->vOver_plus = (unsigned short) (tmp & FP_V_SYNC_STRT_MASK)
+					- b + 1;
+		rinfo->vSync_width = (unsigned short) ((tmp & FP_V_SYNC_WID_MASK) >>
+					FP_V_SYNC_WID_SHIFT);
+
+		return 1;
 	}
-
-	printk("radeonfb: detected DFP panel size: %dx%d\n",
-		rinfo->panel_xres, rinfo->panel_yres);
-
-	tmp = INREG(FP_CRTC_H_TOTAL_DISP);
-	a = (tmp & FP_CRTC_H_TOTAL_MASK) + 4;
-	b = (tmp & 0x01ff0000) >> FP_CRTC_H_DISP_SHIFT;
-	rinfo->hblank = (a - b + 1) * 8;
-
-	tmp = INREG(FP_H_SYNC_STRT_WID);
-	rinfo->hOver_plus = (unsigned short) ((tmp & FP_H_SYNC_STRT_CHAR_MASK) >>
-				FP_H_SYNC_STRT_CHAR_SHIFT) - b - 1;
-	rinfo->hOver_plus *= 8;
-	rinfo->hSync_width = (unsigned short) ((tmp & FP_H_SYNC_WID_MASK) >>
-				FP_H_SYNC_WID_SHIFT);
-	rinfo->hSync_width *= 8;
-	tmp = INREG(FP_CRTC_V_TOTAL_DISP);
-	a = (tmp & FP_CRTC_V_TOTAL_MASK) + 1;
-	b = (tmp & FP_CRTC_V_DISP_MASK) >> FP_CRTC_V_DISP_SHIFT;
-	rinfo->vblank = a - b /* + 24 */ ;
-
-	tmp = INREG(FP_V_SYNC_STRT_WID);
-	rinfo->vOver_plus = (unsigned short) (tmp & FP_V_SYNC_STRT_MASK)
-				- b + 1;
-	rinfo->vSync_width = (unsigned short) ((tmp & FP_V_SYNC_WID_MASK) >>
-				FP_V_SYNC_WID_SHIFT);
 
 	return 1;
 }
@@ -2949,7 +3019,6 @@ static void fbcon_radeon_clear(struct vc_data *conp, struct display *p,
 	OUTREG(DST_Y_X, (srcy << 16) | srcx);
 	OUTREG(DST_WIDTH_HEIGHT, (width << 16) | height);
 }
-
 
 
 

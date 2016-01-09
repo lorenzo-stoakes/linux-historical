@@ -1686,7 +1686,7 @@ out:
 	do {
 		block_end = block_start+blocksize;
 		if (block_end <= from)
-			continue;
+			goto next_bh;
 		if (block_start >= to)
 			break;
 		if (buffer_new(bh)) {
@@ -1696,6 +1696,7 @@ out:
 			set_bit(BH_Uptodate, &bh->b_state);
 			mark_buffer_dirty(bh);
 		}
+next_bh:
 		block_start = block_end;
 		bh = bh->b_this_page;
 	} while (bh != head);
@@ -1818,6 +1819,52 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 		submit_bh(READ, arr[i]);
 
 	return 0;
+}
+
+/* utility function for filesystems that need to do work on expanding
+ * truncates.  Uses prepare/commit_write to allow the filesystem to
+ * deal with the hole.  
+ */
+int generic_cont_expand(struct inode *inode, loff_t size)
+{
+	struct address_space *mapping = inode->i_mapping;
+	struct page *page;
+	unsigned long index, offset, limit;
+	int err;
+
+	err = -EFBIG;
+        limit = current->rlim[RLIMIT_FSIZE].rlim_cur;
+	if (limit != RLIM_INFINITY && size > (loff_t)limit) {
+		send_sig(SIGXFSZ, current, 0);
+		goto out;
+	}
+	if (size > inode->i_sb->s_maxbytes)
+		goto out;
+
+	offset = (size & (PAGE_CACHE_SIZE-1)); /* Within page */
+
+	/* ugh.  in prepare/commit_write, if from==to==start of block, we 
+	** skip the prepare.  make sure we never send an offset for the start
+	** of a block
+	*/
+	if ((offset & (inode->i_sb->s_blocksize - 1)) == 0) {
+		offset++;
+	}
+	index = size >> PAGE_CACHE_SHIFT;
+	err = -ENOMEM;
+	page = grab_cache_page(mapping, index);
+	if (!page)
+		goto out;
+	err = mapping->a_ops->prepare_write(NULL, page, offset, offset);
+	if (!err) {
+		err = mapping->a_ops->commit_write(NULL, page, offset, offset);
+	}
+	UnlockPage(page);
+	page_cache_release(page);
+	if (err > 0)
+		err = 0;
+out:
+	return err;
 }
 
 /*
@@ -2063,8 +2110,10 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 {
 	int i, nr_blocks, retval;
 	unsigned long * blocks = iobuf->blocks;
+	int length;
 
-	nr_blocks = iobuf->length / blocksize;
+	length = iobuf->length;
+	nr_blocks = length / blocksize;
 	/* build the blocklist */
 	for (i = 0; i < nr_blocks; i++, blocknr++) {
 		struct buffer_head bh;
@@ -2074,8 +2123,14 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 		bh.b_size = blocksize;
 
 		retval = get_block(inode, blocknr, &bh, rw == READ ? 0 : 1);
-		if (retval)
-			goto out;
+		if (retval) {
+			if (!i)
+				/* report error to userspace */
+				goto out;
+			else
+				/* do short I/O utill 'i' */
+				break;
+		}
 
 		if (rw == READ) {
 			if (buffer_new(&bh))
@@ -2094,9 +2149,13 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 		blocks[i] = bh.b_blocknr;
 	}
 
+	/* patch length to handle short I/O */
+	iobuf->length = i * blocksize;
 	retval = brw_kiovec(rw, 1, &iobuf, inode->i_dev, iobuf->blocks, blocksize);
-
+	/* restore orig length */
+	iobuf->length = length;
  out:
+
 	return retval;
 }
 

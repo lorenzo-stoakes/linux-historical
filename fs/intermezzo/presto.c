@@ -190,7 +190,7 @@ int presto_chk(struct dentry *dentry, int flag)
         }
 
         EXIT;
-        return ((int)dentry->d_fsdata & flag);
+        return ((int)(long)dentry->d_fsdata & flag);
 }
 
 /* set a bit in the dentry flags */
@@ -211,7 +211,7 @@ void presto_set(struct dentry *dentry, int flag)
                 }
         } else {
                 CDEBUG(D_INODE, "Setting dentry->d_fsdata\n");
-                ((int)dentry->d_fsdata) |= flag;
+                ((int)(long)dentry->d_fsdata) |= flag;
         }
 }
 
@@ -491,10 +491,10 @@ int presto_mark_dentry(const char *name, int and_flag, int or_flag,
                 CDEBUG(D_INODE, "fset %p, flags %x data %x\n", 
                        fset, fset->fset_flags, fset->fset_data);
         } else {
-                ((int)dentry->d_fsdata) &= and_flag;
-                ((int)dentry->d_fsdata) |= or_flag;
+                ((int)(long)dentry->d_fsdata) &= and_flag;
+                ((int)(long)dentry->d_fsdata) |= or_flag;
                 if (res) 
-                        *res = (int)dentry->d_fsdata;
+                        *res = (int)(long)dentry->d_fsdata;
         }
 
         /* indicate if we were the only users while changing the flag */

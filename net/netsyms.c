@@ -519,6 +519,10 @@ EXPORT_SYMBOL(if_port_text);
 EXPORT_SYMBOL(hippi_type_trans);
 #endif
 
+#ifdef CONFIG_NET_FASTROUTE
+EXPORT_SYMBOL(netdev_fastroute);
+#endif
+
 #ifdef CONFIG_SYSCTL
 EXPORT_SYMBOL(sysctl_wmem_max);
 EXPORT_SYMBOL(sysctl_rmem_max);

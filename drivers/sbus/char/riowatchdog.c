@@ -127,7 +127,9 @@ static int riowd_release(struct inode *inode, struct file *filp)
 static int riowd_ioctl(struct inode *inode, struct file *filp,
 		       unsigned int cmd, unsigned long arg)
 {
-	static struct watchdog_info info = { 0, 0, "Natl. Semiconductor PC97317" };
+	static struct watchdog_info info = {
+	       	WDIOF_SETTIMEOUT, 0, "Natl. Semiconductor PC97317"
+	};
 	unsigned int options;
 
 	switch (cmd) {
@@ -158,6 +160,18 @@ static int riowd_ioctl(struct inode *inode, struct file *filp,
 			return -EINVAL;
 
 		break;
+
+	case WDIOC_SETTIMEOUT:
+		if (get_user(new_margin, (int *)arg))
+			return -EFAULT;
+		if ((new_margin < 60) || (new_margin > (255 * 60)))
+		    return -EINVAL;
+		riowd_timeout = (new_margin + 59) / 60;
+		riowd_pingtimer();
+		/* Fall */
+
+	case WDIOC_GETTIMEOUT:
+		return put_user(riowd_timeout * 60, (int *)arg);
 
 	default:
 		return -EINVAL;

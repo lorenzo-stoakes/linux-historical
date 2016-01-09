@@ -8,7 +8,7 @@
 #define _ORINOCO_H
 
 /* To enable debug messages */
-// #define ORINOCO_DEBUG		3
+//#define ORINOCO_DEBUG		3
 
 #if (! defined (WIRELESS_EXT)) || (WIRELESS_EXT < 10)
 #error "orinoco driver requires Wireless extensions v10 or later."
@@ -36,12 +36,12 @@ struct orinoco_private {
 	long state;
 #define ORINOCO_STATE_INIRQ 0
 #define ORINOCO_STATE_DOIRQ 1
+	atomic_t queue_length;
 
 	/* Net device stuff */
 	struct net_device ndev;
 	struct net_device_stats stats;
 	struct iw_statistics wstats;
-
 
 	/* Hardware control variables */
 	hermes_t hw;

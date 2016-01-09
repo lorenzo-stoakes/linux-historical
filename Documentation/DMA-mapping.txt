@@ -720,7 +720,7 @@ transform some example code.
    NOTE: DO NOT put a semicolon at the end of the DECLARE_*()
          macro.
 
-2) Use PCI_UNMAP_{ADDR,LEN}_SET to set these values.
+2) Use pci_unmap_{addr,len}_set to set these values.
    Example, before:
 
 	ringp->mapping = FOO;
@@ -728,10 +728,10 @@ transform some example code.
 
    after:
 
-	PCI_UNMAP_ADDR_SET(ringp, mapping, FOO);
-	PCI_UNMAP_LEN_SET(ringp, len, BAR);
+	pci_unmap_addr_set(ringp, mapping, FOO);
+	pci_unmap_len_set(ringp, len, BAR);
 
-3) Use PCI_UNMAP_{ADDR,LEN} to access these values.
+3) Use pci_unmap_{addr,len} to access these values.
    Example, before:
 
 	pci_unmap_single(pdev, ringp->mapping, ringp->len,
@@ -740,8 +740,8 @@ transform some example code.
    after:
 
 	pci_unmap_single(pdev,
-			 PCI_UNMAP_ADDR(ringp, mapping),
-			 PCI_UNMAP_LEN(ringp, len),
+			 pci_unmap_addr(ringp, mapping),
+			 pci_unmap_len(ringp, len),
 			 PCI_DMA_FROMDEVICE);
 
 It really should be self-explanatory.  We treat the ADDR and LEN

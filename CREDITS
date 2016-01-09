@@ -1282,13 +1282,6 @@ D: Natsemi ethernet
 D: Cobalt Networks (x86) support
 D: This-and-That
 
-N: Tim Hockin
-E: thockin@hockin.org
-W: http://www.hockin.org/~thockin
-D: Natsemi ethernet
-D: Cobalt Networks (x86) support
-D: This-and-That
-
 N: Dirk Hohndel
 E: hohndel@suse.de
 D: The XFree86[tm] Project
@@ -1975,9 +1968,10 @@ S: 64289 Darmstadt
 S: Germany 
 
 N: Mark W. McClelland
-E: mwm@i.am
+E: mmcclell@bigfoot.com
 E: mark@alpha.dyndns.org
 W: http://alpha.dyndns.org/ov511/
+P: 1024D/357375CC 317C 58AC 1B39 2AB0 AB96  EB38 0B6F 731F 3573 75CC
 D: OV511 driver
 S: (address available on request)
 S: USA

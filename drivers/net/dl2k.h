@@ -182,12 +182,12 @@ enum IntStatus_bits {
 
 /* Bits in the ReceiveMode register. */
 enum ReceiveMode_bits {
-	ReceiveIPMulticast = 0x0020,
-	ReceiveMulticastHash = 0x0010,
-	ReceiveAllFrames = 0x0008,
-	ReceiveBroadcast = 0x0004,
-	ReceiveMulticast = 0x0002,
 	ReceiveUnicast = 0x0001,
+	ReceiveMulticast = 0x0002,
+	ReceiveBroadcast = 0x0004,
+	ReceiveAllFrames = 0x0008,
+	ReceiveMulticastHash = 0x0010,
+	ReceiveIPMulticast = 0x0020,
 	ReceiveVLANMatch = 0x0100,
 	ReceiveVLANHash = 0x0200,
 };
@@ -662,7 +662,7 @@ struct netdev_private {
 	unsigned int coalesce:1;	/* Rx coalescing enable */
 	unsigned int tx_flow:1;		/* Tx flow control enable */
 	unsigned int rx_flow:1;		/* Rx flow control enable */
-	unsigned int phy_media:1;	/* 1: fiber, 0: copper */ 
+	unsigned int phy_media:1;	/* 1: fiber, 0: copper */
 	struct netdev_desc *last_tx;	/* Last Tx descriptor used. */
 	unsigned long cur_rx, old_rx;	/* Producer/consumer ring indices */
 	unsigned long cur_tx, old_tx;
@@ -699,6 +699,10 @@ MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
 #define PACKET_SIZE		1536
 #define MAX_JUMBO		8000
 #define RIO_IO_SIZE             340
+#define DEFAULT_RXC		5
+#define DEFAULT_RXT		750
+#define DEFAULT_TXC		1
+#define MAX_TXC			8
 #ifdef RIO_DEBUG
 #define DEBUG_TFD_DUMP(x) debug_tfd_dump(x)
 #define DEBUG_RFD_DUMP(x,flag) debug_rfd_dump(x,flag)
