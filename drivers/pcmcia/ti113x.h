@@ -179,7 +179,7 @@ static int ti_intctl(pci_socket_t *socket)
 		u8 irqmux, devctl;
 
 		devctl = config_readb(socket, TI113X_DEVICE_CONTROL);
-		if (devctl & TI113X_DCR_IMODE_MASK != TI12XX_DCR_IMODE_ALL_SERIAL) {
+		if ((devctl & TI113X_DCR_IMODE_MASK) != TI12XX_DCR_IMODE_ALL_SERIAL) {
 			printk (KERN_INFO "ti113x: Routing card interrupts to PCI\n");
 
 			devctl &= ~TI113X_DCR_IMODE_MASK;

@@ -488,8 +488,6 @@ static int siimage_config_drive_for_dma (ide_drive_t *drive)
 	struct hd_driveid *id	= drive->id;
 
 	if ((id->capability & 1) != 0 && drive->autodma) {
-		if (!(hwif->atapi_dma))
-			goto fast_ata_pio;
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;

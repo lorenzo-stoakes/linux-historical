@@ -480,6 +480,7 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	files = current->files;		/* Refcounted so ok */
 	if(unshare_files() < 0)
 		goto out_free_ph;
+	steal_locks(files, current->files);
 
 	/* exec will make our files private anyway, but for the a.out
 	   loader stuff we need to do it earlier */
@@ -797,7 +798,6 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	if (current->ptrace & PT_PTRACED)
 		send_sig(SIGTRAP, current, 0);
 	retval = 0;
-	steal_locks(files, current->files);
 out:
 	return retval;
 
@@ -813,6 +813,7 @@ out_free_file:
 out_free_fh:
 	ftmp = current->files;
 	current->files = files;
+	steal_locks(ftmp, current->files);
 	put_files_struct(ftmp);
 out_free_ph:
 	kfree(elf_phdata);

@@ -600,7 +600,9 @@ t2_machine_check(unsigned long vector, unsigned long la_ptr,
 		 struct pt_regs * regs)
 {
 	int cpu = smp_processor_id();
+#if DEBUG_MCHECK > 0
 	struct el_common *mchk_header = (struct el_common *)la_ptr;
+#endif
 
 	/* Clear the error before any reporting.  */
 	mb();

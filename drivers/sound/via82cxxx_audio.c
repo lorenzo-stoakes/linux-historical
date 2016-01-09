@@ -1238,7 +1238,6 @@ static int via_chan_set_stereo (struct via_info *card,
 		}
 	/* unknown */
 	default:
-		printk (KERN_WARNING PFX "unknown number of channels\n");
 		val = -EINVAL;
 		break;
 	}

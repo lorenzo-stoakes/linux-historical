@@ -798,6 +798,7 @@ int ide_unregister (unsigned int index)
 	hwif->swdma_mask		= old_hwif.swdma_mask;
 
 	hwif->chipset			= old_hwif.chipset;
+	hwif->hold                      = old_hwif.hold;
 
 #ifdef CONFIG_BLK_DEV_IDEPCI
 	hwif->pci_dev			= old_hwif.pci_dev;

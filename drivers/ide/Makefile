@@ -54,6 +54,7 @@ ifeq ($(CONFIG_BLK_DEV_IDE),y)
   obj-y		+= arm/idedriver-arm.o
 else
   ifeq ($(CONFIG_BLK_DEV_HD_ONLY),y)
+	subdir-$(CONFIG_BLK_DEV_HD_ONLY) += legacy
 	obj-y	+= legacy/idedriver-legacy.o
   endif
 endif

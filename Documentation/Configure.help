@@ -3357,7 +3357,7 @@ CONFIG_ALPHA_SRM
   here. If MILO doesn't work on your system (true for Jensen
   motherboards), you can bypass it altogether and boot Linux directly
   from an SRM console; say Y here in order to do that. Note that you
-  won't be able to boot from an IDE disk using SRM.
+  won't be able to boot from an IDE disk using old versions of SRM.
 
   If unsure, say N.
 
