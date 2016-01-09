@@ -1932,6 +1932,11 @@ N: Kai Mäkisara
 E: Kai.Makisara@metla.fi
 D: SCSI Tape Driver
 
+N: Dan Malek
+E: dan@mvista.com
+D: PowerPC 8xx, 4xx work.
+S: USA
+
 N: Asit Mallick
 E: asit.k.mallick@intel.com
 D: Linux/IA-64
@@ -2428,6 +2433,15 @@ N: Frederic Potter
 E: fpotter@cirpack.com
 D: Some PCI kernel support
 
+N: Matt Porter
+E: porter@cox.net
+E: mporter@mvista.com
+D: Motorola PowerPC PReP support
+D: cPCI PowerPC support
+D: Embedded PowerPC 440/6xx/7xx/74xx support
+S: Chandler, Arizona 85249
+S: USA
+
 N: Rui Prior
 E: rprior@inescn.pt
 D: ATM device driver for NICStAR based cards
@@ -2538,6 +2552,12 @@ D: International kernel patch project
 S: Kasarmikatu 11 A4
 S: 70110 Kuopio
 S: Finland
+
+N: Tom Rini
+E: trini@kernel.crashing.org
+D: Lots of PowerPC cleanups, minor matroxfb work
+S: Tucson, Arizona
+S: USA
 
 N: William E. Roadcap
 E: roadcapw@cfw.com

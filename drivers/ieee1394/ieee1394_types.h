@@ -7,6 +7,7 @@
 #include <linux/version.h>
 #include <linux/list.h>
 #include <linux/init.h>
+#include <asm/semaphore.h>
 #include <asm/byteorder.h>
 
 
@@ -19,6 +20,25 @@
 #endif
 
 
+/* Transaction Label handling */
+struct hpsb_tlabel_pool {
+	DECLARE_BITMAP(pool, 64);
+	spinlock_t lock;
+	u8 next;
+	u32 allocations;
+	struct semaphore count;
+};
+
+#define HPSB_TPOOL_INIT(_tp)			\
+do {						\
+	CLEAR_BITMAP((_tp)->pool, 64);		\
+	spin_lock_init(&(_tp)->lock);		\
+	(_tp)->next = 0;			\
+	(_tp)->allocations = 0;			\
+	sema_init(&(_tp)->count, 63);		\
+} while(0)
+
+
 typedef u32 quadlet_t;
 typedef u64 octlet_t;
 typedef u16 nodeid_t;
@@ -28,6 +48,7 @@ typedef u64 nodeaddr_t;
 typedef u16 arm_length_t;
 
 #define BUS_MASK  0xffc0
+#define BUS_SHIFT 6
 #define NODE_MASK 0x003f
 #define LOCAL_BUS 0xffc0
 #define ALL_NODES 0x003f
@@ -36,9 +57,8 @@ typedef u16 arm_length_t;
 #define NODEID_TO_NODE(nodeid)	(nodeid & NODE_MASK)
 
 /* Can be used to consistently print a node/bus ID. */
-#define NODE_BUS_FMT    "%02d:%04d"
-#define NODE_BUS_ARGS(nodeid) \
-	(nodeid & NODE_MASK), ((nodeid & BUS_MASK) >> 6)
+#define NODE_BUS_FMT		"%02d:%04d"
+#define NODE_BUS_ARGS(nodeid)	NODEID_TO_NODE(nodeid), NODEID_TO_BUS(nodeid)
 
 #define HPSB_PRINT(level, fmt, args...) printk(level "ieee1394: " fmt "\n" , ## args)
 

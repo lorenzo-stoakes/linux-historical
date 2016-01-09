@@ -1345,7 +1345,7 @@ static void via_chan_dump_bufs (struct via_channel *chan)
 
 /**
  *	via_chan_flush_frag - Flush partially-full playback buffer to hardware
- *	@chan: Channel whose DMA table will be displayed
+ *	@chan: Channel whose DMA table will be flushed
  *
  *	Flushes partially-full playback buffer to hardware.
  */
@@ -1877,8 +1877,7 @@ static void via_intr_channel (struct via_channel *chan)
 		chan->bytes = chan->frag_size;
 
 	/* wake up anyone listening to see when interrupts occur */
-	if (waitqueue_active (&chan->wait))
-		wake_up_all (&chan->wait);
+	wake_up_all (&chan->wait);
 
 	DPRINTK ("%s intr, status=0x%02X, hwptr=0x%lX, chan->hw_ptr=%d\n",
 		 chan->name, status, (long) inl (chan->iobase + 0x04),

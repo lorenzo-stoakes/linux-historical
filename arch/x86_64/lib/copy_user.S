@@ -4,7 +4,7 @@
  * Functions to copy from and to user space.		
  */		 
 
-// #define FIX_ALIGNMENT 1
+#define FIX_ALIGNMENT 1
 
 	#include <asm/current.h>
 	#include <asm/offset.h>
@@ -59,6 +59,9 @@ bad_to_user:
 	.globl copy_user_generic	
 	.p2align 4
 copy_user_generic:	
+	/* Put the first cacheline into cache. This should handle
+	   the small movements in ioctls etc., but not penalize the bigger
+	   filesystem data copies too much. */
 	pushq %rbx
 	xorl %eax,%eax		/*zero for the exception handler */
 
@@ -73,32 +76,32 @@ copy_user_generic:
 	movq %rdx,%rcx
 
 	movl $64,%ebx	
-	shrl $6,%edx
-	jz   .Lhandle_tail
-	decl %edx
+	shrq $6,%rdx
+	decq %rdx
+	js   .Lhandle_tail
 	
 	.p2align 4
 .Lloop:
-	decl %edx
-	
 .Ls1:	movq (%rsi),%r11
 .Ls2:	movq 1*8(%rsi),%r8
-.Ld1:	movq %r11,(%rdi)
-.Ld2:	movq %r8,1*8(%rdi)
 .Ls3:	movq 2*8(%rsi),%r9
 .Ls4:	movq 3*8(%rsi),%r10
+.Ld1:	movq %r11,(%rdi)
+.Ld2:	movq %r8,1*8(%rdi)
 .Ld3:	movq %r9,2*8(%rdi)
 .Ld4:	movq %r10,3*8(%rdi)
 		
 .Ls5:	movq 4*8(%rsi),%r11
 .Ls6:	movq 5*8(%rsi),%r8
-.Ld5:	movq %r11,4*8(%rdi)
-.Ld6:	movq %r8,5*8(%rdi)
 .Ls7:	movq 6*8(%rsi),%r9
 .Ls8:	movq 7*8(%rsi),%r10
+.Ld5:	movq %r11,4*8(%rdi)
+.Ld6:	movq %r8,5*8(%rdi)
 .Ld7:	movq %r9,6*8(%rdi)
 .Ld8:	movq %r10,7*8(%rdi)
 	
+	decq %rdx
+
 	leaq 64(%rsi),%rsi
 	leaq 64(%rdi),%rdi
 	
@@ -110,10 +113,11 @@ copy_user_generic:
 	andl $63,%ecx
 	shrl $3,%ecx
 	jz   .Lhandle_7
+	movl $8,%ebx
 	.p2align 4
 .Lloop_8:
-.Ls9:	movq (%rsi),%rbx
-.Ld9:	movq %rbx,(%rdi)
+.Ls9:	movq (%rsi),%r8
+.Ld9:	movq %r8,(%rdi)
 	decl %ecx
 	leaq 8(%rdi),%rdi
 	leaq 8(%rsi),%rsi
@@ -164,18 +168,18 @@ copy_user_generic:
 	.align 8
 	.quad .Ls1,.Ls1e
 	.quad .Ls2,.Ls2e
-	.quad .Ld1,.Ls1e
-	.quad .Ld2,.Ls2e
 	.quad .Ls3,.Ls3e
 	.quad .Ls4,.Ls4e	
+	.quad .Ld1,.Ls1e
+	.quad .Ld2,.Ls2e
 	.quad .Ld3,.Ls3e
 	.quad .Ld4,.Ls4e
 	.quad .Ls5,.Ls5e
 	.quad .Ls6,.Ls6e
-	.quad .Ld5,.Ls5e
-	.quad .Ld6,.Ls6e
 	.quad .Ls7,.Ls7e
 	.quad .Ls8,.Ls8e	
+	.quad .Ld5,.Ls5e
+	.quad .Ld6,.Ls6e
 	.quad .Ld7,.Ls7e
 	.quad .Ld8,.Ls8e
 	.quad .Ls9,.Le_quad

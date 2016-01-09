@@ -21,9 +21,6 @@
  */
 int ptrace_check_attach(struct task_struct *child, int kill)
 {
-	mb();
-	if (!is_dumpable(child))
-		return -EPERM;
 
 	if (!(child->ptrace & PT_PTRACED))
 		return -ESRCH;
@@ -140,8 +137,6 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
 	/* Worry about races with exit() */
 	task_lock(tsk);
 	mm = tsk->mm;
-	if (!is_dumpable(tsk) || (&init_mm == mm))
-		mm = NULL;
 	if (mm)
 		atomic_inc(&mm->mm_users);
 	task_unlock(tsk);

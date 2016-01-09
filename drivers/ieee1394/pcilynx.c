@@ -128,23 +128,20 @@ static int bit_unreg(struct i2c_client *client)
 }
 
 static struct i2c_algo_bit_data bit_data = {
-	NULL,
-	bit_setsda,
-	bit_setscl,
-	bit_getsda,
-	bit_getscl,
-	5, 5, 100,		/*	waits, timeout */
+	.setsda			= bit_setsda,
+	.setscl			= bit_setscl,
+	.getsda			= bit_getsda,
+	.getscl			= bit_getscl,
+	.udelay			= 5,
+	.mdelay			= 5,
+	.timeout		= 100,
 }; 
 
 static struct i2c_adapter bit_ops = {
-	"PCILynx I2C adapter",
-	0xAA, //FIXME: probably we should get an id in i2c-id.h
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	bit_reg,
-	bit_unreg,
+	.id 			= 0xAA, //FIXME: probably we should get an id in i2c-id.h
+	.client_register	= bit_reg,
+	.client_unregister	= bit_unreg,
+	.name			= "PCILynx I2C",
 };
 
 
@@ -626,6 +623,99 @@ static int lynx_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 			lynx->selfid_size = -1;
 			lynx->phy_reg0 = -1;
 			set_phy_reg(lynx, 1, phy_reg); /* clear RHB, set IBR */
+			break;
+		case SHORT_RESET_NO_FORCE_ROOT:
+			if (lynx->phyic.reg_1394a) {
+				phy_reg = get_phy_reg(lynx, 1);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				if (phy_reg & 0x80) {
+					phy_reg &= ~0x80;
+					set_phy_reg(lynx, 1, phy_reg); /* clear RHB */
+				}
+
+				phy_reg = get_phy_reg(lynx, 5);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				phy_reg |= 0x40;
+
+				PRINT(KERN_INFO, lynx->id, "resetting bus (short bus reset, no force_root) on request");
+
+				lynx->selfid_size = -1;
+				lynx->phy_reg0 = -1;
+				set_phy_reg(lynx, 5, phy_reg); /* set ISBR */
+				break;
+			} else {
+				PRINT(KERN_INFO, lynx->id, "cannot do short bus reset, because of old phy");
+				/* fall through to long bus reset */
+			}
+		case LONG_RESET_NO_FORCE_ROOT:
+			phy_reg = get_phy_reg(lynx, 1);
+			if (phy_reg == -1) {
+				PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+				retval = -1;
+				break;
+			}
+			phy_reg &= ~0x80;
+			phy_reg |= 0x40;
+
+			PRINT(KERN_INFO, lynx->id, "resetting bus (long bus reset, no force_root) on request");
+
+			lynx->selfid_size = -1;
+			lynx->phy_reg0 = -1;
+			set_phy_reg(lynx, 1, phy_reg); /* clear RHB, set IBR */
+			break;
+		case SHORT_RESET_FORCE_ROOT:
+			if (lynx->phyic.reg_1394a) {
+				phy_reg = get_phy_reg(lynx, 1);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				if (!(phy_reg & 0x80)) {
+					phy_reg |= 0x80;
+					set_phy_reg(lynx, 1, phy_reg); /* set RHB */
+				}
+
+				phy_reg = get_phy_reg(lynx, 5);
+				if (phy_reg == -1) {
+					PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+					retval = -1;
+					break;
+				}
+				phy_reg |= 0x40;
+
+				PRINT(KERN_INFO, lynx->id, "resetting bus (short bus reset, force_root set) on request");
+
+				lynx->selfid_size = -1;
+				lynx->phy_reg0 = -1;
+				set_phy_reg(lynx, 5, phy_reg); /* set ISBR */
+				break;
+			} else {
+				PRINT(KERN_INFO, lynx->id, "cannot do short bus reset, because of old phy");
+				/* fall through to long bus reset */
+			}
+		case LONG_RESET_FORCE_ROOT:
+			phy_reg = get_phy_reg(lynx, 1);
+			if (phy_reg == -1) {
+				PRINT(KERN_ERR, lynx->id, "cannot reset bus, because read phy reg failed");
+				retval = -1;
+				break;
+			}
+			phy_reg |= 0xc0;
+
+			PRINT(KERN_INFO, lynx->id, "resetting bus (long bus reset, force_root set) on request");
+
+			lynx->selfid_size = -1;
+			lynx->phy_reg0 = -1;
+			set_phy_reg(lynx, 1, phy_reg); /* set IBR and RHB */
 			break;
 		default:
 			PRINT(KERN_ERR, lynx->id, "unknown argument for reset_bus command %d", arg);
@@ -1817,6 +1907,7 @@ static struct hpsb_host_driver lynx_driver = {
         .get_rom =         get_lynx_rom,
         .transmit_packet = lynx_transmit,
         .devctl =          lynx_devctl,
+	.isoctl =          NULL,
 };
 
 MODULE_AUTHOR("Andreas E. Bombe <andreas.bombe@munich.netsurf.de>");

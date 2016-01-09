@@ -47,6 +47,7 @@
 #include <asm/time.h>
 #include <asm/cputable.h>
 #include <asm/btext.h>
+#include <asm/div64.h>
 
 #ifdef  CONFIG_8xx
 #include <asm/commproc.h>
@@ -127,6 +128,7 @@ EXPORT_SYMBOL(strnlen);
 EXPORT_SYMBOL(strcmp);
 EXPORT_SYMBOL(strncmp);
 EXPORT_SYMBOL(strcasecmp);
+EXPORT_SYMBOL(__div64_32);
 
 /* EXPORT_SYMBOL(csum_partial); already in net/netsyms.c */
 EXPORT_SYMBOL(csum_partial_copy_generic);

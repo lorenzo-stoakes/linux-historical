@@ -791,7 +791,8 @@ static int mpu_synth_ioctl(int dev,
 	{
 
 		case SNDCTL_SYNTH_INFO:
-			memcpy((&((char *) arg)[0]), (char *) &mpu_synth_info[midi_dev], sizeof(struct synth_info));
+			if(copy_to_user((&((char *) arg)[0]), (char *) &mpu_synth_info[midi_dev], sizeof(struct synth_info)))
+				return -EFAULT;
 			return 0;
 
 		case SNDCTL_SYNTH_MEMAVL:

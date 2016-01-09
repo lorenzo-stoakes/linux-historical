@@ -1621,8 +1621,8 @@ intelfb_setcolreg(unsigned regno, unsigned red, unsigned green,
 					       (green & 0xff00) |
 					       ((blue  & 0xff00) >> 8);
 		break;
-	}
 #endif
+	}
 	return 0;
 }
 

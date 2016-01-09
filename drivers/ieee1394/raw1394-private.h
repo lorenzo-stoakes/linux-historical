@@ -63,7 +63,6 @@ struct pending_request {
         struct list_head list;
         struct file_info *file_info;
         struct hpsb_packet *packet;
-	struct tq_struct tq;
         struct iso_block_store *ibs;
         quadlet_t *data;
         int free_data;

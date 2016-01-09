@@ -37,8 +37,7 @@
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <linux/devfs_fs_kernel.h>
-
-#include <asm/bitops.h>
+#include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/wrapper.h>
 #include <linux/vmalloc.h>
@@ -47,12 +46,12 @@
 
 #include "ieee1394.h"
 #include "ieee1394_types.h"
+#include "ieee1394_hotplug.h"
 #include "hosts.h"
 #include "ieee1394_core.h"
 #include "highlevel.h"
 #include "video1394.h"
 #include "dma.h"
-#include "ieee1394_hotplug.h"
 
 #include "ohci1394.h"
 
@@ -65,9 +64,6 @@
 #ifndef vmalloc_32
 #define vmalloc_32(x) vmalloc(x)
 #endif
-
-#define remap_page_range_1394(vma, start, addr, size, prot) \
-	remap_page_range(start, addr, size, prot)
 
 struct it_dma_prg {
 	struct dma_cmd begin;
@@ -118,8 +114,6 @@ struct dma_iso_ctx {
 
 struct video_card {
 	struct ti_ohci *ohci;
-	struct list_head list;
-	int id;
 	devfs_handle_t devfs;
 };
 
@@ -156,12 +150,9 @@ printk(level "video1394_%d: " fmt "\n" , card , ## args)
 void wakeup_dma_ir_ctx(unsigned long l);
 void wakeup_dma_it_ctx(unsigned long l);
 
-static LIST_HEAD(video1394_cards);
-static spinlock_t video1394_cards_lock = SPIN_LOCK_UNLOCKED;
-
 static devfs_handle_t devfs_handle;
-static struct hpsb_highlevel *hl_handle = NULL;
 
+static struct hpsb_highlevel video1394_highlevel;
 
 static int free_dma_iso_ctx(struct dma_iso_ctx *d)
 {
@@ -1176,21 +1167,10 @@ int video1394_mmap(struct file *file, struct vm_area_struct *vma)
 static int video1394_open(struct inode *inode, struct file *file)
 {
 	int i = ieee1394_file_to_instance(file);
-	unsigned long flags;
-	struct video_card *video = NULL;
-	struct list_head *lh;
+	struct video_card *video;
 	struct file_ctx *ctx;
 
-	spin_lock_irqsave(&video1394_cards_lock, flags);
-	list_for_each(lh, &video1394_cards) {
-		struct video_card *p = list_entry(lh, struct video_card, list);
-		if (p->id == i) {
-			video = p;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&video1394_cards_lock, flags);
-
+	video = hpsb_get_hostinfo_bykey(&video1394_highlevel, i);
         if (video == NULL)
                 return -EIO;
 
@@ -1242,30 +1222,6 @@ static int video1394_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-/*** HOTPLUG STUFF **********************************************************/
-/*
- * Export information about protocols/devices supported by this driver.
- */
-static struct ieee1394_device_id video1394_id_table[] = {
-	{
-		.match_flags =IEEE1394_MATCH_SPECIFIER_ID |
-		              IEEE1394_MATCH_VERSION,
-		.specifier_id = CAMERA_UNIT_SPEC_ID_ENTRY & 0xffffff,
-		.version =    CAMERA_SW_VERSION_ENTRY & 0xffffff
-	},
-	{ }
-};
-
-static struct hpsb_protocol_driver video1394_driver = {
-	.name =		"1394 Digital Camera Driver",
-	.id_table = 	video1394_id_table,
-};
-
-MODULE_DEVICE_TABLE(ieee1394, video1394_id_table);
-
-
-/******************************************************************************/
-
 static struct file_operations video1394_fops=
 {
 	.owner =	THIS_MODULE,
@@ -1275,91 +1231,74 @@ static struct file_operations video1394_fops=
 	.release =	video1394_release
 };
 
-static int video1394_init(struct ti_ohci *ohci)
+/*** HOTPLUG STUFF **********************************************************/
+/*
+ * Export information about protocols/devices supported by this driver.
+ */
+static struct ieee1394_device_id video1394_id_table[] = {
+	{
+		.match_flags	= IEEE1394_MATCH_SPECIFIER_ID | IEEE1394_MATCH_VERSION,
+		.specifier_id	= CAMERA_UNIT_SPEC_ID_ENTRY & 0xffffff,
+		.version	= CAMERA_SW_VERSION_ENTRY & 0xffffff
+	},
+	{ }
+};
+
+MODULE_DEVICE_TABLE(ieee1394, video1394_id_table);
+
+static struct hpsb_protocol_driver video1394_driver = {
+	.name		= "1394 Digital Camera Driver",
+	.id_table	= video1394_id_table,
+};
+
+
+static void video1394_add_host (struct hpsb_host *host)
 {
+	struct ti_ohci *ohci;
 	struct video_card *video;
-	unsigned long flags;
 	char name[16];
 	int minor;
 
-	video = kmalloc(sizeof(struct video_card), GFP_KERNEL);
+	/* We only work with the OHCI-1394 driver */
+	if (strcmp(host->driver->name, OHCI1394_DRIVER_NAME))
+		return;
+
+	ohci = (struct ti_ohci *)host->hostdata;
+
+	video = hpsb_create_hostinfo(&video1394_highlevel, host, sizeof(*video));
 	if (video == NULL) {
 		PRINT(KERN_ERR, ohci->id, "Cannot allocate video_card");
-		return -1;
+		return;
 	}
 
-	memset(video, 0, sizeof(struct video_card));
-
-	spin_lock_irqsave(&video1394_cards_lock, flags);
-	INIT_LIST_HEAD(&video->list);
-	list_add_tail(&video->list, &video1394_cards);
-	spin_unlock_irqrestore(&video1394_cards_lock, flags);
-
-	video->id = ohci->id;
+	hpsb_set_hostinfo_key(&video1394_highlevel, host, ohci->id);
 	video->ohci = ohci;
 
-	sprintf(name, "%d", video->id);
-	minor = IEEE1394_MINOR_BLOCK_VIDEO1394 * 16 + video->id;
+	sprintf(name, "%d", ohci->id);
+	minor = IEEE1394_MINOR_BLOCK_VIDEO1394 * 16 + ohci->id;
 	video->devfs = devfs_register(devfs_handle, name,
 				      DEVFS_FL_AUTO_OWNER,
 				      IEEE1394_MAJOR, minor,
 				      S_IFCHR | S_IRUSR | S_IWUSR,
 				      &video1394_fops, NULL);
 
-	return 0;
+	return;
 }
 
-/* Must be called under spinlock */
-static void remove_card(struct video_card *video)
-{
-	devfs_unregister(video->devfs);
-	list_del(&video->list);
-
-	kfree(video);
-}
 
 static void video1394_remove_host (struct hpsb_host *host)
 {
-	struct ti_ohci *ohci;
-	unsigned long flags;
-	struct list_head *lh, *next;
-	struct video_card *p;
+	struct video_card *video = hpsb_get_hostinfo(&video1394_highlevel, host);
 
-	/* We only work with the OHCI-1394 driver */
-	if (strcmp(host->driver->name, OHCI1394_DRIVER_NAME))
-		return;
-
-	ohci = (struct ti_ohci *)host->hostdata;
-
-        spin_lock_irqsave(&video1394_cards_lock, flags);
-	list_for_each_safe(lh, next, &video1394_cards) {
-		p = list_entry(lh, struct video_card, list);
-		if (p->ohci == ohci) {
-			remove_card(p);
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&video1394_cards_lock, flags);
+	if (video)
+		devfs_unregister(video->devfs);
 
 	return;
 }
 
-static void video1394_add_host (struct hpsb_host *host)
-{
-	struct ti_ohci *ohci;
 
-	/* We only work with the OHCI-1394 driver */
-	if (strcmp(host->driver->name, OHCI1394_DRIVER_NAME))
-		return;
-
-	ohci = (struct ti_ohci *)host->hostdata;
-
-	video1394_init(ohci);
-	
-	return;
-}
-
-static struct hpsb_highlevel_ops hl_ops = {
+static struct hpsb_highlevel video1394_highlevel = {
+	.name =		VIDEO1394_DRIVER_NAME,
 	.add_host =	video1394_add_host,
 	.remove_host =	video1394_remove_host,
 };
@@ -1373,7 +1312,7 @@ static void __exit video1394_exit_module (void)
 {
 	hpsb_unregister_protocol(&video1394_driver);
 
-	hpsb_unregister_highlevel (hl_handle);
+	hpsb_unregister_highlevel(&video1394_highlevel);
 
 	devfs_unregister(devfs_handle);
 	ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_VIDEO1394);
@@ -1391,13 +1330,7 @@ static int __init video1394_init_module (void)
 	
 	devfs_handle = devfs_mk_dir(NULL, VIDEO1394_DRIVER_NAME, NULL);
 
-	hl_handle = hpsb_register_highlevel (VIDEO1394_DRIVER_NAME, &hl_ops);
-	if (hl_handle == NULL) {
-		PRINT_G(KERN_ERR, "No more memory for driver\n");
-		devfs_unregister(devfs_handle);
-		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_VIDEO1394);
-		return -ENOMEM;
-	}
+	hpsb_register_highlevel(&video1394_highlevel);
 
 	hpsb_register_protocol(&video1394_driver);
 

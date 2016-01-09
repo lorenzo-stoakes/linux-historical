@@ -77,8 +77,6 @@ struct hpsb_protocol_driver {
 int hpsb_register_protocol(struct hpsb_protocol_driver *driver);
 void hpsb_unregister_protocol(struct hpsb_protocol_driver *driver);
 
-int hpsb_claim_unit_directory(struct unit_directory *ud,
-			      struct hpsb_protocol_driver *driver);
 void hpsb_release_unit_directory(struct unit_directory *ud);
 
 #endif /* _IEEE1394_HOTPLUG_H */

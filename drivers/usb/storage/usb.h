@@ -171,6 +171,7 @@ struct us_data {
 	struct semaphore	current_urb_sem; /* to protect irq_urb	 */
 	struct urb		*current_urb;	 /* non-int USB requests */
 	struct completion	current_done;	 /* the done flag        */
+	unsigned int		tag;		 /* tag for bulk CBW/CSW */
 
 	/* the semaphore for sleeping the control thread */
 	struct semaphore	sema;		 /* to sleep thread on   */

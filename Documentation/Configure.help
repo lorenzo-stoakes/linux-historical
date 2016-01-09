@@ -1105,10 +1105,12 @@ CONFIG_WDC_ALI15X3
 
   SAY N!
 
-AMD Viper (7401/7409/7411) chipset support
+AMD and nVidia IDE support
 CONFIG_BLK_DEV_AMD74XX
-  This driver ensures (U)DMA support for the AMD756/760 Viper
-  chipsets.
+  This driver adds explicit support for AMD-7xx and AMD-8111 chips
+  and also for the nVidia nForce chip.  This allows the kernel to
+  change PIO, DMA and UDMA speeds and to configure the chip to
+  optimum performance.
 
   If you say Y here, you also need to say Y to "Use DMA by default
   when available", above.

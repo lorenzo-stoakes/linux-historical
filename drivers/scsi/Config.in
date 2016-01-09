@@ -52,6 +52,7 @@ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    dep_tristate 'Adaptec AACRAID support (EXPERIMENTAL)' CONFIG_SCSI_AACRAID $CONFIG_SCSI $CONFIG_PCI
 fi
 source drivers/scsi/aic7xxx/Config.in
+source drivers/scsi/aic79xx/Config.in
 if [ "$CONFIG_SCSI_AIC7XXX" != "y" ]; then
    dep_tristate 'Old Adaptec AIC7xxx support' CONFIG_SCSI_AIC7XXX_OLD $CONFIG_SCSI
    if [ "$CONFIG_SCSI_AIC7XXX_OLD" != "n" ]; then

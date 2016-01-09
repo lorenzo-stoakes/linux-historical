@@ -468,8 +468,10 @@ int cpqfcTS_ioctl(Scsi_Device * ScsiDev, int Cmnd, void *arg)
 				// Need data from user?
 				// make sure caller's buffer is in kernel space.
 				if ((vendor_cmd->rw_flag == VENDOR_WRITE_OPCODE) && vendor_cmd->len)
-					if (copy_from_user(buf, vendor_cmd->bufp, vendor_cmd->len))
+					if (copy_from_user(buf, vendor_cmd->bufp, vendor_cmd->len)) {
+						kfree(buf);
 						return (-EFAULT);
+					}
 
 				// copy the CDB (if/when MAX_COMMAND_SIZE is 16, remove copy below)
 				memcpy(&ScsiPassThruCmnd->cmnd[0], &vendor_cmd->cdb[0], MAX_COMMAND_SIZE);
@@ -534,7 +536,7 @@ int cpqfcTS_ioctl(Scsi_Device * ScsiDev, int Cmnd, void *arg)
 				// need to pass data back to user (space)?
 				if ((vendor_cmd->rw_flag == VENDOR_READ_OPCODE) && vendor_cmd->len)
 					if (copy_to_user(vendor_cmd->bufp, buf, vendor_cmd->len))
-						return (-EFAULT);
+						result = -EFAULT;
 
 				if (buf)
 					kfree(buf);

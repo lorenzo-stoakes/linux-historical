@@ -141,6 +141,7 @@ struct hw_interrupt_type i8259_pic = {
 	NULL
 };
 
+#if 0 /* Do not request these before the host bridge resource have been setup */
 static struct resource pic1_iores = {
 	"8259 (master)", 0x20, 0x21, IORESOURCE_BUSY
 };
@@ -152,6 +153,7 @@ static struct resource pic2_iores = {
 static struct resource pic_edgectrl_iores = {
 	"8259 edge control", 0x4d0, 0x4d1, IORESOURCE_BUSY
 };
+#endif
 
 void __init i8259_init(unsigned long intack_addr)
 {

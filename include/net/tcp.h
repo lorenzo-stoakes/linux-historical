@@ -1604,6 +1604,7 @@ struct tcp_listen_opt
 	int			qlen;
 	int			qlen_young;
 	int			clock_hand;
+	u32			hash_rnd;
 	struct open_request	*syn_table[TCP_SYNQ_HSIZE];
 };
 

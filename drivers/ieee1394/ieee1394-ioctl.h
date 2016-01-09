@@ -4,8 +4,8 @@
 #ifndef __IEEE1394_IOCTL_H
 #define __IEEE1394_IOCTL_H
 
-#include <asm/ioctl.h>
-#include <asm/types.h>
+#include <linux/ioctl.h>
+#include <linux/types.h>
 
 
 /* AMDTP Gets 6 */

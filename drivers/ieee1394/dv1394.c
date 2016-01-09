@@ -114,10 +114,10 @@
 
 #include "ieee1394.h"
 #include "ieee1394_types.h"
+#include "ieee1394_hotplug.h"
 #include "hosts.h"
 #include "ieee1394_core.h"
 #include "highlevel.h"	
-#include "ieee1394_hotplug.h"
 #include "dv1394.h"
 #include "dv1394-private.h"
 
@@ -173,8 +173,6 @@ static void ir_tasklet_func(unsigned long data);
 /* list of all video_cards */
 static LIST_HEAD(dv1394_cards);
 static spinlock_t dv1394_cards_lock = SPIN_LOCK_UNLOCKED;
-
-static struct hpsb_highlevel *hl_handle; /* = NULL; */
 
 static LIST_HEAD(dv1394_devfs);
 struct dv1394_devfs_entry {
@@ -2572,10 +2570,9 @@ void dv1394_devfs_del( char *name)
  */
 static struct ieee1394_device_id dv1394_id_table[] = {
 	{
-		.match_flags =IEEE1394_MATCH_SPECIFIER_ID |
-		              IEEE1394_MATCH_VERSION,
-		.specifier_id = AVC_UNIT_SPEC_ID_ENTRY & 0xffffff,
-		.version =    AVC_SW_VERSION_ENTRY & 0xffffff
+		.match_flags	= IEEE1394_MATCH_SPECIFIER_ID | IEEE1394_MATCH_VERSION,
+		.specifier_id	= AVC_UNIT_SPEC_ID_ENTRY & 0xffffff,
+		.version	= AVC_SW_VERSION_ENTRY & 0xffffff
 	},
 	{ }
 };
@@ -2906,7 +2903,8 @@ out:
 	wake_up_interruptible(&video->waitq);
 }
 
-static struct hpsb_highlevel_ops hl_ops = {
+static struct hpsb_highlevel dv1394_highlevel = {
+	.name =		"dv1394",
 	.add_host =	dv1394_add_host,
 	.remove_host =	dv1394_remove_host,
 	.host_reset =   dv1394_host_reset,
@@ -2924,7 +2922,7 @@ static void __exit dv1394_exit_module(void)
 {
 	hpsb_unregister_protocol(&dv1394_driver);
 
-	hpsb_unregister_highlevel (hl_handle);
+	hpsb_unregister_highlevel(&dv1394_highlevel);
 	ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
 
 #ifdef CONFIG_DEVFS_FS
@@ -2962,18 +2960,7 @@ static int __init dv1394_init_module(void)
 	}
 #endif
 
-	hl_handle = hpsb_register_highlevel ("dv1394", &hl_ops);
-	if (hl_handle == NULL) {
-		printk(KERN_ERR "dv1394: hpsb_register_highlevel failed\n");
-		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
-#ifdef CONFIG_DEVFS_FS
-		dv1394_devfs_del("dv");
-#endif
-#ifdef CONFIG_PROC_FS
-		dv1394_procfs_del("dv");
-#endif
-		return -ENOMEM;
-	}
+	hpsb_register_highlevel (&dv1394_highlevel);
 
 	hpsb_register_protocol(&dv1394_driver);
 
@@ -2982,4 +2969,3 @@ static int __init dv1394_init_module(void)
 
 module_init(dv1394_init_module);
 module_exit(dv1394_exit_module);
-

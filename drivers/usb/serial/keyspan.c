@@ -28,6 +28,9 @@
 
   Change History
 
+	2003Apr16	LPM (Keyspan) fix delayed control message resend for multi-port
+				'Open' case. Fix 'mpr' entries in keyspan.h (previously broken)
+
     Wed Feb 19 22:00:00 PST 2003 (Jeffrey S. Laing <keyspan@jsl.com>)
       Merged the current (1/31/03) Keyspan code with the current (2.4.21-pre4)
       Linux source tree.  The Linux tree lacked support for the 49WLC and
@@ -1427,8 +1430,8 @@ static int keyspan_usa26_send_setup(struct usb_serial *serial,
 	}
 
 	/* Save reset port val for resend.
-	Don't overwrite resend for close condition. */
-	if (p_priv->resend_cont != 3)
+	Don't overwrite resend for open/close condition. */
+	if ((reset_port + 1) > p_priv->resend_cont)
 		p_priv->resend_cont = reset_port + 1;
 	if (this_urb->status == -EINPROGRESS) {
 		/*  dbg ("%s - already writing", __FUNCTION__); */
@@ -1577,8 +1580,8 @@ static int keyspan_usa28_send_setup(struct usb_serial *serial,
 	}
 
 	/* Save reset port val for resend.
-	   Don't overwrite resend for close condition. */
-	if (p_priv->resend_cont != 3)
+	   Don't overwrite resend for open/close condition. */
+	if ((reset_port + 1) > p_priv->resend_cont)
 		p_priv->resend_cont = reset_port + 1;
 	if (this_urb->status == -EINPROGRESS) {
 		dbg ("%s already writing", __FUNCTION__);
@@ -1709,8 +1712,8 @@ static int keyspan_usa49_send_setup(struct usb_serial *serial,
 	}
 
 	/* Save reset port val for resend.
-	   Don't overwrite resend for close condition. */
-	if (p_priv->resend_cont != 3)
+	   Don't overwrite resend for open/close condition. */
+	if ((reset_port+1) > p_priv->resend_cont)
 		p_priv->resend_cont = reset_port + 1;
 	if (this_urb->status == -EINPROGRESS) {
 		/*  dbg ("%s - already writing", __FUNCTION__); */

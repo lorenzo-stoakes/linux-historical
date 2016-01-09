@@ -455,7 +455,7 @@ struct task_struct {
 #define PT_TRACESYSGOOD	0x00000008
 #define PT_PTRACE_CAP	0x00000010	/* ptracer can follow suid-exec */
 
-#define is_dumpable(tsk)	((tsk)->task_dumpable && (tsk)->mm->dumpable)
+#define is_dumpable(tsk)    ((tsk)->task_dumpable && (tsk)->mm && (tsk)->mm->dumpable)
 
 /*
  * Limit the stack by to some sane default: root can always

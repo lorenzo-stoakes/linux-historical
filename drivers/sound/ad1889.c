@@ -24,7 +24,7 @@
 <jsm> tausq: Anyway, to set up sample rates for D to A, you just use the sample rate on the codec. For A to D, you need to set the codec always to 48K (using the split sample rate feature on the codec) and then set the resampler on the AD1889 to the sample rate you want.
 <jsm> Also, when changing the sample rate on the codec you need to power it down and re power it up for the change to take effect!
  *
- * $Id: ad1889.c,v 1.2 2002/10/16 04:14:12 grundler Exp $
+ * $Id: ad1889.c,v 1.3 2002/10/19 21:31:44 grundler Exp $
  */
 #include <linux/config.h>
 #include <linux/module.h>
@@ -1059,7 +1059,7 @@ static struct pci_driver ad1889_driver = {
 	name:		DEVNAME,
 	id_table:	ad1889_id_tbl,
 	probe:		ad1889_probe,
-	remove:		ad1889_remove,
+	remove:		__devexit_p(ad1889_remove),
 };
 
 static int __init ad1889_init_module(void)

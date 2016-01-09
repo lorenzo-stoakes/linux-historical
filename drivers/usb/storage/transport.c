@@ -406,6 +406,8 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 
 	/* return the actual length of the data transferred if no error*/
 	status = us->current_urb->status;
+	if (status == -ENOENT)
+		status = -ECONNRESET;
 	if (status >= 0)
 		status = us->current_urb->actual_length;
 
@@ -449,6 +451,8 @@ int usb_stor_bulk_msg(struct us_data *us, void *data, int pipe,
 	up(&(us->current_urb_sem));
 	wait_for_completion(&us->current_done);
 	down(&(us->current_urb_sem));
+	if (us->current_urb->status == -ENOENT)
+		us->current_urb->status = -ECONNRESET;
 
 	/* return the actual length of the data transferred */
 	*act_len = us->current_urb->actual_length;
@@ -632,6 +636,10 @@ void usb_stor_invoke_transport(Scsi_Cmnd *srb, struct us_data *us)
 	if (result == USB_STOR_TRANSPORT_ABORTED) {
 		US_DEBUGP("-- transport indicates command was aborted\n");
 		srb->result = DID_ABORT << 16;
+
+		/* Bulk-only aborts require a device reset */
+		if (us->protocol == US_PR_BULK)
+			us->transport_reset(us);
 		return;
 	}
 
@@ -1115,7 +1123,7 @@ int usb_stor_Bulk_transport(Scsi_Cmnd *srb, struct us_data *us)
 	bcb->Signature = cpu_to_le32(US_BULK_CB_SIGN);
 	bcb->DataTransferLength = cpu_to_le32(usb_stor_transfer_length(srb));
 	bcb->Flags = srb->sc_data_direction == SCSI_DATA_READ ? 1 << 7 : 0;
-	bcb->Tag = srb->serial_number;
+	bcb->Tag = ++(us->tag);
 	bcb->Lun = srb->cmnd[1] >> 5;
 	if (us->flags & US_FL_SCM_MULT_TARG)
 		bcb->Lun |= srb->target << 4;

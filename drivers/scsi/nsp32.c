@@ -2125,7 +2125,7 @@ static struct pci_driver nsp32_driver = {
 	.name =		"nsp32",
 	.id_table =	nsp32_pci_table,
 	.probe =	nsp32_probe,
-	.remove =	nsp32_remove,
+	.remove =	__devexit_p(nsp32_remove),
 #ifdef CONFIG_PM
 /*	.suspend =	nsp32_suspend,*/
 /*	.resume =	nsp32_resume,*/

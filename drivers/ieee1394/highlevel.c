@@ -19,6 +19,7 @@
 
 #include <linux/config.h>
 #include <linux/slab.h>
+#include <linux/list.h>
 
 #include "ieee1394.h"
 #include "ieee1394_types.h"
@@ -27,69 +28,237 @@
 #include "highlevel.h"
 
 
-LIST_HEAD(hl_drivers);
-rwlock_t hl_drivers_lock = RW_LOCK_UNLOCKED;
+struct hl_host_info {
+	struct list_head list;
+	struct hpsb_host *host;
+	size_t size;
+	unsigned long key;
+	void *data;
+};
 
-LIST_HEAD(addr_space);
-rwlock_t addr_space_lock = RW_LOCK_UNLOCKED;
+
+static LIST_HEAD(hl_drivers);
+static rwlock_t hl_drivers_lock = RW_LOCK_UNLOCKED;
+
+static LIST_HEAD(addr_space);
+static rwlock_t addr_space_lock = RW_LOCK_UNLOCKED;
 
 /* addr_space list will have zero and max already included as bounds */
 static struct hpsb_address_ops dummy_ops = { NULL, NULL, NULL, NULL };
 static struct hpsb_address_serve dummy_zero_addr, dummy_max_addr;
 
-struct hpsb_highlevel *hpsb_register_highlevel(const char *name,
-                                               struct hpsb_highlevel_ops *ops)
+
+static struct hl_host_info *hl_get_hostinfo(struct hpsb_highlevel *hl,
+					      struct hpsb_host *host)
 {
-        struct hpsb_highlevel *hl;
+	struct hl_host_info *hi = NULL;
+	struct list_head *lh;
 
-        hl = (struct hpsb_highlevel *)kmalloc(sizeof(struct hpsb_highlevel),
-                                              GFP_KERNEL);
-        if (hl == NULL) {
-                return NULL;
-        }
+	if (!hl || !host)
+		return NULL;
 
-        INIT_LIST_HEAD(&hl->hl_list);
+	read_lock(&hl->host_info_lock);
+	list_for_each (lh, &hl->host_info_list) {
+		hi = list_entry(lh, struct hl_host_info, list);
+		if (hi->host == host)
+			break;
+		hi = NULL;
+	}
+	read_unlock(&hl->host_info_lock);
+
+	return hi;
+}
+
+
+/* Returns a per host/driver data structure that was previously stored by
+ * hpsb_create_hostinfo. */
+void *hpsb_get_hostinfo(struct hpsb_highlevel *hl, struct hpsb_host *host)
+{
+	struct hl_host_info *hi = hl_get_hostinfo(hl, host);
+
+	if (hi)
+		return hi->data;
+
+	return NULL;
+}
+
+
+/* If size is zero, then the return here is only valid for error checking */
+void *hpsb_create_hostinfo(struct hpsb_highlevel *hl, struct hpsb_host *host,
+			   size_t data_size)
+{
+	struct hl_host_info *hi;
+	void *data;
+	unsigned long flags;
+
+	hi = hl_get_hostinfo(hl, host);
+	if (hi) {
+		HPSB_ERR("%s called hpsb_create_hostinfo when hostinfo already exists",
+			 hl->name);
+		return NULL;
+	}
+
+	hi = kmalloc(sizeof(*hi) + data_size, GFP_KERNEL);
+	if (!hi)
+		return NULL;
+
+	memset(hi, 0, sizeof(*hi) + data_size);
+
+	if (data_size) {
+		data = hi->data = hi + 1;
+		hi->size = data_size;
+	} else
+		data = hi;
+
+	hi->host = host;
+
+	write_lock_irqsave(&hl->host_info_lock, flags);
+	list_add_tail(&hi->list, &hl->host_info_list);
+	write_unlock_irqrestore(&hl->host_info_lock, flags);
+
+	return data;
+}
+
+
+int hpsb_set_hostinfo(struct hpsb_highlevel *hl, struct hpsb_host *host,
+		      void *data)
+{
+	struct hl_host_info *hi;
+
+	hi = hl_get_hostinfo(hl, host);
+	if (hi) {
+		if (!hi->size && !hi->data) {
+			hi->data = data;
+			return 0;
+		} else
+			HPSB_ERR("%s called hpsb_set_hostinfo when hostinfo already has data",
+				 hl->name);
+	} else
+		HPSB_ERR("%s called hpsb_set_hostinfo when no hostinfo exists",
+			 hl->name);
+
+	return -EINVAL;
+}
+
+
+void hpsb_destroy_hostinfo(struct hpsb_highlevel *hl, struct hpsb_host *host)
+{
+	struct hl_host_info *hi;
+
+	hi = hl_get_hostinfo(hl, host);
+	if (hi) {
+		unsigned long flags;
+		write_lock_irqsave(&hl->host_info_lock, flags);
+		list_del(&hi->list);
+		write_unlock_irqrestore(&hl->host_info_lock, flags);
+		kfree(hi);
+	}
+
+	return;
+}
+
+
+void hpsb_set_hostinfo_key(struct hpsb_highlevel *hl, struct hpsb_host *host, unsigned long key)
+{
+	struct hl_host_info *hi;
+
+	hi = hl_get_hostinfo(hl, host);
+	if (hi)
+		hi->key = key;
+
+	return;
+}
+
+
+unsigned long hpsb_get_hostinfo_key(struct hpsb_highlevel *hl, struct hpsb_host *host)
+{
+	struct hl_host_info *hi;
+
+	hi = hl_get_hostinfo(hl, host);
+	if (hi)
+		return hi->key;
+
+	return 0;
+}
+
+
+void *hpsb_get_hostinfo_bykey(struct hpsb_highlevel *hl, unsigned long key)
+{
+	struct list_head *lh;
+	struct hl_host_info *hi;
+	void *data = NULL;
+
+	if (!hl)
+		return NULL;
+
+	read_lock(&hl->host_info_lock);
+	list_for_each (lh, &hl->host_info_list) {
+		hi = list_entry(lh, struct hl_host_info, list);
+		if (hi->key == key) {
+			data = hi->data;
+			break;
+		}
+	}
+	read_unlock(&hl->host_info_lock);
+
+	return data;
+}
+
+
+void hpsb_register_highlevel(struct hpsb_highlevel *hl)
+{
+	struct list_head *lh;
+	unsigned long flags;
+
         INIT_LIST_HEAD(&hl->addr_list);
-        hl->name = name;
-        hl->op = ops;
+	INIT_LIST_HEAD(&hl->host_info_list);
 
-        write_lock_irq(&hl_drivers_lock);
+	rwlock_init(&hl->host_info_lock);
+
+	write_lock_irqsave(&hl_drivers_lock, flags);
         list_add_tail(&hl->hl_list, &hl_drivers);
-        write_unlock_irq(&hl_drivers_lock);
+	write_unlock_irqrestore(&hl_drivers_lock, flags);
 
-        hl_all_hosts(hl->op->add_host);
+	if (hl->add_host) {
+		down(&hpsb_hosts_lock);
+		list_for_each (lh, &hpsb_hosts) {
+			struct hpsb_host *host = list_entry(lh, struct hpsb_host, host_list);
+			hl->add_host(host);
+		}
+		up(&hpsb_hosts_lock);
+	}
 
-        return hl;
+        return;
 }
 
 void hpsb_unregister_highlevel(struct hpsb_highlevel *hl)
 {
-        struct list_head *entry;
+        struct list_head *lh, *next;
         struct hpsb_address_serve *as;
+	unsigned long flags;
 
-        if (hl == NULL) {
-                return;
-        }
-
-        write_lock_irq(&addr_space_lock);
-        entry = hl->addr_list.next;
-
-        while (entry != &hl->addr_list) {
-                as = list_entry(entry, struct hpsb_address_serve, addr_list);
+	write_lock_irqsave(&addr_space_lock, flags);
+	list_for_each_safe (lh, next, &hl->addr_list) {
+                as = list_entry(lh, struct hpsb_address_serve, addr_list);
                 list_del(&as->as_list);
-                entry = entry->next;
                 kfree(as);
         }
-        write_unlock_irq(&addr_space_lock);
+	write_unlock_irqrestore(&addr_space_lock, flags);
 
-        write_lock_irq(&hl_drivers_lock);
+	write_lock_irqsave(&hl_drivers_lock, flags);
         list_del(&hl->hl_list);
-        write_unlock_irq(&hl_drivers_lock);
+	write_unlock_irqrestore(&hl_drivers_lock, flags);
 
-        if (hl->op->remove_host)
-		hl_all_hosts(hl->op->remove_host);
+        if (hl->remove_host) {
+		down(&hpsb_hosts_lock);
+		list_for_each(lh, &hpsb_hosts) {
+			struct hpsb_host *host = list_entry(lh, struct hpsb_host, host_list);
 
-        kfree(hl);
+			hl->remove_host(host);
+			hpsb_destroy_hostinfo(hl, host);
+		}
+		up(&hpsb_hosts_lock);
+	}
 }
 
 int hpsb_register_addrspace(struct hpsb_highlevel *hl,
@@ -168,17 +337,19 @@ int hpsb_unregister_addrspace(struct hpsb_highlevel *hl, u64 start)
         return retval;
 }
 
-void hpsb_listen_channel(struct hpsb_highlevel *hl, struct hpsb_host *host,
+int hpsb_listen_channel(struct hpsb_highlevel *hl, struct hpsb_host *host,
                          unsigned int channel)
 {
         if (channel > 63) {
                 HPSB_ERR("%s called with invalid channel", __FUNCTION__);
-                return;
+                return -EINVAL;
         }
 
         if (host->iso_listen_count[channel]++ == 0) {
-                host->driver->devctl(host, ISO_LISTEN_CHANNEL, channel);
+                return host->driver->devctl(host, ISO_LISTEN_CHANNEL, channel);
         }
+
+	return 0;
 }
 
 void hpsb_unlisten_channel(struct hpsb_highlevel *hl, struct hpsb_host *host, 
@@ -203,8 +374,8 @@ void highlevel_add_host(struct hpsb_host *host)
         read_lock(&hl_drivers_lock);
         list_for_each(entry, &hl_drivers) {
                 hl = list_entry(entry, struct hpsb_highlevel, hl_list);
-
-		hl->op->add_host(host);
+		if (hl->add_host)
+			hl->add_host(host);
         }
         read_unlock(&hl_drivers_lock);
 }
@@ -214,14 +385,16 @@ void highlevel_remove_host(struct hpsb_host *host)
         struct list_head *entry;
         struct hpsb_highlevel *hl;
 
-        write_lock_irq(&hl_drivers_lock);
+	read_lock(&hl_drivers_lock);
 	list_for_each(entry, &hl_drivers) {
                 hl = list_entry(entry, struct hpsb_highlevel, hl_list);
 
-		if (hl->op->remove_host)
-			hl->op->remove_host(host);
+		if (hl->remove_host) {
+			hl->remove_host(host);
+			hpsb_destroy_hostinfo(hl, host);
+		}
         }
-        write_unlock_irq(&hl_drivers_lock);
+	read_unlock(&hl_drivers_lock);
 }
 
 void highlevel_host_reset(struct hpsb_host *host)
@@ -233,8 +406,8 @@ void highlevel_host_reset(struct hpsb_host *host)
 	list_for_each(entry, &hl_drivers) {
                 hl = list_entry(entry, struct hpsb_highlevel, hl_list);
 
-                if (hl->op->host_reset)
-                        hl->op->host_reset(host);
+                if (hl->host_reset)
+                        hl->host_reset(host);
         }
 	read_unlock(&hl_drivers_lock);
 }
@@ -251,8 +424,8 @@ void highlevel_iso_receive(struct hpsb_host *host, void *data,
 
         while (entry != &hl_drivers) {
                 hl = list_entry(entry, struct hpsb_highlevel, hl_list);
-                if (hl->op->iso_receive) {
-                        hl->op->iso_receive(host, channel, data, length);
+                if (hl->iso_receive) {
+                        hl->iso_receive(host, channel, data, length);
                 }
                 entry = entry->next;
         }
@@ -271,8 +444,8 @@ void highlevel_fcp_request(struct hpsb_host *host, int nodeid, int direction,
 
         while (entry != &hl_drivers) {
                 hl = list_entry(entry, struct hpsb_highlevel, hl_list);
-                if (hl->op->fcp_request) {
-                        hl->op->fcp_request(host, nodeid, direction, cts, data,
+                if (hl->fcp_request) {
+                        hl->fcp_request(host, nodeid, direction, cts, data,
                                             length);
                 }
                 entry = entry->next;
@@ -297,7 +470,7 @@ int highlevel_read(struct hpsb_host *host, int nodeid, void *data,
                 if (as->end > addr) {
                         partlength = min(as->end - addr, (u64) length);
 
-                        if (as->op->read != NULL) {
+                        if (as->op->read) {
                                 rcode = as->op->read(host, nodeid, data,
 						     addr, partlength, flags);
                         } else {
@@ -343,7 +516,7 @@ int highlevel_write(struct hpsb_host *host, int nodeid, int destid,
                 if (as->end > addr) {
                         partlength = min(as->end - addr, (u64) length);
 
-                        if (as->op->write != NULL) {
+                        if (as->op->write) {
                                 rcode = as->op->write(host, nodeid, destid,
 						      data, addr, partlength, flags);
                         } else {
@@ -387,7 +560,7 @@ int highlevel_lock(struct hpsb_host *host, int nodeid, quadlet_t *store,
 
         while (as->start <= addr) {
                 if (as->end > addr) {
-                        if (as->op->lock != NULL) {
+                        if (as->op->lock) {
                                 rcode = as->op->lock(host, nodeid, store, addr,
                                                      data, arg, ext_tcode, flags);
                         } else {
@@ -420,7 +593,7 @@ int highlevel_lock64(struct hpsb_host *host, int nodeid, octlet_t *store,
 
         while (as->start <= addr) {
                 if (as->end > addr) {
-                        if (as->op->lock64 != NULL) {
+                        if (as->op->lock64) {
                                 rcode = as->op->lock64(host, nodeid, store,
                                                        addr, data, arg,
                                                        ext_tcode, flags);

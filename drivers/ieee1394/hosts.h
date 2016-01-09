@@ -34,13 +34,6 @@ struct hpsb_host {
         spinlock_t pending_pkt_lock;
         struct tq_struct timeout_tq;
 
-        /* A bitmask where a set bit means that this tlabel is in use.
-         * FIXME - should be handled per node instead of per bus. */
-        u32 tlabel_pool[2];
-        struct semaphore tlabel_count;
-        spinlock_t tlabel_lock;
-	u32 tlabel_current;
-
         unsigned char iso_listen_count[64];
 
         int node_count; /* number of identified nodes on this bus */
@@ -66,9 +59,14 @@ struct hpsb_host {
         u8 *speed_map;
         struct csr_control csr;
 
+	/* Per node tlabel pool allocation */
+	struct hpsb_tlabel_pool tpool[64];
+
         struct hpsb_host_driver *driver;
 
 	struct pci_dev *pdev;
+
+	int id;
 };
 
 
@@ -178,9 +176,9 @@ struct hpsb_host_driver {
          */
         int (*devctl) (struct hpsb_host *host, enum devctl_cmd command, int arg);
 
-	 /* rawiso transmission/reception functions. Return 0 on success, -1
+	 /* ISO transmission/reception functions. Return 0 on success, -1
 	  * (or -EXXX errno code) on failure. If the low-level driver does not
-	  * support the rawiso API, set isoctl to NULL.
+	  * support the new ISO API, set isoctl to NULL.
 	  */
 	int (*isoctl) (struct hpsb_iso *iso, enum isoctl_cmd command, unsigned long arg);
 
@@ -195,12 +193,9 @@ struct hpsb_host_driver {
                                  quadlet_t data, quadlet_t compare);
 };
 
-/* core internal use */
-void register_builtin_lowlevels(void);
 
-/* high level internal use */
-struct hpsb_highlevel;
-void hl_all_hosts(void (*function)(struct hpsb_host*));
+extern struct list_head hpsb_hosts;
+extern struct semaphore hpsb_hosts_lock;
 
 
 /*

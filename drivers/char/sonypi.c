@@ -162,7 +162,7 @@ static void __devinit sonypi_type2_srs(void) {
 }
 
 /* Disables the device - this comes from the AML code in the ACPI bios */
-static void __devexit sonypi_type1_dis(void) {
+static void sonypi_type1_dis(void) {
 	u32 v;
 
 	pci_read_config_dword(sonypi_device.dev, SONYPI_G10A, &v);
@@ -174,7 +174,7 @@ static void __devexit sonypi_type1_dis(void) {
 	outl(v, SONYPI_IRQ_PORT);
 }
 
-static void __devexit sonypi_type2_dis(void) {
+static void sonypi_type2_dis(void) {
 	if (ec_write(SONYPI_SHIB, 0))
 		printk(KERN_WARNING "ec_write failed\n");
 	if (ec_write(SONYPI_SLOB, 0))
@@ -531,7 +531,7 @@ static int sonypi_misc_ioctl(struct inode *ip, struct file *fp,
 			ret = -EFAULT;
 		break;
 	case SONYPI_IOCGBAT1REM:
-		if (ec_read16(SONYPI_BAT1_FULL, &val16)) {
+		if (ec_read16(SONYPI_BAT1_LEFT, &val16)) {
 			ret = -EIO;
 			break;
 		}
@@ -539,7 +539,7 @@ static int sonypi_misc_ioctl(struct inode *ip, struct file *fp,
 			ret = -EFAULT;
 		break;
 	case SONYPI_IOCGBAT2CAP:
-		if (ec_read16(SONYPI_BAT1_FULL, &val16)) {
+		if (ec_read16(SONYPI_BAT2_FULL, &val16)) {
 			ret = -EIO;
 			break;
 		}
@@ -547,7 +547,7 @@ static int sonypi_misc_ioctl(struct inode *ip, struct file *fp,
 			ret = -EFAULT;
 		break;
 	case SONYPI_IOCGBAT2REM:
-		if (ec_read16(SONYPI_BAT1_FULL, &val16)) {
+		if (ec_read16(SONYPI_BAT2_LEFT, &val16)) {
 			ret = -EIO;
 			break;
 		}

@@ -2494,6 +2494,9 @@ found_virt:
 	}
 	if(file->f_mode & FMODE_WRITE) {
 		if((dmabuf->write_channel = card->alloc_pcm_channel(card)) == NULL) {
+			/* make sure we free the record channel allocated above */
+			if(file->f_mode & FMODE_READ)
+				card->free_pcm_channel(card,dmabuf->read_channel->num);
 			kfree (card->states[i]);
 			card->states[i] = NULL;;
 			return -EBUSY;

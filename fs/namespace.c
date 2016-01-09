@@ -215,6 +215,10 @@ static int show_vfsmnt(struct seq_file *m, void *v)
 	if (!path_buf)
 		return -ENOMEM;
 	path = d_path(mnt->mnt_root, mnt, path_buf, PAGE_SIZE);
+	if (IS_ERR(path)) {
+		free_page((unsigned long) path_buf);
+		return PTR_ERR(path);
+	}
 
 	mangle(m, mnt->mnt_devname ? mnt->mnt_devname : "none");
 	seq_putc(m, ' ');

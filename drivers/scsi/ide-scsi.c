@@ -321,7 +321,7 @@ static int idescsi_end_request (ide_drive_t *drive, int uptodate)
 {
 	idescsi_scsi_t *scsi = drive->driver_data;
 	struct request *rq = HWGROUP(drive)->rq;
-	idescsi_pc_t *pc = (idescsi_pc_t *) rq->buffer;
+	idescsi_pc_t *pc = (idescsi_pc_t *) rq->special;
 	int log = test_bit(IDESCSI_LOG_CMD, &scsi->log);
 	u8 *scsi_buf;
 	unsigned long flags;
@@ -587,7 +587,7 @@ static ide_startstop_t idescsi_do_request (ide_drive_t *drive, struct request *r
 #endif /* IDESCSI_DEBUG_LOG */
 
 	if (rq->cmd == IDESCSI_PC_RQ) {
-		return idescsi_issue_pc(drive, (idescsi_pc_t *) rq->buffer);
+		return idescsi_issue_pc(drive, rq->special);
 	}
 	printk(KERN_ERR "ide-scsi: %s: unsupported command in request "
 		"queue (%x)\n", drive->name, rq->cmd);
@@ -1083,7 +1083,7 @@ int idescsi_queue (Scsi_Cmnd *cmd, void (*done)(Scsi_Cmnd *))
 	}
 
 	ide_init_drive_cmd(rq);
-	rq->buffer = (char *) pc;
+	rq->special = pc;
 	rq->bh = idescsi_dma_bh(drive, pc);
 	rq->cmd = IDESCSI_PC_RQ;
 	spin_unlock_irq(&io_request_lock);

@@ -1394,6 +1394,12 @@ static struct dentry *jfs_lookup(struct inode *dip, struct dentry *dentry)
 		jfs_err("jfs_lookup: iget failed on inum %d", (uint) inum);
 		return ERR_PTR(-EACCES);
 	}
+	if (is_bad_inode(ip)) {
+		jfs_err("jfs_lookup: iget returned bad inode, inum = %d",
+			(uint) inum);
+		iput(ip);
+		return ERR_PTR(-EACCES);
+	}
 
 	d_add(dentry, ip);
 

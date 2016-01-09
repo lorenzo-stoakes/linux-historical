@@ -116,7 +116,9 @@ static void add_host(struct hpsb_host *host)
 int hpsb_update_config_rom(struct hpsb_host *host, const quadlet_t *new_rom, 
 	size_t size, unsigned char rom_version)
 {
-        int ret,flags;
+	unsigned long flags;
+	int ret;
+
         spin_lock_irqsave(&host->csr.lock, flags); 
         if (rom_version != host->csr.rom_version)
                  ret = -1;
@@ -135,7 +137,9 @@ int hpsb_update_config_rom(struct hpsb_host *host, const quadlet_t *new_rom,
 int hpsb_get_config_rom(struct hpsb_host *host, quadlet_t *buffer, 
 	size_t buffersize, size_t *rom_size, unsigned char *rom_version)
 {
-        int ret,flags;
+	unsigned long flags;
+	int ret;
+
         spin_lock_irqsave(&host->csr.lock, flags); 
         *rom_version=host->csr.rom_version;
         *rom_size=host->csr.rom_size;
@@ -154,9 +158,9 @@ int hpsb_get_config_rom(struct hpsb_host *host, quadlet_t *buffer,
 static int read_maps(struct hpsb_host *host, int nodeid, quadlet_t *buffer,
                      u64 addr, unsigned int length, u16 fl)
 {
+	unsigned long flags;
         int csraddr = addr - CSR_REGISTER_BASE;
         const char *src;
-        int flags;
 
         spin_lock_irqsave(&host->csr.lock, flags); 
 
@@ -442,7 +446,7 @@ static int lock_regs(struct hpsb_host *host, int nodeid, quadlet_t *store,
                 /* bandwidth available algorithm adapted from IEEE 1394a-2000 spec */
                 if (arg > 0x1fff) {
                         *store = cpu_to_be32(old);	/* change nothing */
-                break;
+			break;
                 }
                 data &= 0x1fff;
                 if (arg >= data) {
@@ -641,7 +645,8 @@ static int write_fcp(struct hpsb_host *host, int nodeid, int dest,
 }
 
 
-static struct hpsb_highlevel_ops csr_ops = {
+static struct hpsb_highlevel csr_highlevel = {
+	.name =		"standard registers",
 	.add_host =	add_host,
         .host_reset =	host_reset,
 };
@@ -662,35 +667,29 @@ static struct hpsb_address_ops reg_ops = {
 	.lock64 = lock64_regs,
 };
 
-static struct hpsb_highlevel *hl;
-
 void init_csr(void)
 {
-        hl = hpsb_register_highlevel("standard registers", &csr_ops);
-        if (hl == NULL) {
-                HPSB_ERR("out of memory during ieee1394 initialization");
-                return;
-        }
+	hpsb_register_highlevel(&csr_highlevel);
 
-        hpsb_register_addrspace(hl, &reg_ops, CSR_REGISTER_BASE,
+        hpsb_register_addrspace(&csr_highlevel, &reg_ops, CSR_REGISTER_BASE,
                                 CSR_REGISTER_BASE + CSR_CONFIG_ROM);
-        hpsb_register_addrspace(hl, &map_ops, 
+        hpsb_register_addrspace(&csr_highlevel, &map_ops, 
                                 CSR_REGISTER_BASE + CSR_CONFIG_ROM,
                                 CSR_REGISTER_BASE + CSR_CONFIG_ROM_END);
         if (fcp) {
-		hpsb_register_addrspace(hl, &fcp_ops,
+		hpsb_register_addrspace(&csr_highlevel, &fcp_ops,
                                 CSR_REGISTER_BASE + CSR_FCP_COMMAND,
                                 CSR_REGISTER_BASE + CSR_FCP_END);
 	}
-        hpsb_register_addrspace(hl, &map_ops,
+        hpsb_register_addrspace(&csr_highlevel, &map_ops,
                                 CSR_REGISTER_BASE + CSR_TOPOLOGY_MAP,
                                 CSR_REGISTER_BASE + CSR_TOPOLOGY_MAP_END);
-        hpsb_register_addrspace(hl, &map_ops,
+        hpsb_register_addrspace(&csr_highlevel, &map_ops,
                                 CSR_REGISTER_BASE + CSR_SPEED_MAP,
                                 CSR_REGISTER_BASE + CSR_SPEED_MAP_END);
 }
 
 void cleanup_csr(void)
 {
-        hpsb_unregister_highlevel(hl);
+        hpsb_unregister_highlevel(&csr_highlevel);
 }

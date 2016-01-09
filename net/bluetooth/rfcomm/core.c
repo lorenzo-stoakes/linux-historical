@@ -51,7 +51,7 @@
 #include <net/bluetooth/l2cap.h>
 #include <net/bluetooth/rfcomm.h>
 
-#define VERSION "0.4"
+#define VERSION "1.0"
 
 #ifndef CONFIG_BLUEZ_RFCOMM_DEBUG
 #undef  BT_DBG
@@ -795,6 +795,33 @@ static int rfcomm_send_rpn(struct rfcomm_session *s, int cr, u8 dlci,
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
 
+static int rfcomm_send_rls(struct rfcomm_session *s, int cr, u8 dlci, u8 status)
+{
+	struct rfcomm_hdr *hdr;
+	struct rfcomm_mcc *mcc;
+	struct rfcomm_rls *rls;
+	u8 buf[16], *ptr = buf;
+
+	BT_DBG("%p cr %d status 0x%x", s, cr, status);
+
+	hdr = (void *) ptr; ptr += sizeof(*hdr);
+	hdr->addr = __addr(s->initiator, 0);
+	hdr->ctrl = __ctrl(RFCOMM_UIH, 0);
+	hdr->len  = __len8(sizeof(*mcc) + sizeof(*rls));
+
+	mcc = (void *) ptr; ptr += sizeof(*mcc);
+	mcc->type = __mcc_type(cr, RFCOMM_RLS);
+	mcc->len  = __len8(sizeof(*rls));
+
+	rls = (void *) ptr; ptr += sizeof(*rls);
+	rls->dlci   = __addr(1, dlci);
+	rls->status = status;
+
+	*ptr = __fcs(buf); ptr++;
+
+	return rfcomm_send_frame(s, buf, ptr - buf);
+}
+
 static int rfcomm_send_msc(struct rfcomm_session *s, int cr, u8 dlci, u8 v24_sig)
 {
 	struct rfcomm_hdr *hdr;
@@ -1225,6 +1252,26 @@ rpn_out:
 	return 0;
 }
 
+static int rfcomm_recv_rls(struct rfcomm_session *s, int cr, struct sk_buff *skb)
+{
+	struct rfcomm_rls *rls = (void *) skb->data;
+	u8 dlci = __get_dlci(rls->dlci);
+
+	BT_DBG("dlci %d cr %d status 0x%x", dlci, cr, rls->status);
+	
+	if (!cr)
+		return 0;
+
+	/* FIXME: We should probably do something with this
+	   information here. But for now it's sufficient just
+	   to reply -- Bluetooth 1.1 says it's mandatory to 
+	   recognise and respond to RLS */
+
+	rfcomm_send_rls(s, 0, dlci, rls->status);
+
+	return 0;
+}
+
 static int rfcomm_recv_msc(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 {
 	struct rfcomm_msc *msc = (void *) skb->data;
@@ -1273,6 +1320,10 @@ static int rfcomm_recv_mcc(struct rfcomm_session *s, struct sk_buff *skb)
 
 	case RFCOMM_RPN:
 		rfcomm_recv_rpn(s, cr, len, skb);
+		break;
+
+	case RFCOMM_RLS:
+		rfcomm_recv_rls(s, cr, skb);
 		break;
 
 	case RFCOMM_MSC:
@@ -1430,7 +1481,7 @@ static inline int rfcomm_process_tx(struct rfcomm_dlc *d)
 	} else {
 		/* CFC disabled. 
 		 * Give ourselves some credits */
-		d->tx_credits = RFCOMM_MAX_CREDITS;
+		d->tx_credits = 5;
 	}
 
 	if (test_bit(RFCOMM_TX_THROTTLED, &d->flags))
@@ -1599,7 +1650,9 @@ static void rfcomm_worker(void)
 	set_fs(KERNEL_DS);
 
 	while (!atomic_read(&terminate)) {
-		if (!test_and_clear_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event)) {
+		BT_DBG("worker loop event 0x%lx", rfcomm_event);
+
+		if (!test_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event)) {
 			/* No pending events. Let's sleep.
 			 * Incomming connections and data will wake us up. */
 			set_current_state(TASK_INTERRUPTIBLE);
@@ -1607,6 +1660,7 @@ static void rfcomm_worker(void)
 		}
 
 		/* Process stuff */
+		clear_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
 		rfcomm_process_sessions();
 	}
 	set_current_state(TASK_RUNNING);

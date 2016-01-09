@@ -854,11 +854,6 @@ ide_startstop_t pre_task_mulout_intr (ide_drive_t *drive, struct request *rq)
 	rq->errors = 0;
 	return ide_started;
 #else /* ! ALTERNATE_STATE_DIAGRAM_MULTI_OUT */
-
-#if 0
-	if (wait_for_ready(drive, 100))
-		IDE_DEBUG(__LINE__);		//BUG();
-#else
 	if (!(drive_is_ready(drive))) {
 		int i;
 		for (i=0; i<100; i++) {
@@ -866,7 +861,7 @@ ide_startstop_t pre_task_mulout_intr (ide_drive_t *drive, struct request *rq)
 				break;
 		}
 	}
-#endif
+
 	/*
 	 * WARNING :: if the drive as not acked good status we may not
 	 * move the DATA-TRANSFER T-Bar as BSY != 0. <andre@linux-ide.org>

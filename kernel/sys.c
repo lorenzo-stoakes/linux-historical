@@ -1246,8 +1246,7 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 				error = -EINVAL;
 				break;
 			}
-			if (is_dumpable(current))
-				current->mm->dumpable = arg2;
+			current->mm->dumpable = arg2;
 			break;
 
 	        case PR_SET_UNALIGN:

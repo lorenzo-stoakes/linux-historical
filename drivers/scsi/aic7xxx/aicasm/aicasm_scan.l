@@ -3,7 +3,7 @@
  * Lexical Analyzer for the Aic7xxx SCSI Host adapter sequencer assembler.
  *
  * Copyright (c) 1997, 1998, 2000 Justin T. Gibbs.
- * Copyright (c) 2001, 2002 Adaptec Inc.
+ * Copyright (c) 2001 Adaptec Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,14 +38,13 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aicasm/aicasm_scan.l#18 $
+ * $Id: //depot/aic7xxx/aic7xxx/aicasm/aicasm_scan.l#11 $
  *
- * $FreeBSD$
+ * $FreeBSD: src/sys/dev/aic7xxx/aicasm/aicasm_scan.l,v 1.13.2.4 2002/04/29 19:36:36 gibbs Exp $
  */
 
 #include <sys/types.h>
 
-#include <inttypes.h>
 #include <limits.h>
 #include <regex.h>
 #include <stdio.h>
@@ -132,7 +131,6 @@ if[ \t]*\(		{
 			}
 
 VERSION			{ return T_VERSION; }
-PREFIX			{ return T_PREFIX; }
 PATCH_ARG_LIST		{ return T_PATCH_ARG_LIST; }
 \"			{
 				string_buf_ptr = string_buf;
@@ -175,8 +173,7 @@ BEGIN_CRITICAL		{ return T_BEGIN_CS; }
 END_CRITICAL		{ return T_END_CS; }
 SET_SRC_MODE		{ return T_SET_SRC_MODE; }
 SET_DST_MODE		{ return T_SET_DST_MODE; }
-field			{ return T_FIELD; }
-enum			{ return T_ENUM; }
+bit			{ return T_BIT; }
 mask			{ return T_MASK; }
 alias			{ return T_ALIAS; }
 size			{ return T_SIZE; }

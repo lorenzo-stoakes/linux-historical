@@ -80,7 +80,7 @@ S:	Maintained
 
 3C501 NETWORK DRIVER
 P:	Alan Cox
-M:	alan@the.3c501.cabal.tm
+M:	alan@lxorguk.ukuu.org.uk
 L:	linux-net@vger.kernel.org
 S:	Maintained for 2.2 only
 
@@ -590,8 +590,8 @@ L:	linux-net@vger.kernel.org
 S:	Maintained
 
 ETHERNET BRIDGE
-P:	Lennert Buytenhek
-M:	buytenh@gnu.org
+P:	Stephen Hemminger
+M:	shemminger@osdl.org
 L:	bridge@math.leidenuniv.nl
 W:	http://bridge.sourceforge.net/
 S:	Maintained
@@ -854,8 +854,8 @@ W:	http://sourceforge.net/projects/e1000/
 S:	Supported
 
 INTERMEZZO FILE SYSTEM
-P:	Peter J. Braam
-M:      braam@clusterfs.com
+P:	Chen Yang
+M:	intermezzo-devel@lists.sourceforge.net
 W:      http://www.inter-mezzo.org/
 L:      intermezzo-discuss@lists.sourceforge.net
 S:      Maintained
@@ -1528,6 +1528,12 @@ P:	Ollie Lho
 M:	ollie@sis.com.tw
 L:	linux-net@vger.kernel.org
 S:	Supported
+
+SIS FRAMEBUFFER DRIVER
+P:   	Thomas Winischhofer
+M:	thomas@winischhofer.net
+W:	http://www.winischhofer.net/linuxsisvga.shtml
+S:	Maintained
 
 SMB FILESYSTEM
 P:	Urban Widmark

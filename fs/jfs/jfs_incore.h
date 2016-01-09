@@ -114,6 +114,7 @@ enum cflags {
 	COMMIT_Dirtable,	/* commit changes to di_dirtable */
 	COMMIT_Stale,		/* data extent is no longer valid */
 	COMMIT_Synclist,	/* metadata pages on group commit synclist */
+	COMMIT_Syncdata,	/* Data must be synced before inode committed */
 };
 
 #define set_cflag(flag, ip)	set_bit(flag, &(JFS_IP(ip)->cflag))

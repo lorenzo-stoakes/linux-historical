@@ -26,18 +26,19 @@
  * . Async Request Receive
  * . Async Response Transmit
  * . Iso Receive
- * . Iso Transmit
  * . DMA mmap for iso receive
  * . Config ROM generation
  *
  * Things implemented, but still in test phase:
+ * . Iso Transmit
  * . Async Stream Packets Transmit (Receive done via Iso interface)
- *
+ * 
  * Things not implemented:
  * . DMA error recovery
  *
  * Known bugs:
  * . devctl BUS_RESET arg confusion (reset type or root holdoff?)
+ *   added LONG_RESET_ROOT and SHORT_RESET_ROOT for root holdoff --kk
  */
 
 /* 
@@ -76,12 +77,13 @@
  *  . Removed procfs support since it trashes random mem
  *  . Config ROM generation
  *
- * Dan Maas <dmaas@maasdigital.com>
- *  . New isochronous API (rawiso)
+ * Manfred Weihs <weihs@ict.tuwien.ac.at>
+ *  . Reworked code for initiating bus resets
+ *    (long, short, with or without hold-off)
  *
  * Nandu Santhi <contactnandu@users.sourceforge.net>
  *  . Added support for nVidia nForce2 onboard Firewire chipset
- * 
+ *
  */
 
 #include <linux/config.h>
@@ -162,13 +164,9 @@ printk(level "%s: " fmt "\n" , OHCI1394_DRIVER_NAME , ## args)
 printk(level "%s_%d: " fmt "\n" , OHCI1394_DRIVER_NAME, card , ## args)
 
 static char version[] __devinitdata =
-	"$Rev: 866 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 896 $ Ben Collins <bcollins@debian.org>";
 
 /* Module Parameters */
-MODULE_PARM(attempt_root,"i");
-MODULE_PARM_DESC(attempt_root, "Attempt to make the host root (default = 0).");
-static int attempt_root = 0;
-
 MODULE_PARM(phys_dma,"i");
 MODULE_PARM_DESC(phys_dma, "Enable physical dma (default = 1).");
 static int phys_dma = 1;
@@ -407,7 +405,7 @@ static void initialize_dma_rcv_ctx(struct dma_rcv_ctx *d, int generate_irq)
 
 	for (i=0; i<d->num_desc; i++) {
 		u32 c;
-
+		
 		c = DMA_CTL_INPUT_MORE | DMA_CTL_UPDATE | DMA_CTL_BRANCH;
 		if (generate_irq)
 			c |= DMA_CTL_IRQ;
@@ -900,8 +898,6 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 
 	switch (cmd) {
 	case RESET_BUS:
-		DBGMSG(ohci->id, "devctl: Bus reset requested%s",
-		       attempt_root ? " and attempting to become root" : "");
 		switch (arg) {
 		case SHORT_RESET:
 			phy_reg = get_phy_reg(ohci, 5);
@@ -910,13 +906,13 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 			break;
 		case LONG_RESET:
 			phy_reg = get_phy_reg(ohci, 1);
-			phy_reg |= 0x40 | (attempt_root ? 0x80 : 0);
+			phy_reg |= 0x40;
 			set_phy_reg(ohci, 1, phy_reg); /* set IBR */
 			break;
 		case SHORT_RESET_NO_FORCE_ROOT:
 			phy_reg = get_phy_reg(ohci, 1);
 			if (phy_reg & 0x80) {
-				phy_reg &= ~0x80 | (attempt_root ? 0x80 : 0);
+				phy_reg &= ~0x80;
 				set_phy_reg(ohci, 1, phy_reg); /* clear RHB */
 			}
 
@@ -927,7 +923,7 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 		case LONG_RESET_NO_FORCE_ROOT:
 			phy_reg = get_phy_reg(ohci, 1);
 			phy_reg &= ~0x80;
-			phy_reg |= 0x40 | (attempt_root ? 0x80 : 0);
+			phy_reg |= 0x40;
 			set_phy_reg(ohci, 1, phy_reg); /* clear RHB, set IBR */
 			break;
 		case SHORT_RESET_FORCE_ROOT:
@@ -949,8 +945,6 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 		default:
 			retval = -1;
 		}
-
-
 		break;
 
 	case GET_CYCLE_COUNTER:
@@ -2340,11 +2334,8 @@ static void ohci_irq_handler(int irq, void *dev_id,
 			}
 		}
 		spin_unlock_irqrestore(&ohci->event_lock, flags);
-
 		if (!host->in_bus_reset) {
-			DBGMSG(ohci->id, "irq_handler: Bus reset requested%s",
-			      (attempt_root) ? " and attempting to become root"
-			       : "");
+			DBGMSG(ohci->id, "irq_handler: Bus reset requested");
 
 			/* Subsystem call */
 			hpsb_bus_reset(ohci->host);
@@ -3542,7 +3533,7 @@ static void ohci1394_pci_remove(struct pci_dev *pdev)
 static struct pci_device_id ohci1394_pci_tbl[] __devinitdata = {
 	{
 		.class = 	PCI_CLASS_FIREWIRE_OHCI,
-		.class_mask = 	~0,
+		.class_mask = 	PCI_ANY_ID,
 		.vendor =	PCI_ANY_ID,
 		.device =	PCI_ANY_ID,
 		.subvendor =	PCI_ANY_ID,

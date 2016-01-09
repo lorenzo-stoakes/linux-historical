@@ -538,16 +538,23 @@ vicam_ioctl(struct video_device *dev, unsigned int ioctlnr, void *arg)
 
 	case VIDIOCSPICT:
 		{
-			struct video_picture *vp = (struct video_picture *) arg;
+			struct video_picture vp;
+			
+			if(copy_from_user(&vp, (struct video_picture *) arg,
+				sizeof(struct video_picture)))
+				retval = -EFAULT;
 
-			DBG("VIDIOCSPICT depth = %d, pal = %d\n", vp->depth,
-			    vp->palette);
+			else
+			{
+				DBG("VIDIOCSPICT depth = %d, pal = %d\n", vp.depth,
+				    vp.palette);
 
-			cam->gain = vp->brightness >> 8;
+				cam->gain = vp.brightness >> 8;
 
-			if (vp->depth != 24
-			    || vp->palette != VIDEO_PALETTE_RGB24)
-				retval = -EINVAL;
+				if (vp.depth != 24
+				    || vp.palette != VIDEO_PALETTE_RGB24)
+					retval = -EINVAL;
+			}
 
 			break;
 		}

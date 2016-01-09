@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/ide.c		Version 7.00beta2	Mar 05 2003
+ *  linux/drivers/ide/ide.c		Version 7.00beta3	Apr 22 2003
  *
  *  Copyright (C) 1994-1998  Linus Torvalds & authors (see below)
  */
@@ -121,8 +121,8 @@
  *
  */
 
-#define	REVISION	"Revision: 7.00beta-2.4"
-#define	VERSION		"Id: ide.c 7.00b1 20021129"
+#define	REVISION	"Revision: 7.00beta3-.2.4"
+#define	VERSION		"Id: ide.c 7.00b3 20030422"
 
 #undef REALLY_SLOW_IO		/* most systems can safely undef this */
 
@@ -1185,13 +1185,12 @@ ide_settings_t *ide_find_setting_by_name (ide_drive_t *drive, char *name)
  *
  *	Automatically remove all the driver specific settings for this
  *	drive. This function may sleep and must not be called from IRQ
- *	context. Takes the settings_lock
+ *	context. Caller must hold the setting lock.
  */
  
 static void auto_remove_settings (ide_drive_t *drive)
 {
 	ide_settings_t *setting;
-	down(&ide_setting_sem);
 repeat:
 	setting = drive->settings;
 	while (setting) {
@@ -1201,7 +1200,6 @@ repeat:
 		}
 		setting = setting->next;
 	}
-	up(&ide_setting_sem);
 }
 
 /**
@@ -1407,8 +1405,11 @@ void ide_add_generic_settings (ide_drive_t *drive)
 	ide_add_setting(drive,	"init_speed",		SETTING_RW,					-1,			-1,			TYPE_BYTE,	0,	70,				1,		1,		&drive->init_speed,		NULL);
 	ide_add_setting(drive,	"current_speed",	SETTING_RW,					-1,			-1,			TYPE_BYTE,	0,	70,				1,		1,		&drive->current_speed,		set_xfer_rate);
 	ide_add_setting(drive,	"number",		SETTING_RW,					-1,			-1,			TYPE_BYTE,	0,	3,				1,		1,		&drive->dn,			NULL);
+#if 0
+	/* Experimental, but this needs the setting/register locking rewritten to be used */	
 	if (drive->media != ide_disk)
 		ide_add_setting(drive,	"ide-scsi",		SETTING_RW,					-1,		HDIO_SET_IDE_SCSI,		TYPE_BYTE,	0,	1,				1,		1,		&drive->scsi,			ide_atapi_to_scsi);
+#endif		
 }
 
 /*
@@ -2598,10 +2599,12 @@ EXPORT_SYMBOL(ide_register_subdriver);
 int ide_unregister_subdriver (ide_drive_t *drive)
 {
 	unsigned long flags;
-	
+
+	down(&ide_setting_sem);	
 	spin_lock_irqsave(&io_request_lock, flags);
 	if (drive->usage || drive->busy || DRIVER(drive)->busy) {
 		spin_unlock_irqrestore(&io_request_lock, flags);
+		up(&ide_setting_sem);
 		return 1;
 	}
 #if defined(CONFIG_BLK_DEV_ISAPNP) && defined(CONFIG_ISAPNP) && defined(MODULE)
@@ -2611,10 +2614,11 @@ int ide_unregister_subdriver (ide_drive_t *drive)
 	ide_remove_proc_entries(drive->proc, DRIVER(drive)->proc);
 	ide_remove_proc_entries(drive->proc, generic_subdriver_entries);
 #endif
-	auto_remove_settings(drive);
 	drive->driver = &idedefault_driver;
 	setup_driver_defaults(drive);
+	auto_remove_settings(drive);
 	spin_unlock_irqrestore(&io_request_lock, flags);
+	up(&ide_setting_sem);
 	return 0;
 }
 

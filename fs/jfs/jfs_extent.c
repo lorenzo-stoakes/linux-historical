@@ -175,6 +175,7 @@ extAlloc(struct inode *ip, s64 xlen, s64 pno, xad_t * xp, boolean_t abnr)
 	xp->flag = xflag;
 
 	mark_inode_dirty(ip);
+	set_cflag(COMMIT_Syncdata, ip);
 
 	up(&JFS_IP(ip)->commit_sem);
 	/*

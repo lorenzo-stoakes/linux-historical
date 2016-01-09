@@ -588,7 +588,8 @@ static void trans_ac3(struct cm_state *s, void *dest, const char *source, int si
 	unsigned short *src = (unsigned short *)source;
 
 	do {
-		data = (unsigned long) *src++;
+		__get_user(data, src);
+		src++;
 		data <<= 12;			// ok for 16-bit data
 		if (s->spdif_counter == 2 || s->spdif_counter == 3)
 			data |= 0x40000000;	// indicate AC-3 raw data
@@ -1599,9 +1600,9 @@ static ssize_t cm_write(struct file *file, const char *buffer, size_t count, lof
 			return -ENXIO;
 		if (!s->dma_adc.ready && (ret = prog_dmabuf(s, 1)))
 			return ret;
-		if (!access_ok(VERIFY_READ, buffer, count))
-			return -EFAULT;
 	}
+	if (!access_ok(VERIFY_READ, buffer, count))
+		return -EFAULT;
 	ret = 0;
 
 	while (count > 0) {

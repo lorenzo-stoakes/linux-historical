@@ -400,7 +400,8 @@ err_bad_prog:
 
 err_bad_vers:
 #ifdef RPC_PARANOIA
-	printk("svc: unknown version (%d)\n", vers);
+	if (vers)
+		printk("svc: unknown version (%d)\n", vers);
 #endif
 	serv->sv_stats->rpcbadfmt++;
 	svc_putlong(resp, rpc_prog_mismatch);
