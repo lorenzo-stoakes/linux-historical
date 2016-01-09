@@ -2176,8 +2176,7 @@ static int mxser_get_serial_info(struct mxser_struct *info,
 	tmp.closing_wait = info->closing_wait;
 	tmp.custom_divisor = info->custom_divisor;
 	tmp.hub6 = 0;
-	copy_to_user(retinfo, &tmp, sizeof(*retinfo));
-	return (0);
+	return copy_to_user(retinfo, &tmp, sizeof(*retinfo)) ? -EFAULT : 0;
 }
 
 static int mxser_set_serial_info(struct mxser_struct *info,
@@ -2189,7 +2188,8 @@ static int mxser_set_serial_info(struct mxser_struct *info,
 
 	if (!new_info || !info->base)
 		return (-EFAULT);
-	copy_from_user(&new_serial, new_info, sizeof(new_serial));
+	if (copy_from_user(&new_serial, new_info, sizeof(new_serial)))
+		return -EFAULT;
 
 	if ((new_serial.irq != info->irq) ||
 	    (new_serial.port != info->base) ||

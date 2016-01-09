@@ -128,6 +128,7 @@ static struct super_block * coda_read_super(struct super_block *sb,
 	sbi->sbi_sb = sb;
 	sbi->sbi_vcomm = vc;
 	INIT_LIST_HEAD(&sbi->sbi_cihead);
+	init_MUTEX(&sbi->sbi_iget4_mutex);
 
         sb->u.generic_sbp = sbi;
         sb->s_blocksize = 1024;	/* XXXXX  what do we put here?? */
@@ -194,6 +195,7 @@ static void coda_read_inode(struct inode *inode)
             return;
         }
 
+	cii->c_mapcount = 0;
 	list_add(&cii->c_cilist, &sbi->sbi_cihead);
 }
 

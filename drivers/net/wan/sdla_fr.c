@@ -2815,7 +2815,7 @@ static void process_route (netdevice_t *dev)
 				chan->name, NIPQUAD(chan->ip_remote));
 
 		}else {
-			printk(KERN_INFO "%s: Route Added Successfully: %u.%u.%u.%U\n",
+			printk(KERN_INFO "%s: Route Added Successfully: %u.%u.%u.%u\n",
 				card->devname,NIPQUAD(chan->ip_remote));
 			chan->route_flag = ROUTE_ADDED;
 		}
@@ -4348,9 +4348,9 @@ int process_ARP(arphdr_1490_t *ArpPacket, sdla_t *card, netdevice_t* dev)
 					card->devname,NIPQUAD(arphdr->ar_sip));
 
 			printk(KERN_INFO "%s: mask %u.%u.%u.%u\n", 
-				card->devname, NIPQUAD(in_dev->ida_list->ifa_mask));
+				card->devname, NIPQUAD(in_dev->ifa_list->ifa_mask));
 				printk(KERN_INFO "%s: local %u.%u.%u.%u\n", 
-				card->devname,NIPQUAD(in_dev->ida_list->ifa_local));
+				card->devname,NIPQUAD(in_dev->ifa_list->ifa_local));
 			return -1;
 		}
 

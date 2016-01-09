@@ -199,7 +199,7 @@ ohare_htw_scc_enable(struct device_node* node, int param, int value)
 	unsigned long		chan_mask;
 	unsigned long		fcr;
 	unsigned long		flags;
-	int			htw;
+	int			htw, trans;
 	unsigned long		rmask;
 	
 	macio = macio_find(node, 0);
@@ -214,6 +214,9 @@ ohare_htw_scc_enable(struct device_node* node, int param, int value)
 
 	htw = (macio->type == macio_heathrow || macio->type == macio_paddington
 		|| macio->type == macio_gatwick);
+	/* On these machines, the HRW_SCC_TRANS_EN_N bit mustn't be touched */
+	trans = (pmac_mb.model_id != PMAC_TYPE_YOSEMITE &&
+	    	 pmac_mb.model_id != PMAC_TYPE_YIKES);
 	if (value) {
 #ifdef CONFIG_ADB_PMU
 		if ((param & 0xfff) == PMAC_SCC_IRDA)
@@ -225,7 +228,13 @@ ohare_htw_scc_enable(struct device_node* node, int param, int value)
 		if (!(fcr & OH_SCC_ENABLE)) {
 			fcr |= OH_SCC_ENABLE;
 			if (htw) {
-				fcr &= ~HRW_SCC_TRANS_EN_N;
+				/* Side effect: this will also power up the
+				 * modem, but it's too messy to figure out on which
+				 * ports this controls the tranceiver and on which
+				 * it controls the modem
+				 */
+				if (trans)
+					fcr &= ~HRW_SCC_TRANS_EN_N;
 				MACIO_OUT32(OHARE_FCR, fcr);
 				fcr |= (rmask = HRW_RESET_SCC);
 				MACIO_OUT32(OHARE_FCR, fcr);
@@ -261,7 +270,7 @@ ohare_htw_scc_enable(struct device_node* node, int param, int value)
 		MACIO_OUT32(OHARE_FCR, fcr);
 		if ((fcr & (OH_SCCA_IO | OH_SCCB_IO)) == 0) {
 			fcr &= ~OH_SCC_ENABLE;
-			if (htw)
+			if (htw && trans)
 				fcr |= HRW_SCC_TRANS_EN_N;
 			MACIO_OUT32(OHARE_FCR, fcr);
 		}
@@ -333,9 +342,9 @@ ohare_sleep_state(struct device_node* node, int param, int value)
 
 	if ((pmac_mb.board_flags & PMAC_MB_CAN_SLEEP) == 0)
 		return -EPERM;
-	if (value) {
+	if (value == 1) {
 		MACIO_BIC(OHARE_FCR, OH_IOBUS_ENABLE);
-	} else {
+	} else if (value == 0) {
 		MACIO_BIS(OHARE_FCR, OH_IOBUS_ENABLE);
 	}
 	
@@ -1644,6 +1653,10 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 		PMAC_TYPE_PANGEA_IMAC,		pangea_features,
 		PMAC_MB_CAN_SLEEP
 	},
+	{	"PowerBook4,3",			"iBook 2 with 14\" LCD",
+		PMAC_TYPE_IBOOK2,		pangea_features,
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
+	},
 	{	"PowerBook4,2",			"iBook 2 with 14\" LCD",
 		PMAC_TYPE_IBOOK2,		pangea_features,
 		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
@@ -1713,6 +1726,10 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	},
 	{	"PowerBook3,3",			"PowerBook Titanium II",
 		PMAC_TYPE_TITANIUM2,		core99_features,
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
+	},
+	{	"PowerBook3,4",			"PowerBook Titanium III",
+		PMAC_TYPE_TITANIUM3,		core99_features,
 		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 };

@@ -511,7 +511,6 @@ pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
 		struct pci_dev *pdev)
 {
     struct pcnet32_private *lp;
-    struct resource *res;
     dma_addr_t lp_dma_addr;
     int i, media;
     int fdx, mii, fset, dxsuflo, ltint;
@@ -689,13 +688,12 @@ pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
     }
 
     dev->base_addr = ioaddr;
-    res = request_region(ioaddr, PCNET32_TOTAL_SIZE, chipname);
-    if (!res)
+    if (request_region(ioaddr, PCNET32_TOTAL_SIZE, chipname) == NULL)
 	return -EBUSY;
     
     /* pci_alloc_consistent returns page-aligned memory, so we do not have to check the alignment */
     if ((lp = pci_alloc_consistent(pdev, sizeof(*lp), &lp_dma_addr)) == NULL) {
-	release_resource(res);
+	release_region(ioaddr, PCNET32_TOTAL_SIZE);
 	return -ENOMEM;
     }
 
@@ -727,7 +725,7 @@ pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
     if (!a) {
       printk(KERN_ERR PFX "No access methods\n");
       pci_free_consistent(lp->pci_dev, sizeof(*lp), lp, lp->dma_addr);
-      release_resource(res);
+      release_region(ioaddr, PCNET32_TOTAL_SIZE);
       return -ENODEV;
     }
     lp->a = *a;
@@ -775,7 +773,7 @@ pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
 	else {
 	    printk(", failed to detect IRQ line.\n");
 	    pci_free_consistent(lp->pci_dev, sizeof(*lp), lp, lp->dma_addr);
-	    release_resource(res);
+	    release_region(ioaddr, PCNET32_TOTAL_SIZE);
 	    return -ENODEV;
 	}
     }
@@ -847,8 +845,9 @@ pcnet32_open(struct net_device *dev)
 	    if (lp->options == (PCNET32_PORT_FD | PCNET32_PORT_AUI))
 		val |= 2;
 	} else if (lp->options & PCNET32_PORT_ASEL) {
-	/* workaround for xSeries250 */
-	    val |= 3;
+	/* workaround of xSeries250, turn on for 79C975 only */
+	    i = ((lp->a.read_csr(ioaddr, 88) | (lp->a.read_csr(ioaddr,89) << 16)) >> 12) & 0xffff;
+	    if (i == 0x2627) val |= 3;
 	}
 	lp->a.write_bcr (ioaddr, 9, val);
     }

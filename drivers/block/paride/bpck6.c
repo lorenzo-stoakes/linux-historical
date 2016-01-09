@@ -225,8 +225,6 @@ static void bpck6_log_adapter( PIA *pi, char * scratch, int verbose )
 
 static void bpck6_init_proto(PIA *pi)
 {
-	int i;
-
 	/* allocate a state structure for this item */
 	pi->privptr=kmalloc(sizeof(PPC_STORAGE),GFP_KERNEL);
 

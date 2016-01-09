@@ -4,6 +4,9 @@
  * Copyright (C) 1998 David S. Miller (davem@redhat.com)
  * Copyright 2001 Jeff Garzik <jgarzik@mandrakesoft.com>
  * Portions Copyright 2001 Sun Microsystems (thockin@sun.com)
+ * Portions Copyright 2002 Intel (eli.kupermann@intel.com,
+ *                                christopher.leech@intel.com,
+ *                                scott.feldman@intel.com)
  */
 
 #ifndef _LINUX_ETHTOOL_H
@@ -36,7 +39,8 @@ struct ethtool_drvinfo {
 	char	bus_info[ETHTOOL_BUSINFO_LEN];	/* Bus info for this IF. */
 				/* For PCI devices, use pci_dev->slot_name. */
 	char	reserved1[32];
-	char	reserved2[24];
+	char	reserved2[20];
+	u32	testinfo_len;
 	u32	eedump_len;	/* Size of data from ETHTOOL_GEEPROM (bytes) */
 	u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes) */
 };
@@ -167,8 +171,6 @@ struct ethtool_coalesce {
 	 * measured in seconds.  Must not be zero.
 	 */
 	u32	rate_sample_interval;
-
-	u32	reserved[16];
 };
 
 /* for configuring RX/TX ring parameters */
@@ -191,14 +193,6 @@ struct ethtool_ringparam {
 	u32	rx_mini_pending;
 	u32	rx_jumbo_pending;
 	u32	tx_pending;
-
-	/* Ideas:
-	 * 1) Allow user to specify TX ring threshold for when
-	 *    to call netif_wake_queue.
-	 * 2) Allow user to specify minimum RX ring entries to
-	 *    post to the chip at a time.
-	 */
-	u32	reserved[16];
 };
 
 /* for configuring link flow control parameters */
@@ -218,13 +212,34 @@ struct ethtool_pauseparam {
 	u32	autoneg;
 	u32	rx_pause;
 	u32	tx_pause;
+};
 
-	/* Ideas:
-	 * 1) Allow user to specify pause time field in XOFF frame.
-	 * 2) Allow user to specify XOFF/XON emission thresholds
-	 *    in terms of space left in chip FIFOs.
-	 */
-	u32	reserved[8];
+#define ETH_GSTRING_LEN		32
+enum ethtool_stringset {
+	ETH_SS_TEST		= 0,
+	ETH_SS_STATS,
+};
+
+/* for passing string sets for data tagging */
+struct ethtool_gstrings {
+	u32	cmd;		/* ETHTOOL_GSTRINGS */
+	u32	string_set;	/* string set id e.c. ETH_SS_TEST, etc*/
+	u32	len;		/* number of strings in the string set */
+	u8	data[0];
+};
+
+enum ethtool_test_flags {
+	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
+	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
+};
+
+/* for requesting NIC test and getting results*/
+struct ethtool_test {
+	u32	cmd;		/* ETHTOOL_TEST */
+	u32	flags;		/* ETH_TEST_FL_xxx */
+	u32	reserved;
+	u32	len;		/* result length, in number of u64 elements */
+	u64	data[0];
 };
 
 /* CMDs currently supported */
@@ -239,13 +254,13 @@ struct ethtool_pauseparam {
 #define ETHTOOL_NWAY_RST	0x00000009 /* Restart autonegotiation, priv. */
 #define ETHTOOL_GLINK		0x0000000a /* Get link status (ethtool_value) */
 #define ETHTOOL_GEEPROM		0x0000000b /* Get EEPROM data */
-#define ETHTOOL_SEEPROM		0x0000000c /* Set EEPROM data */
+#define ETHTOOL_SEEPROM		0x0000000c /* Set EEPROM data, priv. */
 #define ETHTOOL_GCOALESCE	0x0000000e /* Get coalesce config */
-#define ETHTOOL_SCOALESCE	0x0000000f /* Set coalesce config */
+#define ETHTOOL_SCOALESCE	0x0000000f /* Set coalesce config, priv. */
 #define ETHTOOL_GRINGPARAM	0x00000010 /* Get ring parameters */
-#define ETHTOOL_SRINGPARAM	0x00000011 /* Set ring parameters */
+#define ETHTOOL_SRINGPARAM	0x00000011 /* Set ring parameters, priv. */
 #define ETHTOOL_GPAUSEPARAM	0x00000012 /* Get pause parameters */
-#define ETHTOOL_SPAUSEPARAM	0x00000013 /* Set pause parameters */
+#define ETHTOOL_SPAUSEPARAM	0x00000013 /* Set pause parameters, priv. */
 #define ETHTOOL_GRXCSUM		0x00000014 /* Get RX hw csum enable (ethtool_value) */
 #define ETHTOOL_SRXCSUM		0x00000015 /* Set RX hw csum enable (ethtool_value) */
 #define ETHTOOL_GTXCSUM		0x00000016 /* Get TX hw csum enable (ethtool_value) */
@@ -253,7 +268,10 @@ struct ethtool_pauseparam {
 #define ETHTOOL_GSG		0x00000018 /* Get scatter-gather enable
 					    * (ethtool_value) */
 #define ETHTOOL_SSG		0x00000019 /* Set scatter-gather enable
-					    * (ethtool_value) */
+					    * (ethtool_value), priv. */
+#define ETHTOOL_TEST		0x0000001a /* execute NIC self-test, priv. */
+#define ETHTOOL_GSTRINGS	0x0000001b /* get specified string set */
+#define ETHTOOL_PHYS_ID		0x0000001c /* identify the NIC */
 
 /* compatibility with older code */
 #define SPARC_ETH_GSET		ETHTOOL_GSET

@@ -134,7 +134,6 @@ static ssize_t presto_psdev_write(struct file *file, const char *buf,
         struct upc_req *tmp;
         struct list_head *lh;
         struct lento_down_hdr hdr;
-        int error;
 
         if ( ! (upccom = presto_psdev_f2u(file)) ) {
                 kdev_t dev = file->f_dentry->d_inode->i_rdev;
@@ -148,9 +147,8 @@ static ssize_t presto_psdev_write(struct file *file, const char *buf,
                 return -EINVAL;
         }
 
-        error = copy_from_user(&hdr, buf, sizeof(hdr));
-        if ( error )
-                return error;
+        if (copy_from_user(&hdr, buf, sizeof(hdr)))
+                return -EFAULT;
 
         CDEBUG(D_PSDEV, "(process,opc,uniq)=(%d,%d,%d)\n",
                current->pid, hdr.opcode, hdr.unique);
@@ -182,9 +180,8 @@ static ssize_t presto_psdev_write(struct file *file, const char *buf,
                        req->rq_bufsize, count, hdr.opcode, hdr.unique);
                 count = req->rq_bufsize; /* don't have more space! */
         }
-        error = copy_from_user(req->rq_data, buf, count);
-        if ( error )
-                return error;
+        if (copy_from_user(req->rq_data, buf, count))
+                return -EFAULT;
 
         /* adjust outsize: good upcalls can be aware of this */
         req->rq_rep_size = count;
@@ -277,16 +274,12 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 struct readmount readmount;
                 struct readmount *user_readmount = (struct readmount *) arg;
                 char * tmp;
-                int error;
+                int error = 0;
 
-                error = copy_from_user(&readmount, (void *)arg,
-                                       sizeof(readmount));
-                if ( error )  {
-                        printk("psdev: can't copy %Zd bytes from %p to %p\n",
-                                sizeof(readmount), (struct readmount *) arg,
-                                &readmount);
+                if (copy_from_user(&readmount, (void *)arg, sizeof(readmount)))
+                {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 len = readmount.io_len;
@@ -306,15 +299,16 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                  * I mean, let's let the compiler do a little work ...
                  * gcc suggested the extra ()
                  */
-                error = copy_to_user(readmount.io_string, tmp, outlen);
-                if ( error ) {
+                if (copy_to_user(readmount.io_string, tmp, outlen)) {
                         CDEBUG(D_PSDEV, "Copy_to_user string 0x%p failed\n",
                                readmount.io_string);
+			error = -EFAULT;
                 }
-                if ((!error) && (error = copy_to_user(&(user_readmount->io_len),
-                                                      &outlen, sizeof(int))) ) {
+                if (!error && copy_to_user(&(user_readmount->io_len),
+                                           &outlen, sizeof(int))) {
                         CDEBUG(D_PSDEV, "Copy_to_user len @0x%p failed\n",
                                &(user_readmount->io_len));
+			error = -EFAULT;
                 }
 
                 PRESTO_FREE(tmp, len);
@@ -359,10 +353,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         int   path_len;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -370,11 +363,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(path, input.path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(path, input.path, input.path_len)) {
                         PRESTO_FREE(path, input.path_len + 1);
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 path[input.path_len] = '\0';
                 CDEBUG(D_PSDEV, "clear_fsetroot: path %s\n", path);
@@ -400,10 +392,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         int   path_len;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -411,11 +402,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(path, input.path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(path, input.path, input.path_len)) {
                         PRESTO_FREE(path, input.path_len + 1);
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 path[input.path_len] = '\0';
                 CDEBUG(D_PSDEV, "clear_all_fsetroot: path %s\n", path);
@@ -439,10 +429,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         int   path_len;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -450,11 +439,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(path, input.path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(path, input.path, input.path_len)) {
                         PRESTO_FREE(path, input.path_len + 1);
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 path[input.path_len] = '\0';
                 CDEBUG(D_PSDEV, "get_kmlsize: len %d path %s\n", 
@@ -473,7 +461,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 CDEBUG(D_PSDEV, "get_kmlsize: size = %Zd\n", size);
 
                 EXIT;
-                return copy_to_user((char *)arg, &input, sizeof(input));
+                if (copy_to_user((char *)arg, &input, sizeof(input)))
+			return -EFAULT;
+		return 0;
         }
 
         case PRESTO_GET_RECNO: {
@@ -487,10 +477,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         int   path_len;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -498,11 +487,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(path, input.path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(path, input.path, input.path_len)) {
                         PRESTO_FREE(path, input.path_len + 1);
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 path[input.path_len] = '\0';
                 CDEBUG(D_PSDEV, "get_recno: len %d path %s\n", 
@@ -521,7 +509,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 CDEBUG(D_PSDEV, "get_recno: recno = %d\n", (int) recno);
 
                 EXIT;
-                return copy_to_user((char *)arg, &input, sizeof(input));
+                if (copy_to_user((char *)arg, &input, sizeof(input)))
+			return -EFAULT;
+		return 0;
         }
 
         case PRESTO_SET_FSETROOT: {
@@ -542,10 +532,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         int   flags;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -553,9 +542,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(path, input.path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(path, input.path, input.path_len)) {
                         EXIT;
+			error = -EFAULT;
                         goto exit_free_path;
                 }
                 path[input.path_len] = '\0';
@@ -566,9 +555,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         goto exit_free_path;
                 }
-                error = copy_from_user(fsetname, input.name, input.name_len);
-                if ( error ) {
+                if (copy_from_user(fsetname, input.name, input.name_len)) {
                         EXIT;
+			error = -EFAULT;
                         goto exit_free_fsetname;
                 }
                 fsetname[input.name_len] = '\0';
@@ -617,15 +606,14 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int dogetopt(int, struct psdev_opt *);
                 int minor = 0;
                 struct psdev_opt kopt;
+                int error = 0;
                 struct psdev_opt *user_opt = (struct psdev_opt *) arg;
-                int error;
 
-                error = copy_from_user(&kopt, (void *)arg, sizeof(kopt));
-                if ( error )  {
+                if (copy_from_user(&kopt, (void *)arg, sizeof(kopt))) {
                         printk("psdev: can't copyin %Zd bytes from %p to %p\n",
                                sizeof(kopt), (struct kopt *) arg, &kopt);
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 minor = MINOR(dev);
                 if (cmd == PRESTO_SETOPT)
@@ -649,12 +637,11 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         return error;
                 }
 
-                error = copy_to_user(user_opt, &kopt, sizeof(kopt));
-                if ( error ) {
+                if (copy_to_user(user_opt, &kopt, sizeof(kopt))) {
                         CDEBUG(D_PSDEV, "Copy_to_user opt 0x%p failed\n",
                                user_opt);
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 CDEBUG(D_PSDEV, "dosetopt minor %d, opt %d, val %d return %d\n",
                          minor, kopt.optname, kopt.optval, error);
@@ -667,10 +654,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 struct lento_input_attr input;
                 struct iattr iattr;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 iattr.ia_valid = input.valid;
                 iattr.ia_mode  = (umode_t)input.mode;
@@ -691,10 +677,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input_mode input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_create(input.name, input.mode, &input.info);
@@ -706,10 +691,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input_old_new input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_link(input.oldname, input.newname, &input.info);
@@ -721,10 +705,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_unlink(input.name, &input.info);
@@ -736,10 +719,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input_old_new input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_symlink(input.oldname, input.newname,&input.info);
@@ -751,10 +733,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input_mode input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_mkdir(input.name, input.mode, &input.info);
@@ -766,10 +747,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_rmdir(input.name, &input.info);
@@ -781,10 +761,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input_dev input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_mknod(input.name, input.mode,
@@ -797,10 +776,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 int error;
                 struct lento_input_old_new input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 error = lento_rename(input.oldname, input.newname, &input.info);
@@ -816,30 +794,27 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 char *name;
                 char *buffer;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) { 
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                     EXIT;
-                    return error;
+                    return -EFAULT;
                 }
 
                 /* Now setup the input parameters */
                 PRESTO_ALLOC(name, char *, input.name_len+1);
                 /* We need null terminated strings for attr names */
                 name[input.name_len] = '\0';
-                error=copy_from_user(name, input.name, input.name_len);
-                if ( error ) { 
+                if (copy_from_user(name, input.name, input.name_len)) {
                     EXIT;
                     PRESTO_FREE(name,input.name_len+1);
-                    return error;
+                    return -EFAULT;
                 }
 
                 PRESTO_ALLOC(buffer, char *, input.buffer_len+1);
-                error=copy_from_user(buffer, input.buffer, input.buffer_len);
-                if ( error ) { 
+                if (copy_from_user(buffer, input.buffer, input.buffer_len)) {
                     EXIT;
                     PRESTO_FREE(name,input.name_len+1);
                     PRESTO_FREE(buffer,input.buffer_len+1);
-                    return error;
+                    return -EFAULT;
                 }
                 /* Make null terminated for easy printing */
                 buffer[input.buffer_len]='\0';
@@ -868,21 +843,19 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 struct lento_input_ext_attr input;
                 char *name;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) { 
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                     EXIT;
-                    return error;
+                    return -EFAULT;
                 }
 
                 /* Now setup the input parameters */
                 PRESTO_ALLOC(name, char *, input.name_len+1);
                 /* We need null terminated strings for attr names */
                 name[input.name_len] = '\0';
-                error=copy_from_user(name, input.name, input.name_len);
-                if ( error ) { 
+                if (copy_from_user(name, input.name, input.name_len)) {
                     EXIT;
                     PRESTO_FREE(name,input.name_len+1);
-                    return error;
+                    return -EFAULT;
                 }
 
                 CDEBUG(D_PSDEV," delextattr params: name %s,"
@@ -904,12 +877,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
 
         case PRESTO_VFS_IOPEN: {
                 struct lento_input_iopen input;
-                int error;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 input.fd = lento_iopen(input.name, (ino_t)input.ino,
@@ -920,17 +891,18 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         return input.fd;
                 }
                 EXIT;
-                return copy_to_user((char *)arg, &input, sizeof(input));
+                if (copy_to_user((char *)arg, &input, sizeof(input)))
+			return -EFAULT;
+		return 0;
         }
 
         case PRESTO_VFS_CLOSE: {
                 int error;
                 struct lento_input_close input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
 
                 CDEBUG(D_PIOCTL, "lento_close file descriptor: %d\n", input.fd);
@@ -941,7 +913,6 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
 
         case PRESTO_BACKFETCH_LML: {
                 char *user_path;
-                int error;
                 struct lml_arg {
                         char *path;
                         __u32 path_len;
@@ -951,10 +922,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         struct presto_version remote_file_version;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 user_path = input.path;
 
@@ -963,11 +933,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(input.path, user_path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(input.path, user_path, input.path_len)) {
                         EXIT;
                         PRESTO_FREE(input.path, input.path_len + 1);
-                        return error;
+                        return -EFAULT;
                 }
                 input.path[input.path_len] = '\0';
 
@@ -984,7 +953,6 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
 
         case PRESTO_CANCEL_LML: {
                 char *user_path;
-                int error;
                 struct lml_arg {
                         char *path;
                         __u64 lml_offset; 
@@ -995,10 +963,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         struct lento_vfs_context info;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 user_path = input.path;
 
@@ -1007,11 +974,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(input.path, user_path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(input.path, user_path, input.path_len)) {
                         EXIT;
                         PRESTO_FREE(input.path, input.path_len + 1);
-                        return error;
+                        return -EFAULT;
                 }
                 input.path[input.path_len] = '\0';
 
@@ -1034,10 +1000,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         __u32 path_len;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 user_path = input.path;
 
@@ -1046,11 +1011,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(input.path, user_path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(input.path, user_path, input.path_len)) {
                         EXIT;
                         PRESTO_FREE(input.path, input.path_len + 1);
-                        return error;
+                        return -EFAULT;
                 }
                 input.path[input.path_len] = '\0';
 
@@ -1063,7 +1027,6 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
 
         case PRESTO_RESET_FSET: {
                 char *user_path;
-                int error;
                 struct lml_arg {
                         char *path;
                         __u32 path_len;
@@ -1071,10 +1034,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         __u32 recno;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 user_path = input.path;
 
@@ -1083,11 +1045,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(input.path, user_path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(input.path, user_path, input.path_len)) {
                         EXIT;
                         PRESTO_FREE(input.path, input.path_len + 1);
-                        return error;
+                        return -EFAULT;
                 }
                 input.path[input.path_len] = '\0';
 
@@ -1110,10 +1071,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         char *path;
                 } input;
 
-                error = copy_from_user(&input, (char *)arg, sizeof(input));
-                if ( error ) {
+                if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
-                        return error;
+                        return -EFAULT;
                 }
                 user_path = input.path;
 
@@ -1122,11 +1082,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(input.path, user_path, input.path_len);
-                if ( error ) {
+                if (copy_from_user(input.path, user_path, input.path_len)) {
                         EXIT;
                         PRESTO_FREE(input.path, input.path_len + 1);
-                        return error;
+                        return -EFAULT;
                 }
                 input.path[input.path_len] = '\0';
 
@@ -1189,7 +1148,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 }
                 /* return the correct cookie to wait for */
                 input.mark_what = res;
-                return copy_to_user((char *)arg, &input, sizeof(input));
+                if (copy_to_user((char *)arg, &input, sizeof(input)))
+			return -EFAULT;
+		return 0;
         }
 
 #ifdef  CONFIG_KREINT
@@ -1210,11 +1171,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         char *path;
                 } permit;
                 
-                error = copy_from_user(&permit, (char *)arg, sizeof(permit));
-                if ( error ) {
+                if (copy_from_user(&permit, (char *)arg, sizeof(permit))) {
                         EXIT;
-                        return error;
-                        }
+                        return -EFAULT;
+		}
                 user_path = permit.path;
                 
                 PRESTO_ALLOC(permit.path, char *, permit.path_len + 1);
@@ -1222,11 +1182,10 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -ENOMEM;
                 }
-                error = copy_from_user(permit.path, user_path, permit.path_len);
-                if ( error ) {
+                if (copy_from_user(permit.path, user_path, permit.path_len)) {
                         EXIT;
                         PRESTO_FREE(permit.path, permit.path_len + 1);
-                        return error;
+                        return -EFAULT;
                 }
                 permit.path[permit.path_len] = '\0';
                 
@@ -1240,7 +1199,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         return error;
                 }
                 /* return the correct cookie to wait for */
-                return copy_to_user((char *)arg, &permit, sizeof(permit));
+                if (copy_to_user((char *)arg, &permit, sizeof(permit)))
+			return -EFAULT;
+		return 0;
         }
         
         default:

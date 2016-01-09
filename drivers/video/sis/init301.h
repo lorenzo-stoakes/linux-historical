@@ -75,6 +75,7 @@ extern   USHORT   SiS_SelectCRT2Rate;
 extern   USHORT   SiS_IF_DEF_LVDS;
 extern   USHORT   SiS_IF_DEF_TRUMPION;
 extern   USHORT   SiS_IF_DEF_CH7005;
+extern   USHORT   SiS_Backup7005;
 extern   USHORT   SiS_IF_DEF_HiVision;
 extern   USHORT   SiS_IF_DEF_DSTN;   /*add for dstn*/
 extern   USHORT   SiS_IF_DEF_FSTN;   /*add for fstn*/

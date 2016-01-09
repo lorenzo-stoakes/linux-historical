@@ -120,6 +120,10 @@
 #ifndef PCI_DEVICE_ID_FARALLON_PN9000SX
 #define PCI_DEVICE_ID_FARALLON_PN9000SX	0x1a
 #endif
+#ifndef PCI_DEVICE_ID_FARALLON_PN9100T
+#define PCI_DEVICE_ID_FARALLON_PN9100T  0xfa
+#endif
+
 #ifndef PCI_VENDOR_ID_SGI
 #define PCI_VENDOR_ID_SGI		0x10a9
 #endif
@@ -144,6 +148,9 @@ static struct pci_device_id acenic_pci_tbl[] __initdata = {
 	 */
 	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_FARALLON_PN9000SX,
 	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_NETWORK_ETHERNET << 8, 0xffff00, },
+	{ PCI_VENDOR_ID_ALTEON, PCI_DEVICE_ID_FARALLON_PN9100T,
+	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_NETWORK_ETHERNET << 8, 0xffff00, },
+
 	{ PCI_VENDOR_ID_SGI, PCI_DEVICE_ID_SGI_ACENIC,
 	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_NETWORK_ETHERNET << 8, 0xffff00, },
 	{ }
@@ -611,6 +618,8 @@ int __devinit acenic_probe (ACE_PROBE_ARG)
 		 */
 		    !((pdev->vendor == PCI_VENDOR_ID_DEC) &&
 		      (pdev->device == PCI_DEVICE_ID_FARALLON_PN9000SX)) &&
+		    !((pdev->vendor == PCI_VENDOR_ID_ALTEON) &&
+		      (pdev->device == PCI_DEVICE_ID_FARALLON_PN9100T)) &&
 		    !((pdev->vendor == PCI_VENDOR_ID_SGI) &&
 		      (pdev->device == PCI_DEVICE_ID_SGI_ACENIC)))
 			continue;
@@ -708,6 +717,13 @@ int __devinit acenic_probe (ACE_PROBE_ARG)
 
 		switch(pdev->vendor) {
 		case PCI_VENDOR_ID_ALTEON:
+			if (pdev->device == PCI_DEVICE_ID_FARALLON_PN9100T) {
+				strncpy(ap->name, "Farallon PN9100-T "
+					"Gigabit Ethernet", sizeof (ap->name));
+				printk(KERN_INFO "%s: Farallon PN9100-T ",
+				       dev->name);
+				break;
+			}
 			strncpy(ap->name, "AceNIC Gigabit Ethernet",
 				sizeof (ap->name));
 			printk(KERN_INFO "%s: Alteon AceNIC ", dev->name);

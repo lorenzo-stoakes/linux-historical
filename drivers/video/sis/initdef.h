@@ -1,6 +1,6 @@
 /* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/initdef.h,v 1.4 2000/12/02 01:16:17 dawes Exp $ */
 
-/* Comments and changes marked with "TW" by Thomas Winischhofer <tw@webit.com> */
+/* Comments and changes marked with "TW" by Thomas Winischhofer <thomas@winischhofer.net> */
 
 #ifndef _INITDEF_
 #define _INITDEF_
@@ -122,14 +122,17 @@
 #define Panel1600x1200          0x06 /*301b*/
 #define Panel320x480            0x07 /*fstn*/
 
-#define LCDRGB18Bit             0x01
 #define ExtChipType             0x0e
 #define ExtChip301              0x02
 #define ExtChipLVDS             0x04
 #define ExtChipTrumpion         0x06
 #define ExtChipCH7005           0x08
 #define ExtChipMitacTV          0x0a
+
+/* LCDInfo */
+#define LCDRGB18Bit             0x01
 #define LCDNonExpanding         0x10
+
 #define LCDNonExpandingShift    4
 #define LCDSync                 0x20
 #define LCDSyncBit              0xe0

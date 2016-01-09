@@ -545,8 +545,6 @@ ips_setup(char *ips_str, int *dummy) {
    return (1);
 }
 
-__setup("ips=", ips_setup);
-
 #else
 
   char      *p;
@@ -1640,6 +1638,10 @@ ips_eh_reset(Scsi_Cmnd *SC) {
 #endif /* NO_IPS_RESET */
 
 }
+
+#if LINUX_VERSION_CODE >= LinuxVersionCode(2,4,0)
+__setup("ips=", ips_setup);
+#endif
 
 /****************************************************************************/
 /*                                                                          */

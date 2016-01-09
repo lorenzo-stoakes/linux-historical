@@ -117,6 +117,8 @@ static struct dev_info device_list[] =
 	{"YAMAHA", "CRW6416S", "1.0c", BLIST_NOLUN},		/* Locks up if polled for lun != 0 */
 	{"MITSUMI", "CD-R CR-2201CS", "6119", BLIST_NOLUN},	/* Locks up if polled for lun != 0 */
 	{"RELISYS", "Scorpio", "*", BLIST_NOLUN},		/* responds to all LUN */
+	{"RELISYS", "VM3530+", "*", BLIST_NOLUN},		/* responds to all LUN */
+	{"ACROSS", "", "*", BLIST_NOLUN},			/* responds to all LUN */
 	{"MICROTEK", "ScanMaker II", "5.61", BLIST_NOLUN},	/* responds to all LUN */
 
 /*

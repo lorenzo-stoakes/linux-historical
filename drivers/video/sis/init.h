@@ -125,15 +125,17 @@ USHORT      SiS_Part3Port,SiS_Part4Port,SiS_Part5Port;
 USHORT      SiS_CRT1Mode;
 
 USHORT   flag_clearbuffer;         /*0: no clear frame buffer 1:clear frame buffer  */
-int      SiS_RAMType;                  /*int      ModeIDOffset,StandTable,CRT1Table,ScreenOffset,REFIndex;*/
+int      SiS_RAMType;              /*int      ModeIDOffset,StandTable,CRT1Table,ScreenOffset,REFIndex;*/
 USHORT   SiS_ModeType;
 USHORT   SiS_IF_DEF_LVDS,SiS_IF_DEF_TRUMPION,SiS_IF_DEF_DSTN,SiS_IF_DEF_FSTN;    /*add for dstn*/
 USHORT   SiS_IF_DEF_CH7005,SiS_IF_DEF_HiVision;
+USHORT	 SiS_Backup7005=0xff;	/* TW: Backup for power-status */
 USHORT   SiS_VBInfo,SiS_LCDResInfo,SiS_LCDTypeInfo,SiS_LCDInfo, SiS_VBType;/*301b*/
-USHORT   SiS_VBExtInfo; /*301lv*/
+USHORT   SiS_VBExtInfo;  /*301lv*/
 USHORT   SiS_SelectCRT2Rate;
 
 extern   USHORT   SiS_SetFlag;
+extern   USHORT   SiS_DDC_Port;
 
 void     SiS_SetMemoryClock(ULONG ROMAddr);
 void     SiS_SetDRAMModeRegister(ULONG   ROMAddr);
@@ -161,17 +163,17 @@ void SiS_EnableRefresh(ULONG ROMAddr);
 void SiS_DisableChannelInterleaving(int index,USHORT SiS_DDRDRAM_TYPE[][5]);
 void SiS_SetDRAMSizingType(int index,USHORT DRAMTYPE_TABLE[][5]);
 void SiS_CheckBusWidth_310(ULONG ROMAddress,ULONG FBAddress);
-int SiS_SetRank(int index,UCHAR RankNo,UCHAR SiS_ChannelAB,USHORT DRAMTYPE_TABLE[][5]);
-int SiS_SetDDRChannel(int index,UCHAR ChannelNo,UCHAR SiS_ChannelAB,USHORT DRAMTYPE_TABLE[][5]);
-int SiS_CheckColumn(int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
-int SiS_CheckBanks(int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
-int SiS_CheckRank(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
-int SiS_CheckDDRRank(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
-int SiS_CheckRanks(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
-int SiS_CheckDDRRanks(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
-int SiS_SDRSizing(ULONG FBAddress);
-int SiS_DDRSizing(ULONG FBAddress);
-int Is315E(void);
+int  SiS_SetRank(int index,UCHAR RankNo,UCHAR SiS_ChannelAB,USHORT DRAMTYPE_TABLE[][5]);
+int  SiS_SetDDRChannel(int index,UCHAR ChannelNo,UCHAR SiS_ChannelAB,USHORT DRAMTYPE_TABLE[][5]);
+int  SiS_CheckColumn(int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
+int  SiS_CheckBanks(int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
+int  SiS_CheckRank(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
+int  SiS_CheckDDRRank(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
+int  SiS_CheckRanks(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
+int  SiS_CheckDDRRanks(int RankNo,int index,USHORT DRAMTYPE_TABLE[][5],ULONG FBAddress);
+int  SiS_SDRSizing(ULONG FBAddress);
+int  SiS_DDRSizing(ULONG FBAddress);
+int  Is315E(void);
 void SiS_VerifyMclk(ULONG FBAddr);
 #endif
 
@@ -181,7 +183,8 @@ void SiS_VerifyMclk(ULONG FBAddr);
 extern void SetEnableDstn(void);
 void     SiS_Delay15us(ULONG);
 BOOLEAN  SiS_SearchModeID(ULONG ROMAddr, USHORT ModeNo,USHORT  *ModeIdIndex);
-BOOLEAN  SiS_CheckMemorySize(ULONG ROMAddr,PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT ModeNo,USHORT ModeIdIndex);
+BOOLEAN  SiS_CheckMemorySize(ULONG ROMAddr,PSIS_HW_DEVICE_INFO HwDeviceExtension,
+                             USHORT ModeNo,USHORT ModeIdIndex);
 UCHAR    SiS_GetModePtr(ULONG ROMAddr, USHORT ModeNo,USHORT ModeIdIndex);
 void     SiS_SetSeqRegs(ULONG,USHORT StandTableIndex);
 void     SiS_SetMiscRegs(ULONG,USHORT StandTableIndex);
@@ -191,12 +194,14 @@ void     SiS_SetGRCRegs(ULONG,USHORT StandTableIndex);
 void     SiS_ClearExt1Regs(void);
 void     SiS_SetSync(ULONG ROMAddr,USHORT RefreshRateTableIndex);
 void     SiS_SetCRT1CRTC(ULONG ROMAddr,USHORT ModeNo,USHORT ModeIdIndex,USHORT RefreshRateTableIndex);
-void     SiS_SetCRT1VCLK(ULONG ROMAddr,USHORT ModeNo,USHORT ModeIdIndex,PSIS_HW_DEVICE_INFO,USHORT RefreshRateTableIndex);
+void     SiS_SetCRT1VCLK(ULONG ROMAddr,USHORT ModeNo,USHORT ModeIdIndex,PSIS_HW_DEVICE_INFO,
+                         USHORT RefreshRateTableIndex);
 void     SiS_SetVCLKState(ULONG ROMAddr,PSIS_HW_DEVICE_INFO, USHORT ModeNo,USHORT RefreshRateTableIndex);
 void     SiS_LoadDAC(ULONG ROMAddr,USHORT ModeNo,USHORT ModeIdIndex);
 void     SiS_DisplayOn(void);
 void 	 SiS_DisplayOff(void);
-void     SiS_SetCRT1ModeRegs(ULONG ROMAddr,PSIS_HW_DEVICE_INFO,USHORT ModeNo,USHORT ModeIdIndex,USHORT RefreshRateTableIndex);
+void     SiS_SetCRT1ModeRegs(ULONG ROMAddr,PSIS_HW_DEVICE_INFO,USHORT ModeNo,
+                             USHORT ModeIdIndex,USHORT RefreshRateTableIndex);
 void     SiS_WriteDAC(USHORT, USHORT, USHORT, USHORT);
 void     SiS_GetVBType(USHORT BaseAddr);/*301b*/
 USHORT   SiS_ChkBUSWidth(ULONG);
@@ -211,7 +216,8 @@ void     SiS_SetCRT1FIFO(ULONG,USHORT,PSIS_HW_DEVICE_INFO);
 void     SiS_SetCRT1FIFO2(ULONG,USHORT ModeNo,PSIS_HW_DEVICE_INFO,USHORT RefreshRateTableIndex);
 void     SiS_CRT2AutoThreshold(USHORT  BaseAddr);
 void     SiS_ClearBuffer(PSIS_HW_DEVICE_INFO,USHORT ModeNo);
-void     SiS_SetCRT1Group(ULONG ROMAddr,PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT ModeNo,USHORT ModeIdIndex);
+void     SiS_SetCRT1Group(ULONG ROMAddr,PSIS_HW_DEVICE_INFO HwDeviceExtension,
+                          USHORT ModeNo,USHORT ModeIdIndex);
 void     SiS_DetectMonitor(PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT BaseAddr);
 void     SiS_GetSenseStatus(PSIS_HW_DEVICE_INFO HwDeviceExtension,ULONG ROMAddr);
 USHORT   SiS_TestMonitorType(UCHAR R_DAC,UCHAR G_DAC,UCHAR B_DAC);
@@ -226,19 +232,19 @@ void     SiSSetLVDSetc(PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT ModeNo);
 void     SiSInitPCIetc(PSIS_HW_DEVICE_INFO HwDeviceExtension);
 
 #ifdef LINUX_XF86
-USHORT  SiS_CalcModeIndex(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void    SiS_SetPitch(ScrnInfoPtr pScrn, UShort BaseAddr);
-void    SiS_SetPitchCRT1(ScrnInfoPtr pScrn, UShort BaseAddr);
-void    SiS_SetPitchCRT2(ScrnInfoPtr pScrn, UShort BaseAddr);
-unsigned char SiS_GetSetModeID(ScrnInfoPtr pScrn, unsigned char id);
+USHORT  	SiS_CalcModeIndex(ScrnInfoPtr pScrn, DisplayModePtr mode);
+void    	SiS_SetPitch(ScrnInfoPtr pScrn, UShort BaseAddr);
+void    	SiS_SetPitchCRT1(ScrnInfoPtr pScrn, UShort BaseAddr);
+void    	SiS_SetPitchCRT2(ScrnInfoPtr pScrn, UShort BaseAddr);
+unsigned char 	SiS_GetSetModeID(ScrnInfoPtr pScrn, unsigned char id);
 #endif
 
-extern   BOOLEAN SiS_SetCRT2Group301(USHORT BaseAddr,ULONG ROMAddr,USHORT ModeNo,
+extern BOOLEAN   SiS_SetCRT2Group301(USHORT BaseAddr,ULONG ROMAddr,USHORT ModeNo,
                                      PSIS_HW_DEVICE_INFO HwDeviceExtension);
-extern   void    SiS_PresetScratchregister(USHORT SiS_P3d4,
+extern void      SiS_PresetScratchregister(USHORT SiS_P3d4,
                                            PSIS_HW_DEVICE_INFO HwDeviceExtension);
-extern   void    SiS_UnLockCRT2(PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT BaseAddr);
-extern   void    SiS_LockCRT2(PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT BaseAddr);
+extern void      SiS_UnLockCRT2(PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT BaseAddr);
+extern void      SiS_LockCRT2(PSIS_HW_DEVICE_INFO HwDeviceExtension,USHORT BaseAddr);
 extern BOOLEAN   SiS_BridgeIsOn(USHORT BaseAddr);
 extern BOOLEAN   SiS_BridgeIsEnable(USHORT BaseAddr,PSIS_HW_DEVICE_INFO );
 extern void      SiS_SetTVSystem301(VOID);
@@ -268,7 +274,7 @@ extern BOOLEAN   SiS_GetLCDACRT1Ptr(ULONG ROMAddr,USHORT ModeNo,USHORT ModeIdInd
 extern USHORT    SiS_GetVCLK2Ptr(ULONG ROMAddr,USHORT ModeNo,USHORT ModeIdIndex,
                                  USHORT RefreshRateTableIndex,
 				 PSIS_HW_DEVICE_INFO HwDeviceExtension);
-extern BOOLEAN  SiS_Is301B(USHORT BaseAddr);/*301b*/
+extern BOOLEAN   SiS_Is301B(USHORT BaseAddr);/*301b*/
 
 #endif
 

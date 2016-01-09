@@ -57,6 +57,7 @@ static void coda_fill_inode(struct inode *inode, struct coda_vattr *attr)
         } else if (S_ISLNK(inode->i_mode)) {
 		inode->i_op = &coda_symlink_inode_operations;
 		inode->i_data.a_ops = &coda_symlink_aops;
+		inode->i_mapping = &inode->i_data;
 	} else
                 init_special_inode(inode, inode->i_mode, attr->va_rdev);
 }
@@ -67,11 +68,14 @@ struct inode * coda_iget(struct super_block * sb, ViceFid * fid,
 	struct inode *inode;
 	struct coda_inode_info *cii;
 	ino_t ino = coda_f2i(fid);
+	struct coda_sb_info *sbi = coda_sbp(sb);
 
+	down(&sbi->sbi_iget4_mutex);
 	inode = iget4(sb, ino, coda_inocmp, fid);
 
 	if ( !inode ) { 
 		CDEBUG(D_CNODE, "coda_iget: no inode\n");
+		up(&sbi->sbi_iget4_mutex);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -80,6 +84,7 @@ struct inode * coda_iget(struct super_block * sb, ViceFid * fid,
 	if (coda_isnullfid(&cii->c_fid))
 		/* new, empty inode found... initializing */
 		cii->c_fid = *fid;
+	up(&sbi->sbi_iget4_mutex);
 
 	/* always replace the attributes, type might have changed */
 	coda_fill_inode(inode, attr);
@@ -144,6 +149,7 @@ struct inode *coda_fid_to_inode(ViceFid *fid, struct super_block *sb)
 	ino_t nr;
 	struct inode *inode;
 	struct coda_inode_info *cii;
+	struct coda_sb_info *sbi;
 
 	if ( !sb ) {
 		printk("coda_fid_to_inode: no sb!\n");
@@ -152,12 +158,14 @@ struct inode *coda_fid_to_inode(ViceFid *fid, struct super_block *sb)
 
 	CDEBUG(D_INODE, "%s\n", coda_f2s(fid));
 
+	sbi = coda_sbp(sb);
 	nr = coda_f2i(fid);
+	down(&sbi->sbi_iget4_mutex);
 	inode = iget4(sb, nr, coda_inocmp, fid);
 	if ( !inode ) {
 		printk("coda_fid_to_inode: null from iget, sb %p, nr %ld.\n",
 		       sb, (long)nr);
-		return NULL;
+		goto out_unlock;
 	}
 
 	cii = ITOC(inode);
@@ -166,11 +174,16 @@ struct inode *coda_fid_to_inode(ViceFid *fid, struct super_block *sb)
 	if (coda_isnullfid(&cii->c_fid)) {
 		inode->i_nlink = 0;
 		iput(inode);
-		return NULL;
+		goto out_unlock;
 	}
 
         CDEBUG(D_INODE, "found %ld\n", inode->i_ino);
+	up(&sbi->sbi_iget4_mutex);
 	return inode;
+
+out_unlock:
+	up(&sbi->sbi_iget4_mutex);
+	return NULL;
 }
 
 /* the CONTROL inode is made without asking attributes from Venus */

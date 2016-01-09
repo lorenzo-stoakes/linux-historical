@@ -143,6 +143,14 @@ struct cpu_spec	cpu_specs[] = {
 	32, 32,
 	__setup_cpu_750
     },
+    {	/* 750FX (All revs for now) */
+    	0xffff0000, 0x70000000, "750FX",
+    	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_CAN_DOZE | CPU_FTR_USE_TB |
+	CPU_FTR_L2CR | CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_CAN_NAP,
+	COMMON_PPC,
+	32, 32,
+	__setup_cpu_750
+    },
     {	/* 740/750 (L2CR bit need fixup for 740) */
     	0xffff0000, 0x00080000, "740/750",
     	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_CAN_DOZE | CPU_FTR_USE_TB |

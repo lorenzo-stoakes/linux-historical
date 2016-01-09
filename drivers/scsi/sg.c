@@ -7,7 +7,7 @@
  * Original driver (sg.c):
  *        Copyright (C) 1992 Lawrence Foard
  * Version 2 and 3 extensions to driver:
- *        Copyright (C) 1998 - 2001 Douglas Gilbert
+ *        Copyright (C) 1998 - 2002 Douglas Gilbert
  *
  *  Modified  19-JAN-1998  Richard Gooch <rgooch@atnf.csiro.au>  Devfs support
  *
@@ -19,9 +19,9 @@
  */
 #include <linux/config.h>
 #ifdef CONFIG_PROC_FS
- static char sg_version_str[] = "Version: 3.1.23 (20020318)";
+ static char * sg_version_str = "Version: 3.1.24 (20020505)";
 #endif
- static int sg_version_num = 30123; /* 2 digits for each component */
+ static int sg_version_num = 30124; /* 2 digits for each component */
 /*
  *  D. P. Gilbert (dgilbert@interlog.com, dougg@triode.net.au), notes:
  *      - scsi logging is available via SCSI_LOG_TIMEOUT macros. First
@@ -1884,8 +1884,11 @@ static int sg_write_xfer(Sg_request * srp)
 	    res = sg_u_iovec(hp, iovec_count, j, 1, &usglen, &up);
 	    if (res) return res;
 
-	    for (; (k < schp->k_use_sg) && p;
-		 ++k, ++sclp, ksglen = (int)sclp->length, p = sclp->address) {
+	    for (; k < schp->k_use_sg; ++k, ++sclp) {
+		ksglen = (int)sclp->length;
+		p = sclp->address;
+		if (NULL == p)
+		    break;
 		ok = (SG_USER_MEM != mem_src_arr[k]);
 		if (usglen <= 0)
 		    break;
@@ -2037,8 +2040,11 @@ static int sg_read_xfer(Sg_request * srp)
 	    res = sg_u_iovec(hp, iovec_count, j, 0, &usglen, &up);
 	    if (res) return res;
 
-	    for (; (k < schp->k_use_sg) && p;
-		 ++k, ++sclp, ksglen = (int)sclp->length, p = sclp->address) {
+	    for (; k < schp->k_use_sg; ++k, ++sclp) {
+		ksglen = (int)sclp->length;
+		p = sclp->address;
+		if (NULL == p)
+		    break;
 		ok = (SG_USER_MEM != mem_src_arr[k]);
 		if (usglen <= 0)
 		    break;
@@ -2452,7 +2458,11 @@ static char * sg_low_malloc(int rqSz, int lowDma, int mem_src, int * retSzp)
         return resp;
     if (SG_HEAP_KMAL == mem_src) {
         resp = kmalloc(rqSz, page_mask);
-        if (resp && retSzp) *retSzp = rqSz;
+	if (resp) {
+	    if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SYS_RAWIO))
+	    	memset(resp, 0, rqSz);
+	    if (retSzp) *retSzp = rqSz;
+	}
         return resp;
     }
     if (SG_HEAP_POOL == mem_src) {
@@ -2469,6 +2479,8 @@ static char * sg_low_malloc(int rqSz, int lowDma, int mem_src, int * retSzp)
                 (scsi_dma_free_sectors > (SG_LOW_POOL_THRESHHOLD + num_sect))) {
                 resp = scsi_malloc(rqSz);
                 if (resp) {
+		    if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SYS_RAWIO))
+			memset(resp, 0, rqSz);
                     if (retSzp) *retSzp = rqSz;
                     sg_pool_secs_avail -= num_sect;
                     return resp;
@@ -2494,7 +2506,11 @@ static char * sg_low_malloc(int rqSz, int lowDma, int mem_src, int * retSzp)
             resp = (char *)__get_free_pages(page_mask, order); /* try half */
             resSz = a_size;
         }
-        if (retSzp) *retSzp = resSz;
+	if (resp) {
+	    if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SYS_RAWIO))
+                memset(resp, 0, resSz);
+	    if (retSzp) *retSzp = resSz;
+	}
     }
     else
         printk(KERN_ERR "sg_low_malloc: bad mem_src=%d, rqSz=%df\n", 

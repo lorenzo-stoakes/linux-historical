@@ -1344,7 +1344,6 @@ void sab8253x_wait_until_sent(struct tty_struct *tty, int timeout)
 	while ((Sab8253xCountTransmit(port) > 0) || !port->all_sent) 
 	{
 		current->state = TASK_INTERRUPTIBLE;
-		current->counter = 0;
 		schedule_timeout(char_time);
 		if (signal_pending(current))
 		{
@@ -1355,10 +1354,6 @@ void sab8253x_wait_until_sent(struct tty_struct *tty, int timeout)
 			break;
 		}
 	}
-	
-#if 0
-	current->state = TASK_RUNNING; /* probably not necessary in 2.4.* */
-#endif
 }
 
 void sab8253x_flush_buffer(struct tty_struct *tty)

@@ -2447,7 +2447,7 @@ static int trident_ioctl(struct inode *inode, struct file *file, unsigned int cm
 		if (dmabuf->mapped)
 			dmabuf->count &= dmabuf->fragsize-1;
 		spin_unlock_irqrestore(&state->card->lock, flags);
-		ret = copy_to_user((void *)arg, &cinfo, sizeof(cinfo));
+		ret = copy_to_user((void *)arg, &cinfo, sizeof(cinfo))?-EFAULT:0;
 		break;
 
 	case SNDCTL_DSP_GETOPTR:
@@ -3297,11 +3297,18 @@ static int ali_setup_multi_channels(struct trident_card *card, int chan_nums)
 			ali_ac97_write(card->ac97_codec[0], 0x02, 8080);
 			ali_ac97_write(card->ac97_codec[0], 0x36, 0);
 			ali_ac97_write(card->ac97_codec[0], 0x38, 0);
-			ali_ac97_write(card->ac97_codec[1], 0x36, 0);
-			ali_ac97_write(card->ac97_codec[1], 0x38, 0);
-			ali_ac97_write(card->ac97_codec[1], 0x02, 0x0606);
-			ali_ac97_write(card->ac97_codec[1], 0x18, 0x0303);
-			ali_ac97_write(card->ac97_codec[1], 0x74, 0x3);
+			/*
+			 *	On a board with a single codec you won't get the
+			 *	surround. On other boards configure it.
+			 */
+			if(card->ac97_codec[1]!=NULL)
+			{
+				ali_ac97_write(card->ac97_codec[1], 0x36, 0);
+				ali_ac97_write(card->ac97_codec[1], 0x38, 0);
+				ali_ac97_write(card->ac97_codec[1], 0x02, 0x0606);
+				ali_ac97_write(card->ac97_codec[1], 0x18, 0x0303);
+				ali_ac97_write(card->ac97_codec[1], 0x74, 0x3);
+			}
 			return 1;
 		}
 	}

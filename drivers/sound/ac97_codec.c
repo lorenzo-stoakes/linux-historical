@@ -113,7 +113,7 @@ static const struct {
 	{0x41445340, "Analog Devices AD1881",	&null_ops},
 	{0x41445348, "Analog Devices AD1881A",	&null_ops},
 	{0x41445360, "Analog Devices AD1885",	&default_ops},
-	{0x41445361, "Analog Devices AD1886",	&default_ops},
+	{0x41445361, "Analog Devices AD1886",	&ad1886_ops},
 	{0x41445460, "Analog Devices AD1885",	&default_ops},
 	{0x41445461, "Analog Devices AD1886",	&ad1886_ops},
 	{0x414B4D00, "Asahi Kasei AK4540",	&null_ops},
@@ -746,10 +746,10 @@ static int ac97_init_mixer(struct ac97_codec *codec)
 
 	/* detect bit resolution */
 	codec->codec_write(codec, AC97_MASTER_VOL_STEREO, 0x2020);
-	if(codec->codec_read(codec, AC97_MASTER_VOL_STEREO) == 0x1f1f)
-		codec->bit_resolution = 5;
-	else
+	if(codec->codec_read(codec, AC97_MASTER_VOL_STEREO) == 0x2020)
 		codec->bit_resolution = 6;
+	else
+		codec->bit_resolution = 5;
 
 	/* generic OSS to AC97 wrapper */
 	codec->read_mixer = ac97_read_mixer;
@@ -917,7 +917,7 @@ static int tritech_maestro_init(struct ac97_codec * codec)
 
 /* 
  *	Presario700 workaround 
- * 	for Jack Sense/SPDIF Register misetting causing
+ * 	for Jack Sense/SPDIF Register mis-setting causing
  *	no audible output
  *	by Santiago Nullo 04/05/2002
  */

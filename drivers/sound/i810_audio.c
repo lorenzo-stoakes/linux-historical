@@ -101,6 +101,9 @@
 #ifndef PCI_DEVICE_ID_INTEL_ICH3
 #define PCI_DEVICE_ID_INTEL_ICH3	0x2485
 #endif
+#ifndef PCI_DEVICE_ID_INTEL_ICH4
+#define PCI_DEVICE_ID_INTEL_ICH4	0x24c5
+#endif
 #ifndef PCI_DEVICE_ID_INTEL_440MX
 #define PCI_DEVICE_ID_INTEL_440MX	0x7195
 #endif
@@ -233,6 +236,7 @@ enum {
 	INTEL440MX,
 	INTELICH2,
 	INTELICH3,
+	INTELICH4,
 	SI7012,
 	NVIDIA_NFORCE,
 	AMD768
@@ -244,6 +248,7 @@ static char * card_names[] = {
 	"Intel 440MX",
 	"Intel ICH2",
 	"Intel ICH3",
+	"Intel ICH4",
 	"SiS 7012",
 	"NVIDIA nForce Audio",
 	"AMD 768"
@@ -260,6 +265,8 @@ static struct pci_device_id i810_pci_tbl [] __initdata = {
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, INTELICH2},
 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH3,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, INTELICH3},
+	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH4,
+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, INTELICH4},
 	{PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_7012,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, SI7012},
 	{PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_MCP1_AUDIO,
@@ -2669,7 +2676,7 @@ static int __init i810_ac97_init(struct i810_card *card)
 		codec->codec_write = i810_ac97_set;
 	
 		if(!i810_ac97_probe_and_powerup(card,codec)) {
-			printk("i810_audio: timed out waiting for codec %d analog ready", num_ac97);
+			printk("i810_audio: timed out waiting for codec %d analog ready.\n", num_ac97);
 			kfree(codec);
 			break;	/* it didn't work */
 		}

@@ -10,7 +10,7 @@
 
 #define VER_MAJOR                 1
 #define VER_MINOR                 3
-#define VER_LEVEL                 11 
+#define VER_LEVEL                 13 
 
 /* TW: To be included in pci_ids.h */
 #ifndef PCI_DEVICE_ID_SI_650_VGA
@@ -92,7 +92,7 @@
 #define IND_SIS_SCRATCH_REG_CR37  0x37
 #define IND_SIS_AGP_IO_PAD        0x48
 
-#define IND_BRI_DRAM_STATUS       0x63
+#define IND_BRI_DRAM_STATUS       0x63 /* PCI memory size offset */
 
 #define MMIO_QUEUE_PHYBASE        0x85C0
 #define MMIO_QUEUE_WRITEPORT      0x85C4
@@ -121,7 +121,8 @@
 #define SIS_DATA_BUS_32           0x00
 #define SIS_DATA_BUS_64           0x01
 #define SIS_DATA_BUS_128          0x02
-#define SIS315_DRAM_SIZE_MASK     0xF0  /* 315 SR14 */
+
+#define SIS315_DRAM_SIZE_MASK     0xF0  /* 315/640?/740? SR14 */
 #define SIS315_DRAM_SIZE_2MB      0x01
 #define SIS315_DRAM_SIZE_4MB      0x02
 #define SIS315_DRAM_SIZE_8MB      0x03
@@ -133,10 +134,12 @@
 #define SIS315_DATA_BUS_64        0x00
 #define SIS315_DATA_BUS_128       0x01
 #define SIS315_DUAL_CHANNEL_MASK  0x0C
-#define SIS315_SINGLE_CHANNEL_1_RANK  0x0
-#define SIS315_SINGLE_CHANNEL_2_RANK  0x1
-#define SIS315_DUAL_CHANNEL_1_RANK    0x3
-#define SIS550_DRAM_SIZE_MASK     0x3F  /* 550 SR14 */
+#define SIS315_SINGLE_CHANNEL_1_RANK  	0x0
+#define SIS315_SINGLE_CHANNEL_2_RANK  	0x1
+#define SIS315_ASYM_DDR		  	0x02
+#define SIS315_DUAL_CHANNEL_1_RANK    	0x3
+
+#define SIS550_DRAM_SIZE_MASK     0x3F  /* 550/650 SR14 */
 #define SIS550_DRAM_SIZE_4MB      0x00
 #define SIS550_DRAM_SIZE_8MB      0x01
 #define SIS550_DRAM_SIZE_16MB     0x03
@@ -148,17 +151,22 @@
 #define SIS550_DRAM_SIZE_256MB    0x3F
 
 #define SIS_SCRATCH_REG_1A_MASK   0x10
+
 #define SIS_ENABLE_2D             0x40  /* SR1E */
+
 #define SIS_MEM_MAP_IO_ENABLE     0x01  /* SR20 */
 #define SIS_PCI_ADDR_ENABLE       0x80
+
 #define SIS_AGP_CMDQUEUE_ENABLE   0x80  /* 315 SR26 */
-#define SIS_VRAM_CMDQUEUE_ENABLE  0x40 
+#define SIS_VRAM_CMDQUEUE_ENABLE  0x40
 #define SIS_MMIO_CMD_ENABLE       0x20
 #define SIS_CMD_QUEUE_SIZE_512k   0x00
 #define SIS_CMD_QUEUE_SIZE_1M     0x04
 #define SIS_CMD_QUEUE_SIZE_2M     0x08
 #define SIS_CMD_QUEUE_SIZE_4M     0x0C
-#define SIS_CMD_QUEUE_RESET       0x01 
+#define SIS_CMD_QUEUE_RESET       0x01
+#define SIS_CMD_AUTO_CORR	  0x02
+
 #define SIS_SIMULTANEOUS_VIEW_ENABLE  0x01  /* CR30 */
 #define SIS_MODE_SELECT_CRT2      0x02
 #define SIS_VB_OUTPUT_COMPOSITE   0x04
@@ -184,6 +192,7 @@
 #define SIS_LCD_PANEL_1280X960    0x4
 #define SIS_LCD_PANEL_640X480     0x5
 #define SIS_LCD_PANEL_1600x1200   0x6  /* TW */
+#define SIS_LCD_PANEL_320x480	  0x7  /* TW: FSTN */
 #define SIS_EXTERNAL_CHIP_MASK    0x0E  /* CR37 */
 #define SIS_EXTERNAL_CHIP_SIS301        0x01
 #define SIS_EXTERNAL_CHIP_LVDS          0x02  
@@ -253,6 +262,7 @@ static union {
 /* display status */
 static int sisfb_off = 0;
 static int sisfb_crt1off = 0;
+static int sisfb_forcecrt1 = -1;
 static int sisfb_inverse = 0;
 static int sisvga_enabled = 0;
 static int currcon = 0;
@@ -274,6 +284,10 @@ static int sisfb_CRT2_write_enable = 0;
 int sisfb_mode_idx = MODE_INDEX_NONE;  /* (TW) was -1 */
 u8  sisfb_mode_no = 0;
 u8  sisfb_rate_idx = 0;
+
+int sisfb_crt2type = -1;	/* TW: CRT2 type (for overriding autodetection) */
+
+int sisfb_queuemode = -1; 	/* TW: Use MMIO queue mode by default (310 series only) */
 
 /* data for sis components*/
 struct video_info ivideo;
@@ -330,7 +344,7 @@ static const struct _sisbios_mode {
 	{"320x480x16",   0x5B,  320,  480, 16, 1,  40, 30},
 	{"640x480x8",    0x2E,  640,  480,  8, 1,  80, 30},
 	{"640x480x16",   0x44,  640,  480, 16, 1,  80, 30},
-	{"640x480x24",   0x62,  640,  480, 32, 1,  80, 30}, /* TW: That's for people you mix up color- and fb depth */
+	{"640x480x24",   0x62,  640,  480, 32, 1,  80, 30}, /* TW: That's for people who mix up color- and fb depth */
 	{"640x480x32",   0x62,  640,  480, 32, 1,  80, 30},
 	{"720x480x8",    0x31,  720,  480,  8, 1,  90, 30},
 	{"720x480x16",   0x33,  720,  480, 16, 1,  90, 30},
@@ -365,6 +379,34 @@ static const struct _sisbios_mode {
 	{"1920x1440x24", 0x6B, 1920, 1440, 32, 1, 240, 75}, /* TW */
 	{"1920x1440x32", 0x6B, 1920, 1440, 32, 1, 240, 75},
 	{"\0", 0x00, 0, 0, 0, 0, 0, 0}
+};
+
+static const struct _sis_crt2type {
+	char name[6];
+	int type_no;
+} sis_crt2type[] = {
+	{"NONE", 0},
+	{"LCD",  DISPTYPE_LCD},
+	{"TV",   DISPTYPE_TV},
+	{"VGA",  DISPTYPE_CRT2},
+	{"none", 0},	/* TW: make it fool-proof */
+	{"lcd",  DISPTYPE_LCD},
+	{"tv",   DISPTYPE_TV},
+	{"vga",  DISPTYPE_CRT2},
+	{"\0",  -1}
+};
+
+static const struct _sis_queuemode {
+	char name[6];
+	int type_no;
+} sis_queuemode[] = {
+	{"AGP",  AGP_CMD_QUEUE},
+	{"VRAM", VM_CMD_QUEUE},
+	{"MMIO", MMIO_CMD},
+	{"agp",  AGP_CMD_QUEUE},
+	{"vram", VM_CMD_QUEUE},
+	{"mmio", MMIO_CMD},
+	{"\0",  -1}
 };
 
 static struct _sis_vrate {
@@ -645,6 +687,7 @@ static int sisfb_get_dram_size_315(void);
 //extern BOOLEAN SiSInit310(PHW_DEVICE_EXTENSION HwDeviceExtension);
 static void sisfb_detect_VB_connect_315(void);
 static void sisfb_get_VB_type_315(void);
+static int sisfb_has_VB_315(void);
 //extern BOOLEAN SiSSetMode310(PHW_DEVICE_EXTENSION HwDeviceExtension, USHORT ModeNo);
 #endif
 
@@ -655,6 +698,11 @@ extern BOOLEAN SiSSetMode(PSIS_HW_DEVICE_INFO HwDeviceExtension, USHORT ModeNo);
 extern BOOLEAN SiSInit(PSIS_HW_DEVICE_INFO HwDeviceExtension);
 extern void SetEnableDstn(void);
 // ~Eden Chen
+
+extern void 	SiSRegInit(USHORT BaseAddr);
+extern USHORT 	SiS_GetCH7005(USHORT tempbx);
+extern void 	SiS_SetCH7005(USHORT tempbx);
+extern void     SiS_SetCHTVRegANDOR(USHORT tempax,USHORT tempbh);
 
 static void sisfb_pre_setmode(void);
 static void sisfb_post_setmode(void);

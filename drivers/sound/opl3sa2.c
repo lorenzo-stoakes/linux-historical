@@ -641,7 +641,7 @@ static int __init probe_opl3sa2(struct address_info* hw_config, int card)
 	if(!request_region(hw_config->io_base, 2, OPL3SA2_MODULE_NAME)) {
 		printk(KERN_ERR PFX "Control I/O port %#x not free\n",
 		       hw_config->io_base);
-		return 0;
+		goto out_nodev;
 	}
 
 	/*
@@ -654,7 +654,7 @@ static int __init probe_opl3sa2(struct address_info* hw_config, int card)
 	if(tmp != misc) {
 		printk(KERN_ERR PFX "Control I/O port %#x is not a YMF7xx chipset!\n",
 		       hw_config->io_base);
-		return 0;
+		goto out_region;
 	}
 
 	/*
@@ -667,7 +667,7 @@ static int __init probe_opl3sa2(struct address_info* hw_config, int card)
 		printk(KERN_ERR
 		       PFX "Control I/O port %#x is not a YMF7xx chipset!\n",
 		       hw_config->io_base);
-		return 0;
+		goto out_region;
 	}
 	opl3sa2_write(hw_config->io_base, OPL3SA2_MIC, tmp);
 
@@ -714,9 +714,13 @@ static int __init probe_opl3sa2(struct address_info* hw_config, int card)
 	if(opl3sa2_state[card].chipset != CHIPSET_UNKNOWN) {
 		/* Generate a pretty name */
 		opl3sa2_state[card].chipset_name = (char *)CHIPSET_TABLE[opl3sa2_state[card].chipset];
-		return 1;
+		return 0;
 	}
-	return 0;
+
+out_region:
+	release_region(hw_config->io_base, 2);
+out_nodev:
+	return -ENODEV;
 }
 
 
@@ -975,7 +979,7 @@ static int opl3sa2_resume(struct pm_dev *pdev)
 
 static int opl3sa2_pm_callback(struct pm_dev *pdev, pm_request_t rqst, void *data)
 {
-	unsigned char mode = (unsigned  char)data;
+	unsigned char mode = (unsigned  long)data;
 
 	switch (rqst) {
 		case PM_SUSPEND:
@@ -1061,7 +1065,7 @@ static int __init init_opl3sa2(void)
 			opl3sa2_clear_slots(&opl3sa2_state[card].cfg_mpu);
 		}
 
-		if(!probe_opl3sa2(&opl3sa2_state[card].cfg, card) ||
+		if(probe_opl3sa2(&opl3sa2_state[card].cfg, card) ||
 		   !probe_opl3sa2_mss(&opl3sa2_state[card].cfg_mss)) {
 			/*
 			 * If one or more cards are already registered, don't

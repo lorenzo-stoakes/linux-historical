@@ -10,7 +10,7 @@ O_TARGET	:= usbdrv.o
 
 # Objects that export symbols.
 
-export-objs		:= usb.o ov511.o pwc-uncompress.o
+export-objs		:= hcd.o usb.o ov511.o pwc-uncompress.o
 
 # Multipart objects.
 
@@ -54,9 +54,8 @@ obj-$(CONFIG_USB_UHCI)		+= usb-uhci.o
 obj-$(CONFIG_USB_UHCI_ALT)	+= uhci.o
 obj-$(CONFIG_USB_OHCI)		+= usb-ohci.o
 
-ifneq ($(CONFIG_EHCI_HCD),n)
+ifneq ($(CONFIG_USB_EHCI_HCD),n)
 	usbcore-objs		+= hcd.o
-	export-objs		+= hcd.o
 endif
 subdir-$(CONFIG_USB_EHCI_HCD)	+= hcd
 

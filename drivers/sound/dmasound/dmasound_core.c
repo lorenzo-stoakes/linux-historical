@@ -1250,6 +1250,8 @@ static int sq_ioctl(struct inode *inode, struct file *file, u_int cmd,
 		} else
 			return -EINVAL ;
 		break ;
+	case SOUND_PCM_READ_CHANNELS:
+		return IOCTL_OUT(arg, dmasound.soft.stereo+1);
 	case SNDCTL_DSP_SETFMT:
 		if (shared_resources_are_mine(file->f_mode) &&
 		    queues_are_quiescent()) {
@@ -1260,8 +1262,6 @@ static int sq_ioctl(struct inode *inode, struct file *file, u_int cmd,
 			result = IOCTL_OUT(arg, format);
 			if (result < 0)
 				return result;
-			if (format != data)
-				return -EINVAL;
 			return 0;
 		} else
 			return -EINVAL ;

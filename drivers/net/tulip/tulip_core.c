@@ -15,8 +15,8 @@
 */
 
 #define DRV_NAME	"tulip"
-#define DRV_VERSION	"0.9.15-pre10"
-#define DRV_RELDATE	"Mar 8, 2002"
+#define DRV_VERSION	"0.9.15-pre11"
+#define DRV_RELDATE	"May 11, 2002"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -208,6 +208,7 @@ static struct pci_device_id tulip_pci_tbl[] __devinitdata = {
 	{ 0x1317, 0x0981, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x1317, 0x0985, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x1317, 0x1985, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+	{ 0x1317, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x13D1, 0xAB02, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x13D1, 0xAB03, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x13D1, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },

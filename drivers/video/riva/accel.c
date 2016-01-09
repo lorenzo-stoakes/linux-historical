@@ -110,9 +110,9 @@ static u8 byte_rev[256] = {
 static inline void fbcon_reverse_order(u32 *l)
 {
 	u8 *a = (u8 *)l;
-	*a++ = byte_rev[*a];
-/*	*a++ = byte_rev[*a];
-	*a++ = byte_rev[*a];*/
+	*a = byte_rev[*a], a++;
+/*	*a = byte_rev[*a], a++;
+	*a = byte_rev[*a], a++;*/
 	*a = byte_rev[*a];
 }
 

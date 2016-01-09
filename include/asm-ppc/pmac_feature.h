@@ -86,6 +86,7 @@
 #define PMAC_TYPE_PISMO			0x46	/* Pismo PowerBook */
 #define PMAC_TYPE_TITANIUM		0x47	/* Titanium PowerBook */
 #define PMAC_TYPE_TITANIUM2		0x48	/* Titanium II PowerBook */
+#define PMAC_TYPE_TITANIUM3		0x49	/* Titanium III PowerBook (with L3) */
 #define PMAC_TYPE_UNKNOWN_CORE99	0x5f
 
 /* MacRISC2 machines based on the Pangea chipset

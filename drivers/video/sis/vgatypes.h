@@ -135,12 +135,11 @@ typedef enum _SIS_LCD_TYPE {
     LCD_1600x1200,
     LCD_1920x1440,
     LCD_2048x1536,
+    LCD_320x480,    /* TW: FSTN */
     LCD_UNKNOWN
 } SIS_LCD_TYPE;
 #endif
 #endif
-
-
 
 #ifndef WIN2000 /* mark by Paul ,Move definition to sisv.h*/
 #ifndef PSIS_DSReg
@@ -150,9 +149,6 @@ typedef struct _SIS_DSReg
   UCHAR  jVal;
 } SIS_DSReg, *PSIS_DSReg;
 #endif
-
-
-
 
 #ifndef SIS_HW_DEVICE_INFO
 

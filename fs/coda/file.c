@@ -76,7 +76,9 @@ static int
 coda_file_mmap(struct file *coda_file, struct vm_area_struct *vma)
 {
 	struct coda_file_info *cfi;
+	struct coda_inode_info *cii;
 	struct file *host_file;
+	struct inode *coda_inode, *host_inode;
 
 	cfi = CODA_FTOC(coda_file);
 	if (!cfi || cfi->cfi_magic != CODA_MAGIC) BUG();
@@ -85,6 +87,21 @@ coda_file_mmap(struct file *coda_file, struct vm_area_struct *vma)
 	if (!host_file->f_op || !host_file->f_op->mmap)
 		return -ENODEV;
 
+	coda_inode = coda_file->f_dentry->d_inode;
+	host_inode = host_file->f_dentry->d_inode;
+	if (coda_inode->i_mapping == &coda_inode->i_data)
+		coda_inode->i_mapping = host_inode->i_mapping;
+
+	/* only allow additional mmaps as long as userspace isn't changing
+	 * the container file on us! */
+	else if (coda_inode->i_mapping != host_inode->i_mapping)
+		return -EBUSY;
+
+	/* keep track of how often the coda_inode/host_file has been mmapped */
+	cii = ITOC(coda_inode);
+	cii->c_mapcount++;
+	cfi->cfi_mapcount++;
+ 
 	return host_file->f_op->mmap(host_file, vma);
 }
 
@@ -118,6 +135,7 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	host_file->f_flags |= coda_file->f_flags & (O_APPEND | O_SYNC);
 
 	cfi->cfi_magic = CODA_MAGIC;
+	cfi->cfi_mapcount = 0;
 	cfi->cfi_container = host_file;
 	coda_load_creds(&cfi->cfi_cred);
 
@@ -182,6 +200,8 @@ int coda_release(struct inode *coda_inode, struct file *coda_file)
 	unsigned short flags = (coda_file->f_flags) & (~O_EXCL);
 	unsigned short coda_flags = coda_flags_to_cflags(flags);
 	struct coda_file_info *cfi;
+	struct coda_inode_info *cii;
+	struct inode *host_inode;
 	int err = 0;
 
 	lock_kernel();
@@ -202,6 +222,16 @@ int coda_release(struct inode *coda_inode, struct file *coda_file)
 	if (use_coda_close)
 		err = venus_close(coda_inode->i_sb, coda_i2f(coda_inode),
 				  coda_flags, &cfi->cfi_cred);
+
+	host_inode = cfi->cfi_container->f_dentry->d_inode;
+	cii = ITOC(coda_inode);
+
+	/* did we mmap this file? */
+	if (coda_inode->i_mapping == &host_inode->i_data) {
+		cii->c_mapcount -= cfi->cfi_mapcount;
+		if (!cii->c_mapcount)
+			coda_inode->i_mapping = &coda_inode->i_data;
+	}
 
 	coda_inode->i_mapping = &coda_inode->i_data;
 	fput(cfi->cfi_container);
