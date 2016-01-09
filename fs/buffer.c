@@ -1617,8 +1617,20 @@ out:
 	 * Zero out any newly allocated blocks to avoid exposing stale
 	 * data.  If BH_New is set, we know that the block was newly
 	 * allocated in the above loop.
+	 *
+	 * Details the buffer can be new and uptodate because:
+	 * 1) hole in uptodate page, get_block(create) allocate the block,
+	 *    so the buffer is new and additionally we also mark it uptodate
+	 * 2) The buffer is not mapped and uptodate due a previous partial read.
+	 *
+	 * We can always ignore uptodate buffers here, if you mark a buffer
+	 * uptodate you must make sure it contains the right data first.
+	 *
+	 * We must stop the "undo/clear" fixup pass not at the caller "to"
+	 * but at the last block that we successfully arrived in the main loop.
 	 */
 	bh = head;
+	to = block_start; /* stop at the last successfully handled block */
 	block_start = 0;
 	do {
 		block_end = block_start+blocksize;
@@ -1626,10 +1638,9 @@ out:
 			goto next_bh;
 		if (block_start >= to)
 			break;
-		if (buffer_new(bh)) {
-			if (buffer_uptodate(bh))
-				printk(KERN_ERR "%s: zeroing uptodate buffer!\n", __FUNCTION__);
+		if (buffer_new(bh) && !buffer_uptodate(bh)) {
 			memset(kaddr+block_start, 0, bh->b_size);
+			flush_dcache_page(page);
 			set_bit(BH_Uptodate, &bh->b_state);
 			mark_buffer_dirty(bh);
 		}

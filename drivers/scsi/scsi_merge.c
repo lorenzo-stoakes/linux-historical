@@ -835,7 +835,7 @@ __inline static int __init_io(Scsi_Cmnd * SCpnt,
 	 * case.
  	 */
 	if (count == 1 && !SCpnt->host->highmem_io) {
-		this_count = req->current_nr_sectors;
+		this_count = req->nr_sectors;
 		goto single_segment;
 	}
 

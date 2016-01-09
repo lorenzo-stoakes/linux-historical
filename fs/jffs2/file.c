@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: file.c,v 1.58.2.3 2002/10/07 12:25:55 dwmw2 Exp $
+ * $Id: file.c,v 1.58.2.6 2002/11/12 13:17:01 dwmw2 Exp $
  *
  */
 
@@ -276,23 +276,28 @@ int jffs2_do_readpage_nolock (struct inode *inode, struct page *pg)
 			continue;
 		} else {
 			__u32 readlen;
-			readlen = min(frag->size, end - offset);
-			D1(printk(KERN_DEBUG "Reading %d-%d from node at 0x%x\n", frag->ofs, frag->ofs+readlen, frag->node->raw->flash_offset & ~3));
-			ret = jffs2_read_dnode(c, frag->node, pg_buf, frag->ofs - frag->node->ofs, readlen);
+			__u32 fragofs; /* offset within the frag to start reading */
+
+			fragofs = offset - frag->ofs;
+			readlen = min(frag->size - fragofs, end - offset);
+			D1(printk(KERN_DEBUG "Reading %d-%d from node at 0x%x\n", frag->ofs+fragofs, 
+				  fragofs+frag->ofs+readlen, frag->node->raw->flash_offset & ~3));
+			ret = jffs2_read_dnode(c, frag->node, pg_buf, fragofs + frag->ofs - frag->node->ofs, readlen);
 			D2(printk(KERN_DEBUG "node read done\n"));
 			if (ret) {
 				D1(printk(KERN_DEBUG"jffs2_readpage error %d\n",ret));
-				memset(pg_buf, 0, frag->size);
+				memset(pg_buf, 0, readlen);
 				ClearPageUptodate(pg);
 				SetPageError(pg);
 				kunmap(pg);
 				return ret;
 			}
+		
+			pg_buf += readlen;
+			offset += readlen;
+			frag = frag->next;
+			D2(printk(KERN_DEBUG "node read was OK. Looping\n"));
 		}
-		pg_buf += frag->size;
-		offset += frag->size;
-		frag = frag->next;
-		D2(printk(KERN_DEBUG "node read was OK. Looping\n"));
 	}
 	D2(printk(KERN_DEBUG "readpage finishing\n"));
 	SetPageUptodate(pg);
@@ -331,7 +336,6 @@ int jffs2_prepare_write (struct file *filp, struct page *pg, unsigned start, uns
 	__u32 pageofs = pg->index << PAGE_CACHE_SHIFT;
 	int ret = 0;
 
-	down(&f->sem);
 	D1(printk(KERN_DEBUG "jffs2_prepare_write() nrpages %ld\n", inode->i_mapping->nrpages));
 
 	if (pageofs > inode->i_size) {
@@ -345,10 +349,10 @@ int jffs2_prepare_write (struct file *filp, struct page *pg, unsigned start, uns
 			  (unsigned int)inode->i_size, pageofs));
 
 		ret = jffs2_reserve_space(c, sizeof(ri), &phys_ofs, &alloc_len, ALLOC_NORMAL);
-		if (ret) {
-			up(&f->sem);
+		if (ret)
 			return ret;
-		}
+
+		down(&f->sem);
 		memset(&ri, 0, sizeof(ri));
 
 		ri.magic = JFFS2_MAGIC_BITMASK;
@@ -391,14 +395,17 @@ int jffs2_prepare_write (struct file *filp, struct page *pg, unsigned start, uns
 			return ret;
 		}
 		inode->i_size = pageofs;
+		up(&f->sem);
 	}
 	
 
 	/* Read in the page if it wasn't already present, unless it's a whole page */
-	if (!Page_Uptodate(pg) && (start || end < PAGE_CACHE_SIZE))
+	if (!Page_Uptodate(pg) && (start || end < PAGE_CACHE_SIZE)) {
+		down(&f->sem);
 		ret = jffs2_do_readpage_nolock(inode, pg);
+		up(&f->sem);
+	}
 	D1(printk(KERN_DEBUG "end prepare_write(). pg->flags %lx\n", pg->flags));
-	up(&f->sem);
 	return ret;
 }
 

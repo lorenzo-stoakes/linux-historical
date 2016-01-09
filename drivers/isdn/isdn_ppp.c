@@ -1137,7 +1137,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	isdn_net_dev *nd;
 	unsigned int proto = PPP_IP;     /* 0x21 */
 	struct ippp_struct *ipt,*ipts;
-	int slot;
+	int slot, retval = 0;
 
 	mlp = (isdn_net_local *) (netdev->priv);
 	nd = mlp->netdev;       /* get master lp */
@@ -1147,14 +1147,15 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		printk(KERN_ERR "isdn_ppp_xmit: lp->ppp_slot(%d)\n",
 			mlp->ppp_slot);
 		kfree_skb(skb);
-		return 0;
+		goto unlock;
 	}
 	ipts = ippp_table[slot];
 
 	if (!(ipts->pppcfg & SC_ENABLE_IP)) {	/* PPP connected ? */
 		if (ipts->debug & 0x1)
 			printk(KERN_INFO "%s: IP frame delayed.\n", netdev->name);
-		return 1;
+		retval = 1;
+		goto unlock;
 	}
 
 	switch (ntohs(skb->protocol)) {
@@ -1168,13 +1169,14 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 			printk(KERN_ERR "isdn_ppp: skipped unsupported protocol: %#x.\n", 
 			       skb->protocol);
 			dev_kfree_skb(skb);
-			return 0;
+			goto unlock;
 	}
 
 	lp = isdn_net_get_locked_lp(nd);
 	if (!lp) {
 		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", netdev->name);
-		return 1;
+		retval = 1;
+		goto unlock;
 	}
 	/* we have our lp locked from now on */
 
@@ -1183,7 +1185,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		printk(KERN_ERR "isdn_ppp_xmit: lp->ppp_slot(%d)\n",
 			lp->ppp_slot);
 		kfree_skb(skb);
-		return 0;
+		goto unlock;
 	}
 	ipt = ippp_table[slot];
 	lp->huptimer = 0;
@@ -1334,7 +1336,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 
  unlock:
 	spin_unlock_bh(&lp->xmit_lock);
-	return 0;
+	return retval;
 }
 
 #ifdef CONFIG_ISDN_MPP

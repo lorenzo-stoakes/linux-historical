@@ -408,9 +408,13 @@ static int ext2_alloc_branch(struct inode *inode,
 		unlock_buffer(bh);
 		mark_buffer_dirty_inode(bh, inode);
 		/* We used to sync bh here if IS_SYNC(inode).
-		 * But we now rely upon generic_osync_inode()
+		 * But for S_ISREG files we now rely upon generic_osync_inode()
 		 * and b_inode_buffers
 		 */
+		if (S_ISDIR(inode->i_mode) && IS_SYNC(inode)) {
+			ll_rw_block (WRITE, 1, &bh);
+			wait_on_buffer (bh);
+		}
 		parent = nr;
 	}
 	if (n == num)
@@ -469,8 +473,13 @@ static inline int ext2_splice_branch(struct inode *inode,
 	inode->i_ctime = CURRENT_TIME;
 
 	/* had we spliced it onto indirect block? */
-	if (where->bh)
+	if (where->bh) {
 		mark_buffer_dirty_inode(where->bh, inode);
+		if (S_ISDIR(inode->i_mode) && IS_SYNC(inode)) {
+			ll_rw_block(WRITE, 1, &where->bh);
+			wait_on_buffer(where->bh);
+		}
+	}
 
 	mark_inode_dirty(inode);
 	return 0;

@@ -586,6 +586,8 @@ int map_user_kiobuf(int rw, struct kiobuf *iobuf, unsigned long va, size_t len)
  * occurs, the number of bytes read into memory may be less than the
  * size of the kiobuf, so we have to stop marking pages dirty once the
  * requested byte count has been reached.
+ *
+ * Must be called from process context - set_page_dirty() takes VFS locks.
  */
 
 void mark_dirty_kiobuf(struct kiobuf *iobuf, int bytes)
@@ -603,7 +605,7 @@ void mark_dirty_kiobuf(struct kiobuf *iobuf, int bytes)
 		page = iobuf->maplist[index];
 		
 		if (!PageReserved(page))
-			SetPageDirty(page);
+			set_page_dirty(page);
 
 		remaining -= (PAGE_SIZE - offset);
 		offset = 0;
