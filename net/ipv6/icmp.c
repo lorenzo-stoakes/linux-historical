@@ -361,7 +361,7 @@ void icmpv6_send(struct sk_buff *skb, int type, int code, __u32 info,
 	msg.icmph.icmp6_pointer = htonl(info);
 
 	msg.skb = skb;
-	msg.offset = skb->data - skb->nh.raw; 
+	msg.offset = skb->nh.raw - skb->data;
 	msg.csum = 0;
 	msg.daddr = &hdr->saddr;
 

@@ -495,7 +495,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, u32 info)
 	icmp_param.data.icmph.checksum=0;
 	icmp_param.csum=0;
 	icmp_param.skb=skb_in;
-	icmp_param.offset=skb_in->data - skb_in->nh.raw;
+	icmp_param.offset=skb_in->nh.raw - skb_in->data;
 	icmp_out_count(icmp_param.data.icmph.type);
 	icmp_socket->sk->protinfo.af_inet.tos = tos;
 	ipc.addr = iph->saddr;
