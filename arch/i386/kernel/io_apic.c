@@ -191,15 +191,27 @@ static void clear_IO_APIC (void)
 #define MAX_PIRQS 8
 int pirq_entries [MAX_PIRQS];
 int pirqs_enabled;
-int skip_ioapic_setup;
+#ifdef CONFIG_X86_UP_APIC
+int skip_ioapic_setup=1;
+#else
+int skip_ioapic_setup=0;
+#endif
 
-static int __init ioapic_setup(char *str)
+static int __init noioapic_setup(char *str)
 {
 	skip_ioapic_setup = 1;
 	return 1;
 }
 
-__setup("noapic", ioapic_setup);
+__setup("noapic", noioapic_setup);
+
+static int __init ioapic_setup(char *str)
+{
+	skip_ioapic_setup = 0;
+	return 1;
+}
+
+__setup("apic", ioapic_setup);
 
 static int __init ioapic_pirq_setup(char *str)
 {

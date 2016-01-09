@@ -354,6 +354,7 @@ static __init int swab_apm_power_in_minutes(struct dmi_blacklist *d)
  * The MP1.4 table is right however and so SMP kernels tend to work. 
  */
  
+extern int skip_ioapic_setup;
 static __init int broken_pirq(struct dmi_blacklist *d)
 {
 	printk(KERN_INFO " *** Possibly defective BIOS detected (irqtable)\n");
@@ -361,6 +362,9 @@ static __init int broken_pirq(struct dmi_blacklist *d)
 	printk(KERN_INFO " *** If you see IRQ problems, in paticular SCSI resets and hangs at boot\n");
 	printk(KERN_INFO " *** contact your hardware vendor and ask about updates.\n");
 	printk(KERN_INFO " *** Building an SMP kernel may evade the bug some of the time.\n");
+#ifdef CONFIG_X86_UP_APIC
+	skip_ioapic_setup = 0;
+#endif
 	return 0;
 }
 
@@ -561,6 +565,12 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
 			MATCH(DMI_BIOS_VERSION, "R0203Z3"),
 			MATCH(DMI_BIOS_DATE, "08/25/00"), NO_MATCH
+			} },
+	
+	{ swab_apm_power_in_minutes, "Sony VAIO", {	/* Handle problems with APM on Sony Vaio PCG-Z505LS (with updated BIOS) */
+			MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
+			MATCH(DMI_BIOS_VERSION, "R0209Z3"),
+			MATCH(DMI_BIOS_DATE, "05/12/01"), NO_MATCH
 			} },
 	
 	{ swab_apm_power_in_minutes, "Sony VAIO", {	/* Handle problems with APM on Sony Vaio PCG-F104K */

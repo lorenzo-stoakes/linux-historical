@@ -37,7 +37,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_core.c#1 $
+ * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_core.c#2 $
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx.c,v 1.61 2000/11/13 03:35:43 gibbs Exp $
  */
@@ -821,7 +821,12 @@ ahc_handle_seqint(struct ahc_softc *ahc, u_int intstat)
 		 * target does a command complete.
 		 */
 		ahc_freeze_devq(ahc, scb);
-		ahc_set_transaction_status(scb, CAM_DATA_RUN_ERR);
+		if ((scb->flags & SCB_SENSE) == 0) {
+			ahc_set_transaction_status(scb, CAM_DATA_RUN_ERR);
+		} else {
+			scb->flags &= ~SCB_SENSE;
+			ahc_set_transaction_status(scb, CAM_AUTOSENSE_FAIL);
+		}
 		ahc_freeze_scb(scb);
 
 		if ((ahc->features & AHC_ULTRA2) != 0) {
@@ -1495,7 +1500,7 @@ ahc_alloc_tstate(struct ahc_softc *ahc, u_int scsi_id, char channel)
 		memcpy(tstate, master_tstate, sizeof(*tstate));
 		memset(tstate->enabled_luns, 0, sizeof(tstate->enabled_luns));
 		tstate->ultraenb = 0;
-		for (i = 0; i < 16; i++) {
+		for (i = 0; i < AHC_NUM_TARGETS; i++) {
 			memset(&tstate->transinfo[i].curr, 0,
 			      sizeof(tstate->transinfo[i].curr));
 			memset(&tstate->transinfo[i].goal, 0,
@@ -2598,7 +2603,7 @@ reswitch:
 
 		/*
 		 * Read the latched byte, but turn off SPIOEN first
-		 * so that we don't inadvertantly cause a REQ for the
+		 * so that we don't inadvertently cause a REQ for the
 		 * next byte.
 		 */
 		ahc_outb(ahc, SXFRCTL0, ahc_inb(ahc, SXFRCTL0) & ~SPIOEN);
@@ -3541,7 +3546,7 @@ ahc_alloc(void *platform_arg, char *name)
 	ahc->bugs = AHC_BUGNONE;
 	ahc->flags = AHC_FNONE;
 
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < AHC_NUM_TARGETS; i++)
 		TAILQ_INIT(&ahc->untagged_queues[i]);
 	if (ahc_platform_alloc(ahc, platform_arg) != 0) {
 		ahc_free(ahc);
@@ -3626,6 +3631,22 @@ ahc_softc_insert(struct ahc_softc *ahc)
 	else
 		TAILQ_INSERT_TAIL(&ahc_tailq, ahc, links);
 	ahc->init_level++;
+}
+
+/*
+ * Verify that the passed in softc pointer is for a
+ * controller that is still configured.
+ */
+struct ahc_softc *
+ahc_find_softc(struct ahc_softc *ahc)
+{
+	struct ahc_softc *list_ahc;
+
+	TAILQ_FOREACH(list_ahc, &ahc_tailq, links) {
+		if (list_ahc == ahc)
+			return (ahc);
+	}
+	return (NULL);
 }
 
 void

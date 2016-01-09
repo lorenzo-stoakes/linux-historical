@@ -99,6 +99,7 @@
 #define  CHIPREV_ID_5700_A1		 0x7001
 #define  CHIPREV_ID_5700_B0		 0x7100
 #define  CHIPREV_ID_5700_B1		 0x7101
+#define  CHIPREV_ID_5700_B3		 0x7102
 #define  CHIPREV_ID_5700_C0		 0x7200
 #define  CHIPREV_ID_5701_A0		 0x0000
 #define  CHIPREV_ID_5701_B0		 0x0100
@@ -1654,7 +1655,7 @@ enum phy_led_mode {
  */
 struct ring_info {
 	struct sk_buff			*skb;
-	dma_addr_t			mapping;
+	DECLARE_PCI_UNMAP_ADDR(mapping)
 };
 
 struct tg3_config_info {

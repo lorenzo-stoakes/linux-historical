@@ -2957,7 +2957,7 @@ generic_file_write(struct file *file,const char *buf,size_t count, loff_t *ppos)
 	 */
 	err = -EFBIG;
 	
-	if (limit != RLIM_INFINITY) {
+	if (!S_ISBLK(inode->i_mode) && limit != RLIM_INFINITY) {
 		if (pos >= limit) {
 			send_sig(SIGXFSZ, current, 0);
 			goto out;

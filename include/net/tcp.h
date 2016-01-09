@@ -819,6 +819,11 @@ extern int tcp_sync_mss(struct sock *sk, u32 pmtu);
 
 extern const char timer_bug_msg[];
 
+/* Read 'sendfile()'-style from a TCP socket */
+typedef int (*sk_read_actor_t)(read_descriptor_t *, struct sk_buff *,
+				unsigned int, size_t);
+extern int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+			 sk_read_actor_t recv_actor);
 
 static inline void tcp_clear_xmit_timer(struct sock *sk, int what)
 {
@@ -1327,7 +1332,8 @@ static __inline__ int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
 		if (tp->ucopy.memory > sk->rcvbuf) {
 			struct sk_buff *skb1;
 
-			if (sk->lock.users) BUG();
+			if (sk->lock.users)
+				out_of_line_bug();
 
 			while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
 				sk->backlog_rcv(sk, skb1);

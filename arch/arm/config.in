@@ -629,16 +629,16 @@ source drivers/misc/Config.in
 
 source drivers/usb/Config.in
 
-if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-   source net/bluetooth/Config.in
-fi
+source net/bluetooth/Config.in
 
 mainmenu_option next_comment
 comment 'Kernel hacking'
 
-# Always compile kernel with framepointer (until 2.4 real comes out)
-# Bug reports aren't much use without this.
-bool 'Compile kernel without frame pointer' CONFIG_NO_FRAME_POINTER
+# RMK wants arm kernels compiled with frame pointers so hardwire this to y.  If
+# you know what you are doing and are willing to live without stack traces, you
+# can get a slightly smaller kernel by setting this option to n, but then RMK
+# will have to kill you ;).
+define_bool CONFIG_FRAME_POINTER y
 bool 'Verbose user fault messages' CONFIG_DEBUG_USER
 bool 'Include debugging information in kernel binary' CONFIG_DEBUG_INFO
 dep_bool 'Disable pgtable cache' CONFIG_NO_PGT_CACHE $CONFIG_CPU_26

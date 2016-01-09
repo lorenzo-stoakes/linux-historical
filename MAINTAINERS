@@ -552,14 +552,12 @@ M:      miku@iki.fi
 S:      Maintained
 
 EXT2 FILE SYSTEM
-P:	Remy Card
-M:	Remy.Card@linux.org
-L:	linux-kernel@vger.kernel.org
+L:	ext2-devel@lists.sourceforge.net
 S:	Maintained
 
 EXT3 FILE SYSTEM
-P:	Remy Card, Stephen Tweedie
-M:	sct@redhat.com, akpm@zip.com.au, adilger@turbolinux.com
+P:	Stephen Tweedie, Andrew Morton
+M:	sct@redhat.com, akpm@zip.com.au, adilger@clusterfs.com
 L:	ext3-users@redhat.com
 S:	Maintained
 
@@ -1683,6 +1681,13 @@ S:	Maintained
 USB PRINTER DRIVER
 P:	Vojtech Pavlik
 M:	vojtech@suse.cz
+L:	linux-usb-users@lists.sourceforge.net
+L:	linux-usb-devel@lists.sourceforge.net
+S:	Maintained
+
+USB RTL8150 DRIVER
+P:	Petko Manolov
+M:	petkan@users.sourceforge.net
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
 S:	Maintained

@@ -326,11 +326,12 @@ MODULE_PARM(force_rsa, "1-" __MODULE_STRING(PORT_RSA_MAX) "i");
 MODULE_PARM_DESC(force_rsa, "Force I/O ports for RSA");
 #endif /* CONFIG_SERIAL_RSA  */
 
-static struct serial_state rs_table[RS_TABLE_SIZE] = {
+struct serial_state rs_table[RS_TABLE_SIZE] = {
 	SERIAL_PORT_DFNS	/* Defined in serial.h */
 };
 
 #define NR_PORTS	(sizeof(rs_table)/sizeof(struct serial_state))
+int serial_nr_ports = NR_PORTS;
 
 #if (defined(ENABLE_SERIAL_PCI) || defined(ENABLE_SERIAL_PNP))
 #define NR_PCI_BOARDS	8
@@ -3258,14 +3259,17 @@ static inline int line_info(char *buf, struct serial_state *state)
 	int	ret;
 	unsigned long flags;
 
+	/*
+	 * Return zero characters for ports not claimed by driver.
+	 */
+	if (state->type == PORT_UNKNOWN) {
+		return 0;	/* ignore unused ports */
+	}
+
 	ret = sprintf(buf, "%d: uart:%s port:%lX irq:%d",
 		      state->line, uart_config[state->type].name, 
-		      state->port, state->irq);
-
-	if (!state->port || (state->type == PORT_UNKNOWN)) {
-		ret += sprintf(buf+ret, "\n");
-		return ret;
-	}
+		      (state->port ? state->port : (long)state->iomem_base),
+		      state->irq);
 
 	/*
 	 * Figure out the current RS-232 lines

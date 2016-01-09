@@ -14,7 +14,6 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/personality.h>
-#include <linux/compiler.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgalloc.h>

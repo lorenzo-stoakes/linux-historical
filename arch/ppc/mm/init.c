@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.init.c 1.40 01/25/02 15:15:24 benh
+ * BK Id: SCCS/s.init.c 1.43 03/12/02 12:13:51 paulus
  */
 /*
  *  PowerPC version 
@@ -570,9 +570,6 @@ set_phys_avail(unsigned long total_memory)
 	/* remove the RTAS pages from the available memory */
 	if (rtas_data)
 		mem_pieces_remove(&phys_avail, rtas_data, rtas_size, 1);
-	/* remove the sysmap pages from the available memory */
-	if (sysmap)
-		mem_pieces_remove(&phys_avail, __pa(sysmap), sysmap_size, 1);
 	/* Because of some uninorth weirdness, we need a page of
 	 * memory as high as possible (it must be outside of the
 	 * bus address seen as the AGP aperture). It will be used
@@ -588,6 +585,9 @@ set_phys_avail(unsigned long total_memory)
 		agp_special_page = (unsigned long)__va(agp_special_page);
 	}
 #endif /* CONFIG_ALL_PPC */
+	/* remove the sysmap pages from the available memory */
+	if (sysmap)
+		mem_pieces_remove(&phys_avail, __pa(sysmap), sysmap_size, 1);
 }
 
 /* Mark some memory as reserved by removing it from phys_avail. */

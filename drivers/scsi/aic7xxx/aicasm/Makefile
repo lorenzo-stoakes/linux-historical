@@ -29,8 +29,6 @@ YFLAGS+= -t -v
 LFLAGS= -d
 endif
 
-.NOTPARALLEL:
-
 $(PROG):  ${GENHDRS} $(SRCS)
 	$(AICASM_CC) $(AICASM_CFLAGS) $(SRCS) -o $(PROG)
 
@@ -61,7 +59,7 @@ aicasm_macro_gram.c aicasm_macro_gram.h: aicasm_macro_gram.y
 	mv $(<:.y=).tab.h $(<:.y=.h)
 
 aicasm_scan.c: aicasm_scan.l
-	$(LEX) $(LFLAGS) -t $< > $@
+	$(LEX) $(LFLAGS) -o$@ $<
 
 aicasm_macro_scan.c: aicasm_macro_scan.l
-	$(LEX) $(LFLAGS) -t -Pmm $< > $@
+	$(LEX) $(LFLAGS) -Pmm -o$@ $<

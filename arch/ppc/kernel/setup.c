@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.setup.c 1.70 02/15/02 09:27:13 trini
+ * BK Id: SCCS/s.setup.c 1.74 04/09/02 21:01:58 paulus
  */
 /*
  * Common prep/pmac/chrp boot and setup code.
@@ -52,6 +52,7 @@ extern void platform_init(unsigned long r3, unsigned long r4,
 extern void bootx_init(unsigned long r4, unsigned long phys);
 extern void identify_cpu(unsigned long offset, unsigned long cpu);
 extern void do_cpu_ftr_fixups(unsigned long offset);
+extern void reloc_got2(unsigned long offset);
 
 #ifdef CONFIG_XMON
 extern void xmon_map_scc(void);
@@ -291,22 +292,22 @@ early_init(int r3, int r4, int r5)
 	do_cpu_ftr_fixups(offset);
 
 #if defined(CONFIG_ALL_PPC)
+	reloc_got2(offset);
+
 	/* If we came here from BootX, clear the screen,
 	 * set up some pointers and return. */
-	if ((r3 == 0x426f6f58) && (r5 == 0)) {
+	if ((r3 == 0x426f6f58) && (r5 == 0))
 		bootx_init(r4, phys);
-		return phys;
-	}
 
-	/* check if we're prep, return if we are */
-	if ( *(unsigned long *)(0) == 0xdeadc0de )
-		return phys;
-
-	/* 
+	/*
+	 * don't do anything on prep
 	 * for now, don't use bootinfo because it breaks yaboot 0.5
 	 * and assume that if we didn't find a magic number, we have OF
 	 */
-	phys = prom_init(r3, r4, (prom_entry)r5);
+	else if (*(unsigned long *)(0) != 0xdeadc0de)
+		phys = prom_init(r3, r4, (prom_entry)r5);
+
+	reloc_got2(-offset);
 #endif
 
 	return phys;
@@ -343,11 +344,9 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	      unsigned long r6, unsigned long r7)
 {
 #ifdef CONFIG_BOOTX_TEXT
-	extern boot_infos_t *disp_bi;
-
-	if (disp_bi) {
+	if (boot_text_mapped) {
 		btext_clearscreen();
-		btext_welcome(disp_bi);
+		btext_welcome();
 	}
 #endif	
 
@@ -409,15 +408,14 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 		char *p;
 			
 #ifdef CONFIG_BLK_DEV_INITRD
-		if (r3 && r4 && r4 != 0xdeadbeef)
-			{
-				if (r3 < KERNELBASE)
-					r3 += KERNELBASE;
-				initrd_start = r3;
-				initrd_end = r3 + r4;
-				ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
-				initrd_below_start_ok = 1;
-			}
+		if (r3 && r4 && r4 != 0xdeadbeef) {
+			if (r3 < KERNELBASE)
+				r3 += KERNELBASE;
+			initrd_start = r3;
+			initrd_end = r3 + r4;
+			ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
+			initrd_below_start_ok = 1;
+		}
 #endif
 		chosen = find_devices("chosen");
 		if (chosen != NULL) {

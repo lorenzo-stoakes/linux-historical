@@ -1910,3 +1910,9 @@ Changes for patch v199.11
 - Ported to kernel 2.4.19-pre5
 
 - Updated README from master HTML file
+===============================================================================
+Changes for patch v199.12
+
+- Updated README from master HTML file
+
+- Changed fs/devfs/util.c to kdev_t compatibility macros

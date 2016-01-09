@@ -25,9 +25,9 @@
 /*
  * BlueZ HCI virtual device driver.
  *
- * $Id: hci_vhci.c,v 1.3 2001/08/03 04:19:50 maxk Exp $ 
+ * $Id: hci_vhci.c,v 1.2 2002/03/18 19:16:40 maxk Exp $ 
  */
-#define VERSION "1.0"
+#define VERSION "1.1"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -49,33 +49,46 @@
 #include <asm/uaccess.h>
 
 #include <net/bluetooth/bluetooth.h>
-#include <net/bluetooth/bluez.h>
 #include <net/bluetooth/hci_core.h>
-#include <net/bluetooth/hci_vhci.h>
+#include "hci_vhci.h"
 
 /* HCI device part */
 
-int hci_vhci_open(struct hci_dev *hdev)
+static int hci_vhci_open(struct hci_dev *hdev)
 {
-	hdev->flags |= HCI_RUNNING;
+	set_bit(HCI_RUNNING, &hdev->flags);
 	return 0;
 }
 
-int hci_vhci_flush(struct hci_dev *hdev)
+static int hci_vhci_flush(struct hci_dev *hdev)
 {
 	struct hci_vhci_struct *hci_vhci = (struct hci_vhci_struct *) hdev->driver_data;
 	skb_queue_purge(&hci_vhci->readq);
 	return 0;
 }
 
-int hci_vhci_close(struct hci_dev *hdev)
+static int hci_vhci_close(struct hci_dev *hdev)
 {
-	hdev->flags &= ~HCI_RUNNING;
+	if (!test_and_clear_bit(HCI_RUNNING, &hdev->flags))
+		return 0;
+
 	hci_vhci_flush(hdev);
 	return 0;
 }
 
-int hci_vhci_send_frame(struct sk_buff *skb)
+static void hci_vhci_destruct(struct hci_dev *hdev)
+{
+	struct hci_vhci_struct *vhci;
+
+	if (!hdev) return;
+
+	vhci = (struct hci_vhci_struct *) hdev->driver_data;
+	kfree(vhci);
+
+	MOD_DEC_USE_COUNT;
+}
+
+static int hci_vhci_send_frame(struct sk_buff *skb)
 {
 	struct hci_dev* hdev = (struct hci_dev *) skb->dev;
 	struct hci_vhci_struct *hci_vhci;
@@ -85,7 +98,7 @@ int hci_vhci_send_frame(struct sk_buff *skb)
 		return -ENODEV;
 	}
 
-	if (!(hdev->flags & HCI_RUNNING))
+	if (!test_bit(HCI_RUNNING, &hdev->flags))
 		return -EBUSY;
 
 	hci_vhci = (struct hci_vhci_struct *) hdev->driver_data;
@@ -188,7 +201,7 @@ static ssize_t hci_vhci_chr_read(struct file * file, char * buf, size_t count, l
 
 	add_wait_queue(&hci_vhci->read_wait, &wait);
 	while (count) {
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 
 		/* Read frames from device queue */
 		if (!(skb = skb_dequeue(&hci_vhci->readq))) {
@@ -214,11 +227,15 @@ static ssize_t hci_vhci_chr_read(struct file * file, char * buf, size_t count, l
 		kfree_skb(skb);
 		break;
 	}
-
-	current->state = TASK_RUNNING;
+	set_current_state(TASK_RUNNING);
 	remove_wait_queue(&hci_vhci->read_wait, &wait);
 
 	return ret;
+}
+
+static loff_t hci_vhci_chr_lseek(struct file * file, loff_t offset, int origin)
+{
+	return -ESPIPE;
 }
 
 static int hci_vhci_chr_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
@@ -265,11 +282,13 @@ static int hci_vhci_chr_open(struct inode *inode, struct file * file)
 	hdev->close = hci_vhci_close;
 	hdev->flush = hci_vhci_flush;
 	hdev->send  = hci_vhci_send_frame;
+	hdev->destruct = hci_vhci_destruct;
 
 	if (hci_register_dev(hdev) < 0) {
 		kfree(hci_vhci);
 		return -EBUSY;
 	}
+	MOD_INC_USE_COUNT;
 
 	file->private_data = hci_vhci;
 	return 0;   
@@ -283,15 +302,13 @@ static int hci_vhci_chr_close(struct inode *inode, struct file *file)
 		ERR("Can't unregister HCI device %s", hci_vhci->hdev.name);
 	}
 
-	kfree(hci_vhci);
 	file->private_data = NULL;
-
 	return 0;
 }
 
 static struct file_operations hci_vhci_fops = {
 	owner:	THIS_MODULE,	
-	llseek:	no_llseek,
+	llseek:	hci_vhci_chr_lseek,
 	read:	hci_vhci_chr_read,
 	write:	hci_vhci_chr_write,
 	poll:	hci_vhci_chr_poll,
@@ -332,4 +349,4 @@ module_exit(hci_vhci_cleanup);
 
 MODULE_AUTHOR("Maxim Krasnyansky <maxk@qualcomm.com>");
 MODULE_DESCRIPTION("BlueZ VHCI driver ver " VERSION);
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL"); 

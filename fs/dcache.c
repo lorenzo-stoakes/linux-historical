@@ -568,8 +568,7 @@ int shrink_dcache_memory(int priority, unsigned int gfp_mask)
 	count = dentry_stat.nr_unused / priority;
 
 	prune_dcache(count);
-	kmem_cache_shrink(dentry_cache);
-	return 0;
+	return kmem_cache_shrink(dentry_cache);
 }
 
 #define NAME_ALLOC_LEN(len)	((len+16) & ~15)

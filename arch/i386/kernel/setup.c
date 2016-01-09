@@ -141,6 +141,9 @@ unsigned int mca_pentium_flag;
 /* For PCI or other memory-mapped resources */
 unsigned long pci_mem_start = 0x10000000;
 
+/* user-defined highmem size */
+static unsigned int highmem_pages = -1;
+
 /*
  * Setup options
  */
@@ -411,6 +414,22 @@ static void __init probe_roms(void)
 	}
 }
 
+void __init limit_regions (unsigned long long size)
+{
+	int i;
+	unsigned long long current_size = 0;
+
+	for (i = 0; i < e820.nr_map; i++) {
+		if (e820.map[i].type == E820_RAM) {
+			current_size += e820.map[i].size;
+			if (current_size >= size) {
+				e820.map[i].size -= current_size-size;
+				e820.nr_map = i + 1;
+				return;
+			}
+		}
+	}
+}
 static void __init add_memory_region(unsigned long long start,
                                   unsigned long long size, int type)
 {
@@ -712,7 +731,7 @@ static void __init parse_mem_cmdline (char ** cmdline_p)
 {
 	char c = ' ', *to = command_line, *from = COMMAND_LINE;
 	int len = 0;
-	int usermem = 0;
+	int userdef = 0;
 
 	/* Save unparsed command line copy for /proc/cmdline */
 	memcpy(saved_command_line, COMMAND_LINE, COMMAND_LINE_SIZE);
@@ -735,37 +754,36 @@ static void __init parse_mem_cmdline (char ** cmdline_p)
 			} else if (!memcmp(from+4, "exactmap", 8)) {
 				from += 8+4;
 				e820.nr_map = 0;
-				usermem = 1;
+				userdef = 1;
 			} else {
 				/* If the user specifies memory size, we
-				 * blow away any automatically generated
-				 * size
+				 * limit the BIOS-provided memory map to
+				 * that size. exactmap can be used to specify
+				 * the exact map. mem=number can be used to
+				 * trim the existing memory map.
 				 */
 				unsigned long long start_at, mem_size;
  
-				if (usermem == 0) {
-					/* first time in: zap the whitelist
-					 * and reinitialize it with the
-					 * standard low-memory region.
-					 */
-					e820.nr_map = 0;
-					usermem = 1;
-					add_memory_region(0, LOWMEMSIZE(), E820_RAM);
-				}
 				mem_size = memparse(from+4, &from);
-				if (*from == '@')
+				if (*from == '@') {
 					start_at = memparse(from+1, &from);
-				else {
-					start_at = HIGH_MEMORY;
-					mem_size -= HIGH_MEMORY;
-					usermem=0;
+					add_memory_region(start_at, mem_size, E820_RAM);
+				} else {
+					limit_regions(mem_size);
+					userdef=1;
 				}
-				add_memory_region(start_at, mem_size, E820_RAM);
 			}
 		}
 		/* acpismp=force forces parsing and use of the ACPI SMP table */
-		if (c == ' ' && !memcmp(from, "acpismp=force", 13)) 	
+		if (c == ' ' && !memcmp(from, "acpismp=force", 13))
 			 enable_acpi_smp_table = 1;
+		/*
+		 * highmem=size forces highmem to be exactly 'size' bytes.
+		 * This works even on boxes that have no highmem otherwise.
+		 * This also works to reduce highmem size on bigger boxes.
+		 */
+		if (c == ' ' && !memcmp(from, "highmem=", 8))
+			highmem_pages = memparse(from+8, &from) >> PAGE_SHIFT;
 	
 		c = *(from++);
 		if (!c)
@@ -776,7 +794,7 @@ static void __init parse_mem_cmdline (char ** cmdline_p)
 	}
 	*to = '\0';
 	*cmdline_p = command_line;
-	if (usermem) {
+	if (userdef) {
 		printk(KERN_INFO "user-defined physical RAM map:\n");
 		print_memory_map("user");
 	}
@@ -863,6 +881,14 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	max_low_pfn = max_pfn;
 	if (max_low_pfn > MAXMEM_PFN) {
+		if (highmem_pages == -1)
+			highmem_pages = max_pfn - MAXMEM_PFN;
+		if (highmem_pages + MAXMEM_PFN < max_pfn)
+			max_pfn = MAXMEM_PFN + highmem_pages;
+		if (highmem_pages + MAXMEM_PFN > max_pfn) {
+			printk("only %luMB highmem pages available, ignoring highmem size of %uMB.\n", pages_to_mb(max_pfn - MAXMEM_PFN), pages_to_mb(highmem_pages));
+			highmem_pages = 0;
+		}
 		max_low_pfn = MAXMEM_PFN;
 #ifndef CONFIG_HIGHMEM
 		/* Maximum memory usable is what is directly addressable */
@@ -881,16 +907,37 @@ void __init setup_arch(char **cmdline_p)
 		}
 #endif /* !CONFIG_X86_PAE */
 #endif /* !CONFIG_HIGHMEM */
+	} else {
+		if (highmem_pages == -1)
+			highmem_pages = 0;
+#if CONFIG_HIGHMEM
+		if (highmem_pages >= max_pfn) {
+			printk(KERN_ERR "highmem size specified (%uMB) is bigger than pages available (%luMB)!.\n", pages_to_mb(highmem_pages), pages_to_mb(max_pfn));
+			highmem_pages = 0;
+		}
+		if (highmem_pages) {
+			if (max_low_pfn-highmem_pages < 64*1024*1024/PAGE_SIZE){
+				printk(KERN_ERR "highmem size %uMB results in smaller than 64MB lowmem, ignoring it.\n", pages_to_mb(highmem_pages));
+				highmem_pages = 0;
+			}
+			max_low_pfn -= highmem_pages;
+		}
+#else
+		if (highmem_pages)
+			printk(KERN_ERR "ignoring highmem size on non-highmem kernel!\n");
+#endif
 	}
 
 #ifdef CONFIG_HIGHMEM
 	highstart_pfn = highend_pfn = max_pfn;
-	if (max_pfn > MAXMEM_PFN) {
-		highstart_pfn = MAXMEM_PFN;
-		printk(KERN_NOTICE "%ldMB HIGHMEM available.\n",
-			pages_to_mb(highend_pfn - highstart_pfn));
+	if (max_pfn > max_low_pfn) {
+		highstart_pfn = max_low_pfn;
 	}
+	printk(KERN_NOTICE "%ldMB HIGHMEM available.\n",
+		pages_to_mb(highend_pfn - highstart_pfn));
 #endif
+	printk(KERN_NOTICE "%ldMB LOWMEM available.\n",
+			pages_to_mb(max_low_pfn));
 	/*
 	 * Initialize the boot-time allocator (with low memory only):
 	 */

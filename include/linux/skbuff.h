@@ -826,7 +826,7 @@ static inline char *__skb_pull(struct sk_buff *skb, unsigned int len)
 {
 	skb->len-=len;
 	if (skb->len < skb->data_len)
-		BUG();
+		out_of_line_bug();
 	return 	skb->data+=len;
 }
 

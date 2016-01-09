@@ -23,6 +23,8 @@ pdf:	$(PDF)
 
 html:	$(HTML)
 
+man:	kernel-api-man
+
 %.eps: %.fig
 	fig2dev -Leps $< $@
 

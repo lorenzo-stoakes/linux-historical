@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_host.h#1 $
+ * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_host.h#3 $
  */
 
 #ifndef _AIC7XXX_HOST_H_
@@ -82,12 +82,12 @@ int		 ahc_linux_abort(Scsi_Cmnd *);
 	reset: NULL,						\
 	slave_attach: NULL,					\
 	bios_param: AIC7XXX_BIOSPARAM,				\
-	can_queue: 253,		/* max simultaneous cmds      */\
-	this_id: -1,		/* scsi id of host adapter    */\
-	sg_tablesize: 0,	/* max scatter-gather cmds    */\
-	cmd_per_lun: 2,		/* cmds per lun		      */\
-	present: 0,		/* number of 7xxx's present   */\
-	unchecked_isa_dma: 0,	/* no memory DMA restrictions */\
+	can_queue: AHC_MAX_QUEUE,/* max simultaneous cmds     */\
+	this_id: -1,		 /* scsi id of host adapter   */\
+	sg_tablesize: AHC_NSEG,	 /* max scatter-gather cmds   */\
+	cmd_per_lun: 2,		 /* cmds per lun	      */\
+	present: 0,		 /* number of 7xxx's present  */\
+	unchecked_isa_dma: 0,	 /* no memory DMA restrictions*/\
 	use_clustering: ENABLE_CLUSTERING,			\
 	use_new_eh_code: 1					\
 }

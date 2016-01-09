@@ -909,14 +909,13 @@ static void drain_cpu_caches(kmem_cache_t *cachep)
 #define drain_cpu_caches(cachep)	do { } while (0)
 #endif
 
-static int __kmem_cache_shrink(kmem_cache_t *cachep)
+/*
+ * Called with the &cachep->spinlock held, returns number of slabs released
+ */
+static int __kmem_cache_shrink_locked(kmem_cache_t *cachep)
 {
 	slab_t *slabp;
-	int ret;
-
-	drain_cpu_caches(cachep);
-
-	spin_lock_irq(&cachep->spinlock);
+	int ret = 0;
 
 	/* If the cache is growing, stop shrinking. */
 	while (!cachep->growing) {
@@ -935,9 +934,22 @@ static int __kmem_cache_shrink(kmem_cache_t *cachep)
 
 		spin_unlock_irq(&cachep->spinlock);
 		kmem_slab_destroy(cachep, slabp);
+		ret++;
 		spin_lock_irq(&cachep->spinlock);
 	}
-	ret = !list_empty(&cachep->slabs_full) || !list_empty(&cachep->slabs_partial);
+	return ret;
+}
+
+static int __kmem_cache_shrink(kmem_cache_t *cachep)
+{
+	int ret;
+
+	drain_cpu_caches(cachep);
+
+	spin_lock_irq(&cachep->spinlock);
+	__kmem_cache_shrink_locked(cachep);
+	ret = !list_empty(&cachep->slabs_full) ||
+		!list_empty(&cachep->slabs_partial);
 	spin_unlock_irq(&cachep->spinlock);
 	return ret;
 }
@@ -947,14 +959,22 @@ static int __kmem_cache_shrink(kmem_cache_t *cachep)
  * @cachep: The cache to shrink.
  *
  * Releases as many slabs as possible for a cache.
- * To help debugging, a zero exit status indicates all slabs were released.
+ * Returns number of pages released.
  */
 int kmem_cache_shrink(kmem_cache_t *cachep)
 {
+	int ret;
+
 	if (!cachep || in_interrupt() || !is_chained_kmem_cache(cachep))
 		BUG();
 
-	return __kmem_cache_shrink(cachep);
+	drain_cpu_caches(cachep);
+  
+	spin_lock_irq(&cachep->spinlock);
+	ret = __kmem_cache_shrink_locked(cachep);
+	spin_unlock_irq(&cachep->spinlock);
+
+	return ret << cachep->gfporder;
 }
 
 /**

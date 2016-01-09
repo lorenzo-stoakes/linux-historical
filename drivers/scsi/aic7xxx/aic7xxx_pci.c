@@ -685,9 +685,6 @@ static void aic787X_cable_detect(struct ahc_softc *ahc, int *internal50_present,
 static void aic785X_cable_detect(struct ahc_softc *ahc, int *internal50_present,
 				 int *externalcable_present,
 				 int *eeprom_present);
-static int acquire_seeprom(struct ahc_softc *ahc,
-			   struct seeprom_descriptor *sd);
-static void release_seeprom(struct seeprom_descriptor *sd);
 static void write_brdctl(struct ahc_softc *ahc, uint8_t value);
 static uint8_t read_brdctl(struct ahc_softc *ahc);
 
@@ -1013,6 +1010,14 @@ ahc_ext_scbram_present(struct ahc_softc *ahc)
 
 	if ((ahc->features & AHC_ULTRA2) != 0)
 		ramps = (ahc_inb(ahc, DSCOMMAND0) & RAMPS) != 0;
+	else if (chip == AHC_AIC7895 || chip == AHC_AIC7895C)
+		/*
+		 * External SCBRAM arbitration is flakey
+		 * on these chips.  Unfortunately this means
+		 * we don't use the extra SCB ram space on the
+		 * 3940AUW.
+		 */
+		ramps = 0;
 	else if (chip >= AHC_AIC7870)
 		ramps = (devconfig & RAMPSM) != 0;
 	else
@@ -1215,7 +1220,7 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 	sd.sd_DO = SEEDO;
 	sd.sd_DI = SEEDI;
 
-	have_seeprom = acquire_seeprom(ahc, &sd);
+	have_seeprom = ahc_acquire_seeprom(ahc, &sd);
 	if (have_seeprom) {
 
 		if (bootverbose) 
@@ -1244,7 +1249,7 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 			}
 			sd.sd_chip = C56_66;
 		}
-		release_seeprom(&sd);
+		ahc_release_seeprom(&sd);
 	}
 
 	if (!have_seeprom) {
@@ -1428,9 +1433,9 @@ check_extport(struct ahc_softc *ahc, u_int *sxfrctl1)
 	}
 
 	if (have_autoterm) {
-		acquire_seeprom(ahc, &sd);
+		ahc_acquire_seeprom(ahc, &sd);
 		configure_termination(ahc, &sd, adapter_control, sxfrctl1);
-		release_seeprom(&sd);
+		ahc_release_seeprom(&sd);
 	}
 }
 
@@ -1736,8 +1741,8 @@ aic785X_cable_detect(struct ahc_softc *ahc, int *internal50_present,
 	*eeprom_present = (ahc_inb(ahc, SPIOCAP) & EEPROM) ? 1 : 0;
 }
 	
-static int
-acquire_seeprom(struct ahc_softc *ahc, struct seeprom_descriptor *sd)
+int
+ahc_acquire_seeprom(struct ahc_softc *ahc, struct seeprom_descriptor *sd)
 {
 	int wait;
 
@@ -1764,8 +1769,8 @@ acquire_seeprom(struct ahc_softc *ahc, struct seeprom_descriptor *sd)
 	return(1);
 }
 
-static void
-release_seeprom(struct seeprom_descriptor *sd)
+void
+ahc_release_seeprom(struct seeprom_descriptor *sd)
 {
 	/* Release access to the memory port and the serial EEPROM. */
 	SEEPROM_OUTB(sd, 0);

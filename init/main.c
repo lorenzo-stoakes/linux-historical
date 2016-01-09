@@ -293,9 +293,11 @@ unsigned long wait_init_idle;
 #ifndef CONFIG_SMP
 
 #ifdef CONFIG_X86_LOCAL_APIC
+extern int skip_ioapic_setup;
 static void __init smp_init(void)
 {
-	APIC_init_uniprocessor();
+	if (!skip_ioapic_setup)
+		APIC_init_uniprocessor();
 }
 #else
 #define smp_init()	do { } while (0)

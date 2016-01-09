@@ -422,10 +422,11 @@ void flush_thread(void)
 	struct thread_struct *t = &current->thread;
 
 	if (current->mm) {
+		unsigned long pgd_cache = 0UL;
+
 		if (t->flags & SPARC_FLAG_32BIT) {
 			struct mm_struct *mm = current->mm;
 			pgd_t *pgd0 = &mm->pgd[0];
-			unsigned long pgd_cache;
 
 			if (pgd_none(*pgd0)) {
 				pmd_t *page = pmd_alloc_one_fast(NULL, 0);
@@ -434,13 +435,13 @@ void flush_thread(void)
 				pgd_set(pgd0, page);
 			}
 			pgd_cache = pgd_val(*pgd0) << 11UL;
-			__asm__ __volatile__("stxa %0, [%1] %2\n\t"
-					     "membar #Sync"
-					     : /* no outputs */
-					     : "r" (pgd_cache),
-					       "r" (TSB_REG),
-					       "i" (ASI_DMMU));
 		}
+		__asm__ __volatile__("stxa %0, [%1] %2\n\t"
+				     "membar #Sync"
+				     : /* no outputs */
+				     : "r" (pgd_cache),
+				     "r" (TSB_REG),
+				     "i" (ASI_DMMU));
 	}
 	t->w_saved = 0;
 

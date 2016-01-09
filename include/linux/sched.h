@@ -900,7 +900,8 @@ static inline int task_on_runqueue(struct task_struct *p)
 
 static inline void unhash_process(struct task_struct *p)
 {
-	if (task_on_runqueue(p)) BUG();
+	if (task_on_runqueue(p))
+		out_of_line_bug();
 	write_lock_irq(&tasklist_lock);
 	nr_threads--;
 	unhash_pid(p);

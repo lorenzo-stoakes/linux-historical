@@ -25,11 +25,11 @@
 #include <asm/pgtable.h>
 #include <asm/machdep.h>
 #include <asm/pmac_feature.h>
+#include <asm/irq.h>
 #ifdef CONFIG_PMAC_PBOOK
 #include <linux/adb.h>
 #include <linux/pmu.h>
-#include <asm/irq.h>
-#endif
+#endif /* CONFIG_PMAC_PBOOK */
 #include "bmac.h"
 
 #define trunc_page(x)	((void *)(((unsigned long)(x)) & ~((unsigned long)(PAGE_SIZE - 1))))

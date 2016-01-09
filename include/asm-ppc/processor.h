@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.processor.h 1.33 12/01/01 20:09:11 benh
+ * BK Id: SCCS/s.processor.h 1.35 03/19/02 15:04:39 benh
  */
 #ifdef __KERNEL__
 #ifndef __ASM_PPC_PROCESSOR_H
@@ -267,6 +267,24 @@
 #define SPRN_L2CR2      0x3f8
 #define	SPRN_L3CR	0x3FA	/* Level 3 Cache Control Regsiter (7450) */
 #define L3CR_L3E		0x80000000	/* L3 enable */
+#define L3CR_L3PE		0x40000000	/* L3 data parity enable */
+#define L3CR_L3APE		0x20000000	/* L3 addr parity enable */
+#define L3CR_L3SIZ		0x10000000	/* L3 size */
+#define L3CR_L3CLKEN		0x08000000	/* L3 clock enable */
+#define L3CR_L3RES		0x04000000	/* L3 special reserved bit */
+#define L3CR_L3CLKDIV		0x03800000	/* L3 clock divisor */
+#define L3CR_L3IO		0x00400000	/* L3 instruction only */
+#define L3CR_L3SPO		0x00040000	/* L3 sample point override */
+#define L3CR_L3CKSP		0x00030000	/* L3 clock sample point */
+#define L3CR_L3PSP		0x0000e000	/* L3 P-clock sample point */
+#define L3CR_L3REP		0x00001000	/* L3 replacement algorithm */
+#define L3CR_L3HWF		0x00000800	/* L3 hardware flush */
+#define L3CR_L3I		0x00000400	/* L3 global invalidate */
+#define L3CR_L3RT		0x00000300	/* L3 SRAM type */
+#define L3CR_L3NIRCA		0x00000080	/* L3 non-integer ratio clock adj. */
+#define L3CR_L3DO		0x00000040	/* L3 data only mode */
+#define L3CR_PMEN		0x00000004	/* L3 private memory enable */
+#define L3CR_PMSIZ		0x00000001	/* L3 private memory size */
 #define SPRN_MSSCR0	0x3f6	/* Memory Subsystem Control Register 0 */
 #define SPRN_MSSSR0	0x3f7	/* Memory Subsystem Status Register 1 */
 #define SPRN_ICTRL	0x3f3	/* Instruction Cache & Interrupt control reg */

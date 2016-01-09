@@ -2222,8 +2222,8 @@ static void end_buffer_io_kiobuf(struct buffer_head *bh, int uptodate)
 	mark_buffer_uptodate(bh, uptodate);
 
 	kiobuf = bh->b_private;
-	unlock_buffer(bh);
 	end_kio_request(kiobuf, uptodate);
+	unlock_buffer(bh);
 }
 
 /*

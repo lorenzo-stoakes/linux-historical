@@ -11,10 +11,6 @@ LINKFLAGS	:=-p -X -T arch/arm/vmlinux.lds
 GZFLAGS		:=-9
 CFLAGS		+=-fno-common -pipe
 
-ifneq ($(CONFIG_NO_FRAME_POINTER),y)
-CFLAGS		:=$(CFLAGS:-fomit-frame-pointer=)
-endif
-
 ifeq ($(CONFIG_DEBUG_INFO),y)
 CFLAGS		+=-g
 endif

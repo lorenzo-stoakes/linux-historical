@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_osm_pci.c#1 $
+ * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_osm_pci.c#2 $
  */
 
 #include "aic7xxx_osm.h"
@@ -85,20 +85,15 @@ static void
 ahc_linux_pci_dev_remove(struct pci_dev *pdev)
 {
 	struct ahc_softc *ahc;
-	struct ahc_softc *list_ahc;
 
 	/*
 	 * We should be able to just perform
 	 * the free directly, but check our
 	 * list for extra sanity.
 	 */
-	ahc = (struct ahc_softc *)pdev->driver_data;
-	TAILQ_FOREACH(list_ahc, &ahc_tailq, links) {
-		if (list_ahc == ahc) {
-			ahc_free(ahc);
-			break;
-		}
-	}
+	ahc = ahc_find_softc((struct ahc_softc *)pdev->driver_data);
+	if (ahc != NULL)
+		ahc_free(ahc);
 }
 #endif /* !LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0) */
 

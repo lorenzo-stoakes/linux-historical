@@ -409,7 +409,7 @@ struct scsi_inquiry_data
 #include <linux/smp.h>
 #endif
 
-#define AIC7XXX_DRIVER_VERSION  "6.2.5"
+#define AIC7XXX_DRIVER_VERSION  "6.2.6"
 
 /**************************** Front End Queues ********************************/
 /*

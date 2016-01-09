@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pgtable.h 1.15 09/22/01 11:26:52 trini
+ * BK Id: SCCS/s.pgtable.h 1.21 03/12/02 11:49:48 paulus
  */
 #ifdef __KERNEL__
 #ifndef _PPC_PGTABLE_H
@@ -264,15 +264,6 @@ extern unsigned long ioremap_bot, ioremap_base;
 #define _PAGE_HWWRITE	0
 #endif
 
-/* We can't use _PAGE_HWWRITE on any SMP due to the lack of ability
- * to atomically manage _PAGE_HWWRITE and it's coordination flags,
- * _PAGE_DIRTY or _PAGE_RW.  The SMP systems must manage HWWRITE
- * or its logical equivalent in the MMU management software.
- */
-#if CONFIG_SMP && _PAGE_HWWRITE
-#error "You can't configure SMP and HWWRITE"
-#endif
-
 #define _PAGE_CHG_MASK	(PAGE_MASK | _PAGE_ACCESSED | _PAGE_DIRTY)
 
 /*
@@ -282,7 +273,7 @@ extern unsigned long ioremap_bot, ioremap_base;
  * another purpose.  -- paulus.
  */
 #define _PAGE_BASE	_PAGE_PRESENT | _PAGE_ACCESSED
-#define _PAGE_WRENABLE	_PAGE_RW | _PAGE_DIRTY
+#define _PAGE_WRENABLE	_PAGE_RW | _PAGE_DIRTY | _PAGE_HWWRITE
 
 #define _PAGE_KERNEL	_PAGE_BASE | _PAGE_WRENABLE | _PAGE_SHARED
 #define _PAGE_IO	_PAGE_KERNEL | _PAGE_NO_CACHE | _PAGE_GUARDED

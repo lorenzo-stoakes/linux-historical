@@ -38,9 +38,11 @@
  */
 
 /* PowerSurge are the first generation of PCI Pmacs. This include
- * all of the Grand-Central based machines
+ * all of the Grand-Central based machines. We currently don't
+ * differenciate most of them.
  */
 #define PMAC_TYPE_PSURGE		0x10	/* PowerSurge */
+#define PMAC_TYPE_ANS			0x11	/* Apple Network Server */
 
 /* Here is the infamous serie of OHare based machines
  */
@@ -90,6 +92,7 @@
  */
 #define PMAC_TYPE_PANGEA_IMAC		0x100	/* Flower Power iMac */
 #define PMAC_TYPE_IBOOK2		0x101	/* iBook2 (polycarbonate) */
+#define PMAC_TYPE_FLAT_PANEL_IMAC	0x102	/* Flat panel iMac */
 #define PMAC_TYPE_UNKNOWN_PANGEA	0x10f
 
 /*

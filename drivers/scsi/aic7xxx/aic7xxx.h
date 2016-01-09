@@ -51,6 +51,7 @@
 /************************* Forward Declarations *******************************/
 struct ahc_platform_data;
 struct scb_platform_data;
+struct seeprom_descriptor;
 
 /****************************** Useful Macros *********************************/
 #ifndef MAX
@@ -1117,6 +1118,7 @@ void			 ahc_pause_and_flushwork(struct ahc_softc *ahc);
 int			 ahc_suspend(struct ahc_softc *ahc); 
 int			 ahc_resume(struct ahc_softc *ahc);
 void			 ahc_softc_insert(struct ahc_softc *);
+struct ahc_softc	*ahc_find_softc(struct ahc_softc *ahc);
 void			 ahc_set_unit(struct ahc_softc *, int);
 void			 ahc_set_name(struct ahc_softc *, char *);
 void			 ahc_alloc_scbs(struct ahc_softc *ahc);
@@ -1228,4 +1230,8 @@ extern int ahc_debug;
 #endif
 void			ahc_print_scb(struct scb *scb);
 void			ahc_dump_card_state(struct ahc_softc *ahc);
+/******************************* SEEPROM *************************************/
+int		ahc_acquire_seeprom(struct ahc_softc *ahc,
+				    struct seeprom_descriptor *sd);
+void		ahc_release_seeprom(struct seeprom_descriptor *sd);
 #endif /* _AIC7XXX_H_ */

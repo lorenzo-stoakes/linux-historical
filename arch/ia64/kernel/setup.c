@@ -347,6 +347,10 @@ setup_arch (char **cmdline_p)
 		/* Parse the ACPI tables */
 		acpi_parse(efi.acpi);
 	}
+	if (efi.hcdp) {
+		/* Setup the serial ports described by HCDP */
+		setup_serial_hcdp(efi.hcdp);
+	}
 
 #ifdef CONFIG_VT
 # if defined(CONFIG_VGA_CONSOLE)

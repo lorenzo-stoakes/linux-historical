@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pmac_setup.c 1.45 12/01/01 20:09:06 benh
+ * BK Id: SCCS/s.pmac_setup.c 1.53 04/09/02 21:01:58 paulus
  */
 /*
  *  linux/arch/ppc/kernel/setup.c
@@ -140,26 +140,6 @@ sys_ctrler_t sys_ctrler = SYS_CTRLER_UNKNOWN;
 #ifdef CONFIG_SMP
 extern struct smp_ops_t psurge_smp_ops;
 extern struct smp_ops_t core99_smp_ops;
-
-volatile static long int core99_l2_cache;
-void __init
-core99_init_l2(void)
-{
-	int cpu = smp_processor_id();
-
-	if (!(cur_cpu_spec[0]->cpu_features & CPU_FTR_L2CR))
-		return;
-
-	if (cpu == 0){
-		core99_l2_cache = _get_L2CR();
-		printk("CPU0: L2CR is %lx\n", core99_l2_cache);
-	} else {
-		printk("CPU%d: L2CR was %lx\n", cpu, _get_L2CR());
-		_set_L2CR(0);
-		_set_L2CR(core99_l2_cache);
-		printk("CPU%d: L2CR set to %lx\n", cpu, core99_l2_cache);
-	}
-}
 #endif /* CONFIG_SMP */
 
 /*
@@ -189,7 +169,15 @@ pmac_show_cpuinfo(struct seq_file *m)
 	struct device_node *np;
 	char *pp;
 	int plen;
+	int mbmodel = pmac_call_feature(PMAC_FTR_GET_MB_INFO,
+		NULL, PMAC_MB_INFO_MODEL, 0);
+	unsigned int mbflags = (unsigned int)pmac_call_feature(PMAC_FTR_GET_MB_INFO,
+		NULL, PMAC_MB_INFO_FLAGS, 0);
+	char* mbname;
 
+	if (pmac_call_feature(PMAC_FTR_GET_MB_INFO, NULL, PMAC_MB_INFO_NAME, (int)&mbname) != 0)
+		mbname = "Unknown";
+		
 	/* find motherboard type */
 	seq_printf(m, "machine\t\t: ");
 	np = find_devices("device-tree");
@@ -213,6 +201,10 @@ pmac_show_cpuinfo(struct seq_file *m)
 	} else
 		seq_printf(m, "PowerMac\n");
 
+	/* print parsed model */
+	seq_printf(m, "detected as\t: %d (%s)\n", mbmodel, mbname);
+	seq_printf(m, "pmac flags\t: %08x\n", mbflags);
+	
 	/* find l2 cache info */
 	np = find_devices("l2-cache");
 	if (np == 0)
@@ -352,11 +344,6 @@ pmac_setup_arch(void)
 		printk(KERN_INFO "L2CR overriden (0x%x), backside cache is %s\n",
 			ppc_override_l2cr_value, (ppc_override_l2cr_value & 0x80000000)
 				? "enabled" : "disabled");
-
-#ifdef CONFIG_SMP
-	/* somewhat of a hack */
-	core99_init_l2();
-#endif
 	
 #ifdef CONFIG_KGDB
 	zs_kgdb_hook(0);
@@ -473,7 +460,7 @@ note_scsi_host(struct device_node *node, void *host)
 		}
 	}
 }
-#endif
+#endif /* CONFIG_SCSI */
 
 #if defined(CONFIG_BLK_DEV_IDE) && defined(CONFIG_BLK_DEV_IDE_PMAC)
 kdev_t __init
@@ -664,7 +651,7 @@ pmac_ide_pci_init_hwif_ports(hw_regs_t *hw, ide_ioreg_t data_port,
  * Read in a property describing some pieces of memory.
  */
 
-static void __init
+static int __init
 get_mem_prop(char *name, struct mem_pieces *mp)
 {
 	struct reg_property *rp;
@@ -677,7 +664,7 @@ get_mem_prop(char *name, struct mem_pieces *mp)
 	if (ip == NULL) {
 		printk(KERN_ERR "error: couldn't get %s property on /memory\n",
 		       name);
-		abort();
+		return 0;
 	}
 	s /= (nsc + nac) * 4;
 	rp = mp->regions;
@@ -696,6 +683,7 @@ get_mem_prop(char *name, struct mem_pieces *mp)
 	/* Make sure the pieces are sorted. */
 	mem_pieces_sort(mp);
 	mem_pieces_coalesce(mp);
+	return 1;
 }
 
 /*
@@ -711,12 +699,6 @@ pmac_find_end_of_memory(void)
 	unsigned long a, total;
 	struct mem_pieces phys_mem;
 
-	memory_node = find_devices("memory");
-	if (memory_node == NULL) {
-		printk(KERN_ERR "can't find memory node\n");
-		abort();
-	}
-
 	/*
 	 * Find out where physical memory is, and check that it
 	 * starts at 0 and is contiguous.  It seems that RAM is
@@ -727,8 +709,9 @@ pmac_find_end_of_memory(void)
 	 * more complicated (or else you end up wasting space
 	 * in mem_map).
 	 */
-	get_mem_prop("reg", &phys_mem);
-	if (phys_mem.n_regions == 0)
+	memory_node = find_devices("memory");
+	if (memory_node == NULL || !get_mem_prop("reg", &phys_mem)
+	    || phys_mem.n_regions == 0)
 		panic("No RAM??");
 	a = phys_mem.regions[0].address;
 	if (a != 0)
@@ -841,15 +824,12 @@ pmac_init(unsigned long r3, unsigned long r4, unsigned long r5,
 }
 
 #ifdef CONFIG_BOOTX_TEXT
-extern void drawchar(char c);
-extern void drawstring(const char *c);
-extern boot_infos_t *disp_bi;
 void __init
 pmac_progress(char *s, unsigned short hex)
 {
-	if (disp_bi == 0)
-		return;
-	btext_drawstring(s);
-	btext_drawchar('\n');
+	if (boot_text_mapped) {
+		btext_drawstring(s);
+		btext_drawchar('\n');
+	}
 }
 #endif /* CONFIG_BOOTX_TEXT */

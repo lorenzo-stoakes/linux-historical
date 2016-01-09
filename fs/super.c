@@ -613,16 +613,6 @@ struct super_block *get_anon_super(struct file_system_type *type,
 	if (!s)
 		return ERR_PTR(-ENOMEM);
 
-	spin_lock(&unnamed_dev_lock);
-	dev = find_first_zero_bit(unnamed_dev_in_use, Max_anon);
-	if (dev == Max_anon) {
-		spin_unlock(&unnamed_dev_lock);
-		destroy_super(s);
-		return ERR_PTR(-EMFILE);
-	}
-	set_bit(dev, unnamed_dev_in_use);
-	spin_unlock(&unnamed_dev_lock);
-
 retry:
 	spin_lock(&sb_lock);
 	if (compare) list_for_each(p, &type->fs_supers) {
@@ -635,6 +625,17 @@ retry:
 		destroy_super(s);
 		return old;
 	}
+
+	spin_lock(&unnamed_dev_lock);
+	dev = find_first_zero_bit(unnamed_dev_in_use, Max_anon);
+	if (dev == Max_anon) {
+		spin_unlock(&unnamed_dev_lock);
+		spin_unlock(&sb_lock);
+		destroy_super(s);
+		return ERR_PTR(-EMFILE);
+	}
+	set_bit(dev, unnamed_dev_in_use);
+	spin_unlock(&unnamed_dev_lock);
 
 	s->s_dev = dev;
 	insert_super(s, type);

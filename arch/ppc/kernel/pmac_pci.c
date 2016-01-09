@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pmac_pci.c 1.31 01/20/02 23:53:11 benh
+ * BK Id: SCCS/s.pmac_pci.c 1.33 03/19/02 15:53:55 benh
  */
 /*
  * Support for PCI bridges found on Power Macintoshes.
@@ -258,20 +258,11 @@ init_bandit(struct pci_controller *bp)
 		rev = in_8(bp->cfg_data);
 		if (rev != BANDIT_REVID)
 			printk(KERN_WARNING
-			       "Unknown revision %d for bandit at %08lx\n",
-			       rev, bp->io_base_phys);
+			       "Unknown revision %d for bandit\n", rev);
 	} else if (vendev != (BANDIT_DEVID_2 << 16) + PCI_VENDOR_ID_APPLE) {
 		printk(KERN_WARNING "bandit isn't? (%x)\n", vendev);
 		return;
 	}
-
-	/* read the revision id */
-	out_le32(bp->cfg_addr, (1UL << BANDIT_DEVNUM) + PCI_REVISION_ID);
-	udelay(2);
-	rev = in_8(bp->cfg_data);
-	if (rev != BANDIT_REVID)
-		printk(KERN_WARNING "Unknown revision %d for bandit at %08lx\n",
-		       rev, bp->io_base_phys);
 
 	/* read the word at offset 0x50 */
 	out_le32(bp->cfg_addr, (1UL << BANDIT_DEVNUM) + BANDIT_MAGIC);
@@ -282,8 +273,7 @@ init_bandit(struct pci_controller *bp)
 	magic |= BANDIT_COHERENT;
 	udelay(2);
 	out_le32((volatile unsigned int *)bp->cfg_data, magic);
-	printk(KERN_INFO "Cache coherency enabled for bandit/PSX at %08lx\n",
-	       bp->io_base_phys);
+	printk(KERN_INFO "Cache coherency enabled for bandit/PSX\n");
 }
 
 

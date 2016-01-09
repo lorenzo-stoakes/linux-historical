@@ -7,6 +7,7 @@
 #include <linux/blk.h>
 #include <linux/fd.h>
 #include <linux/tty.h>
+#include <linux/init.h>
 
 #include <linux/nfs_fs.h>
 #include <linux/nfs_fs_sb.h>
@@ -198,6 +199,22 @@ static struct dev_name_struct {
 	{ "cciss/c0d14p",0x68E0 },
 	{ "cciss/c0d15p",0x68F0 },
 #endif
+	{ "ataraid/d0p",0x7200 },
+	{ "ataraid/d1p",0x7210 },
+	{ "ataraid/d2p",0x7220 },
+	{ "ataraid/d3p",0x7230 },
+	{ "ataraid/d4p",0x7240 },
+	{ "ataraid/d5p",0x7250 },
+	{ "ataraid/d6p",0x7260 },
+	{ "ataraid/d7p",0x7270 },
+	{ "ataraid/d8p",0x7280 },
+	{ "ataraid/d9p",0x7290 },
+	{ "ataraid/d10p",0x72A0 },
+	{ "ataraid/d11p",0x72B0 },
+	{ "ataraid/d12p",0x72C0 },
+	{ "ataraid/d13p",0x72D0 },
+	{ "ataraid/d14p",0x72E0 },
+	{ "ataraid/d15p",0x72F0 },
 	{ "nftla", 0x5d00 },
 	{ "nftlb", 0x5d10 },
 	{ "nftlc", 0x5d20 },

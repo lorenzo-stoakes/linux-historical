@@ -95,6 +95,8 @@ do {								\
 
 int ahc_read_seeprom(struct seeprom_descriptor *sd, uint16_t *buf,
 		     u_int start_addr, u_int count);
+int ahc_write_seeprom(struct seeprom_descriptor *sd, uint16_t *buf,
+		      u_int start_addr, u_int count);
 int ahc_verify_cksum(struct seeprom_config *sc);
 
 #endif /* _AIC7XXX_93CX6_H_ */

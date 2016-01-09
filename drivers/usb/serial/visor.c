@@ -12,6 +12,10 @@
  *
  * See Documentation/usb/usb-serial.txt for more information on using this driver
  *
+ * (04/03/2002) gkh
+ *	Added support for the Sony OS 4.1 devices.  Thanks to Hiroyuki ARAKI
+ *	<hiro@zob.ne.jp> for the information.
+ *
  * (03/23/2002) gkh
  *	Added support for the Palm i705 device, thanks to Thomas Riemer
  *	<tom@netmech.com> for the information.
@@ -189,6 +193,7 @@ static __devinitdata struct usb_device_id clie_id_3_5_table [] = {
 static __devinitdata struct usb_device_id clie_id_4_0_table [] = {
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_0_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_S360_ID) },
+	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_1_ID) },
 	{ }					/* Terminating entry */
 };
 
@@ -203,6 +208,7 @@ static __devinitdata struct usb_device_id id_table [] = {
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_3_5_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_0_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_S360_ID) },
+	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_1_ID) },
 	{ }					/* Terminating entry */
 };
 
@@ -290,7 +296,7 @@ static struct usb_serial_device_type clie_3_5_device = {
 
 /* device info for the Sony Clie OS version 4.0 */
 static struct usb_serial_device_type clie_4_0_device = {
-	name:			"Sony Clié 4.0",
+	name:			"Sony Clié 4.x",
 	id_table:		clie_id_4_0_table,
 	needs_interrupt_in:	MUST_HAVE_NOT,		/* this device must not have an interrupt in endpoint */
 	needs_bulk_in:		MUST_HAVE,		/* this device must have a bulk in endpoint */
@@ -698,7 +704,8 @@ static int  visor_startup (struct usb_serial *serial)
 	}
 
 	if ((serial->dev->descriptor.idVendor == PALM_VENDOR_ID) ||
-	    (serial->dev->descriptor.idVendor == SONY_VENDOR_ID)) {
+	    ((serial->dev->descriptor.idVendor == SONY_VENDOR_ID) &&
+	     (serial->dev->descriptor.idProduct != SONY_CLIE_4_1_ID))) {
 		/* Palm OS 4.0 Hack */
 		response = usb_control_msg (serial->dev, usb_rcvctrlpipe(serial->dev, 0), 
 					    PALM_GET_SOME_UNKNOWN_INFORMATION,

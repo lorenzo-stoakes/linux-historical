@@ -1319,7 +1319,7 @@ scratch_ram {
 		bit	SDMAENACK	0x10
 		bit	HDMAEN		0x08
 		bit	HDMAENACK	0x08
-		bit	DIRECTION	0x04
+		bit	DIRECTION	0x04	/* Set indicates PCI->SCSI */
 		bit	FIFOFLUSH	0x02
 		bit	FIFORESET	0x01
 	}

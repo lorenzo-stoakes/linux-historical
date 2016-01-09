@@ -272,7 +272,7 @@ kdev_t devfs_alloc_devnum (char type)
 	if (minor >= 256) continue;
 	__set_bit (minor, entry->bits);
 	up (semaphore);
-	return MKDEV (entry->major, minor);
+	return mk_kdev (entry->major, minor);
     }
     /*  Need to allocate a new major  */
     if ( ( entry = kmalloc (sizeof *entry, GFP_KERNEL) ) == NULL )
@@ -294,7 +294,7 @@ kdev_t devfs_alloc_devnum (char type)
     else list->last->next = entry;
     list->last = entry;
     up (semaphore);
-    return MKDEV (entry->major, 0);
+    return mk_kdev (entry->major, 0);
 }   /*  End Function devfs_alloc_devnum  */
 EXPORT_SYMBOL(devfs_alloc_devnum);
 
@@ -314,7 +314,7 @@ void devfs_dealloc_devnum (char type, kdev_t devnum)
     struct device_list *list;
     struct minor_list *entry;
 
-    if (devnum == NODEV) return;
+    if ( kdev_none (devnum) ) return;
     if (type == DEVFS_SPECIAL_CHR)
     {
 	semaphore = &char_semaphore;
@@ -325,8 +325,8 @@ void devfs_dealloc_devnum (char type, kdev_t devnum)
 	semaphore = &block_semaphore;
 	list = &block_list;
     }
-    major = MAJOR (devnum);
-    minor = MINOR (devnum);
+    major = major (devnum);
+    minor = minor (devnum);
     down (semaphore);
     for (entry = list->first; entry != NULL; entry = entry->next)
     {

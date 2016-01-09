@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.ns16550.c 1.14 01/11/02 10:46:07 trini
+ * BK Id: SCCS/s.ns16550.c 1.16 03/13/02 09:17:06 trini
  */
 /*
  * COM1 NS16550 support
@@ -63,7 +63,7 @@ unsigned long serial_init(int chan, void *ignored)
 	else {
 		/* Input clock. */
 		outb(com_port + (UART_DLL << shift),
-		     (BASE_BAUD / SERIAL_BAUD));
+		     (BASE_BAUD / SERIAL_BAUD) & 0xFF);
 		outb(com_port + (UART_DLM << shift),
 		     (BASE_BAUD / SERIAL_BAUD) >> 8);
 		/* 8 data, 1 stop, no parity */

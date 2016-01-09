@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.head.S 1.34 12/02/01 11:35:27 benh
+ * BK Id: SCCS/s.head.S 1.37 04/09/02 21:43:09 paulus
  */
 /*
  *  PowerPC version 
@@ -217,11 +217,17 @@ turn_on_mmu:
 	SYNC
 	RFI				/* enables MMU */
 
-#ifdef CONFIG_SMP
+/*
+ * We need __secondary_hold as a place to hold the other cpus on
+ * an SMP machine, even when we are running a UP kernel.
+ */
+	. = 0xc0			/* for prep bootloader */
+	li	r3,1			/* MTX only has 1 cpu */
 	.globl	__secondary_hold
 __secondary_hold:
 	/* tell the master we're here */
 	stw	r3,4(0)
+#ifdef CONFIG_SMP
 100:	lwz	r4,0(0)
 	/* wait until we're told to start */
 	cmpw	0,r4,r3
@@ -229,7 +235,9 @@ __secondary_hold:
 	/* our cpu # was at addr 0 - go */
 	mr	r24,r3			/* cpu # */
 	b	__secondary_start
-#endif
+#else
+	b	.
+#endif /* CONFIG_SMP */
 
 /*
  * Exception entry code.  This code runs with address translation
@@ -301,6 +309,10 @@ i##n:						\
 #endif
 
 /* Machine check */
+BEGIN_FTR_SECTION
+	DSSALL
+	sync
+END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	STD_EXCEPTION(0x200, MachineCheck, MachineCheckException)
 
 /* Data access exception. */
@@ -1592,6 +1604,10 @@ _GLOBAL(set_context)
 	li	r0,NUM_USER_SEGMENTS
 	mtctr	r0
 	li	r4,0
+BEGIN_FTR_SECTION
+	DSSALL
+	sync
+END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 3:
 #ifdef CONFIG_PPC64BRIDGE
 	slbie	r4
@@ -1601,7 +1617,7 @@ _GLOBAL(set_context)
 	rlwinm	r3,r3,0,8,3	/* clear out any overflow from VSID field */
 	addis	r4,r4,0x1000	/* address of next segment */
 	bdnz	3b
-	SYNC_601
+	sync
 	isync
 	blr
 

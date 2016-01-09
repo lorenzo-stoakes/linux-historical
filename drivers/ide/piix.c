@@ -92,6 +92,7 @@ static int piix_get_info (char *buffer, char **addr, off_t offset, int count)
 		case PCI_DEVICE_ID_INTEL_82801BA_8:
 		case PCI_DEVICE_ID_INTEL_82801BA_9:
 	        case PCI_DEVICE_ID_INTEL_82801CA_10:
+	        case PCI_DEVICE_ID_INTEL_82801CA_11:
 			p += sprintf(p, "\n                                Intel PIIX4 Ultra 100 Chipset.\n");
 			break;
 		case PCI_DEVICE_ID_INTEL_82372FB_1:
@@ -366,7 +367,8 @@ static int piix_config_drive_for_dma (ide_drive_t *drive)
 	byte udma_66		= eighty_ninty_three(drive);
 	int ultra100		= ((dev->device == PCI_DEVICE_ID_INTEL_82801BA_8) ||
 				   (dev->device == PCI_DEVICE_ID_INTEL_82801BA_9) ||
-				   (dev->device == PCI_DEVICE_ID_INTEL_82801CA_10)) ? 1 : 0;
+				   (dev->device == PCI_DEVICE_ID_INTEL_82801CA_10) ||
+				   (dev->device == PCI_DEVICE_ID_INTEL_82801CA_11)) ? 1 : 0;
 	int ultra66		= ((ultra100) ||
 				   (dev->device == PCI_DEVICE_ID_INTEL_82801AA_1) ||
 				   (dev->device == PCI_DEVICE_ID_INTEL_82372FB_1)) ? 1 : 0;

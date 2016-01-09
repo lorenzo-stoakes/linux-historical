@@ -113,6 +113,8 @@ enum {
 #define PMU_IOC_HAS_ADB		_IOR('B', 4, sizeof(__u32*)) 
 /* out param: u32*	can_sleep: 0 or 1 */
 #define PMU_IOC_CAN_SLEEP	_IOR('B', 5, sizeof(__u32*)) 
+/* no param */
+#define PMU_IOC_GRAB_BACKLIGHT	_IOR('B', 6, 0) 
 
 #ifdef __KERNEL__
 

@@ -1855,7 +1855,7 @@ static int radeonfb_get_fix (struct fb_fix_screeninfo *fix, int con,
 	if (noaccel)
 	        fix->accel = FB_ACCEL_NONE;
 	else
-		fix->accel = 40;	/* XXX */
+		fix->accel = FB_ACCEL_ATI_RADEON;
         
         return 0;
 }

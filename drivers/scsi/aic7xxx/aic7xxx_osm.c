@@ -1,7 +1,7 @@
 /*
  * Adaptec AIC7xxx device driver for Linux.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_osm.c#1 $
+ * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_osm.c#4 $
  *
  * Copyright (c) 1994 John Aycock
  *   The University of Calgary Department of Computer Science.
@@ -1134,7 +1134,15 @@ ahc_linux_detect(Scsi_Host_Template *template)
 #else
 	template->proc_dir = &proc_scsi_aic7xxx;
 #endif
-	template->sg_tablesize = AHC_NSEG;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,7)
+	/*
+	 * We can only map 16MB per-SG
+	 * so create a sector limit of
+	 * "16MB" in 2K sectors.
+	 */
+	template->max_sectors = 8192;
+#endif
 
 #ifdef CONFIG_PCI
 	ahc_linux_pci_probe(template);
@@ -1369,6 +1377,14 @@ ahc_platform_free(struct ahc_softc *ahc)
 			ahc->dev_softc->driver = NULL;
 #endif
 		free(ahc->platform_data, M_DEVBUF);
+	}
+	if (TAILQ_EMPTY(&ahc_tailq)) {
+		unregister_reboot_notifier(&ahc_linux_notifier);
+#ifdef CONFIG_PCI
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+		pci_unregister_driver(&aic7xxx_pci_driver);
+#endif
+#endif
 	}
 }
 
@@ -2871,16 +2887,14 @@ ahc_linux_release(struct Scsi_Host * host)
 
 	if (host != NULL) {
 
-		ahc = *(struct ahc_softc **)host->hostdata;
-		ahc_free(ahc);
-	}
-	if (TAILQ_EMPTY(&ahc_tailq)) {
-		unregister_reboot_notifier(&ahc_linux_notifier);
-#ifdef CONFIG_PCI
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
-		pci_unregister_driver(&aic7xxx_pci_driver);
-#endif
-#endif
+		/*
+		 * We should be able to just perform
+		 * the free directly, but check our
+		 * list for extra sanity.
+		 */
+		ahc = ahc_find_softc(*(struct ahc_softc **)host->hostdata);
+		if (ahc != NULL)
+			ahc_free(ahc);
 	}
 	return (0);
 }
