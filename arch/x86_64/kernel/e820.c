@@ -1,7 +1,7 @@
 /* 
  * Handle the memory map.
  * The functions here do the job until bootmem takes over.
- * $Id: e820.c,v 1.6 2002/10/15 09:35:16 ak Exp $
+ * $Id: e820.c,v 1.10 2003/09/25 03:22:05 ak Exp $
  */
 #include <linux/config.h>
 #include <linux/kernel.h>
@@ -12,6 +12,7 @@
 #include <asm/page.h>
 #include <asm/e820.h>
 #include <asm/proto.h>
+#include <asm/acpi.h>
 #include <asm/bootsetup.h>
 
 extern unsigned long table_start, table_end;
@@ -488,7 +489,6 @@ void __init setup_memory_region(void)
 			mem_size = ALT_MEM_K;
 			who = "BIOS-e801";
 		}
-
 		e820.nr_map = 0;
 		add_memory_region(0, LOWMEMSIZE(), E820_RAM);
 		add_memory_region(HIGH_MEMORY, mem_size << 10, E820_RAM);
@@ -500,7 +500,6 @@ void __init setup_memory_region(void)
 extern char command_line[], saved_command_line[];
 extern int fallback_aper_order;
 extern int iommu_setup(char *opt);
-extern int acpi_disabled;
 
 void __init parse_mem_cmdline (char ** cmdline_p)
 {
@@ -541,6 +540,22 @@ void __init parse_mem_cmdline (char ** cmdline_p)
 #endif
  		else if (!memcmp(from, "acpi=off", 8))
   			acpi_disabled = 1;
+		else if (!memcmp(from,"maxcpus=0",9)) {
+			disable_ioapic_setup();
+			apic_disabled = 1;
+		}
+		
+		else if (!memcmp(from, "noapic", 6)) 
+			disable_ioapic_setup();
+		else if (!memcmp(from, "nolocalapic", 11) || !memcmp(from,"nolapic",7))
+			apic_disabled = 1;
+		else if (!memcmp(from, "pci=noacpi", 10))
+			use_acpi_pci = 0;
+		else if (!memcmp(from,"apic",4)) {
+			extern int ioapic_force;
+			ioapic_force = 1;
+			skip_ioapic_setup = 0;
+		}
 		
 	next:
 		c = *(from++);

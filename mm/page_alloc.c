@@ -317,7 +317,7 @@ static struct page * balance_classzone(zone_t * classzone, unsigned int gfp_mask
 		}
 		current->nr_local_pages = 0;
 	}
- out:
+
 	*freed = __freed;
 	return page;
 }

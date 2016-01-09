@@ -753,4 +753,3 @@ embed_config(bd_t **bdp)
 	timebase_period_ns = 1000000000 / bd->bi_tbfreq;
 }
 #endif
-

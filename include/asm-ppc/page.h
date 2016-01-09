@@ -13,8 +13,7 @@
 #ifdef __KERNEL__
 #include <linux/config.h>
 
-/* Be sure to change arch/ppc/Makefile to match */
-#define PAGE_OFFSET	0xc0000000
+#define PAGE_OFFSET	CONFIG_KERNEL_START
 #define KERNELBASE	PAGE_OFFSET
 
 #ifndef __ASSEMBLY__

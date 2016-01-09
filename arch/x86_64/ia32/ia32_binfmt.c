@@ -28,7 +28,6 @@ struct elf_phdr;
 
 #define ELF_NAME "elf/i386"
 
-#define IA32_PAGE_OFFSET ((current->personality & ADDR_LIMIT_3GB) ? 0xc0000000 : 0xFFFFe000)
 #define IA32_STACK_TOP IA32_PAGE_OFFSET
 #define ELF_ET_DYN_BASE		(IA32_PAGE_OFFSET/3 + 0x1000000)
 

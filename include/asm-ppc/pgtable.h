@@ -279,7 +279,7 @@ extern unsigned long vmalloc_start;
 #define	_PAGE_WRITETHRU	0x00000800		/* H: W bit */
 
 /* TODO: Add large page lowmem mapping support */
-#define _PMD_PRESENT	0
+#define _PMD_PRESENT	PAGE_MASK
 #define _PMD_PRESENT_MASK (PAGE_MASK)
 #define _PMD_BAD	(~PAGE_MASK)
 

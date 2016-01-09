@@ -202,7 +202,7 @@ static char *statsLabels[] = {
 #ifndef RUN_AT
 #define RUN_AT(x) (jiffies+(x))
 #endif
-#if LINUX_VERSION_CODE < 0x020500
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,23)
 static inline struct proc_dir_entry *PDE(const struct inode *inode)
 {
 	return inode->u.generic_ip;

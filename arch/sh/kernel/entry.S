@@ -589,6 +589,7 @@ restore_all:
 	mov	#0, k1
 	mov.b	k1, @k0
 #endif
+	mov.l	@r15+, k2		! restore EXPEVT
 	mov	k4, r15
 	rte
 	 nop
@@ -678,6 +679,7 @@ handle_exception:
 9:	mov.l	3f, k1
 	!
 	! Save the user registers on the stack.
+	mov.l	k2, @-r15	! EXPEVT
 	add	#-4, r15	! placeholder
 	!
 	sts.l	macl, @-r15

@@ -6,7 +6,7 @@
  *  Copyright (C) 2000 Karsten Keil <kkeil@suse.de>
  *  Copyright (C) 2001,2002 Andi Kleen <ak@suse.de>
  *
- *  $Id: head.S,v 1.56 2003/05/12 14:38:43 ak Exp $
+ *  $Id: head.S,v 1.57 2003/07/11 15:58:46 ak Exp $
  */
 
 
@@ -312,7 +312,8 @@ ENTRY(empty_bad_pmd_table)
 ENTRY(level3_physmem_pgt)
 	.quad	0x0000000000105007		/* -> level2_kernel_pgt (so that __va works even before pagetable_init) */
 
-.org 0xb000
+	.org 0xb000
+#ifdef CONFIG_ACPI_SLEEP
 ENTRY(wakeup_level4_pgt)
         .quad   0x0000000000102007              /* -> level3_ident_pgt */
         .fill   255,8,0
@@ -320,6 +321,7 @@ ENTRY(wakeup_level4_pgt)
         .fill   254,8,0
         /* (2^48-(2*1024*1024*1024))/(2^39) = 511 */
         .quad   0x0000000000103007              /* -> level3_kernel_pgt */
+#endif
 
 .data
 

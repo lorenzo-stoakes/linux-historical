@@ -106,7 +106,15 @@ static struct board_type products[] = {
 
 #define READ_AHEAD 	 128
 #define NR_CMDS		 128 /* #commands that can be outstanding */
-#define MAX_CTLR 8
+#define MAX_CTLR	 32 
+
+/* No sense in giving up our preallocated major numbers */
+#if MAX_CTLR < 8
+#error"cciss.c: MAX_CTLR must be 8 or greater"
+#endif
+
+/* Originally cciss driver only supports 8 major number */
+#define MAX_CTLR_ORIG  COMPAQ_CISS_MAJOR7 - COMPAQ_CISS_MAJOR + 1
 
 #define CCISS_DMA_MASK 0xFFFFFFFFFFFFFFFF /* 64 bit DMA */
 
@@ -121,7 +129,7 @@ static u32 heartbeat_timer = 0;
 #endif
 
 static ctlr_info_t *hba[MAX_CTLR];
-
+static int map_major_to_ctlr[MAX_BLKDEV] = {0}; /* gets ctlr num from maj num */
 static struct proc_dir_entry *proc_cciss;
 
 static void do_cciss_request(request_queue_t *q);
@@ -421,7 +429,7 @@ static void cciss_geninit( int ctlr)
  */
 static int cciss_open(struct inode *inode, struct file *filep)
 {
-	int ctlr = MAJOR(inode->i_rdev) - MAJOR_NR;
+ 	int ctlr = map_major_to_ctlr[MAJOR(inode->i_rdev)];
 	int dsk  = MINOR(inode->i_rdev) >> NWD_SHIFT;
 
 #ifdef CCISS_DEBUG
@@ -462,7 +470,7 @@ static int cciss_open(struct inode *inode, struct file *filep)
  */
 static int cciss_release(struct inode *inode, struct file *filep)
 {
-	int ctlr = MAJOR(inode->i_rdev) - MAJOR_NR;
+	int ctlr = map_major_to_ctlr[MAJOR(inode->i_rdev)];
 	int dsk  = MINOR(inode->i_rdev) >> NWD_SHIFT;
 
 #ifdef CCISS_DEBUG
@@ -482,7 +490,7 @@ static int cciss_release(struct inode *inode, struct file *filep)
 static int cciss_ioctl(struct inode *inode, struct file *filep, 
 		unsigned int cmd, unsigned long arg)
 {
-	int ctlr = MAJOR(inode->i_rdev) - MAJOR_NR;
+	int ctlr = map_major_to_ctlr[MAJOR(inode->i_rdev)];
 	int dsk  = MINOR(inode->i_rdev) >> NWD_SHIFT;
 
 #ifdef CCISS_DEBUG
@@ -1028,7 +1036,7 @@ static int revalidate_logvol(kdev_t dev, int maxusage)
         int i;
 
         target = MINOR(dev) >> NWD_SHIFT;
-        ctlr = MAJOR(dev) - MAJOR_NR;
+	ctlr = map_major_to_ctlr[MAJOR(dev)];
         gdev = &(hba[ctlr]->gendisk);
 
         spin_lock_irqsave(&io_request_lock, flags);
@@ -1047,12 +1055,12 @@ static int revalidate_logvol(kdev_t dev, int maxusage)
 
         for(i=max_p-1; i>=0; i--) {
                 int minor = start+i;
-                invalidate_device(MKDEV(MAJOR_NR + ctlr, minor), 1);
+                invalidate_device(MKDEV(hba[ctlr]->major, minor), 1);
                 gdev->part[minor].start_sect = 0;
                 gdev->part[minor].nr_sects = 0;
 
                 /* reset the blocksize so we can read the partition table */
-                blksize_size[MAJOR_NR+ctlr][minor] = 1024;
+                blksize_size[hba[ctlr]->major][minor] = 1024;
         }
 	/* setup partitions per disk */
 	grok_partitions(gdev, target, MAX_PART, 
@@ -1093,7 +1101,7 @@ static int deregister_disk(int ctlr, int logvol)
 	for (i=max_p-1; i>=0; i--) {
 		int minor = start+i;
 		/* printk("invalidating( %d %d)\n", ctlr, minor); */
-		invalidate_device(MKDEV(MAJOR_NR+ctlr, minor), 1);
+		invalidate_device(MKDEV(hba[ctlr]->major, minor), 1);
 		/* so open will now fail */
 		h->sizes[minor] = 0;
 		/* so it will no longer appear in /proc/partitions */
@@ -1581,12 +1589,12 @@ static int register_new_disk(int ctlr, int opened_vol, __u64 requested_lun)
 
 	for(i=max_p-1; i>=0; i--) {
 		int minor = start+i;
-		invalidate_device(MKDEV(MAJOR_NR + ctlr, minor), 1);
+		invalidate_device(MKDEV(hba[ctlr]->major, minor), 1);
 		gdev->part[minor].start_sect = 0;
 		gdev->part[minor].nr_sects = 0;
 
 		/* reset the blocksize so we can read the partition table */
-		blksize_size[MAJOR_NR+ctlr][minor] = block_size;
+		blksize_size[hba[ctlr]->major][minor] = block_size;
 		hba[ctlr]->hardsizes[minor] = block_size;
 	}
 
@@ -1700,12 +1708,12 @@ static int cciss_rescan_disk(int ctlr, int logvol)
 
 	for (i=max_p-1; i>=0; i--) {
 		int minor = start+i;
-		invalidate_device(MKDEV(MAJOR_NR + ctlr, minor), 1);
+		invalidate_device(MKDEV(hba[ctlr]->major, minor), 1);
 		gdev->part[minor].start_sect = 0;
 		gdev->part[minor].nr_sects = 0;
 
 		/* reset the blocksize so we can read the partition table */
-		blksize_size[MAJOR_NR+ctlr][minor] = 1024;
+		blksize_size[hba[ctlr]->major][minor] = block_size;
 		hba[ctlr]->hardsizes[minor] = block_size;
 	}
 
@@ -2269,7 +2277,7 @@ next:
 	if (creq->nr_segments > MAXSGENTRIES)
                 BUG();
 
-        if (h->ctlr != MAJOR(creq->rq_dev)-MAJOR_NR ) {
+	if( h->ctlr != map_major_to_ctlr[MAJOR(creq->rq_dev)] ) {
                 printk(KERN_WARNING "doreq cmd for %d, %x at %p\n",
                                 h->ctlr, creq->rq_dev, creq);
                 blkdev_dequeue_request(creq);
@@ -2436,7 +2444,7 @@ static void do_cciss_intr(int irq, void *dev_id, struct pt_regs *regs)
 	/*
 	 * See if we can queue up some more IO
 	 */
-	do_cciss_request(BLK_DEFAULT_QUEUE(MAJOR_NR + h->ctlr));
+	do_cciss_request(BLK_DEFAULT_QUEUE(h->major));
 	spin_unlock_irqrestore(&io_request_lock, flags);
 }
 /* 
@@ -2874,8 +2882,10 @@ static int alloc_cciss_hba(void)
 			return i;
 		}
 	}
-	printk(KERN_WARNING "cciss: This driver supports a maximum"
-		" of 8 controllers.\n");
+	printk(KERN_WARNING 
+		"cciss: This driver supports a maximum of %d controllers.\n"
+		"You can change this value in cciss.c and recompile.\n",
+		MAX_CTLR);
 	return -1;
 }
 
@@ -3063,6 +3073,7 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 	request_queue_t *q;
 	int i;
 	int j;
+	int rc;
 
 	printk(KERN_DEBUG "cciss: Device 0x%x has been found at"
 			" bus %d dev %d func %d\n",
@@ -3078,16 +3089,33 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 	}
 	sprintf(hba[i]->devname, "cciss%d", i);
 	hba[i]->ctlr = i;
+
+	/* register with the major number, or get a dynamic major number */
+	/* by passing 0 as argument */
+
+	if (i < MAX_CTLR_ORIG)
+		hba[i]->major = MAJOR_NR + i;
+
 	hba[i]->pdev = pdev;
 	ASSERT_CTLR_ALIVE(hba[i]);
 
-	if (register_blkdev(MAJOR_NR+i, hba[i]->devname, &cciss_fops)) {
+	rc = (register_blkdev(hba[i]->major, hba[i]->devname, &cciss_fops));
+	if (rc < 0) {
 		printk(KERN_ERR "cciss:  Unable to get major number "
-			"%d for %s\n", MAJOR_NR+i, hba[i]->devname);
+			"%d for %s\n", hba[i]->major, hba[i]->devname);
 		release_io_mem(hba[i]);
 		free_hba(i);
 		return -1;
+	} else {
+		if (i < MAX_CTLR_ORIG) {
+			hba[i]->major = MAJOR_NR + i;
+			map_major_to_ctlr[MAJOR_NR + i] = i;
+		} else {
+			hba[i]->major = rc;
+			map_major_to_ctlr[rc] = i;
+		}
 	}
+
 	/* make sure the board interrupts are off */
 	hba[i]->access.set_intr_mask(hba[i], CCISS_INTR_OFF);
 	if (request_irq(hba[i]->intr, do_cciss_intr, 
@@ -3096,7 +3124,8 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 
 		printk(KERN_ERR "cciss: Unable to get irq %d for %s\n",
 			hba[i]->intr, hba[i]->devname);
-		unregister_blkdev( MAJOR_NR+i, hba[i]->devname);
+		unregister_blkdev( hba[i]->major, hba[i]->devname);
+		map_major_to_ctlr[hba[i]->major] = 0;
 		release_io_mem(hba[i]);
 		free_hba(i);
 		return -1;
@@ -3125,7 +3154,8 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 				hba[i]->errinfo_pool, 
 				hba[i]->errinfo_pool_dhandle);
                 free_irq(hba[i]->intr, hba[i]);
-                unregister_blkdev(MAJOR_NR+i, hba[i]->devname);
+                unregister_blkdev(hba[i]->major, hba[i]->devname);
+		map_major_to_ctlr[hba[i]->major] = 0;
 		release_io_mem(hba[i]);
 		free_hba(i);
                 printk( KERN_ERR "cciss: out of memory");
@@ -3152,16 +3182,16 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 
 	cciss_procinit(i);
 
-	q = BLK_DEFAULT_QUEUE(MAJOR_NR + i);
+	q = BLK_DEFAULT_QUEUE(hba[i]->major);
 	q->queuedata = hba[i];
 	blk_init_queue(q, do_cciss_request);
 	blk_queue_bounce_limit(q, hba[i]->pdev->dma_mask);
 	blk_queue_headactive(q, 0);		
 
 	/* fill in the other Kernel structs */
-	blksize_size[MAJOR_NR+i] = hba[i]->blocksizes;
-        hardsect_size[MAJOR_NR+i] = hba[i]->hardsizes;
-        read_ahead[MAJOR_NR+i] = READ_AHEAD;
+	blksize_size[hba[i]->major] = hba[i]->blocksizes;
+        hardsect_size[hba[i]->major] = hba[i]->hardsizes;
+        read_ahead[hba[i]->major] = READ_AHEAD;
 
 	/* Set the pointers to queue functions */ 
 	q->back_merge_fn = cpq_back_merge_fn;
@@ -3170,7 +3200,7 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 
 
 	/* Fill in the gendisk data */ 	
-	hba[i]->gendisk.major = MAJOR_NR + i;
+	hba[i]->gendisk.major = hba[i]->major;
 	hba[i]->gendisk.major_name = "cciss";
 	hba[i]->gendisk.minor_shift = NWD_SHIFT;
 	hba[i]->gendisk.max_p = MAX_PART;
@@ -3185,7 +3215,7 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 	cciss_geninit(i);
 	for(j=0; j<NWD; j++)
 		register_disk(&(hba[i]->gendisk),
-			MKDEV(MAJOR_NR+i, j <<4), 
+			MKDEV(hba[i]->major, j <<4), 
 			MAX_PART, &cciss_fops, 
 			hba[i]->drv[j].nr_blocks);
 
@@ -3228,7 +3258,8 @@ static void __devexit cciss_remove_one (struct pci_dev *pdev)
 	pci_set_drvdata(pdev, NULL);
 	iounmap((void*)hba[i]->vaddr);
 	cciss_unregister_scsi(i);  /* unhook from SCSI subsystem */
-	unregister_blkdev(MAJOR_NR+i, hba[i]->devname);
+	unregister_blkdev(hba[i]->major, hba[i]->devname);
+	map_major_to_ctlr[hba[i]->major] = 0;
 	remove_proc_entry(hba[i]->devname, proc_cciss);	
 	
 

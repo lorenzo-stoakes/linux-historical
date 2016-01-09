@@ -4006,7 +4006,7 @@ CONFIG_AGP_AMD
 
 CONFIG_AGP_AMD_8151
   This option gives you AGP support for the GLX component of
-  XFree86 on AMD K8 with an AGP 8151 chipset.
+  XFree86 on an AMD Opteron/Athlon64 using the on-CPU GART.
 
   You should say Y here if you use XFree86 3.3.6 or 4.x and want to
   use GLX or DRI.  If unsure, say N.
@@ -6107,6 +6107,61 @@ CONFIG_IPV6
   as a module, say M here and read <file:Documentation/modules.txt>.
 
   It is safe to say N here for now.
+
+The SCTP Protocol (EXPERIMENTAL)
+CONFIG_IP_SCTP
+  Stream Control Transmission Protocol
+
+  From RFC 2960 (http://www.ietf.org/rfc/rfc2960.txt)
+
+  "SCTP is a reliable transport protocol operating on top of a
+  connectionless packet network such as IP.  It offers the following
+  services to its users:
+
+  -- acknowledged error-free non-duplicated transfer of user data,
+  -- data fragmentation to conform to discovered path MTU size,
+  -- sequenced delivery of user messages within multiple streams,
+  with an option for order-of-arrival delivery of individual user
+  messages,
+  -- optional bundling of multiple user messages into a single SCTP
+  packet, and
+  -- network-level fault tolerance through supporting of multi-
+  homing at either or both ends of an association."
+
+  This protocol support is also available as a module ( = code which
+  can be inserted in and removed from the running kernel whenever you
+  want). The module will be called sctp. If you want to compile it
+  as a module, say M here and read <file:Documentation/modules.txt>.
+
+  If in doubt, say N.
+
+SCTP: Use old checksum (Adler-32)
+CONFIG_SCTP_ADLER32
+  RCF2960 currently specifies the Adler-32 checksum algorithm for SCTP.
+  This has been deprecated and replaced by an algorithm now referred
+  to as crc32c.
+
+  If you say Y, this will use the Adler-32 algorithm, this might be 
+  useful for interoperation with downlevel peers. 
+
+  If unsure, say N.  
+
+SCTP: Debug messages
+CONFIG_SCTP_DBG_MSG
+  If you say Y, this will enable verbose debugging messages. 
+
+  If unsure, say N.  However, if you are running into problems, use 
+  this option to gather detailed trace information
+
+SCTP: Debug object counts
+CONFIG_SCTP_DBG_OBJCNT
+  If you say Y, this will enable debugging support for counting the 
+  type of objects that are currently allocated.  This is useful for 
+  identifying memory leaks.   If the /proc filesystem is enabled this 
+  debug information can be viewed by 
+  'cat /proc/net/sctp/sctp_dbg_objcnt'
+
+  If unsure, say N
 
 Kernel httpd acceleration
 CONFIG_KHTTPD
@@ -11591,49 +11646,58 @@ CONFIG_SK98LIN
   Say Y here if you have a Marvell Yukon or SysKonnect SK-98xx/SK-95xx
   compliant Gigabit Ethernet Adapter. The following adapters are supported
   by this driver:
-  - 3Com 3C940 Gigabit LOM Ethernet Adapter
-  - 3Com 3C941 Gigabit LOM Ethernet Adapter
-  - SK-9821 Gigabit Ethernet Server Adapter (SK-NET GE-T)
-  - SK-9822 Gigabit Ethernet Server Adapter (SK-NET GE-T dual link)
-  - SK-9841 Gigabit Ethernet Server Adapter (SK-NET GE-LX)
-  - SK-9842 Gigabit Ethernet Server Adapter (SK-NET GE-LX dual link)
-  - SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
-  - SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
-  - SK-9861 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition)
-  - SK-9862 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition dual link)
-  - SK-9871 Gigabit Ethernet Server Adapter (SK-NET GE-ZX)
-  - SK-9872 Gigabit Ethernet Server Adapter (SK-NET GE-ZX dual link)
-  - Allied Telesyn AT-2970SX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970LX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970TX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2971SX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2971T Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970SX/2SC Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970LX/2SC Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970TX/2TX Gigabit Ethernet Adapter
-  - Marvell RDK-8001 Adapter
-  - Marvell RDK-8002 Adapter
-  - Marvell RDK-8003 Adapter
-  - Marvell RDK-8004 Adapter
-  - Marvell RDK-8006 Adapter
-  - Marvell RDK-8007 Adapter
-  - Marvell RDK-8008 Adapter
-  - Marvell RDK-8009 Adapter
-  - Marvell RDK-8011 Adapter
-  - Marvell RDK-8012 Adapter
-  - SK-9521 V2.0 10/100/1000Base-T Adapter
-  - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
-  - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
-  - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-  - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-  - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-  - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
-  - SK-9521 10/100/1000Base-T Adapter
-  - DGE-530T Gigabit Ethernet Adapter
-  - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter
-  - N-Way PCI-Bus Giga-Card 1000/100/10Mbps(L)
-  - EG1032 v2 Instant Gigabit Network Adapter
-  - EG1064 v2 Instant Gigabit Network Adapter
+	    - 3Com 3C940 Gigabit LOM Ethernet Adapter
+	    - 3Com 3C941 Gigabit LOM Ethernet Adapter
+	    - Allied Telesyn AT-2970LX Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2970LX/2SC Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2970SX Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2970SX/2SC Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2970TX Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2970TX/2TX Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2971SX Gigabit Ethernet Adapter
+	    - Allied Telesyn AT-2971T Gigabit Ethernet Adapter
+	    - DGE-530T Gigabit Ethernet Adapter
+	    - EG1032 v2 Instant Gigabit Network Adapter
+	    - EG1064 v2 Instant Gigabit Network Adapter
+	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Abit)
+	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Asus)
+	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (ECS)
+	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Epox)
+	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Gigabyte)
+	    - Marvell 88E8001 Gigabit LOM Ethernet Adapter (Iwill)
+	    - Marvell RDK-8001 Adapter
+	    - Marvell RDK-8002 Adapter
+	    - Marvell RDK-8003 Adapter
+	    - Marvell RDK-8004 Adapter
+	    - Marvell RDK-8006 Adapter
+	    - Marvell RDK-8007 Adapter
+	    - Marvell RDK-8008 Adapter
+	    - Marvell RDK-8009 Adapter
+	    - Marvell RDK-8010 Adapter
+	    - Marvell RDK-8011 Adapter
+	    - Marvell RDK-8012 Adapter
+	    - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter (32 bit)
+	    - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter (64 bit)
+	    - N-Way PCI-Bus Giga-Card 1000/100/10Mbps(L)
+	    - SK-9521 10/100/1000Base-T Adapter
+	    - SK-9521 V2.0 10/100/1000Base-T Adapter
+	    - SK-9821 Gigabit Ethernet Server Adapter (SK-NET GE-T)
+	    - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
+	    - SK-9822 Gigabit Ethernet Server Adapter (SK-NET GE-T dual link)
+	    - SK-9841 Gigabit Ethernet Server Adapter (SK-NET GE-LX)
+	    - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
+	    - SK-9842 Gigabit Ethernet Server Adapter (SK-NET GE-LX dual link)
+	    - SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
+	    - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+	    - SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
+	    - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+	    - SK-9861 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition)
+	    - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+	    - SK-9862 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition dual link)
+	    - SK-9871 Gigabit Ethernet Server Adapter (SK-NET GE-ZX)
+	    - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
+	    - SK-9872 Gigabit Ethernet Server Adapter (SK-NET GE-ZX dual link)
+	    - SMC EZ Card 1000 (SMC9452TXV.2)
 
   The adapters support Jumbo Frames.
   The dual link adapters support link-failover and dual port features.
@@ -11648,121 +11712,6 @@ CONFIG_SK98LIN
   inserted in and removed from the running kernel whenever you want),
   say M here and read Documentation/modules.txt. This is recommended.
   The module will be called sk98lin.o.
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T1
-  This driver supports:
-
-  - 3Com 3C940 Gigabit LOM Ethernet Adapter
-  - 3Com 3C941 Gigabit LOM Ethernet Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-SysKonnect SK98xx Support
-CONFIG_SK98LIN_T2
-  This driver supports:
-
-  - SK-9821 Gigabit Ethernet Server Adapter (SK-NET GE-T)
-  - SK-9822 Gigabit Ethernet Server Adapter (SK-NET GE-T dual link)
-  - SK-9841 Gigabit Ethernet Server Adapter (SK-NET GE-LX)
-  - SK-9842 Gigabit Ethernet Server Adapter (SK-NET GE-LX dual link)
-  - SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
-  - SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
-  - SK-9861 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition)
-  - SK-9862 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition dual link)
-  - SK-9871 Gigabit Ethernet Server Adapter (SK-NET GE-ZX)
-  - SK-9872 Gigabit Ethernet Server Adapter (SK-NET GE-ZX dual link)
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-SysKonnect SK98xx Support
-CONFIG_SK98LIN_T3
-  This driver supports:
-
-  - Allied Telesyn AT-2970SX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970LX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970TX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2971SX Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2971T Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970SX/2SC Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970LX/2SC Gigabit Ethernet Adapter
-  - Allied Telesyn AT-2970TX/2TX Gigabit Ethernet Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T4
-  This driver supports:
-
-  - Marvell RDK-8001 Adapter
-  - Marvell RDK-8002 Adapter
-  - Marvell RDK-8003 Adapter
-  - Marvell RDK-8004 Adapter
-  - Marvell RDK-8006 Adapter
-  - Marvell RDK-8007 Adapter
-  - Marvell RDK-8008 Adapter
-  - Marvell RDK-8009 Adapter
-  - Marvell RDK-8011 Adapter
-  - Marvell RDK-8012 Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T5
-  This driver supports:
-
-  - SK-9521 V2.0 10/100/1000Base-T Adapter
-  - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
-  - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
-  - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-  - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-  - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
-  - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
-  - SK-9521 10/100/1000Base-T Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T6
-  This driver supports:
-
-  - DGE-530T Gigabit Ethernet Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T7
-  This driver supports:
-
-  - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T8
-  This driver supports:
-
-  - N-Way PCI-Bus Giga-Card 1000/100/10Mbps(L)
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
-
-Marvell Yukon Chipset
-CONFIG_SK98LIN_T9
-  This driver supports:
-
-  - EG1032 v2 Instant Gigabit Network Adapter
-  - EG1064 v2 Instant Gigabit Network Adapter
-
-  Questions concerning this driver may be addressed to:
-    linux@syskonnect.de
 
 
 Sun GEM support
@@ -19705,6 +19654,9 @@ CONFIG_ACPI_ASUS
   display brightness and output, switching the LCD backlight on and off,
   and most importantly, allows you to blink those fancy LEDs intended
   for reporting mail and wireless status.
+
+  Note: the display switching code is currently considered EXPERIMENTAL,
+  toying with these values may even lock your machine.
   
   All settings are changed via /proc/acpi/asus directory entries. Owner
   and group for these entries can be set with asus_uid and asus_gid

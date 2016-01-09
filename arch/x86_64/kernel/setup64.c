@@ -3,7 +3,7 @@
  * Copyright (C) 1995  Linus Torvalds
  * Copyright 2001, 2002 SuSE Labs / Andi Kleen.
  * See setup.c for older changelog.
- * $Id: setup64.c,v 1.23 2003/05/16 14:22:27 ak Exp $
+ * $Id: setup64.c,v 1.25 2003/07/11 15:58:47 ak Exp $
  */ 
 #include <linux/config.h>
 #include <linux/init.h>

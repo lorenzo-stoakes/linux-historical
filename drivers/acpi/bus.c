@@ -1898,9 +1898,7 @@ acpi_bus_init (void)
 	 * of that.
 	 */
 	result = acpi_ec_ecdt_probe();
-	if (result) {
-		goto error1;
-	}
+	/* Ignore result. Not having an ECDT is not fatal. */
 #endif
 
 	status = acpi_initialize_objects(ACPI_FULL_INITIALIZATION);

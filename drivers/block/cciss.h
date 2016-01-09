@@ -40,6 +40,7 @@ typedef struct _drive_info_struct
 struct ctlr_info 
 {
 	int	ctlr;
+	int	major;
 	char	devname[8];
 	char    *product_name;
 	char	firm_ver[4]; // Firmware version 

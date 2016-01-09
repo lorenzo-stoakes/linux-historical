@@ -86,7 +86,7 @@
 #define IRDA_IPR_POS	2
 #define IRDA_PRIORITY	3
 #elif defined(CONFIG_CPU_SUBTYPE_SH7750) || defined(CONFIG_CPU_SUBTYPE_SH7751) || \
-      defined(CONFIG_CPU_SUBTYPE_ST40)
+      defined(CONFIG_CPU_SUBTYPE_ST40) || defined(CONFIG_CPU_SUBTYPE_SH4_202)
 #define SCIF_ERI_IRQ	40
 #define SCIF_RXI_IRQ	41
 #define SCIF_BRI_IRQ	42
@@ -126,6 +126,8 @@
 # elif defined(CONFIG_CPU_SUBTYPE_SH7750)
 #  define ONCHIP_NR_IRQS 48	// Actually 44
 # elif defined(CONFIG_CPU_SUBTYPE_SH7751)
+#  define ONCHIP_NR_IRQS 72
+# elif defined(CONFIG_CPU_SUBTYPE_SH4_202)
 #  define ONCHIP_NR_IRQS 72
 # elif defined(CONFIG_CPU_SUBTYPE_ST40STB1)
 #  define ONCHIP_NR_IRQS 144
@@ -275,7 +277,7 @@ extern int ipr_irq_demux(int irq);
 #endif /* CONFIG_CPU_SUBTYPE_SH7707 || CONFIG_CPU_SUBTYPE_SH7709 */
 
 #if defined(CONFIG_CPU_SUBTYPE_SH7750) || defined(CONFIG_CPU_SUBTYPE_SH7751) || \
-    defined(CONFIG_CPU_SUBTYPE_ST40)
+    defined(CONFIG_CPU_SUBTYPE_ST40) || defined(CONFIG_CPU_SUBTYPE_SH4_202)
 #define INTC_ICR        0xffd00000
 #define INTC_ICR_NMIL	(1<<15)
 #define INTC_ICR_MAI	(1<<14)

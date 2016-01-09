@@ -162,7 +162,7 @@ EXPORT_SYMBOL(_outsl_ns);
 EXPORT_SYMBOL(iopa);
 EXPORT_SYMBOL(mm_ptov);
 EXPORT_SYMBOL(ioremap);
-#ifdef CONFIG_44x
+#ifdef CONFIG_PTE_64BIT
 EXPORT_SYMBOL(ioremap64);
 #endif
 EXPORT_SYMBOL(__ioremap);
@@ -356,6 +356,7 @@ EXPORT_SYMBOL(__res);
 EXPORT_SYMBOL(cpm_install_handler);
 EXPORT_SYMBOL(cpm_free_handler);
 EXPORT_SYMBOL(m8xx_cpm_hostalloc);
+EXPORT_SYMBOL(m8xx_cpm_dpalloc);
 #endif /* CONFIG_8xx */
 
 /* Those should really be inline */

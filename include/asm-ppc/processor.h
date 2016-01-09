@@ -797,7 +797,7 @@ extern struct task_struct *last_task_used_altivec;
  * as soon as I get around to remapping the io areas with the BATs
  * to match the mac we can raise this. -- Cort
  */
-#define TASK_SIZE	(0x80000000UL)
+#define TASK_SIZE	CONFIG_TASK_SIZE
 
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.

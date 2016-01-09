@@ -126,10 +126,27 @@ static unsigned long break_pressed; /* break, really ... */
  * type of SMC or SCC.
  * The SMCs do not support any modem control signals.
  */
-#define smc_scc_num	hub6
-#define NUM_IS_SCC	((int)0x00010000)
-#define PORT_NUM(P)	((P) & 0x0000ffff)
-#define PORT_IS_SCC(P)	((P) & NUM_IS_SCC)
+#define smc_scc_num	     hub6
+#define NUM_IS_SCC	     ((int)0x000100000)
+#define NUM_BRG              ((int)0x0000FF00)
+#define NUM_BRG_SHIFT        8
+#define NUM                  ((int)0x000000FF)
+#define NUM_SHIFT            0
+#define PORT_NUM(P)	     ((P) & NUM)
+#define PORT_NUM_SET(N)      (((N)-1) << NUM_SHIFT)
+#define PORT_IS_SCC(P)	     ((P) & NUM_IS_SCC)
+#define PORT_BRG(P)          (((P) & NUM_BRG) >> NUM_BRG_SHIFT)
+#define PORT_BRG_SET(P,B)    (P) = (((P) & ~NUM_BRG) | ((B) << NUM_BRG_SHIFT))
+
+/* Short names for the ports
+*/
+#define QUICC_CPM_SMC1  (PORT_NUM_SET(1))
+#define QUICC_CPM_SMC2  (PORT_NUM_SET(2))
+#define QUICC_CPM_SCC1  (PORT_NUM_SET(1)|NUM_IS_SCC)
+#define QUICC_CPM_SCC2  (PORT_NUM_SET(2)|NUM_IS_SCC)
+#define QUICC_CPM_SCC3  (PORT_NUM_SET(3)|NUM_IS_SCC)
+#define QUICC_CPM_SCC4  (PORT_NUM_SET(4)|NUM_IS_SCC)
+#define QUICC_MAX_BRG   3  /* BRG1..BRG4 */
 
 /* The serial port to use for KGDB. */
 #ifdef CONFIG_KGDB_TTYS1
@@ -151,22 +168,24 @@ static unsigned long break_pressed; /* break, really ... */
  */
 static struct serial_state rs_table[] = {
 	/* UART CLK   PORT          IRQ      FLAGS  NUM   */
-#ifndef CONFIG_SCC3_ENET	/* SMC1 not usable with Ethernet on SCC3 */
-  	{ 0,     0, PROFF_SMC1, CPMVEC_SMC1,   0,    0 },    /* SMC1 ttyS0 */
+#ifdef CONFIG_8xx_SMC1
+  	{ 0,     0, PROFF_SMC1, CPMVEC_SMC1,   0,    QUICC_CPM_SMC1 },    /* SMC1 ttySx */
 #endif
-#if !defined(CONFIG_USB_MPC8xx) && !defined(CONFIG_USB_CLIENT_MPC8xx)
-# ifdef CONFIG_SMC2_UART
-  	{ 0,     0, PROFF_SMC2, CPMVEC_SMC2,   0,    1 },    /* SMC2 ttyS1 */
-# endif
-# ifdef CONFIG_USE_SCC_IO
-  	{ 0,     0, PROFF_SCC2, CPMVEC_SCC2,   0,    (NUM_IS_SCC | 1) },    /* SCC2 ttyS2 */
-  	{ 0,     0, PROFF_SCC3, CPMVEC_SCC3,   0,    (NUM_IS_SCC | 2) },    /* SCC3 ttyS3 */
-# endif
-  #else /* CONFIG_USB_xxx */
-# ifdef CONFIG_USE_SCC_IO
-  	{ 0,     0, PROFF_SCC3, CPMVEC_SCC3,   0,    (NUM_IS_SCC | 2) },    /* SCC3 ttyS3 */
-# endif
-#endif	/* CONFIG_USB_xxx */
+#ifdef CONFIG_8xx_SMC2
+  	{ 0,     0, PROFF_SMC2, CPMVEC_SMC2,   0,    QUICC_CPM_SMC2 },    /* SMC2 ttySx */
+#endif
+#ifdef CONFIG_8xx_SCC1
+  	{ 0,     0, PROFF_SCC1, CPMVEC_SCC1,   0,    QUICC_CPM_SCC1 },    /* SCC1 ttySx */
+#endif
+#ifdef CONFIG_8xx_SCC2
+  	{ 0,     0, PROFF_SCC2, CPMVEC_SCC2,   0,    QUICC_CPM_SCC2 },    /* SCC2 ttySx */
+#endif
+#ifdef CONFIG_8xx_SCC3
+  	{ 0,     0, PROFF_SCC3, CPMVEC_SCC3,   0,    QUICC_CPM_SCC3 },    /* SCC3 ttySx */
+#endif
+#ifdef CONFIG_8xx_SCC4
+  	{ 0,     0, PROFF_SCC4, CPMVEC_SCC4,   0,    QUICC_CPM_SCC4 },    /* SCC4 ttySx */
+#endif
 };
 
 #define NR_PORTS	(sizeof(rs_table)/sizeof(struct serial_state))
@@ -218,6 +237,12 @@ typedef struct serial_info {
 	cbd_t			*rx_cur;
 	cbd_t			*tx_bd_base;
 	cbd_t			*tx_cur;
+
+	/* Virtual addresses for the FIFOs because we can't __va() a
+	 * physical address anymore.
+	 */
+	 unsigned char		*rx_va_base;
+	 unsigned char		*tx_va_base;
 } ser_info_t;
 
 static struct console sercons = {
@@ -394,13 +419,13 @@ static _INLINE_ void receive_chars(ser_info_t *info, struct pt_regs *regs)
 		/* Get the number of characters and the buffer pointer.
 		*/
 		i = bdp->cbd_datlen;
-		cp = (unsigned char *)__va(bdp->cbd_bufaddr);
+		cp = info->rx_va_base + ((bdp - info->rx_bd_base) * RX_BUF_SIZE);
 		status = bdp->cbd_sc;
 
 #ifdef CONFIG_KGDB
-		if (info->state->smc_scc_num == KGDB_SER_IDX) {
-			if (*cp == 0x03 || *cp == '$')
-				breakpoint();
+		if (info->state->smc_scc_num == KGDB_SER_IDX &&
+				(*cp == 0x03 || *cp == '$')) {
+			breakpoint();
 			return;
 		}
 #endif
@@ -420,7 +445,7 @@ static _INLINE_ void receive_chars(ser_info_t *info, struct pt_regs *regs)
 			icount->rx++;
 
 #ifdef SERIAL_DEBUG_INTR
-			printk("DR%02x:%02x...", ch, status);
+                        printk("DR%02x:%02x...", ch, status);
 #endif
 			*tty->flip.flag_buf_ptr = 0;
 			if (status & (BD_SC_BR | BD_SC_FR |
@@ -1033,7 +1058,7 @@ static void change_speed(ser_info_t *info)
 			smcp->smc_smcmr = new_mode;
 	}
 
-	m8xx_cpm_setbrg((state - rs_table), baud_rate);
+	m8xx_cpm_setbrg(PORT_BRG(state->smc_scc_num), baud_rate);
 
 	restore_flags(flags);
 }
@@ -1042,6 +1067,7 @@ static void rs_8xx_put_char(struct tty_struct *tty, unsigned char ch)
 {
 	ser_info_t *info = (ser_info_t *)tty->driver_data;
 	volatile cbd_t	*bdp;
+	unsigned char *cp;
 
 	if (serial_paranoia_check(info, tty->device, "rs_put_char"))
 		return;
@@ -1052,7 +1078,8 @@ static void rs_8xx_put_char(struct tty_struct *tty, unsigned char ch)
 	bdp = info->tx_cur;
 	while (bdp->cbd_sc & BD_SC_READY);
 
-	*((char *)__va(bdp->cbd_bufaddr)) = ch;
+	cp = info->tx_va_base + ((bdp - info->tx_bd_base) * TX_BUF_SIZE);
+	*cp = ch;
 	bdp->cbd_datlen = 1;
 	bdp->cbd_sc |= BD_SC_READY;
 
@@ -1064,7 +1091,6 @@ static void rs_8xx_put_char(struct tty_struct *tty, unsigned char ch)
 		bdp++;
 
 	info->tx_cur = (cbd_t *)bdp;
-
 }
 
 static int rs_8xx_write(struct tty_struct * tty, int from_user,
@@ -1073,6 +1099,7 @@ static int rs_8xx_write(struct tty_struct * tty, int from_user,
 	int	c, ret = 0;
 	ser_info_t *info = (ser_info_t *)tty->driver_data;
 	volatile cbd_t *bdp;
+	unsigned char	*cp;
 
 #ifdef CONFIG_KGDB_CONSOLE
         /* Try to let stub handle output. Returns true if it did. */
@@ -1099,14 +1126,15 @@ static int rs_8xx_write(struct tty_struct * tty, int from_user,
 			break;
 		}
 
+		cp = info->tx_va_base + ((bdp - info->tx_bd_base) * TX_BUF_SIZE);
 		if (from_user) {
-			if (copy_from_user(__va(bdp->cbd_bufaddr), buf, c)) {
+			if (copy_from_user((void *)cp, buf, c)) {
 				if (!ret)
 					ret = -EFAULT;
 				break;
 			}
 		} else {
-			memcpy(__va(bdp->cbd_bufaddr), buf, c);
+			memcpy((void *)cp, buf, c);
 		}
 
 		bdp->cbd_datlen = c;
@@ -1181,6 +1209,7 @@ static void rs_8xx_flush_buffer(struct tty_struct *tty)
 static void rs_8xx_send_xchar(struct tty_struct *tty, char ch)
 {
 	volatile cbd_t	*bdp;
+	unsigned char	*cp;
 
 	ser_info_t *info = (ser_info_t *)tty->driver_data;
 
@@ -1190,7 +1219,8 @@ static void rs_8xx_send_xchar(struct tty_struct *tty, char ch)
 	bdp = info->tx_cur;
 	while (bdp->cbd_sc & BD_SC_READY);
 
-	*((char *)__va(bdp->cbd_bufaddr)) = ch;
+	cp = info->tx_va_base + ((bdp - info->tx_bd_base) * TX_BUF_SIZE);
+	*cp = ch;
 	bdp->cbd_datlen = 1;
 	bdp->cbd_sc |= BD_SC_READY;
 
@@ -2217,6 +2247,11 @@ static _INLINE_ void show_serial_version(void)
 
 #ifdef CONFIG_SERIAL_CONSOLE
 
+/* I need this just so I can store the virtual addresses and have
+ * common functions for the early console printing.
+ */
+static ser_info_t consinfo;
+
 /*
  * Print a string to the serial port trying not to disturb any possible
  * real use of the port...
@@ -2249,6 +2284,8 @@ static void my_console_write(int idx, const char *s,
 		/* Get the address of the host memory buffer.
 		 */
 		bdp = bdbase = (cbd_t *)&cpmp->cp_dpmem[up->smc_tbase];
+		
+		info = &consinfo;
 	}
 
 	/*
@@ -2276,7 +2313,7 @@ static void my_console_write(int idx, const char *s,
 		if ((uint)(bdp->cbd_bufaddr) > (uint)IMAP_ADDR)
 			cp = (u_char *)(bdp->cbd_bufaddr);
 		else
-			cp = __va(bdp->cbd_bufaddr);
+			cp = info->tx_va_base + ((bdp - info->tx_bd_base) * TX_BUF_SIZE);
 		*cp = *s;
 
 		bdp->cbd_datlen = 1;
@@ -2290,7 +2327,18 @@ static void my_console_write(int idx, const char *s,
 		/* if a LF, also do CR... */
 		if (*s == 10) {
 			while (bdp->cbd_sc & BD_SC_READY);
-			cp = __va(bdp->cbd_bufaddr);
+			/* This 'if' below will never be true, but a few
+			 * people argued with me that it was a "bug by
+			 * inspection" that is was easier to add the code
+			 * than continue the discussion.  The only time
+			 * the buffer address is in DPRAM is during early
+			 * use by kgdb/xmon, which format their own packets
+			 * and we never get here. -- Dan
+			 */
+			if ((uint)(bdp->cbd_bufaddr) > (uint)IMAP_ADDR)
+				cp = (u_char *)(bdp->cbd_bufaddr);
+			else
+				cp = info->tx_va_base + ((bdp - info->tx_bd_base) * TX_BUF_SIZE);
 			*cp = 13;
 			bdp->cbd_datlen = 1;
 			bdp->cbd_sc |= BD_SC_READY;
@@ -2358,10 +2406,13 @@ static int my_console_wait_key(int idx, int xmon, char *obuf)
 	 * If the port has been initialized for general use, we must
 	 * use information from the port structure.
 	 */
-	if ((info = (ser_info_t *)ser->info))
+	if ((info = (ser_info_t *)ser->info)) {
 		bdp = info->rx_cur;
-	else
+	}
+	else {
 		bdp = (cbd_t *)&cpmp->cp_dpmem[up->smc_rbase];
+		info = &consinfo;
+	}
 
 	/*
 	 * We need to gracefully shut down the receiver, disable
@@ -2383,7 +2434,7 @@ static int my_console_wait_key(int idx, int xmon, char *obuf)
 	if ((uint)(bdp->cbd_bufaddr) > (uint)IMAP_ADDR)
 		cp = (u_char *)(bdp->cbd_bufaddr);
 	else
-		cp = __va(bdp->cbd_bufaddr);
+		cp = info->rx_va_base + ((bdp - info->rx_bd_base) * RX_BUF_SIZE);
 
 	if (obuf) {
 		i = c = bdp->cbd_datlen;
@@ -2522,6 +2573,43 @@ static	int	baud_idx;
 /*
  * The serial driver boot-time initialization code!
  */
+
+int __init rs_8xx_alloc_brg(int port)
+{
+    static int brg = 0;
+    volatile cpm8xx_t *cp = cpmp;
+    int res = brg;
+
+    /* "Wire" the BRG to the specified port
+    */
+    switch (port) {
+    case QUICC_CPM_SMC1:
+        cp->cp_simode = (cp->cp_simode & ~(0x07<<12)) | (brg<<12);
+        break;
+    case QUICC_CPM_SMC2:
+        cp->cp_simode = (cp->cp_simode & ~(0x07<<28)) | (brg<<28);
+        break;
+    case QUICC_CPM_SCC1:
+        cp->cp_sicr = (cp->cp_sicr & ~(0xFF<<0)) | (((brg<<3)|(brg<<0))<<0);
+        break;
+    case QUICC_CPM_SCC2:
+        cp->cp_sicr = (cp->cp_sicr & ~(0xFF<<8)) | (((brg<<3)|(brg<<0))<<8);
+        break;
+    case QUICC_CPM_SCC3:
+        cp->cp_sicr = (cp->cp_sicr & ~(0xFF<<16)) | (((brg<<3)|(brg<<0))<<16);
+        break;
+    case QUICC_CPM_SCC4:
+        cp->cp_sicr = (cp->cp_sicr & ~(0xFF<<24)) | (((brg<<3)|(brg<<0))<<24);
+        break;
+    }
+    /* Consume this BRG - Note: the last BRG will be reused if this
+    */
+    /* function is called too many times!
+    */
+    if (brg < QUICC_MAX_BRG) brg++;
+    return res;
+}
+
 int __init rs_8xx_init(void)
 {
 	struct serial_state * state;
@@ -2668,9 +2756,12 @@ int __init rs_8xx_init(void)
 		state->icount.rx = state->icount.tx = 0;
 		state->icount.frame = state->icount.parity = 0;
 		state->icount.overrun = state->icount.brk = 0;
-		printk(KERN_INFO "ttyS%02d at 0x%04x is a %s\n",
+                PORT_BRG_SET(state->smc_scc_num, rs_8xx_alloc_brg(state->smc_scc_num));
+		printk(KERN_INFO "ttyS%d at 0x%04x is on %s%d using BRG%d\n",
 		       i, (unsigned int)(state->port),
-		       PORT_IS_SCC(state->smc_scc_num) ? "SCC" : "SMC");
+		       PORT_IS_SCC(state->smc_scc_num) ? "SCC" : "SMC",
+                       PORT_NUM(state->smc_scc_num)+1,
+                       PORT_BRG(state->smc_scc_num)+1);
 #ifdef CONFIG_SERIAL_CONSOLE
 		/* If we just printed the message on the console port, and
 		 * we are about to initialize it for general use, we have
@@ -2704,6 +2795,7 @@ int __init rs_8xx_init(void)
 			/* Allocate space for FIFOs in the host memory.
 			*/
 			mem_addr = m8xx_cpm_hostalloc(RX_NUM_FIFO * RX_BUF_SIZE);
+			info->rx_va_base = (unsigned char *)mem_addr;
 
 			/* Set the physical address of the host memory
 			 * buffers in the buffer descriptors, and the
@@ -2713,12 +2805,12 @@ int __init rs_8xx_init(void)
 			info->rx_cur = info->rx_bd_base = (cbd_t *)bdp;
 
 			for (j=0; j<(RX_NUM_FIFO-1); j++) {
-				bdp->cbd_bufaddr = __pa(mem_addr);
+				bdp->cbd_bufaddr = iopa(mem_addr);
 				bdp->cbd_sc = BD_SC_EMPTY | BD_SC_INTRPT;
 				mem_addr += RX_BUF_SIZE;
 				bdp++;
 			}
-			bdp->cbd_bufaddr = __pa(mem_addr);
+			bdp->cbd_bufaddr = iopa(mem_addr);
 			bdp->cbd_sc = BD_SC_WRAP | BD_SC_EMPTY | BD_SC_INTRPT;
 
 			idx = PORT_NUM(info->state->smc_scc_num);
@@ -2738,6 +2830,7 @@ int __init rs_8xx_init(void)
 			/* Allocate space for FIFOs in the host memory.
 			*/
 			mem_addr = m8xx_cpm_hostalloc(TX_NUM_FIFO * TX_BUF_SIZE);
+			info->tx_va_base = (unsigned char *)mem_addr;
 
 			/* Set the physical address of the host memory
 			 * buffers in the buffer descriptors, and the
@@ -2747,12 +2840,12 @@ int __init rs_8xx_init(void)
 			info->tx_cur = info->tx_bd_base = (cbd_t *)bdp;
 
 			for (j=0; j<(TX_NUM_FIFO-1); j++) {
-				bdp->cbd_bufaddr = __pa(mem_addr);
+				bdp->cbd_bufaddr = iopa(mem_addr);
 				bdp->cbd_sc = BD_SC_INTRPT;
 				mem_addr += TX_BUF_SIZE;
 				bdp++;
 			}
-			bdp->cbd_bufaddr = __pa(mem_addr);
+			bdp->cbd_bufaddr = iopa(mem_addr);
 			bdp->cbd_sc = (BD_SC_WRAP | BD_SC_INTRPT);
 
 			if (PORT_IS_SCC(info->state->smc_scc_num)) {
@@ -2846,12 +2939,14 @@ int __init rs_8xx_init(void)
 				}
 #endif /* CONFIG_ALTSMC2 */
 
+#if 0
 				/* Connect the baud rate generator to the
 				 * SMC based upon index in rs_table.  Also
 				 * make sure it is connected to NMSI.
 				 */
 				cp->cp_simode &= ~(0xffff << (idx * 16));
 				cp->cp_simode |= (i << ((idx * 16) + 12));
+#endif
 
 				up->smc_tbase = dp_addr;
 
@@ -2903,7 +2998,7 @@ int __init rs_8xx_init(void)
 
 			/* Set up the baud rate generator.
 			*/
-			m8xx_cpm_setbrg(i, baud_table[baud_idx]);
+                        m8xx_cpm_setbrg(PORT_BRG(state->smc_scc_num), baud_table[baud_idx]);
 
 		}
 	}
@@ -2959,20 +3054,28 @@ static int __init serial_console_setup(struct console *co, char *options)
 	 * from dual port ram, and a character buffer area from host mem.
 	 */
 
+	/* Allocate space for two FIFOs.  We can't allocate from host
+	 * memory yet because vm allocator isn't initialized
+	 * during this early console init.
+	 */
+	dp_addr = m8xx_cpm_dpalloc(8);
+	mem_addr = (uint)(&cpmp->cp_dpmem[dp_addr]);
+
 	/* Allocate space for two buffer descriptors in the DP ram.
 	*/
 	dp_addr = m8xx_cpm_dpalloc(sizeof(cbd_t) * 2);
-
-	/* Allocate space for two 2 byte FIFOs in the host memory.
-	*/
-	mem_addr = m8xx_cpm_hostalloc(8);
 
 	/* Set the physical address of the host memory buffers in
 	 * the buffer descriptors.
 	 */
 	bdp = (cbd_t *)&cp->cp_dpmem[dp_addr];
-	bdp->cbd_bufaddr = __pa(mem_addr);
-	(bdp+1)->cbd_bufaddr = __pa(mem_addr+4);
+	bdp->cbd_bufaddr = iopa(mem_addr);
+	(bdp+1)->cbd_bufaddr = iopa(mem_addr+4);
+
+	consinfo.rx_va_base = mem_addr;
+	consinfo.rx_bd_base = bdp;
+	consinfo.tx_va_base = mem_addr + 4;
+	consinfo.tx_bd_base = bdp+1;
 
 	/* For the receive, set empty and wrap.
 	 * For transmit, set wrap.

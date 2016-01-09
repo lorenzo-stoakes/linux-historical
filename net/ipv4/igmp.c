@@ -285,8 +285,10 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
 		return 0;
 	}
 	skb = alloc_skb(size + dev->hard_header_len + 15, GFP_ATOMIC);
-	if (skb == NULL)
+	if (skb == NULL) {
+		ip_rt_put(rt);
 		return 0;
+	}
 
 	skb->dst = &rt->u.dst;
 	skb->dev = dev;

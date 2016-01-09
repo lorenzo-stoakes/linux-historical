@@ -12,6 +12,7 @@ mainmenu_name "Linux/PowerPC Kernel Configuration"
 mainmenu_option next_comment
 comment 'Code maturity level options'
 bool 'Prompt for development and/or incomplete code/drivers' CONFIG_EXPERIMENTAL
+bool 'Prompt for advanced kernel configuration options' CONFIG_ADVANCED_OPTIONS
 endmenu
 
 mainmenu_option next_comment
@@ -80,6 +81,7 @@ if [ "$CONFIG_8xx" = "y" ]; then
 	 RPX-Classic	CONFIG_RPXCLASSIC	\
 	 BSE-IP		CONFIG_BSEIP		\
 	 FADS		CONFIG_FADS		\
+	 D-Box2		CONFIG_DBOX2		\
 	 TQM823L	CONFIG_TQM823L		\
 	 TQM850L	CONFIG_TQM850L		\
 	 TQM855L	CONFIG_TQM855L		\
@@ -248,8 +250,49 @@ mainmenu_option next_comment
 comment 'General setup'
 
 bool 'High memory support (experimental)' CONFIG_HIGHMEM
+if [ "$CONFIG_ADVANCED_OPTIONS" = "y" ]; then
+  if [ "$CONFIG_HIGHMEM" = "y" ]; then
+    bool "  Set high memory pool address" CONFIG_HIGHMEM_START_BOOL
+    if [ "$CONFIG_HIGHMEM_START_BOOL" = "y" ]; then
+      hex "    Virtual start address of high memory pool" CONFIG_HIGHMEM_START 0xfe000000
+    fi
+  fi
+  bool "  Set maximum low memory" CONFIG_LOWMEM_SIZE_BOOL
+  if [ "$CONFIG_LOWMEM_SIZE_BOOL" = "y" ]; then
+    hex "    Maximum low memory size (in bytes)" CONFIG_LOWMEM_SIZE 0x20000000
+  fi
 
-define_bool CONFIG_ISA n
+  bool "Set custom kernel base address" CONFIG_KERNEL_START_BOOL
+  if [ "$CONFIG_KERNEL_START_BOOL" = "y" ]; then
+    hex "  Virtual address of kernel base" CONFIG_KERNEL_START 0xc0000000
+  fi
+  bool "Set custom user task size" CONFIG_TASK_SIZE_BOOL
+  if [ "$CONFIG_TASK_SIZE_BOOL" = "y" ]; then
+    hex "  Size of user task space" CONFIG_TASK_SIZE 0x80000000
+  fi
+fi
+
+if [ "$CONFIG_HIGHMEM_START_BOOL" != "y" ]; then
+  define_hex CONFIG_HIGHMEM_START 0xfe000000
+fi
+
+if [ "$CONFIG_LOWMEM_SIZE_BOOL" != "y" ]; then
+  define_hex CONFIG_LOWMEM_SIZE 0x30000000
+fi
+
+if [ "$CONFIG_KERNEL_START_BOOL" != "y" ]; then
+  define_hex CONFIG_KERNEL_START 0xc0000000
+fi
+
+if [ "$CONFIG_TASK_SIZE_BOOL" != "y" ]; then
+  define_hex CONFIG_TASK_SIZE 0x80000000
+fi
+
+if [ "$CONFIG_ALL_PPC" = "y" ]; then
+  bool 'Support for ISA-bus hardware' CONFIG_ISA
+else
+  define_bool CONFIG_ISA n
+fi
 define_bool CONFIG_EISA n
 define_bool CONFIG_SBUS n
 

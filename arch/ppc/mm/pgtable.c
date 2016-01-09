@@ -37,10 +37,11 @@ unsigned long ioremap_base;
 unsigned long ioremap_bot;
 int io_bat_index;
 
-/* Maximum 768Mb of lowmem. On SMP, this value will be
- * trimmed down to whatever can be covered by BATs though.
+/* The maximum lowmem defaults to 768Mb, but this can be configured to
+ * another value.  On SMP, this value will be trimmed down to whatever
+ * can be covered by BATs.
  */
-#define MAX_LOW_MEM	0x30000000
+#define MAX_LOW_MEM	CONFIG_LOWMEM_SIZE
 
 #ifndef CONFIG_SMP
 struct pgtable_cache_struct quicklists;
@@ -67,7 +68,7 @@ void setbat(int index, unsigned long virt, unsigned long phys,
 #define p_mapped_by_bats(x)	(0UL)
 #endif /* HAVE_BATS */
 
-#ifdef CONFIG_44x
+#ifdef CONFIG_PTE_64BIT
 void *
 ioremap(phys_addr_t addr, unsigned long size)
 {
@@ -82,14 +83,14 @@ ioremap64(unsigned long long addr, unsigned long size)
 	return __ioremap(addr, size, _PAGE_NO_CACHE);
 }
 
-#else /* CONFIG_44x */
+#else /* !CONFIG_PTE_64BIT */
 
 void *
 ioremap(phys_addr_t addr, unsigned long size)
 {
 	return __ioremap(addr, size, _PAGE_NO_CACHE);
 }
-#endif /* CONFIG_44x */
+#endif /* CONFIG_PTE_64BIT */
 
 void *
 __ioremap(phys_addr_t addr, unsigned long size, unsigned long flags)

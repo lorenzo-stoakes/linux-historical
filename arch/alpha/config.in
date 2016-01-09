@@ -440,7 +440,16 @@ source net/bluetooth/Config.in
 mainmenu_option next_comment
 comment 'Kernel hacking'
 
-bool 'Legacy kernel start address' CONFIG_ALPHA_LEGACY_START_ADDRESS
+if [ "$CONFIG_ALPHA_TITAN" = "y" -o "$CONFIG_ALPHA_WILDFIRE" = "y" -o \
+     "$CONFIG_ALPHA_MARVEL" = "y" ]; then
+   define_bool CONFIG_ALPHA_LEGACY_START_ADDRESS n
+else
+   if [ "$CONFIG_ALPHA_GENERIC" = "y" ]; then
+      bool 'Legacy kernel start address' CONFIG_ALPHA_LEGACY_START_ADDRESS
+   else
+      define_bool CONFIG_ALPHA_LEGACY_START_ADDRESS y
+   fi
+fi
 
 bool 'Kernel debugging' CONFIG_DEBUG_KERNEL
 if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then

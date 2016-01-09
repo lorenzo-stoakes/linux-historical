@@ -44,6 +44,7 @@
 #include <asm/io_apic.h>
 #include <asm/proto.h>
 
+extern int acpi_disabled;
 
 #define PREFIX			"ACPI: "
 
@@ -352,6 +353,28 @@ acpi_boot_init (void)
 #ifdef CONFIG_X86_LOCAL_APIC
 
 	/* 
+	 * ACPI interpreter is required to complete interrupt setup,
+	 * so if it is off, don't enumerate the io-apics with ACPI.
+	 * If MPS is present, it will handle them,
+	 * otherwise the system will stay in PIC mode
+	 */
+	if (acpi_disabled) {
+		return 1;
+	}
+
+	if (!use_acpi_pci)
+		return 0; 
+
+	/* If "nolocalapic" is specified don't look further */
+	extern int apic_disabled;
+	if (apic_disabled) {
+		printk(KERN_INFO PREFIX "Skipping Local/IO-APIC probe due to \"nolocalapic\"\n");
+		return 0;	
+	}	
+	printk(KERN_INFO PREFIX "Parsing Local APIC info in MADT\n"); 
+	
+
+	/* 
 	 * MADT
 	 * ----
 	 * Parse the Multiple APIC Description Table (MADT), if exists.
@@ -410,6 +433,15 @@ acpi_boot_init (void)
 #endif /*CONFIG_X86_LOCAL_APIC*/
 
 #ifdef CONFIG_X86_IO_APIC
+
+	/* 
+	 * if "noapic" boot option, don't look for IO-APICs
+	 */
+	if (ioapic_setup_disabled()) {
+		printk(KERN_INFO PREFIX "Skipping IOAPIC probe "
+			"due to 'noapic' option.\n");
+		return 1;
+        }
 
 	/* 
 	 * I/O APIC 

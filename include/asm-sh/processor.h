@@ -23,8 +23,9 @@
 enum cpu_type {
 	CPU_SH7708,		/* Represents 7707, 7708, 7708S, 7708R, 7709 */
 	CPU_SH7729,		/* Represents 7709A, 7729 */
-	CPU_SH7750,     	/* Represents 7750, 7751 */
+	CPU_SH7750,             /* Represents 7750, 7751 */
 	CPU_ST40,		/* Represents ST40STB1 and ST40GX1 */
+        CPU_SH4202,
 	CPU_SH_NONE
 };
 

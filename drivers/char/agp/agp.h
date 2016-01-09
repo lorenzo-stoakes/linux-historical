@@ -172,6 +172,12 @@ struct agp_bridge_data {
 #ifndef PCI_DEVICE_ID_VIA_82C694X_0
 #define PCI_DEVICE_ID_VIA_82C694X_0      0x0605
 #endif
+#ifndef PCI_DEVICE_ID_VIA_8380_0
+#define PCI_DEVICE_ID_VIA_8380_0	0x0204
+#endif
+#ifndef PCI_DEVICE_ID_VIA_8385_0
+#define PCI_DEVICE_ID_VIA_8385_0	0x3188
+#endif 
 #ifndef PCI_DEVICE_ID_INTEL_810_0
 #define PCI_DEVICE_ID_INTEL_810_0       0x7120
 #endif
@@ -510,6 +516,14 @@ struct agp_bridge_data {
 #define NVIDIA_2_ATTBASE(i) (0xe0 + (i) * 4)
 #define NVIDIA_3_APBASE     0x50
 #define NVIDIA_3_APLIMIT    0x54
+
+/* NVIDIA x86-64 registers */
+#define NVIDIA_X86_64_0_APBASE		0x10
+#define NVIDIA_X86_64_1_APBASE1		0x50
+#define NVIDIA_X86_64_1_APLIMIT1	0x54
+#define NVIDIA_X86_64_1_APSIZE		0xa8
+#define NVIDIA_X86_64_1_APBASE2		0xd8
+#define NVIDIA_X86_64_1_APLIMIT2	0xdc
 
 /* HP ZX1 IOC registers */
 #define HP_ZX1_IBASE		0x300

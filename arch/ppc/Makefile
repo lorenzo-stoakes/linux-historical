@@ -14,7 +14,7 @@
 #
 
 # Be sure to change PAGE_OFFSET in include/asm-ppc/page.h to match
-KERNELLOAD	=0xc0000000
+KERNELLOAD	=$(CONFIG_KERNEL_START)
 
 LINKFLAGS	= -T arch/ppc/vmlinux.lds -Ttext $(KERNELLOAD) -Bstatic
 CPPFLAGS	:= $(CPPFLAGS) -I$(TOPDIR)/arch/$(ARCH)

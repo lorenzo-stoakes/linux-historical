@@ -1,0 +1,8 @@
+cc -g  -o 8253xcfg -I. -U__KERNEL__ 8253xcfg.c
+cc -g  -o 8253xspeed -I. -U__KERNEL__ 8253xspeed.c
+cc -g  -o 8253xmode -I. -U__KERNEL__ 8253xmode.c
+cc -g  -o 8253xpeer -I. -U__KERNEL__ 8253xpeer.c
+cc -g  -o eprom9050 -I. -U__KERNEL__ eprom9050.c
+
+
+

@@ -7,7 +7,7 @@
 
 O_TARGET :=	network.o
 
-mod-subdirs :=	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm netlink sched core
+mod-subdirs :=	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm netlink sched core sctp
 export-objs :=	netsyms.o
 
 subdir-y :=	core ethernet
@@ -19,6 +19,7 @@ subdir-$(CONFIG_INET)		+= ipv4
 subdir-$(CONFIG_NETFILTER)	+= ipv4/netfilter
 subdir-$(CONFIG_UNIX)		+= unix
 subdir-$(CONFIG_IPV6)		+= ipv6
+subdir-$(CONFIG_IP_SCTP)	+= sctp
 
 ifneq ($(CONFIG_IPV6),n)
 ifneq ($(CONFIG_IPV6),)
