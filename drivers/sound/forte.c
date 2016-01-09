@@ -49,11 +49,13 @@
 #include <linux/ac97_codec.h>
 #include <linux/wrapper.h>
 
+#include <linux/proc_fs.h>
+
 #include <asm/uaccess.h>
 #include <asm/hardirq.h>
 
 #define DRIVER_NAME	"forte"
-#define DRIVER_VERSION 	"$Id: forte.c,v 1.51 2002/08/26 18:10:41 mkp Exp $"
+#define DRIVER_VERSION 	"$Id: forte.c,v 1.55 2002/10/02 00:01:42 mkp Exp $"
 #define PFX 		DRIVER_NAME ": "
 
 #undef M_DEBUG
@@ -68,7 +70,7 @@
 #define FORTE_CAPS              (DSP_CAP_MMAP | DSP_CAP_TRIGGER)
 
 /* Supported audio formats */
-#define FORTE_FMTS              (AFMT_U8 | AFMT_S16_LE)
+#define FORTE_FMTS		(AFMT_U8 | AFMT_S16_LE)
 
 /* Buffers */
 #define FORTE_MIN_FRAG_SIZE     256
@@ -203,6 +205,10 @@ struct forte_chip {
 	struct forte_channel	rec;
 };
 
+
+static int channels[] = { 2, 4, 6, };
+static int rates[]    = { 5500, 8000, 9600, 11025, 16000, 19200, 
+			  22050, 32000, 38400, 44100, 48000, };
 
 static struct forte_chip *forte;
 static int found;
@@ -462,49 +468,33 @@ forte_channel_stop (struct forte_channel *channel)
 static int
 forte_channel_rate (struct forte_channel *channel, unsigned int rate)
 {
-	int new_rate, ret;
+	int new_rate;
 
 	if (!channel || !channel->iobase) 
 		return -EINVAL;
 
-	if (rate == 0 || channel->rate == rate) {
-		ret = channel->rate;
-		goto out;
-	}
-
-	if (rate > 48000)
-		rate = 48000;
-
-	if (rate < 5500)
-		rate = 5500;
-
-	switch (rate) {
-	case 5500:	new_rate =  0; break;
-	case 8000:	new_rate =  1; break;
-	case 9600:	new_rate =  2; break;
-	case 11025:	new_rate =  3; break;
-	case 16000:	new_rate =  4; break;
-	case 19200:	new_rate =  5; break;
-	case 22050:	new_rate =  6; break;
-	case 32000:	new_rate =  7; break;
-	case 38400:	new_rate =  8; break;
-	case 44100:	new_rate =  9; break;
-	case 48000:	new_rate = 10; break;
-
-	default:
-		DPRINTK ("Unsupported rate: %d", rate);
-		ret = -EINVAL;
-		goto out;
-	}
+	/* The FM801 only supports a handful of fixed frequencies.
+	 * We find the value closest to what userland requested.
+	 */
+	if      (rate <= 6250)  { rate = 5500;  new_rate =  0; }
+	else if (rate <= 8800)  { rate = 8000;  new_rate =  1; }
+	else if (rate <= 10312) { rate = 9600;  new_rate =  2; }
+	else if (rate <= 13512) { rate = 11025; new_rate =  3; }
+	else if (rate <= 17600) { rate = 16000; new_rate =  4; }
+	else if (rate <= 20625) { rate = 19200; new_rate =  5; }
+	else if (rate <= 27025) { rate = 22050; new_rate =  6; }
+	else if (rate <= 35200) { rate = 32000; new_rate =  7; }
+	else if (rate <= 41250) { rate = 38400; new_rate =  8; }
+	else if (rate <= 46050) { rate = 44100; new_rate =  9; }
+	else                    { rate = 48000; new_rate = 10; }
 
 	channel->ctrl &= ~FORTE_RATE_MASK;
 	channel->ctrl |= new_rate << FORTE_RATE_SHIFT;
-	channel->rate = ret = rate;
+	channel->rate = rate;
 
- out:
 	DPRINTK ("%s: %s rate = %d\n", __FUNCTION__, channel->name, rate);
 
-	return ret;
+	return rate;
 }
 
 
@@ -519,38 +509,30 @@ forte_channel_rate (struct forte_channel *channel, unsigned int rate)
 static int
 forte_channel_format (struct forte_channel *channel, int format)
 {
-	int ret;
-
 	if (!channel || !channel->iobase) 
 		return -EINVAL;
-
-	DPRINTK ("%s: %s format = %d\n", __FUNCTION__, channel->name, format);
 
 	switch (format) {
 
 	case AFMT_QUERY:
-		ret = channel->format;
 		break;
 	
 	case AFMT_U8:
 		channel->ctrl &= ~FORTE_16BIT;
-		channel->format = format;
-		ret = format;
+		channel->format = AFMT_U8;
 		break;
 
 	case AFMT_S16_LE:
-		channel->ctrl |= FORTE_16BIT;
-		channel->format = format;
-		ret = format;
-		break;
-
 	default:
-		DPRINTK ("Unsupported audio format");
-		ret = -EINVAL;
+		channel->ctrl |= FORTE_16BIT;
+		channel->format = AFMT_S16_LE;
 		break;
 	}
 
-	return ret;
+	DPRINTK ("%s: %s want %d format, got %d\n", __FUNCTION__, channel->name, 
+		 format, channel->format);
+
+	return channel->format;
 }
 
 
@@ -669,13 +651,13 @@ forte_channel_prep (struct forte_channel *channel)
 					     channel->buf_pages * PAGE_SIZE,
 					     &channel->buf_handle);
 
+	if (!channel->buf || !channel->buf_handle)
+		BUG();
+
 	page = virt_to_page (channel->buf);
 	
 	for (i = 0 ; i < channel->buf_pages ; i++)
 		mem_map_reserve (page++);
-
-	if (!channel->buf || !channel->buf_handle)
-		BUG();
 
 	/* Prep buffer registers */
 	outw (channel->frag_sz - 1, channel->iobase + FORTE_PLY_COUNT);
@@ -777,9 +759,10 @@ forte_channel_init (struct forte_chip *chip, struct forte_channel *channel)
 
 	init_waitqueue_head (&channel->wait);
 
-	/* Defaults: 48kHz, 16-bit, mono */
+	/* Defaults: 48kHz, 16-bit, stereo */
+	channel->ctrl = inw (channel->iobase + FORTE_PLY_CTRL);
 	forte_channel_reset (channel);
-	forte_channel_stereo (channel, 0);
+	forte_channel_stereo (channel, 1);
 	forte_channel_format (channel, AFMT_S16_LE);
 	forte_channel_rate (channel, 48000);
 	forte_channel_buffer (channel, FORTE_DEF_FRAG_SIZE, 
@@ -829,7 +812,7 @@ static int
 forte_dsp_ioctl (struct inode *inode, struct file *file, unsigned int cmd,
 		 unsigned long arg)
 {
-	int ival, ret, rval, rd, wr, count;
+	int ival=0, ret, rval=0, rd, wr, count;
 	struct forte_chip *chip;
 	struct audio_buf_info abi;
 	struct count_info cinfo;
@@ -1182,6 +1165,18 @@ forte_dsp_ioctl (struct inode *inode, struct file *file, unsigned int cmd,
 
 		return 0;
 		
+	case SOUND_PCM_READ_RATE:
+		DPRINTK ("%s: PCM_READ_RATE\n", __FUNCTION__);		
+		return put_user (chip->play.rate, (int *) arg);
+
+	case SOUND_PCM_READ_CHANNELS:
+		DPRINTK ("%s: PCM_READ_CHANNELS\n", __FUNCTION__);		
+		return put_user (chip->play.stereo, (int *) arg);
+
+	case SOUND_PCM_READ_BITS:
+		DPRINTK ("%s: PCM_READ_BITS\n", __FUNCTION__);		
+		return put_user (chip->play.format, (int *) arg);
+
 	default:
 		DPRINTK ("Unsupported ioctl: %x (%p)\n", cmd, (void *) arg);
 		break;
@@ -1236,6 +1231,7 @@ forte_dsp_release (struct inode *inode, struct file *file)
 
 		spin_lock_irq (&chip->lock);
 
+		chip->play.ctrl |= FORTE_IMMED_STOP;
 		forte_channel_stop (&chip->play);
 		forte_channel_free (chip, &chip->play);
 
@@ -1246,8 +1242,13 @@ forte_dsp_release (struct inode *inode, struct file *file)
 		while (chip->rec.filled_frags > 0)
 			interruptible_sleep_on (&chip->rec.wait);
 
+		spin_lock_irq (&chip->lock);
+
+		chip->play.ctrl |= FORTE_IMMED_STOP;
 		forte_channel_stop (&chip->rec);
 		forte_channel_free (chip, &chip->rec);
+
+		spin_unlock_irq (&chip->lock);
 	}
 
 	up (&chip->open_sem);
@@ -1699,6 +1700,118 @@ forte_interrupt (int irq, void *dev_id, struct pt_regs *regs)
 
 
 /**
+ * forte_proc_read:
+ */
+
+static int
+forte_proc_read (char *page, char **start, off_t off, int count, 
+		 int *eof, void *data)
+{
+	int i = 0, p_rate, p_chan, r_rate;
+	unsigned short p_reg, r_reg;
+
+	i += sprintf (page, "ForteMedia FM801 OSS Lite driver\n%s\n\n", 
+		      DRIVER_VERSION);
+
+	if (!forte->iobase)
+		return i;
+
+	p_rate = p_chan = -1;
+	p_reg  = inw (forte->iobase + FORTE_PLY_CTRL);
+	p_rate = (p_reg >> 8) & 15;
+	p_chan = (p_reg >> 12) & 3;
+
+ 	if (p_rate >= 0 || p_rate <= 10)
+		p_rate = rates[p_rate];
+
+	if (p_chan >= 0 || p_chan <= 2)
+		p_chan = channels[p_chan];
+
+	r_rate = -1;
+	r_reg  = inw (forte->iobase + FORTE_CAP_CTRL);
+	r_rate = (r_reg >> 8) & 15;
+
+ 	if (r_rate >= 0 || r_rate <= 10)
+		r_rate = rates[r_rate]; 
+
+	i += sprintf (page + i,
+		      "             Playback  Capture\n"
+		      "FIFO empty : %-3s       %-3s\n"
+		      "Buf1 Last  : %-3s       %-3s\n"
+		      "Buf2 Last  : %-3s       %-3s\n"
+		      "Started    : %-3s       %-3s\n"
+		      "Paused     : %-3s       %-3s\n"
+		      "Immed Stop : %-3s       %-3s\n"
+		      "Rate       : %-5d     %-5d\n"
+		      "Channels   : %-5d     -\n"
+		      "16-bit     : %-3s       %-3s\n"
+		      "Stereo     : %-3s       %-3s\n",
+		      p_reg & 1<<0  ? "yes" : "no",
+		      r_reg & 1<<0  ? "yes" : "no",
+		      p_reg & 1<<1  ? "yes" : "no",
+		      r_reg & 1<<1  ? "yes" : "no",
+		      p_reg & 1<<2  ? "yes" : "no",
+		      r_reg & 1<<2  ? "yes" : "no",
+		      p_reg & 1<<5  ? "yes" : "no",
+		      r_reg & 1<<5  ? "yes" : "no",
+		      p_reg & 1<<6  ? "yes" : "no",
+		      r_reg & 1<<6  ? "yes" : "no",
+		      p_reg & 1<<7  ? "yes" : "no",
+		      r_reg & 1<<7  ? "yes" : "no",
+		      p_rate, r_rate,
+		      p_chan,
+		      p_reg & 1<<14 ? "yes" : "no",
+		      r_reg & 1<<14 ? "yes" : "no",
+		      p_reg & 1<<15 ? "yes" : "no",
+		      r_reg & 1<<15 ? "yes" : "no");
+
+	return i;
+}
+
+
+/**
+ * forte_proc_init:
+ *
+ * Creates driver info entries in /proc
+ */
+
+static int __init 
+forte_proc_init (void)
+{
+	if (!proc_mkdir ("driver/forte", 0))
+		return -EIO;
+
+	if (!create_proc_read_entry ("driver/forte/chip", 0, 0, forte_proc_read, forte)) {
+		remove_proc_entry ("driver/forte", NULL);
+		return -EIO;
+	}
+
+	if (!create_proc_read_entry("driver/forte/ac97", 0, 0, ac97_read_proc, forte->ac97)) {
+		remove_proc_entry ("driver/forte/chip", NULL);
+		remove_proc_entry ("driver/forte", NULL);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+
+/**
+ * forte_proc_remove:
+ *
+ * Removes driver info entries in /proc
+ */
+
+static void
+forte_proc_remove (void)
+{
+	remove_proc_entry ("driver/forte/ac97", NULL);
+	remove_proc_entry ("driver/forte/chip", NULL);
+	remove_proc_entry ("driver/forte", NULL);	
+}
+
+
+/**
  * forte_chip_init:
  * @chip:	Chip instance to initialize
  *
@@ -1787,6 +1900,12 @@ forte_chip_init (struct forte_chip *chip)
 	/* Register DSP */
 	if ((chip->dsp = register_sound_dsp (&forte_dsp_fops, -1) ) < 0) {
 		printk (KERN_ERR PFX "couldn't register dsp!\n");
+		return -1;
+	}
+
+	/* Register with /proc */
+	if (forte_proc_init()) {
+		printk (KERN_ERR PFX "couldn't add entries to /proc!\n");
 		return -1;
 	}
 
@@ -1894,6 +2013,7 @@ forte_remove (struct pci_dev *pci_dev)
 	outw (0x1f1f, chip->iobase + FORTE_FM_VOL);
 	outw (0x1f1f, chip->iobase + FORTE_I2S_VOL);
 
+	forte_proc_remove();
 	free_irq (chip->irq, chip);
 	release_region (chip->iobase, pci_resource_len (pci_dev, 0));
 

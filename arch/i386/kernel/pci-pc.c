@@ -15,6 +15,7 @@
 #include <asm/segment.h>
 #include <asm/io.h>
 #include <asm/smp.h>
+#include <asm/smpboot.h>
 
 #include "pci-i386.h"
 
@@ -477,7 +478,7 @@ static struct pci_ops * __devinit pci_check_direct(void)
 
 #ifdef CONFIG_MULTIQUAD			
 			/* Multi-Quad has an extended PCI Conf1 */
-			if(clustered_apic_mode)
+			if(clustered_apic_mode == CLUSTERED_APIC_NUMAQ)
 				return &pci_direct_mq_conf1;
 #endif				
 			return &pci_direct_conf1;

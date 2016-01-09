@@ -115,7 +115,7 @@ struct tlb_state cpu_tlbstate[NR_CPUS] __cacheline_aligned = {[0 ... NR_CPUS-1] 
 
 static inline int __prepare_ICR (unsigned int shortcut, int vector)
 {
-	return APIC_DM_FIXED | shortcut | vector | APIC_DEST_LOGICAL;
+	return APIC_DM_FIXED | shortcut | vector | INT_DEST_ADDR_MODE;
 }
 
 static inline int __prepare_ICR2 (unsigned int mask)

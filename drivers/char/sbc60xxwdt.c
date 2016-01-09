@@ -234,7 +234,7 @@ static int fop_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 {
 	static struct watchdog_info ident=
 	{
-		0,
+		WDIOF_MAGICCLOSE,
 		1,
 		"SB60xx"
 	};

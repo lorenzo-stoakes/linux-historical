@@ -493,7 +493,9 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 			if (val & SC_ENABLE_IP && !(is->pppcfg & SC_ENABLE_IP) && (is->state & IPPP_CONNECT)) {
 				if (lp) {
 					/* OK .. we are ready to send buffers */
+					is->pppcfg = val; /* isdn_ppp_xmit test for SC_ENABLE_IP !!! */
 					netif_wake_queue(&lp->netdev->dev);
+					break;
 				}
 			}
 			is->pppcfg = val;

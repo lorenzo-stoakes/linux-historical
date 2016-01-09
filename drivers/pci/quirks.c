@@ -477,6 +477,24 @@ static void __init quirk_transparent_bridge(struct pci_dev *dev)
 }
 
 /*
+ * Common misconfiguration of the MediaGX/Geode PCI master that will
+ * reduce PCI bandwidth from 70MB/s to 25MB/s.  See the GXM/GXLV/GX1
+ * datasheets found at http://www.national.com/ds/GX for info on what
+ * these bits do.  <christer@weinigel.se>
+ */
+ 
+static void __init quirk_mediagx_master(struct pci_dev *dev)
+{
+	u8 reg;
+	pci_read_config_byte(dev, 0x41, &reg);
+	if (reg & 2) {
+		reg &= ~2;
+		printk(KERN_INFO "PCI: Fixup for MediaGX/Geode Slave Disconnect Boundary (0x41=0x%02x)\n", reg);
+                pci_write_config_byte(dev, 0x41, reg);
+	}
+}
+
+/*
  *  The main table of quirks.
  */
 
@@ -537,6 +555,8 @@ static struct pci_fixup pci_fixups[] __initdata = {
 	 * instead of 0x01.
 	 */
 	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_INTEL,	PCI_DEVICE_ID_INTEL_82380FB,	quirk_transparent_bridge },
+
+	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_CYRIX,	PCI_DEVICE_ID_CYRIX_PCI_MASTER, quirk_mediagx_master },
 
 	{ 0 }
 };

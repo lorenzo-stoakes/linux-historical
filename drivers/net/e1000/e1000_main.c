@@ -132,7 +132,7 @@ static int e1000_init_module(void);
 static void e1000_exit_module(void);
 static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
 static void e1000_remove(struct pci_dev *pdev);
-static void e1000_sw_init(struct e1000_adapter *adapter);
+static int e1000_sw_init(struct e1000_adapter *adapter);
 static int e1000_open(struct net_device *netdev);
 static int e1000_close(struct net_device *netdev);
 static int e1000_setup_tx_resources(struct e1000_adapter *adapter);
@@ -404,7 +404,8 @@ e1000_probe(struct pci_dev *pdev,
 
 	/* setup the private structure */
 
-	e1000_sw_init(adapter);
+	if(e1000_sw_init(adapter))
+		goto err_sw_init;
 
 	if(adapter->hw.mac_type >= e1000_82543) {
 		netdev->features = NETIF_F_SG |
@@ -484,6 +485,7 @@ e1000_probe(struct pci_dev *pdev,
 	cards_found++;
 	return 0;
 
+err_sw_init:
 err_eeprom:
 	iounmap(adapter->hw.hw_addr);
 err_ioremap:
@@ -539,7 +541,7 @@ e1000_remove(struct pci_dev *pdev)
  * OS network device settings (MTU size).
  **/
 
-static void __devinit
+static int __devinit
 e1000_sw_init(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
@@ -548,11 +550,11 @@ e1000_sw_init(struct e1000_adapter *adapter)
 
 	/* PCI config space info */
 
-	pci_read_config_word(pdev, PCI_VENDOR_ID, &hw->vendor_id);
-	pci_read_config_word(pdev, PCI_DEVICE_ID, &hw->device_id);
-	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, 
-	                     &hw->subsystem_vendor_id);
-	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &hw->subsystem_id);
+	hw->vendor_id = pdev->vendor;
+	hw->device_id = pdev->device;
+	hw->subsystem_vendor_id = pdev->subsystem_vendor;
+	hw->subsystem_id = pdev->subsystem_device;
+
 	pci_read_config_byte(pdev, PCI_REVISION_ID, &hw->revision_id);
 	pci_read_config_word(pdev, PCI_COMMAND, &hw->pci_cmd_word);
 
@@ -565,7 +567,7 @@ e1000_sw_init(struct e1000_adapter *adapter)
 
 	if (e1000_set_mac_type(hw)) {
 		E1000_ERR("Unknown MAC Type\n");
-		BUG();
+		return -1;
 	}
 
 	/* flow control settings */
@@ -606,6 +608,8 @@ e1000_sw_init(struct e1000_adapter *adapter)
 
 	atomic_set(&adapter->irq_sem, 1);
 	spin_lock_init(&adapter->stats_lock);
+
+	return 0;
 }
 
 /**

@@ -258,6 +258,7 @@ static void ncp_extract_file_info(void *structure, struct nw_info_struct *target
 	target->nameLen = *name_len;
 	memcpy(target->entryName, name_len + 1, *name_len);
 	target->entryName[*name_len] = '\0';
+	target->volNumber = le32_to_cpu(target->volNumber);
 	return;
 }
 

@@ -2473,7 +2473,7 @@ static void m3_amp_enable(struct m3_card *card, int enable)
     if(!external_amp)
         return;
 
-    if (0 <= gpio_pin <= 15) {
+    if (gpio_pin >= 0  && gpio_pin <= 15) {
         polarity_port = 0x1000 + (0x100 * gpio_pin);
     } else {
         switch (card->card_type) {

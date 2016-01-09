@@ -673,18 +673,27 @@ check_if_enabled:
 	 */
 	pciirq = dev->irq;
 	
-#ifdef CONFIG_PDC202XX_FORCE
-	if (dev->class >> 8 == PCI_CLASS_STORAGE_RAID) {
-		/*
-		 * By rights we want to ignore Promise FastTrak and SuperTrak
-		 * series here, those use own driver.
+	if (dev->class >> 8 == PCI_CLASS_STORAGE_RAID)
+	{
+	    /*  By rights we want to ignore these, but the Promise Fastrak
+		 *	people have some strange ideas about proprietary so we have
+		 *	to act otherwise on those. The supertrak however we need
+		 *	to skip 
 		 */
-		if (dev->vendor == PCI_VENDOR_ID_PROMISE) {
-			printk(KERN_INFO "ide: Skipping Promise RAID controller.\n");
-			return;
+		if (IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20265))
+		{
+			printk(KERN_INFO "ide: Found promise 20265 in RAID mode.\n");
+			if(dev->bus->self && dev->bus->self->vendor == PCI_VENDOR_ID_INTEL &&
+			   dev->bus->self->device == PCI_DEVICE_ID_INTEL_I960)
+			{
+				printk(KERN_INFO "ide: Skipping Promise PDC20265 attached to I2O RAID controller.\n");
+				return;
+			}
 		}
+		/* Its attached to something else, just a random bridge.
+		   Suspect a fastrak and fall through */
 	}
-#endif /* CONFIG_PDC202XX_FORCE */
+
 	if ((dev->class & ~(0xfa)) != ((PCI_CLASS_STORAGE_IDE << 8) | 5)) {
 		printk("%s: not 100%% native mode: will probe irqs later\n", d->name);
 		/*

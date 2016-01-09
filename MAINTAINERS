@@ -542,7 +542,7 @@ S:	Maintained
 EMU10K1 SOUND DRIVER
 P:	Rui Sousa	
 M:	rui.p.m.sousa@clix.pt	
-L:	emu10k1-devel@opensource.creative.com
+L:	emu10k1-devel@lists.sourceforge.net
 W:	http://opensource.creative.com/
 S:	Maintained
 
@@ -1285,6 +1285,15 @@ L:	pnp-devel@ferret.lmh.ox.ac.uk
 W:	http://www-jcr.lmh.ox.ac.uk/~pnp/
 S:	Maintained
 
+POWERVR2 FRAMEBUFFER DRIVER
+P:	M. R. Brown
+M:	mrbrown@0xd6.org
+P:	Paul Mundt
+M:	lethal@0xd6.org
+L:	linux-fbdev-devel@lists.sourceforge.net
+W:	http://www.linuxdc.org
+S:	Maintained
+
 PPP PROTOCOL DRIVERS AND COMPRESSORS
 P:	Paul Mackerras
 M:	paulus@samba.org
@@ -1544,6 +1553,13 @@ M:	kkojima@rr.iij4u.or.jp
 L:	linux-sh@m17n.org
 W:	http://www.m17n.org/linux-sh/
 W:	http://www.rr.iij4u.or.jp/~kkojima/linux-sh4.html
+S:	Maintained
+
+SUPERH WATCHDOG
+P:	Paul Mundt
+M:	lethal@0xd6.org
+L:	linuxsh-dev@lists.sourceforge.net
+W:	http://www.linuxsh.org
 S:	Maintained
 
 SVGA HANDLING

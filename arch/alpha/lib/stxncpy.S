@@ -28,7 +28,7 @@
  * Furthermore, v0, a3-a5, t11, t12, and $at are untouched.
  */
 
-#include <alpha/regdef.h>
+#include <asm/regdef.h>
 
 	.set noat
 	.set noreorder
@@ -210,7 +210,7 @@ $u_loop:
 	addq	a0, 8, a0	# .. e1 :
 	extql	t2, a1, t1	# e0    : extract high bits for next time
 	beq	a2, $u_eoc	# .. e1 :
-	ldq_u	t2, 0(a1)	# e0    : load high word for next time
+	ldq_u	t2, 8(a1)	# e0    : load high word for next time
 	addq	a1, 8, a1	# .. e1 :
 	nop			# e0    :
 	cmpbge	zero, t2, t8	# e1    : test new word for eos (stall)
@@ -278,7 +278,7 @@ $u_eoc:
 	extqh	t2, a1, t0	# e0    : extract low bits for last word
 	or	t1, t0, t1	# e1    :
 
-1:	cmpbge	zero, t1, t7
+1:	cmpbge	zero, t1, t8
 	mov	t1, t0
 
 $u_eocfin:			# end-of-count, final word

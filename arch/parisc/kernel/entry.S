@@ -498,7 +498,6 @@ fault_vector_11:
 	.import		handle_real_interruption,code
 	.import		do_cpu_irq_mask,code
 	.import		parisc_stopkernel,code
-	.import		cpu_irq_region,data
 
 	/*
 	 * r26 = function to be called
@@ -815,7 +814,7 @@ intr_do_signal:
 	 */
 
 intr_extint:
-	CMPIB=,n 0,%r16,1f
+	CMPIB=,n 0,%r16,1f	/* on User or kernel stack? */
 	get_stack_use_cr30
 	b,n 3f
 
@@ -846,28 +845,16 @@ intr_extint:
 	
 	loadgp
 
-	copy	%r29, %r25	/* arg1 is pt_regs */
+	copy	%r29, %r26	/* arg0 is pt_regs */
 	copy	%r29, %r16	/* save pt_regs */
-#ifdef CONFIG_KWDB
-	copy	%r29, %r3	/* KWDB - update frame pointer (gr3) */
-#endif
-
+	ldil	L%intr_return, %r2
 #ifdef __LP64__
 	ldo	-16(%r30),%r29	/* Reference param save area */
-#else
-	nop
 #endif
-	
-	/*
-	 * We need to either load the CPU's ID or IRQ region.
-	 * Until we have "per CPU" IRQ regions, this is easy.
-	 */
-	ldil	L%cpu_irq_region, %r26
-	ldil	L%intr_return, %r2
-	ldo	R%cpu_irq_region(%r26), %r26
-	
 	b	do_cpu_irq_mask
 	ldo	R%intr_return(%r2), %r2	/* return to intr_return, not here */
+
+
 
 	/* Generic interruptions (illegal insn, unaligned, page fault, etc) */
 

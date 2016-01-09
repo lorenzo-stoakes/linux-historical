@@ -10906,6 +10906,11 @@ CONFIG_SUNGEM
   Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
   <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
 
+  This chip is also used by Apple under the name GMAC in all their recent
+  machines starting with the first iBook. This includes all AGP capable
+  Apple machines except some early G4s and iMacs that still used a
+  Tulip chip. This driver obsoletes the GMAC driver for these machines.
+  
   If you want to compile the driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
   say M here and read <file:Documentation/modules.txt>.  The module
@@ -14952,6 +14957,27 @@ CONFIG_USB_BLUETOOTH
   The module will be called bluetooth.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
+USB MIDI support
+CONFIG_USB_MIDI
+  Say Y here if you want to connect a USB MIDI device to your
+  computer's USB port. This driver is for devices that comply with
+  'Universal Serial Bus Device Class Definition for MIDI Device'.
+
+  The following devices are known to work:
+    * Steinberg USB2MIDI
+    * Roland MPU64
+    * Roland PC-300
+    * Roland SC8850
+    * Roland UM-1
+    * Roland UM-2
+    * Roland UA-100
+    * Yamaha MU1000
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called usb-midi.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
 Minix fs support
 CONFIG_MINIX_FS
   Minix is a simple operating system used in many classes about OS's.
@@ -18741,11 +18767,11 @@ CONFIG_SC1200_WDT
   module, say M here and read <file:Documentation/modules.txt>.  Most
   people will say N.
 
-SuperH 3/4 Watchdog
+SuperH Watchdog
 CONFIG_SH_WDT
   This driver adds watchdog support for the integrated watchdog in the
-  SuperH 3 and 4 processors. If you have one of these processors, say Y,
-  otherwise say N.
+  SuperH 3, 4 and 5 processors. If you have one of these processors, say
+  Y, otherwise say N.
 
   This driver is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -21401,6 +21427,11 @@ CONFIG_CF_AREA5
 
   "Area6" will work for most boards. For ADX, select "Area5".
 
+Disable data cache
+CONFIG_DCACHE_DISABLE
+  This option allows you to run the kernel with data cache disabled.
+  Say Y if you experience CPM lock-ups.
+
 #
 # m68k-specific kernel options
 # Documented by Chris Lawrence <mailto:quango@themall.net> et al.
@@ -22203,6 +22234,8 @@ CONFIG_ALL_PPC
 
   Select APUS if configuring for a PowerUP Amiga.  More information is
   available at: <http://linux-apus.sourceforge.net/>.
+
+  Note that Total Impact briQ is handled as a CHRP machine.
 
 Synergy-Gemini
 CONFIG_GEMINI
@@ -25616,6 +25649,18 @@ Include xmon kernel debugger
 CONFIG_XMON
   Include in-kernel hooks for the xmon kernel monitor/debugger
   supported by the PPC port.
+
+Include BDI2000 debugger support
+CONFIG_BDI_SWITCH
+  Include in-kernel support for the Abatron BDI2000 debugger.  To
+  learn more about the Abatron BDI2000, visit the web page at
+  <http://www.abatron.ch/>.
+
+Add additional CFLAGS to the kernel build
+CONFIG_MORE_COMPILE_OPTIONS
+  If you want to add additional CFLAGS to the kernel build, such as
+  -g for KGDB, XMON or the BDI2000, enable this option and then
+  enter what you would like to add in the next question.
 
 Include kgdb kernel debugger
 CONFIG_KWDB
