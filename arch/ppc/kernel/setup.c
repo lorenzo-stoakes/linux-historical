@@ -89,7 +89,7 @@ int dcache_bsize;
 int icache_bsize;
 int ucache_bsize;
 
-#ifdef CONFIG_VGA_CONSOLE
+#if defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_FB)
 struct screen_info screen_info = {
 	0, 25,			/* orig-x, orig-y */
 	0,			/* unused */
@@ -101,7 +101,7 @@ struct screen_info screen_info = {
 	1,			/* orig-video-isVGA */
 	16			/* orig-video-points */
 };
-#endif /* CONFIG_VGA_CONSOLE */
+#endif /* CONFIG_VGA_CONSOLE || CONFIG_FB */
 
 void machine_restart(char *cmd)
 {

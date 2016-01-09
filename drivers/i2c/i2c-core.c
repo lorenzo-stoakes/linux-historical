@@ -1264,7 +1264,7 @@ int i2c_check_functionality (struct i2c_adapter *adap, u32 func)
 
 static int __init i2c_init(void)
 {
-	printk("i2c-core.o: i2c core module\n");
+	printk(KERN_INFO "i2c-core.o: i2c core module\n");
 	memset(adapters,0,sizeof(adapters));
 	memset(drivers,0,sizeof(drivers));
 	adap_count=0;

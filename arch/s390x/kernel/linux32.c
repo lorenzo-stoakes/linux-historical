@@ -935,7 +935,7 @@ asmlinkage long sys32_fcntl64(unsigned int fd, unsigned int cmd, unsigned long a
 	return sys32_fcntl(fd, cmd, arg);
 }
 
-struct dqblk32 {
+struct user_dqblk32 {
     __u32 dqb_bhardlimit;
     __u32 dqb_bsoftlimit;
     __u32 dqb_curblocks;
@@ -948,46 +948,45 @@ struct dqblk32 {
                                 
 extern asmlinkage int sys_quotactl(int cmd, const char *special, int id, caddr_t addr);
 
-asmlinkage int sys32_quotactl(int cmd, const char *special, int id, unsigned long addr)
+asmlinkage int sys32_quotactl(int cmd, const char *special, int id, caddr_t addr)
 {
 	int cmds = cmd >> SUBCMDSHIFT;
 	int err;
-	struct dqblk d;
+	struct v1c_mem_dqblk d;
 	mm_segment_t old_fs;
 	char *spec;
 	
 	switch (cmds) {
-	case Q_GETQUOTA:
+	case Q_V1_GETQUOTA:
 		break;
-	case Q_SETQUOTA:
-	case Q_SETUSE:
-	case Q_SETQLIM:
-		if (copy_from_user (&d, (struct dqblk32 *)addr,
-				    sizeof (struct dqblk32)))
+	case Q_V1_SETQUOTA:
+	case Q_V1_SETUSE:
+	case Q_V1_SETQLIM:
+		if (copy_from_user(&d, addr, sizeof (struct user_dqblk32)))
 			return -EFAULT;
-		d.dqb_itime = ((struct dqblk32 *)&d)->dqb_itime;
-		d.dqb_btime = ((struct dqblk32 *)&d)->dqb_btime;
+		d.dqb_itime = ((struct user_dqblk32 *)&d)->dqb_itime;
+		d.dqb_btime = ((struct user_dqblk32 *)&d)->dqb_btime;
 		break;
 	default:
-		return sys_quotactl(cmd, special,
-				    id, (caddr_t)addr);
+		return sys_quotactl(cmd, special, id, addr);
 	}
-	spec = getname (special);
+
+	spec = getname(special);
 	err = PTR_ERR(spec);
-	if (IS_ERR(spec)) return err;
-	old_fs = get_fs ();
+	if (IS_ERR(spec))
+		return err;
+	old_fs = get_fs();
 	set_fs (KERNEL_DS);
 	err = sys_quotactl(cmd, (const char *)spec, id, (caddr_t)&d);
-	set_fs (old_fs);
-	putname (spec);
+	set_fs(old_fs);
+	putname(spec);
 	if (err)
 		return err;
-	if (cmds == Q_GETQUOTA) {
+	if (cmds == Q_V1_GETQUOTA) {
 		__kernel_time_t b = d.dqb_btime, i = d.dqb_itime;
-		((struct dqblk32 *)&d)->dqb_itime = i;
-		((struct dqblk32 *)&d)->dqb_btime = b;
-		if (copy_to_user ((struct dqblk32 *)addr, &d,
-				  sizeof (struct dqblk32)))
+		((struct user_dqblk32 *)&d)->dqb_itime = i;
+		((struct user_dqblk32 *)&d)->dqb_btime = b;
+		if (copy_to_user(addr, &d, sizeof (struct user_dqblk32)))
 			return -EFAULT;
 	}
 	return 0;

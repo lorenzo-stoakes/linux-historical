@@ -5,6 +5,8 @@ mainmenu_option next_comment
 comment 'File systems'
 
 bool 'Quota support' CONFIG_QUOTA
+dep_tristate '  VFS v0 quota format support' CONFIG_QFMT_V2 $CONFIG_QUOTA
+
 tristate 'Kernel automounter support' CONFIG_AUTOFS_FS
 tristate 'Kernel automounter version 4 support (also supports v3)' CONFIG_AUTOFS4_FS
 

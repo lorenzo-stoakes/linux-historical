@@ -67,9 +67,6 @@
 /* Intel defined CPU features, CPUID level 0x00000001 (ecx), word 4 */
 #define X86_FEATURE_EST		(4*32+ 7) /* Enhanced SpeedStep */
 
-#define cpu_has(c, bit)            test_bit(bit, (c)->x86_capability)
-
-
 #define cpu_has(c, bit)		test_bit(bit, (c)->x86_capability)
 #define boot_cpu_has(bit)	test_bit(bit, boot_cpu_data.x86_capability)
 

@@ -107,6 +107,7 @@
 #include <linux/seq_file.h>
 #include <asm/processor.h>
 #include <linux/console.h>
+#include <linux/module.h>
 #include <asm/mtrr.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -175,10 +176,11 @@ static int disable_x86_ht __initdata = 0;
 static u32 disabled_x86_caps[NCAPINTS] __initdata = { 0 };
 
 #ifdef CONFIG_ACPI_HT_ONLY
-int acpi_disabled __initdata = 1;
+int acpi_disabled = 1;
 #else
-int acpi_disabled __initdata = 0;
+int acpi_disabled = 0;
 #endif
+EXPORT_SYMBOL(acpi_disabled);
 
 extern int blk_nohighio;
 

@@ -29,16 +29,6 @@
  *  You should have received a copy of the  GNU General Public License along
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
- *
- *
- *  	:05/07/02 - Armin
- *  		converted to using ocp register & core_ocp[];
- *
- *  	: 05/24/02 - Armin 
- *  		change get_ocp_paddr to ocp_get_paddr
- *
- *  	: 05029/02 - Armin 
- *  	  added PSR_PCI_ARBIT_EN check , not all 4xx have a pin strap reg
  */
 
 #include <linux/pci.h>

@@ -124,7 +124,7 @@ int __init sh5pci_init(unsigned memStart, unsigned memSize)
         uval = SH5PCI_READ(CR);
 
 	/* Set command Register */
-        SH5PCI_WRITE(CR, uval | CR_LOCK_MASK | CR_CFINT| CR_FTO | CR_PFE | CR_PFCS);
+        SH5PCI_WRITE(CR, uval | CR_LOCK_MASK | CR_CFINT| CR_FTO | CR_PFE | CR_PFCS | CR_BMAM );
 
 	uval=SH5PCI_READ(CR);
         dprintk("CR is actually 0x%08x\n",uval);
@@ -318,33 +318,46 @@ u8 __init common_swizzle(struct pci_dev *dev, u8 *pinp)
 
 static int __init map_cayman_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
-	dprintk("map_cayman_irq for dev %d on bus %d slot %d, pin is %d\n",
-	       dev->devfn,dev->bus->number,slot,pin);
- 
+	int result = -1;
+
 	if (dev->bus->number == 0) {
-	        switch (slot) {
+	        switch ((slot + (pin-1)) & 3) {
 	        case 0:
-	          return IRQ_INTA;
+	          result = IRQ_INTA;
+		  break;
                 case 1:
-	          return IRQ_INTB;
+	          result = IRQ_INTB;
+		  break;
                 case 2:
-	          return IRQ_INTC;
+	          result = IRQ_INTC;
+		  break;
 		case 3:
-		  return IRQ_INTD;
+		  result = IRQ_INTD;
+		  break;
                 }
         }
 
 	if (dev->bus->number == 2) {
-	        switch(slot) {
+	        switch((slot + (pin-1)) & 3) {
 	        case 0:
-	          return IRQ_P2INTA;
+	          result = IRQ_P2INTA;
+		  break;
                 case 1:
-	          return IRQ_P2INTB;
+	          result = IRQ_P2INTB;
+		  break;
+                case 2:
+	          result = IRQ_P2INTC;
+		  break;
+                case 3:
+	          result = IRQ_P2INTD;
+		  break;
                 }
         }
 
-	/* FIXME - DO PROPER MAPPING FOR GODS SAKE */
-	return -1;
+	dprintk("map_cayman_irq for dev %d on bus %d slot %d, pin is %d : irq=%d\n",
+	       dev->devfn,dev->bus->number,slot,pin,result);
+
+	return result;
 }
 
 #ifdef DEBUG

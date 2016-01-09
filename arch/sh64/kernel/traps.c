@@ -90,20 +90,28 @@ DO_ERROR(13, SIGILL,  "illegal slot instruction", illegal_slot_inst, current)
 DO_ERROR(87, SIGSEGV, "address error (exec)", address_error_exec, current)
 
 #if defined(CONFIG_SH64_ID2815_WORKAROUND)
+
+#define OPCODE_INVALID      0
+#define OPCODE_USER_VALID   1
+#define OPCODE_PRIV_VALID   2
+
+/* getcon/putcon - requires checking which control register is referenced. */
+#define OPCODE_CTRL_REG     3
+
 /* Table of valid opcodes for SHmedia mode.
    Form a 10-bit value by concatenating the major/minor opcodes i.e.
-   opcode[31:26,20:16].  The 5 MSBs of this value index into the following
-   array.  The 5 LSBs select the bit in the entry (bit 0 corresponds to
-   LSBs==5'b00000 etc). */
-static unsigned long valid_shmedia_opcodes[32] = {
-	0xeacfff8a,0x6e667676,0x40400000,0x2307150f,
-	0x8000002a,0x88ffaef7,0x40ffff07,0x2300fff3,
-	0x0022003f,0x7766022b,0x00000000,0x00000000,
-	0x88aa000f,0x80ef0022,0x00000000,0x00000000,
-	0xffffffff,0xffffffff,0xffffffff,0xffffffff,
-	0xffffffff,0xffffffff,0xffffffff,0xffffffff,
-	0x20cf80cc,0xffffffff,0xffffffff,0xffffffff,
-	0x002293fe,0xffffffff,0x00000000,0x00000000
+   opcode[31:26,20:16].  The 6 MSBs of this value index into the following
+   array.  The 4 LSBs select the bit-pair in the entry (bits 1:0 correspond to
+   LSBs==4'b0000 etc). */
+static unsigned long shmedia_opcode_table[64] = {
+	0x55554044,0x54445055,0x15141514,0x14541414,0x00000000,0x10001000,0x01110055,0x04050015,
+	0x00000444,0xc0000000,0x44545515,0x40405555,0x55550015,0x10005555,0x55555505,0x04050000,
+	0x00000555,0x00000404,0x00040445,0x15151414,0x00000000,0x00000000,0x00000000,0x00000000,
+	0x00000055,0x40404444,0x00000404,0xc0009495,0x00000000,0x00000000,0x00000000,0x00000000,
+	0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,
+	0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,
+	0x80005050,0x04005055,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,0x55555555,
+	0x81055554,0x00000404,0x55555555,0x55555555,0x00000000,0x00000000,0x00000000,0x00000000
 };
 
 void do_reserved_inst(unsigned long error_code, struct pt_regs *regs)
@@ -131,25 +139,58 @@ void do_reserved_inst(unsigned long error_code, struct pt_regs *regs)
 			get_user_error = __get_user(opcode, (unsigned long *)aligned_pc);
 		}
 		if (get_user_error >= 0) {
-			unsigned long index, mask;
+			unsigned long index, shift;
 			unsigned long major, minor, combined;
 			unsigned long reserved_field;
 			reserved_field = opcode & 0xf; /* These bits are currently reserved as zero in all valid opcodes */
 			major = (opcode >> 26) & 0x3f;
 			minor = (opcode >> 16) & 0xf;
-			combined = (major << 6) | minor;
-			index = combined >> 5;
-			mask = 1UL << (combined & 0x1f);
-			if ((reserved_field == 0) && (valid_shmedia_opcodes[index] & mask)) {
-#if 0
-				printk("Fixed up errata #2815 at PC=%08lx for pid %d (opcode=%08lx)\n",
-					pc, current->pid, opcode);
-#endif
-				/* Now just return to restart the instruction,
-				   because the branch to the instruction will
-				   now be from a SHmedia RTE the silicon defect
-				   won't be triggered. */
-				return;
+			combined = (major << 4) | minor;
+			index = major;
+			shift = minor << 1;
+			if (reserved_field == 0) {
+				int opcode_state = (shmedia_opcode_table[index] >> shift) & 0x3;
+				switch (opcode_state) {
+					case OPCODE_INVALID:
+						/* Trap. */
+						break;
+					case OPCODE_USER_VALID:
+						/* Restart the instruction : the branch to the instruction will now be from an RTE
+						   not from SHcompact so the silicon defect won't be triggered. */
+						return;
+					case OPCODE_PRIV_VALID:
+						if (!user_mode(regs)) {
+							/* Should only ever get here if a module has
+							   SHcompact code inside it.  If so, the same fix up is needed. */
+							return; /* same reason */
+						}
+						/* Otherwise, user mode trying to execute a privileged instruction - 
+						   fall through to trap. */
+						break;
+					case OPCODE_CTRL_REG:
+						/* If in privileged mode, return as above. */
+						if (!user_mode(regs)) return; 
+						/* In user mode ... */
+						if (combined == 0x9f) { /* GETCON */
+							unsigned long regno = (opcode >> 20) & 0x3f;
+							if (regno >= 62) {
+								return;
+							}
+							/* Otherwise, reserved or privileged control register, => trap */
+						} else if (combined == 0x1bf) { /* PUTCON */
+							unsigned long regno = (opcode >> 4) & 0x3f;
+							if (regno >= 62) {
+								return;
+							}
+							/* Otherwise, reserved or privileged control register, => trap */
+						} else {
+							/* Trap */
+						}
+						break;
+					default:
+						/* Fall through to trap. */
+						break;
+				}
 			}
 			/* fall through to normal resinst processing */
 		} else {
@@ -161,7 +202,7 @@ void do_reserved_inst(unsigned long error_code, struct pt_regs *regs)
 			signr = SIGSEGV;
 		}
 	}
-	
+
 	show_excp_regs("do_reserved_inst", trapnr, signr, regs);
 	current->thread.error_code = error_code;
 	current->thread.trap_no = trapnr;

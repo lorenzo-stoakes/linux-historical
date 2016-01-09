@@ -455,6 +455,7 @@ struct inode {
 	unsigned long		i_blksize;
 	unsigned long		i_blocks;
 	unsigned long		i_version;
+	unsigned short          i_bytes;
 	struct semaphore	i_sem;
 	struct rw_semaphore	i_alloc_sem;
 	struct semaphore	i_zombie;
@@ -515,6 +516,39 @@ struct inode {
 		void				*generic_ip;
 	} u;
 };
+
+static inline void inode_add_bytes(struct inode *inode, loff_t bytes)
+{
+	inode->i_blocks += bytes >> 9;
+	bytes &= 511;
+	inode->i_bytes += bytes;
+	if (inode->i_bytes >= 512) {
+		inode->i_blocks++;
+		inode->i_bytes -= 512;
+	}
+}
+
+static inline void inode_sub_bytes(struct inode *inode, loff_t bytes)
+{
+	inode->i_blocks -= bytes >> 9;
+	bytes &= 511;
+	if (inode->i_bytes < bytes) {
+		inode->i_blocks--;
+		inode->i_bytes += 512;
+	}
+	inode->i_bytes -= bytes;
+}
+
+static inline loff_t inode_get_bytes(struct inode *inode)
+{
+	return (((loff_t)inode->i_blocks) << 9) + inode->i_bytes;
+}
+
+static inline void inode_set_bytes(struct inode *inode, loff_t bytes)
+{
+	inode->i_blocks = bytes >> 9;
+	inode->i_bytes = bytes & 511;
+}
 
 struct fown_struct {
 	int pid;		/* pid or -pgrp where SIGIO should be sent */
@@ -661,20 +695,6 @@ struct nameidata {
 	int last_type;
 };
 
-#define DQUOT_USR_ENABLED	0x01		/* User diskquotas enabled */
-#define DQUOT_GRP_ENABLED	0x02		/* Group diskquotas enabled */
-
-struct quota_mount_options
-{
-	unsigned int flags;			/* Flags for diskquotas on this device */
-	struct semaphore dqio_sem;		/* lock device while I/O in progress */
-	struct semaphore dqoff_sem;		/* serialize quota_off() and quota_on() on device */
-	struct file *files[MAXQUOTAS];		/* fp's to quotafiles */
-	time_t inode_expire[MAXQUOTAS];		/* expiretime for inode-quota */
-	time_t block_expire[MAXQUOTAS];		/* expiretime for block-quota */
-	char rsquash[MAXQUOTAS];		/* for quotas threat root as any other user */
-};
-
 /*
  *	Umount options
  */
@@ -722,6 +742,7 @@ struct super_block {
 	struct file_system_type	*s_type;
 	struct super_operations	*s_op;
 	struct dquot_operations	*dq_op;
+	struct quotactl_ops	*s_qcop;
 	unsigned long		s_flags;
 	unsigned long		s_magic;
 	struct dentry		*s_root;
@@ -736,7 +757,7 @@ struct super_block {
 
 	struct block_device	*s_bdev;
 	struct list_head	s_instances;
-	struct quota_mount_options s_dquot;	/* Diskquota specific options */
+	struct quota_info	s_dquot;	/* Diskquota specific options */
 
 	union {
 		struct minix_sb_info	minix_sb;
@@ -959,16 +980,6 @@ static inline void mark_inode_dirty_pages(struct inode *inode)
 {
 	__mark_inode_dirty(inode, I_DIRTY_PAGES);
 }
-
-struct dquot_operations {
-	void (*initialize) (struct inode *, short);
-	void (*drop) (struct inode *);
-	int (*alloc_block) (struct inode *, unsigned long, char);
-	int (*alloc_inode) (const struct inode *, unsigned long);
-	void (*free_block) (struct inode *, unsigned long);
-	void (*free_inode) (const struct inode *, unsigned long);
-	int (*transfer) (struct inode *, struct iattr *);
-};
 
 struct file_system_type {
 	const char *name;
@@ -1525,6 +1536,9 @@ extern int generic_osync_inode(struct inode *, int);
 
 extern int inode_change_ok(struct inode *, struct iattr *);
 extern int inode_setattr(struct inode *, struct iattr *);
+
+/* kernel/fork.c */
+extern int unshare_files(void);
 
 /*
  * Common dentry functions for inclusion in the VFS

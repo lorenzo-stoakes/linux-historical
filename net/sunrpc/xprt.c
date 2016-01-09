@@ -1046,21 +1046,6 @@ out:
 }
 
 /*
- * Exponential backoff for UDP retries
- */
-static inline int
-xprt_expbackoff(struct rpc_task *task, struct rpc_rqst *req)
-{
-	int backoff;
-
-	req->rq_ntimeo++;
-	backoff = min(rpc_ntimeo(&task->tk_client->cl_rtt), XPRT_MAX_BACKOFF);
-	if (req->rq_ntimeo < (1 << backoff))
-		return 1;
-	return 0;
-}
-
-/*
  * RPC receive timeout handler.
  */
 static void
@@ -1073,14 +1058,7 @@ xprt_timer(struct rpc_task *task)
 	if (req->rq_received)
 		goto out;
 
-	if (!xprt->nocong) {
-		if (xprt_expbackoff(task, req)) {
-			rpc_add_timer(task, xprt_timer);
-			goto out_unlock;
-		}
-		rpc_inc_timeo(&task->tk_client->cl_rtt);
-		xprt_adjust_cwnd(req->rq_xprt, -ETIMEDOUT);
-	}
+	xprt_adjust_cwnd(req->rq_xprt, -ETIMEDOUT);
 	req->rq_nresend++;
 
 	dprintk("RPC: %4d xprt_timer (%s request)\n",
@@ -1090,7 +1068,6 @@ xprt_timer(struct rpc_task *task)
 out:
 	task->tk_timeout = 0;
 	rpc_wake_up_task(task);
-out_unlock:
 	spin_unlock(&xprt->sock_lock);
 }
 
@@ -1228,16 +1205,17 @@ do_xprt_transmit(struct rpc_task *task)
 	return;
  out_receive:
 	dprintk("RPC: %4d xmit complete\n", task->tk_pid);
+	spin_lock_bh(&xprt->sock_lock);
 	/* Set the task's receive timeout value */
 	if (!xprt->nocong) {
 		task->tk_timeout = rpc_calc_rto(&clnt->cl_rtt,
 				rpcproc_timer(clnt, task->tk_msg.rpc_proc));
-		req->rq_ntimeo = 0;
+		task->tk_timeout <<= clnt->cl_timeout.to_retries
+			- req->rq_timeout.to_retries;
 		if (task->tk_timeout > req->rq_timeout.to_maxval)
 			task->tk_timeout = req->rq_timeout.to_maxval;
 	} else
 		task->tk_timeout = req->rq_timeout.to_current;
-	spin_lock_bh(&xprt->sock_lock);
 	/* Don't race with disconnect */
 	if (!xprt_connected(xprt))
 		task->tk_status = -ENOTCONN;

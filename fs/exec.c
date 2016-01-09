@@ -563,6 +563,7 @@ int flush_old_exec(struct linux_binprm * bprm)
 	char * name;
 	int i, ch, retval;
 	struct signal_struct * oldsig;
+	struct files_struct * files;
 
 	/*
 	 * Make sure we have a private signal table
@@ -571,6 +572,18 @@ int flush_old_exec(struct linux_binprm * bprm)
 	retval = make_private_signals();
 	if (retval) goto flush_failed;
 
+	/*
+	 * Make sure we have private file handles. Ask the
+	 * fork helper to do the work for us and the exit
+	 * helper to do the cleanup of the old one.
+	 */
+	 
+	files = current->files;		/* refcounted so safe to hold */
+	retval = unshare_files();
+	if(retval)
+		goto flush_failed;
+	put_files_struct(files);
+	
 	/* 
 	 * Release all of the old mmap stuff
 	 */

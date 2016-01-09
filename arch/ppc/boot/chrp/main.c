@@ -43,6 +43,8 @@ char *avail_high;
 
 static char scratch[SCRATCH_SIZE];	/* 1MB of scratch space for gunzip */
 
+typedef void (*kernel_start_t)(int, int, void *, unsigned int, unsigned int);
+
 void
 chrpboot(int a1, int a2, void *prom)
 {
@@ -93,7 +95,7 @@ chrpboot(int a1, int a2, void *prom)
     sa = (unsigned long)PROG_START;
     printf("start address = 0x%x\n\r", sa);
 
-    (*(void (*)())sa)(a1, a2, prom, initrd_start, initrd_size);
+    (*(kernel_start_t)sa)(a1, a2, prom, initrd_start, initrd_size);
 
     printf("returned?\n\r");
 

@@ -283,8 +283,15 @@ drm_agp_head_t *DRM(agp_init)(void)
 			break;
 		case VIA_APOLLO_PRO: 	head->chipset = "VIA Apollo Pro";
 			break;
+/*
+ * Alan merged agp_backend.h which removes VIA_APOLLO_P4X400, but 
+ * didnt update this file. I just commented it out so we dont 
+ * get compile errors on -pre4 and it can be fixed in -pre5.
+ * 
 		case VIA_APOLLO_P4X400:	head->chipset = "VIA Apollo P4X400";
 			break;
+	
+*/
 
 		case SIS_GENERIC:	head->chipset = "SiS";           break;
 		case AMD_GENERIC:	head->chipset = "AMD";           break;

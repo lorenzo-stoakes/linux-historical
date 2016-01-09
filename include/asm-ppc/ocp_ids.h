@@ -4,7 +4,8 @@
  * BRIEF MODULE DESCRIPTION: 
  * OCP device ids based on the ideas from PCI
  *
- * Maintained by: Armin <akuster@mvista.com>
+ * The numbers below are almost completely arbitrary, and in fact
+ * strings might work better.  -- paulus
  *
  *
  *  This program is free software; you can redistribute  it and/or modify it
@@ -27,8 +28,6 @@
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  Version 1.0 08/22/02 -Armin
- *  	initial release
  */
 
 /*

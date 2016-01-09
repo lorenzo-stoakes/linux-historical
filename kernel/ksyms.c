@@ -590,6 +590,7 @@ EXPORT_SYMBOL(init_task_union);
 
 EXPORT_SYMBOL(tasklist_lock);
 EXPORT_SYMBOL(pidhash);
+EXPORT_SYMBOL(unshare_files);
 
 /* debug */
 EXPORT_SYMBOL(dump_stack);

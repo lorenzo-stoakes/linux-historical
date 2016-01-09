@@ -659,8 +659,7 @@ static void __init
 prep_init_vesa(void)
 {
 #if defined(CONFIG_PREP_RESIDUAL) && \
-	(defined(CONFIG_FB_VGA16) || defined(CONFIG_FB_VGA_16_MODULE) || \
-	 defined(CONFIG_FB_VESA))
+	(defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_FB))
 	PPC_DEVICE *vgadev;
 
 	vgadev = residual_find_device(~0, NULL, DisplayController, SVGAController,

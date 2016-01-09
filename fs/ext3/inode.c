@@ -1413,7 +1413,7 @@ static int ext3_block_truncate_page(handle_t *handle,
 	length = blocksize - length;
 	iblock = index << (PAGE_CACHE_SHIFT - inode->i_sb->s_blocksize_bits);
 
-	page = grab_cache_page(mapping, index);
+	page = find_or_create_page(mapping, index, GFP_NOFS);
 	err = -ENOMEM;
 	if (!page)
 		goto out;

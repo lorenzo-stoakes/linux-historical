@@ -7,20 +7,17 @@
 
 O_TARGET := fs.o
 
-export-objs :=	filesystems.o open.o dcache.o buffer.o
+export-objs :=	filesystems.o open.o dcache.o buffer.o dquot.o
 mod-subdirs :=	nls
 
 obj-y :=	open.o read_write.o devices.o file_table.o buffer.o \
 		super.o block_dev.o char_dev.o stat.o exec.o pipe.o namei.o \
 		fcntl.o ioctl.o readdir.o select.o fifo.o locks.o \
 		dcache.o inode.o attr.o bad_inode.o file.o iobuf.o dnotify.o \
-		filesystems.o namespace.o seq_file.o xattr.o
+		filesystems.o namespace.o seq_file.o xattr.o quota.o
 
-ifeq ($(CONFIG_QUOTA),y)
-obj-y += dquot.o
-else
-obj-y += noquot.o
-endif
+obj-$(CONFIG_QUOTA)		+= dquot.o quota_v1.o
+obj-$(CONFIG_QFMT_V2)		+= quota_v2.o
 
 subdir-$(CONFIG_PROC_FS)	+= proc
 subdir-y			+= partitions

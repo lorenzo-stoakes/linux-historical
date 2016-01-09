@@ -229,6 +229,9 @@
 #define	  HID0_NAP	(1<<22)
 #define	  HID0_SLEEP	(1<<21)
 #define	  HID0_DPM	(1<<20)
+#define	  HID0_BHTCLR	(1<<18)		/* Clear branch history table - 7450 */
+#define	  HID0_XAEN	(1<<17)		/* Extended addressing enable - 7450 */
+#define   HID0_NHR	(1<<16)		/* Not hard reset (software bit-7450)*/
 #define	  HID0_ICE	(1<<15)		/* Instruction Cache Enable */
 #define	  HID0_DCE	(1<<14)		/* Data Cache Enable */
 #define	  HID0_ILOCK	(1<<13)		/* Instruction Cache Lock */
@@ -247,7 +250,16 @@
 #define	  HID0_BTCD	(1<<1)		/* Branch target cache disable */
 #define	  HID0_NOPDST	(1<<1)		/* No-op dst, dstt, etc. instr. */
 #define	  HID0_NOPTI	(1<<0)		/* No-op dcbt and dcbst instr. */
+
 #define	SPRN_HID1	0x3F1	/* Hardware Implementation Register 1 */
+#define	  HID1_EMCP	(1<<31)		/* 7450 Machine Check Pin Enable */
+#define   HID1_PC0	(1<<16)		/* 7450 PLL_CFG[0] */
+#define   HID1_PC1	(1<<15)		/* 7450 PLL_CFG[1] */
+#define   HID1_PC2	(1<<14)		/* 7450 PLL_CFG[2] */
+#define   HID1_PC3	(1<<13)		/* 7450 PLL_CFG[3] */
+#define	  HID1_SYNCBE	(1<<11)		/* 7450 ABE for sync, eieio */
+#define	  HID1_ABE	(1<<10)		/* 7450 Address Broadcast Enable */
+#define	SPRN_HID2	0x3F8	/* Hardware Implementation Register 2 */
 #define	SPRN_IABR	0x3F2	/* Instruction Address Breakpoint Register */
 #define	SPRN_IAC1	0x3F4	/* Instruction Address Compare 1 */
 #define	SPRN_IAC2	0x3F5	/* Instruction Address Compare 2 */
@@ -273,6 +285,10 @@
 #define	SPRN_ICDBDR	0x3D3	/* Instruction Cache Debug Data Register */
 #define	SPRN_ICMP	0x3D5	/* Instruction TLB Compare Register */
 #define	SPRN_ICTC	0x3FB	/* Instruction Cache Throttling Control Reg */
+#define	SPRN_ICTRL 	0x3F3	/* 1011 7450 icache and interrupt ctrl */
+#define   ICTRL_EICE		0x08000000	/* enable icache parity errs */
+#define   ICTRL_EDCE		0x04000000	/* enable dcache parity errs */
+#define   ICTRL_EICP		0x00000100	/* enable icache par. check */
 #define	SPRN_IMISS	0x3D4	/* Instruction TLB Miss Register */
 #define	SPRN_IMMR	0x27E  	/* Internal Memory Map Register */
 #define	SPRN_L2CR	0x3F9	/* Level 2 Cache Control Regsiter */
@@ -328,7 +344,6 @@
 #define L3CR_PMSIZ		0x00000001	/* L3 private memory size */
 #define SPRN_MSSCR0	0x3f6	/* Memory Subsystem Control Register 0 */
 #define SPRN_MSSSR0	0x3f7	/* Memory Subsystem Status Register 1 */
-#define SPRN_ICTRL	0x3f3	/* Instruction Cache & Interrupt control reg */
 #define SPRN_LDSTCR	0x3f8	/* Load/Store control register */
 #define SPRN_LDSTDB	0x3f4	/* */
 #define	SPRN_LR		0x008	/* Link Register */
@@ -345,6 +360,8 @@
 #define	SPRN_PMC2	0x3BA	/* Performance Counter Register 2 */
 #define	SPRN_PMC3	0x3BD	/* Performance Counter Register 3 */
 #define	SPRN_PMC4	0x3BE	/* Performance Counter Register 4 */
+#define	SPRN_PTEHI	0x3D5	/* 981 7450 PTE HI word (S/W TLB load) */
+#define	SPRN_PTELO	0x3D6	/* 982 7450 PTE LO word (S/W TLB load)  */
 #define	SPRN_PVR	0x11F	/* Processor Version Register */
 #define	SPRN_RPA	0x3D6	/* Required Physical Address Register */
 #define	SPRN_SDA	0x3BF	/* Sampled Data Address Register */
@@ -353,6 +370,7 @@
 #define	  SGR_NORMAL		0
 #define	  SGR_GUARDED		1
 #define	SPRN_SIA	0x3BB	/* Sampled Instruction Address Register */
+#define	SPRN_SLER	0x3BB	/* Little-endian real mode */
 #define	SPRN_SPRG0	0x110	/* Special Purpose Register General 0 */
 #define	SPRN_SPRG1	0x111	/* Special Purpose Register General 1 */
 #define	SPRN_SPRG2	0x112	/* Special Purpose Register General 2 */
@@ -406,6 +424,7 @@
 #define	SPRN_THRM2	0x3FD	/* Thermal Management Register 2 */
 #define	SPRN_THRM3	0x3FE	/* Thermal Management Register 3 */
 #define	  THRM3_E		(1<<0)
+#define	SPRN_TLBMISS	0x3D4	/* 980 7450 TLB Miss Register */
 #define	SPRN_TSR	0x3D8	/* Timer Status Register */
 #define	  TSR_ENW		0x80000000	/* Enable Next Watchdog */
 #define	  TSR_WIS		0x40000000	/* WDT Interrupt Status */
@@ -556,6 +575,7 @@
 #define	PVR_750P	PVR_740P
 #define	PVR_7400	0x000C0000
 #define	PVR_7410	0x800C0000
+#define	PVR_7450	0x80000000
 /*
  * For the 8xx processors, all of them report the same PVR family for
  * the PowerPC core. The various versions of these processors must be

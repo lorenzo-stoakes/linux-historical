@@ -12,8 +12,8 @@
 #     <http://nevod.perm.su/service/linux/doc/kernel/Configure.help>
 #   - French, by Pierre Tane <mailto:tanep@bigfoot.com>, at
 #     <http://www.traduc.org/kernelfr/>
-#   - Polish, by Dominik Mierzejewski <mailto:dmierzej@elka.pw.edu.pl>, at
-#     <http://home.elka.pw.edu.pl/~dmierzej/linux/kernel/>
+#   - Polish, by Dominik Mierzejewski <mailto:dominik@piorunek.pl>, at
+#     <http://www.piorunek.pl/~dominik/linux/kernel/>
 #   - German, by SuSE, at <http://www.suse.de/~ke/kernel/>. This patch
 #     also includes infrastructure to support different languages.
 #   - Catalan, by Antoni Bella <mailto:bella5@teleline.es>, at
@@ -12886,9 +12886,17 @@ CONFIG_QUOTA
   If you say Y here, you will be able to set per user limits for disk
   usage (also called disk quotas). Currently, it works only for the
   ext2 file system. You need additional software in order to use quota
-  support; for details, read the Quota mini-HOWTO, available from
+  support (you can download sources from
+  <http://www.sf.net/projects/linuxquota/>). For further details, read
+  the Quota mini-HOWTO, available from
   <http://www.tldp.org/docs.html#howto>. Probably the quota
   support is only useful for multi user systems. If unsure, say N.
+
+VFS v0 quota format support
+CONFIG_QFMT_V2
+  This quota format allows using quotas with 32-bit UIDs/GIDs. If you
+  need this functionality say Y here. Note that you will need latest
+  quota utilities for new quota format with this kernel.
 
 Memory Technology Device (MTD) support
 CONFIG_MTD

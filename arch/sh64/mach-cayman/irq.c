@@ -162,7 +162,7 @@ int cayman_irq_describe(char* p, int irq)
     return intc_irq_describe(p, irq);
   else if (irq < NR_INTC_IRQS + 8)
     return sprintf(p, "(SMSC %d)", irq - NR_INTC_IRQS);
-  else if ((irq > NR_INTC_IRQS + 24) && (irq < NR_INTC_IRQS + 32))
+  else if ((irq >= NR_INTC_IRQS + 24) && (irq < NR_INTC_IRQS + 32))
     return sprintf(p, "(PCI2 %d)", irq - (NR_INTC_IRQS + 24)); 
   else
     return 0;

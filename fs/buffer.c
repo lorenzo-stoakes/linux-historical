@@ -336,7 +336,7 @@ int fsync_super(struct super_block *sb)
 
 	lock_kernel();
 	sync_inodes_sb(sb);
-	DQUOT_SYNC(dev);
+	DQUOT_SYNC_SB(sb);
 	lock_super(sb);
 	if (sb->s_dirt && sb->s_op && sb->s_op->write_super)
 		sb->s_op->write_super(sb);
@@ -360,7 +360,7 @@ int fsync_dev(kdev_t dev)
 
 	lock_kernel();
 	sync_inodes(dev);
-	DQUOT_SYNC(dev);
+	DQUOT_SYNC_DEV(dev);
 	sync_supers(dev, 1);
 	unlock_kernel();
 
@@ -2827,7 +2827,7 @@ void __init buffer_init(unsigned long mempages)
 		hash_table = (struct buffer_head **)
 		    __get_free_pages(GFP_ATOMIC, order);
 	} while (hash_table == NULL && --order > 0);
-	printk("Buffer-cache hash table entries: %d (order: %d, %ld bytes)\n",
+	printk(KERN_INFO "Buffer cache hash table entries: %d (order: %d, %ld bytes)\n",
 	       nr_hash, order, (PAGE_SIZE << order));
 
 	if (!hash_table)
