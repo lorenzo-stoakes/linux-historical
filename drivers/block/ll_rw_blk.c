@@ -841,7 +841,9 @@ static int __make_request(request_queue_t * q, int rw,
 	rw_ahead = 0;	/* normal case; gets changed below for READA */
 	switch (rw) {
 		case READA:
+#if 0	/* bread() misinterprets failed READA attempts as IO errors on SMP */
 			rw_ahead = 1;
+#endif
 			rw = READ;	/* drop into READ */
 		case READ:
 		case WRITE:

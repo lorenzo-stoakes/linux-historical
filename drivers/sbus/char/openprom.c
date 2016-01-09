@@ -334,7 +334,7 @@ static int copyin_string(char *user, size_t len, char **ptr)
 {
 	char *tmp;
 
-	if ((int)len < 0 || (int)(len + 1) < 0)
+	if ((ssize_t)len < 0 || (ssize_t)(len + 1) < 0)
 		return -EINVAL;
 
 	tmp = kmalloc(len + 1, GFP_KERNEL);
