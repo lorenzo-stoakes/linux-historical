@@ -38,7 +38,7 @@ obj-$(CONFIG_VIDEO_BT848) += bttv.o msp3400.o tvaudio.o \
 	tda7432.o tda9875.o tda9887.o tuner.o
 obj-$(CONFIG_SOUND_TVMIXER) += tvmixer.o
 
-obj-$(CONFIG_VIDEO_ZR36120) += zoran.o
+obj-$(CONFIG_VIDEO_ZR36120) += zoran.o i2c-old.o
 obj-$(CONFIG_I2C_PARPORT) += i2c-parport.o i2c-old.o
 obj-$(CONFIG_VIDEO_SAA5249) += saa5249.o i2c-old.o
 obj-$(CONFIG_VIDEO_CQCAM) += c-qcam.o

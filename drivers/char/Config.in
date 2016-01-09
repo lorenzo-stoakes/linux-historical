@@ -274,6 +274,9 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
       dep_tristate '  Indy/I2 Hardware Watchdog' CONFIG_INDYDOG $CONFIG_SGI_IP22
    fi
    dep_tristate '  AMD 766/768 TCO Timer/Watchdog' CONFIG_AMD7XX_TCO $CONFIG_EXPERIMENTAL
+   if [ "$CONFIG_8xx" = "y" ]; then
+      tristate '  MPC8xx Watchdog Timer' CONFIG_8xx_WDT
+   fi
 fi
 endmenu
 
@@ -285,7 +288,8 @@ if [ "$CONFIG_ARCH_NETWINDER" = "y" ]; then
    fi
    tristate 'NetWinder flash support' CONFIG_NWFLASH
 fi
-dep_tristate 'NatSemi SCx200 GPIO Support' CONFIG_SCx200_GPIO $CONFIG_SCx200
+tristate 'NatSemi SCx200 Support' CONFIG_SCx200
+dep_tristate '  NatSemi SCx200 GPIO Support' CONFIG_SCx200_GPIO $CONFIG_SCx200
 
 if [ "$CONFIG_IA64_GENERIC" = "y" -o "$CONFIG_IA64_SGI_SN2" = "y" ] ; then
    bool 'SGI SN2 fetchop support' CONFIG_FETCHOP

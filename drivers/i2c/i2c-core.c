@@ -33,12 +33,7 @@
 
 /* ----- compatibility stuff ----------------------------------------------- */
 
-#include <linux/version.h>
 #include <linux/init.h>
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1)
-#define init_MUTEX(s) do { *(s) = MUTEX; } while(0)
-#endif
 
 #include <asm/uaccess.h>
 
@@ -84,10 +79,6 @@ static int i2c_debug=1;
 static int i2cproc_init(void);
 static int i2cproc_cleanup(void);
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,3,27))
-static void monitor_bus_i2c(struct inode *inode, int fill);
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,58)) */
-
 static ssize_t i2cproc_bus_read(struct file * file, char * buf,size_t count, 
                                 loff_t *ppos);
 static int read_bus_i2c(char *buf, char **start, off_t offset, int len,
@@ -98,12 +89,6 @@ static int read_bus_i2c(char *buf, char **start, off_t offset, int len,
 static struct file_operations i2cproc_operations = {
 	read:		i2cproc_bus_read,
 };
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,3,48))
-static struct inode_operations i2cproc_inode_operations = {
-	&i2cproc_operations
-};
-#endif
 
 static int i2cproc_initialized = 0;
 
@@ -164,16 +149,8 @@ int i2c_add_adapter(struct i2c_adapter *adap)
 			goto ERROR1;
 		}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,48))
 		proc_entry->proc_fops = &i2cproc_operations;
-#else
-		proc_entry->ops = &i2cproc_inode_operations;
-#endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27))
 		proc_entry->owner = THIS_MODULE;
-#else
-		proc_entry->fill_inode = &monitor_bus_i2c;
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,58)) */
 		adap->inode = proc_entry->low_ino;
 	}
 
@@ -611,18 +588,6 @@ int i2c_release_client(struct i2c_client *client)
 
 #ifdef CONFIG_PROC_FS
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,3,27))
-/* Monitor access to /proc/bus/i2c*; make unloading i2c-proc impossible
-   if some process still uses it or some file in it */
-void monitor_bus_i2c(struct inode *inode, int fill)
-{
-	if (fill)
-		MOD_INC_USE_COUNT;
-	else
-		MOD_DEC_USE_COUNT;
-}
-#endif /* (LINUX_VERSION_CODE <= KERNEL_VERSION(2,3,37)) */
-
 /* This function generates the output for /proc/bus/i2c */
 int read_bus_i2c(char *buf, char **start, off_t offset, int len, int *eof, 
                  void *private)
@@ -732,11 +697,7 @@ int i2cproc_init(void)
 		return -ENOENT;
  	}
 	proc_bus_i2c->read_proc = &read_bus_i2c;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27))
 	proc_bus_i2c->owner = THIS_MODULE;
-#else
-	proc_bus_i2c->fill_inode = &monitor_bus_i2c;
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27)) */
 	i2cproc_initialized += 2;
 	return 0;
 }

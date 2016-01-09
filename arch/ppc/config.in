@@ -111,13 +111,15 @@ if [ "$CONFIG_6xx" = "y" -a "$CONFIG_8260" = "n" ]; then
 	 Amiga-APUS		CONFIG_APUS		\
 	 IBM-Spruce		CONFIG_SPRUCE		\
 	 Motorola-LoPEC		CONFIG_LOPEC		\
+	 Motorola-Sandpoint	CONFIG_SANDPOINT	\
 	 Motorola-PowerPlus	CONFIG_PPLUS		\
+	 Motorola-PrPMC750	CONFIG_PRPMC750		\
 	 SBS-Palomar4		CONFIG_PAL4		\
 	 Synergy-Gemini		CONFIG_GEMINI"		CHRP/PowerMac/PReP
 fi
 
-if [ "$CONFIG_SPRUCE" = "y" ]; then
-  define_bool CONFIG_GEN550 y
+if [ "$CONFIG_SANDPOINT" = "y" ]; then
+  bool 'Enable MPC10x store gathering' CONFIG_MPC10X_STORE_GATHERING
 fi
 
 if [ "$CONFIG_LOPEC" = "y" ]; then
@@ -126,6 +128,19 @@ if [ "$CONFIG_LOPEC" = "y" ]; then
 fi
 
 if [ "$CONFIG_PPLUS" = "y" ]; then
+  define_bool CONFIG_GEN550 y
+fi
+
+if [ "$CONFIG_PRPMC750" = "y" ]; then
+  define_bool CONFIG_GEN550 y
+fi
+
+if [ "$CONFIG_SANDPOINT" = "y" ]; then
+  define_bool CONFIG_EPIC_SERIAL_MODE y
+  define_bool CONFIG_GEN550 y
+fi
+
+if [ "$CONFIG_SPRUCE" = "y" ]; then
   define_bool CONFIG_GEN550 y
 fi
 
@@ -331,6 +346,7 @@ fi
 define_bool CONFIG_BINFMT_ELF y
 define_bool CONFIG_KERNEL_ELF y
 tristate 'Kernel support for MISC binaries' CONFIG_BINFMT_MISC
+bool 'Select task to kill on out of memory condition' CONFIG_OOM_KILLER
 
 source drivers/pci/Config.in
 
