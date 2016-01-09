@@ -47,7 +47,6 @@ asmlinkage void resume(void);
   (last) = _last; \
 }
 
-
 /* interrupt control.. */
 #if 0
 #define __sti() asm volatile ("andiw %0,%%sr": : "i" (ALLOWINT) : "memory")
@@ -64,6 +63,7 @@ asmlinkage void resume(void);
 
 /* For spinlocks etc */
 #define local_irq_save(x)	({ __save_flags(x); __cli(); })
+#define local_irq_set(x)	({ __save_flags(x); __sti(); })
 #define local_irq_restore(x)	__restore_flags(x)
 #define local_irq_disable()	__cli()
 #define local_irq_enable()	__sti()
@@ -72,7 +72,8 @@ asmlinkage void resume(void);
 #define sti()			__sti()
 #define save_flags(x)		__save_flags(x)
 #define restore_flags(x)	__restore_flags(x)
-#define save_and_cli(flags)   do { save_flags(flags); cli(); } while(0)
+#define save_and_cli(x)		do { save_flags(x); cli(); } while(0)
+#define save_and_set(x)		do { save_flags(x); sti(); } while(0)
 
 /*
  * Force strict CPU ordering.

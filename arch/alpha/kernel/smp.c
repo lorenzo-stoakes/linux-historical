@@ -81,7 +81,6 @@ static int max_cpus = -1;	/* Command-line limitation.  */
 int smp_num_probed;		/* Internal processor count */
 int smp_num_cpus = 1;		/* Number that came online.  */
 int smp_threads_ready;		/* True once the per process idle is forked. */
-cycles_t cacheflush_time;
 
 int __cpu_number_map[NR_CPUS];
 int __cpu_logical_map[NR_CPUS];
@@ -184,20 +183,20 @@ smp_callin(void)
 	 */
 	wait_boot_cpu_to_stop(cpuid);
 	mb();
- try_again:
+
 	calibrate_delay();
 
 	smp_store_cpu_info(cpuid);
 
 	{
 #define LPJ(c) ((long)cpu_data[c].loops_per_jiffy)
-	  static int tries = 3;
 	  long diff = LPJ(boot_cpuid) - LPJ(cpuid);
 	  if (diff < 0) diff = -diff;
 				
-	  if (diff > LPJ(boot_cpuid)/10 && --tries) {
-	    printk("Bogus BogoMIPS for cpu %d - retrying...\n", cpuid);
-	    goto try_again;
+	  if (diff > LPJ(boot_cpuid)/10) {
+	  	printk("Bogus BogoMIPS for cpu %d - trusting boot CPU\n",
+		       cpuid);
+		loops_per_jiffy = LPJ(cpuid) = LPJ(boot_cpuid);
 	  }
 	}
 
@@ -223,64 +222,6 @@ smp_callin(void)
 	current->active_mm = &init_mm;
 	/* Do nothing.  */
 	cpu_idle();
-}
-
-
-/*
- * Rough estimation for SMP scheduling, this is the number of cycles it
- * takes for a fully memory-limited process to flush the SMP-local cache.
- *
- * We are not told how much cache there is, so we have to guess.
- */
-static void __init
-smp_tune_scheduling (int cpuid)
-{
-	struct percpu_struct *cpu;
-	unsigned long on_chip_cache;
-	unsigned long freq;
-
-	cpu = (struct percpu_struct*)((char*)hwrpb + hwrpb->processor_offset
-				      + cpuid * hwrpb->processor_size);
-	switch (cpu->type)
-	{
-	case EV45_CPU:
-		on_chip_cache = 16 + 16;
-		break;
-
-	case EV5_CPU:
-	case EV56_CPU:
-		on_chip_cache = 8 + 8 + 96;
-		break;
-
-	case PCA56_CPU:
-		on_chip_cache = 16 + 8;
-		break;
-
-	case EV6_CPU:
-	case EV67_CPU:
-		on_chip_cache = 64 + 64;
-		break;
-
-	default:
-		on_chip_cache = 8 + 8;
-		break;
-	}
-
-	freq = hwrpb->cycle_freq ? : est_cycle_freq;
-
-#if 0
-	/* Magic estimation stolen from x86 port.  */
-	cacheflush_time = freq / 1024L * on_chip_cache / 5000L;
-
-        printk("Using heuristic of %d cycles.\n",
-               cacheflush_time);
-#else
-	/* Magic value to force potential preemption of other CPUs.  */
-	cacheflush_time = INT_MAX;
-
-        printk("Using heuristic of %d cycles.\n",
-               cacheflush_time);
-#endif
 }
 
 /*
@@ -622,7 +563,6 @@ smp_boot_cpus(void)
 	current->processor = boot_cpuid;
 
 	smp_store_cpu_info(boot_cpuid);
-	smp_tune_scheduling(boot_cpuid);
 	smp_setup_percpu_timer(boot_cpuid);
 
 	init_idle();
@@ -666,8 +606,8 @@ smp_boot_cpus(void)
 	}
 	printk(KERN_INFO "SMP: Total of %d processors activated "
 	       "(%lu.%02lu BogoMIPS).\n",
-	       cpu_count, (bogosum + 2500) / (500000/HZ),
-	       ((bogosum + 2500) / (5000/HZ)) % 100);
+	       cpu_count, bogosum / (500000/HZ),
+	       (bogosum / (5000/HZ)) % 100);
 
 	smp_num_cpus = cpu_count;
 }

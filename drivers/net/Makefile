@@ -100,7 +100,7 @@ ifeq ($(CONFIG_SKFP),y)
 endif
 
 obj-$(CONFIG_VIA_RHINE) += via-rhine.o mii.o
-obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o mii.o
 
 #
 # end link order section
@@ -114,7 +114,7 @@ obj-$(CONFIG_AIRONET4500_CS)	+= aironet4500_proc.o
 
 obj-$(CONFIG_WINBOND_840) += winbond-840.o mii.o
 obj-$(CONFIG_SUNDANCE) += sundance.o mii.o
-obj-$(CONFIG_HAMACHI) += hamachi.o
+obj-$(CONFIG_HAMACHI) += hamachi.o mii.o
 obj-$(CONFIG_NET) += Space.o setup.o net_init.o loopback.o
 obj-$(CONFIG_SEEQ8005) += seeq8005.o
 obj-$(CONFIG_ETHERTAP) += ethertap.o
@@ -225,6 +225,10 @@ obj-$(CONFIG_MACMACE) += macmace.o
 obj-$(CONFIG_MAC89x0) += mac89x0.o
 obj-$(CONFIG_TUN) += tun.o
 obj-$(CONFIG_DL2K) += dl2k.o
+obj-$(CONFIG_R8169) += r8169.o
+
+# non-drivers/net drivers who want mii lib
+obj-$(CONFIG_PCMCIA_SMC91C92) += mii.o
 
 ifeq ($(CONFIG_ARCH_ACORN),y)
 mod-subdirs	+= ../acorn/net

@@ -2457,6 +2457,17 @@ int __devinit bttv_handle_chipset(struct bttv *btv)
 			command |= BT878_EN_VSFX;
                 pci_write_config_byte(btv->dev, BT878_DEVCTRL, command);
         }
+        if(pci_pci_problems & PCIPCI_ALIMAGIK)
+        {
+        	u8 latency;
+        	/* Must cut the latency down */
+        	pci_read_config_byte(btv->dev, PCI_LATENCY_TIMER, &latency);
+        	if(latency > 0x0A)
+        	{
+        		pci_write_config_byte(btv->dev, PCI_LATENCY_TIMER, 0x0A);
+        		printk(KERN_INFO "bttv: reduced PCI latency to 0x0A.\n");
+        	}
+        }
 	return 0;
 }
 

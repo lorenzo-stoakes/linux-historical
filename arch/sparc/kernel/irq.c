@@ -92,7 +92,7 @@ void (*init_timers)(void (*)(int, void *,struct pt_regs *)) =
 struct irqaction static_irqaction[MAX_STATIC_ALLOC];
 int static_irq_count;
 
-struct irqaction *irq_action[NR_IRQS+1] = {
+struct irqaction *irq_action[NR_IRQS] = {
 	  NULL, NULL, NULL, NULL, NULL, NULL , NULL, NULL,
 	  NULL, NULL, NULL, NULL, NULL, NULL , NULL, NULL
 };
@@ -110,7 +110,7 @@ int get_irq_list(char *buf)
 		
 		return sun4d_get_irq_list(buf);
 	}
-	for (i = 0 ; i < (NR_IRQS+1) ; i++) {
+	for (i = 0 ; i < NR_IRQS ; i++) {
 	        action = *(i + irq_action);
 		if (!action) 
 		        continue;
@@ -147,7 +147,7 @@ void free_irq(unsigned int irq, void *dev_id)
 		
 		return sun4d_free_irq(irq, dev_id);
 	}
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	action = *(cpu_irq + irq_action);
         if (cpu_irq > 14) {  /* 14 irq levels on the sparc */
                 printk("Trying to free bogus IRQ %d\n", irq);
@@ -382,7 +382,7 @@ void unexpected_irq(int irq, void *dev_id, struct pt_regs * regs)
 	struct irqaction * action;
 	unsigned int cpu_irq;
 	
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	action = *(cpu_irq + irq_action);
 
         printk("IO device interrupt, irq = %d\n", irq);
@@ -461,7 +461,7 @@ int request_fast_irq(unsigned int irq,
 	extern struct tt_entry trapbase_cpu1, trapbase_cpu2, trapbase_cpu3;
 #endif
 	
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	if(cpu_irq > 14)
 		return -EINVAL;
 	if(!handler)
@@ -551,7 +551,7 @@ int request_irq(unsigned int irq,
 					     unsigned long, const char *, void *);
 		return sun4d_request_irq(irq, handler, irqflags, devname, dev_id);
 	}
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	if(cpu_irq > 14)
 		return -EINVAL;
 

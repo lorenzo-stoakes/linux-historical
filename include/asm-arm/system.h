@@ -58,6 +58,7 @@ extern struct task_struct *__switch_to(struct task_struct *prev, struct task_str
 
 /* For spinlocks etc */
 #define local_irq_save(x)	__save_flags_cli(x)
+#define local_irq_set(x)	__save_and_sti(x)
 #define local_irq_restore(x)	__restore_flags(x)
 #define local_irq_disable()	__cli()
 #define local_irq_enable()	__sti()
@@ -82,6 +83,8 @@ extern struct task_struct *__switch_to(struct task_struct *prev, struct task_str
 #define save_flags(x)		__save_flags(x)
 #define restore_flags(x)	__restore_flags(x)
 #define save_flags_cli(x)	__save_flags_cli(x)
+#define save_and_cli(x)		__save_flags_cli(x)
+#define save_and_sti(x)		__save_flags_sti(x)
 
 #endif /* CONFIG_SMP */
 

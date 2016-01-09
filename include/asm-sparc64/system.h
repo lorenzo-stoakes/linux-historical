@@ -62,12 +62,23 @@ enum sparc_cpu {
 	retval; \
 })
 
+#define read_pil_and_sti() \
+({	unsigned long retval; \
+	__asm__ __volatile__("rdpr	%%pil, %0\n\t" \
+			     "wrpr	0, %%pil" \
+			     : "=r" (retval) \
+			     : : "memory"); \
+	retval; \
+})
+
 #define __save_flags(flags)		((flags) = getipl())
 #define __save_and_cli(flags)		((flags) = read_pil_and_cli())
+#define __save_and_sti(flags)		((flags) = read_pil_and_sti())
 #define __restore_flags(flags)		setipl((flags))
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)		__save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 
 #ifndef CONFIG_SMP
@@ -172,6 +183,11 @@ if ((PREV)->thread.smp_lock_count) {					\
 	 * not preserve it's value.  Hairy, but it lets us remove 2 loads
 	 * and 2 stores in this critical code path.  -DaveM
 	 */
+#if __GNUC__ >= 3
+#define EXTRA_CLOBBER ,"%l1"
+#else
+#define EXTRA_CLOBBER
+#endif
 #define switch_to(prev, next, last)						\
 do {	CHECK_LOCKS(prev);							\
 	if (current->thread.flags & SPARC_FLAG_PERFCTR) {			\
@@ -220,10 +236,11 @@ do {	CHECK_LOCKS(prev);							\
 	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.flags)),\
 	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.cwp)),	\
 	  "i" (SPARC_FLAG_NEWCHILD)						\
-	: "cc", "g1", "g2", "g3", "g5", "g7",					\
-	  "l2", "l3", "l4", "l5", "l6", "l7",					\
+	: "cc",									\
+                "g1", "g2", "g3",       "g5",       "g7",			\
+	              "l2", "l3", "l4", "l5", "l6", "l7",			\
 	  "i0", "i1", "i2", "i3", "i4", "i5",					\
-	  "o0", "o1", "o2", "o3", "o4", "o5", "o7");				\
+	  "o0", "o1", "o2", "o3", "o4", "o5",       "o7" EXTRA_CLOBBER);	\
 	/* If you fuck with this, update ret_from_syscall code too. */		\
 	if (current->thread.flags & SPARC_FLAG_PERFCTR) {			\
 		write_pcr(current->thread.pcr_reg);				\

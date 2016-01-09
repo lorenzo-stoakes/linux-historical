@@ -216,7 +216,19 @@ if [ "$CONFIG_SMP" != "y" ]; then
       define_bool CONFIG_X86_IO_APIC y
    fi
 else
-   bool 'Multiquad NUMA system' CONFIG_MULTIQUAD
+   bool 'Multi-node NUMA system support' CONFIG_X86_NUMA
+   if [ "$CONFIG_X86_NUMA" = "y" ]; then
+      #Platform Choices
+      bool ' Multiquad (IBM/Sequent) NUMAQ support' CONFIG_X86_NUMAQ
+      if [ "$CONFIG_X86_NUMAQ" = "y" ]; then
+         define_bool CONFIG_X86_CLUSTERED_APIC y
+		 define_bool CONFIG_MULTIQUAD y
+      fi
+      bool ' IBM x440 (Summit/EXA) support' CONFIG_X86_SUMMIT
+      if [ "$CONFIG_X86_SUMMIT" = "y" ]; then
+         define_bool CONFIG_X86_CLUSTERED_APIC y
+      fi
+   fi
 fi
 
 bool 'Unsynced TSC support' CONFIG_X86_TSC_DISABLE

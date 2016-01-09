@@ -29,6 +29,7 @@ struct hpusbscsi
 	u8 sense_command[SENSE_COMMAND_SIZE];
 
         int use_count;
+	struct semaphore lock;
         wait_queue_head_t pending;
         wait_queue_head_t deathrow;
 

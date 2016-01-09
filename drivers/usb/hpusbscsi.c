@@ -71,7 +71,7 @@ static char *states[]={"FREE", "BEGINNING", "WORKING", "ERROR", "WAIT", "PREMATU
 
 #ifdef HPUSBSCSI_DEBUG
 #  define PDEBUG(level, fmt, args...) \
-          if (debug >= (level)) info("[" __PRETTY_FUNCTION__ ":%d] " fmt, __LINE__ , \
+          if (debug >= (level)) info("[%s:%d] " fmt, __PRETTY_FUNCTION__, __LINE__ , \
                  ## args)
 #else
 #  define PDEBUG(level, fmt, args...) do {} while(0)
@@ -125,6 +125,7 @@ hpusbscsi_usb_probe (struct usb_device *dev, unsigned int interface,
 	new->dev = dev;
 	init_waitqueue_head (&new->pending);
 	init_waitqueue_head (&new->deathrow);
+	init_MUTEX(&new->lock);
 	INIT_LIST_HEAD (&new->lh);
 
 
@@ -202,12 +203,12 @@ hpusbscsi_usb_disconnect (struct usb_device *dev, void *ptr)
 {
 	struct hpusbscsi *hp = (struct hpusbscsi *)ptr;
 
+	down(&hp->lock);
 	usb_unlink_urb(&hp->controlurb);
 	usb_unlink_urb(&hp->dataurb);
 
-	spin_lock_irq(&io_request_lock);
 	hp->dev = NULL;
-	spin_unlock_irq(&io_request_lock);
+	up(&hp->lock);
 }
 
 static struct usb_device_id hpusbscsi_usb_ids[] = {
@@ -347,6 +348,15 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 	if ( srb->device->lun || srb->device->id || srb->device->channel ) {
 		srb->result = DID_BAD_TARGET;
 		callback(srb);
+		goto out_nolock;
+	}
+
+	/* to prevent a race with removal */
+	down(&hpusbscsi->lock);
+
+	if (hpusbscsi->dev == NULL) {
+		srb->result = DID_ERROR;
+		callback(srb);
 		goto out;
 	}
 
@@ -400,12 +410,7 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 	);
 	hpusbscsi->scallback = callback;
 	hpusbscsi->srb = srb;
-	
-	if (hpusbscsi->dev == NULL) {
-		srb->result = DID_ERROR;
-		callback(srb);
-		goto out;
-	}
+
 
 	res = usb_submit_urb(&hpusbscsi->dataurb);
 	if (res) {
@@ -417,6 +422,8 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 	}
 
 out:
+	up(&hpusbscsi->lock);
+out_nolock:
 	spin_lock_irq(&io_request_lock);
 	return 0;
 }

@@ -214,7 +214,7 @@ static int hci_usb_open(struct hci_dev *hdev)
 
 	err = hci_usb_enable_intr(husb);
 	if (!err) {
-		for (i = 0; i < HCI_MAX_BULK_TX; i++)
+		for (i = 0; i < HCI_MAX_BULK_RX; i++)
 			hci_usb_rx_submit(husb, NULL);
 	} else {
 		clear_bit(HCI_RUNNING, &hdev->flags);
@@ -389,7 +389,7 @@ static inline void hci_usb_tx_wakeup(struct hci_usb *husb)
 }
 
 /* Send frames from HCI layer */
-int hci_usb_send_frame(struct sk_buff *skb)
+static int hci_usb_send_frame(struct sk_buff *skb)
 {
 	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
 	struct hci_usb *husb;

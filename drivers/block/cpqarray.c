@@ -352,12 +352,12 @@ static void __devexit cpqarray_remove_one (struct pci_dev *pdev)
 	ctlr_info_t *tmp_ptr;
 	char buff[4]; 
 
-		if (pdev->driver_data == NULL)
+	tmp_ptr = pci_get_drvdata(pdev);
+	if (tmp_ptr == NULL)
 	{
 		printk( KERN_ERR "cpqarray: Unable to remove device \n");
 		return;
 	}
-	tmp_ptr = (ctlr_info_t *) pdev->driver_data;
 	i = tmp_ptr->ctlr;
 	if (hba[i] == NULL) 
 	{
@@ -375,7 +375,7 @@ static void __devexit cpqarray_remove_one (struct pci_dev *pdev)
 			 i);	
 	}
 	free_irq(hba[i]->intr, hba[i]);
-	pdev->driver_data = NULL;
+	pci_set_drvdata(pdev, NULL);
 	/* remove it from the disk list */
 	del_gendisk(&(hba[i]->gendisk));
 
@@ -493,7 +493,7 @@ static int __init cpqarray_init_one( struct pci_dev *pdev,
 	sprintf(hba[i]->devname, "ida%d", i);
         hba[i]->ctlr = i;
 	/* Initialize the pdev driver private data */
-	pdev->driver_data = hba[i];
+	pci_set_drvdata(pdev, hba[i]);
 
 	if (cpqarray_pci_init(hba[i], pdev) != 0)
 	{

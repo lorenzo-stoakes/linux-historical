@@ -13,7 +13,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptbase.h,v 1.133 2002/09/05 22:30:09 pdelaney Exp $
+ *  $Id: mptbase.h,v 1.139 2002/11/11 18:33:40 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -80,8 +80,8 @@
 #define COPYRIGHT	"Copyright (c) 1999-2002 " MODULEAUTHOR
 #endif
 
-#define MPT_LINUX_VERSION_COMMON	"2.02.01"
-#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.02.01"
+#define MPT_LINUX_VERSION_COMMON	"2.03.00"
+#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.03.00"
 #define WHAT_MAGIC_STRING		"@" "(" "#" ")"
 
 #define show_mptmod_ver(s,ver)  \
@@ -91,7 +91,7 @@
 /*
  *  Fusion MPT(linux) driver configurable stuff...
  */
-#define MPT_MAX_ADAPTERS		16
+#define MPT_MAX_ADAPTERS		18
 #define MPT_MAX_PROTOCOL_DRIVERS	16
 #define MPT_MAX_BUS			1
 #define MPT_MAX_FC_DEVICES		255
@@ -397,8 +397,10 @@ typedef struct _VirtDevice {
 	ScsiCmndTracker		 SentQ;
 	ScsiCmndTracker		 DoneQ;
 //--- LUN split here?
+#ifdef MPT_SAVE_AUTOSENSE
 	u8			 sense[SCSI_STD_SENSE_BYTES];		/* 18 */
 	u8			 rsvd2[2];	/* alignment */
+#endif
 	u32			 luns;		/* Max LUNs is 32 */
 	u8			 inq_data[SCSI_STD_INQUIRY_BYTES];	/* 36 */
 	u8			 pad0[4];
@@ -424,8 +426,11 @@ typedef struct _VirtDevice {
 #define MPT_TARGET_DEFAULT_DV_STATUS	0
 #define MPT_TARGET_FLAGS_VALID_NEGO	0x01
 #define MPT_TARGET_FLAGS_VALID_INQUIRY	0x02
+#ifdef MPT_SAVE_AUTOSENSE
 #define MPT_TARGET_FLAGS_VALID_SENSE	0x04
+#endif
 #define MPT_TARGET_FLAGS_Q_YES		0x08
+#define MPT_TARGET_FLAGS_VALID_56	0x10
 
 #define MPT_TARGET_NO_NEGO_WIDE		0x01
 #define MPT_TARGET_NO_NEGO_SYNC		0x02
@@ -527,7 +532,6 @@ typedef	struct _ScsiCfgData {
 	int		*nvram;			/* table of device NVRAM values */
 	IOCPage3_t	*pIocPg3;		/* table of physical disks */
 	u8		 dvStatus[MPT_MAX_SCSI_DEVICES];
-	u8		 iocntr[MPT_MAX_SCSI_DEVICES];
 	int		 isRaid;		/* bit field, 1 if RAID */
 	u8		 minSyncFactor;		/* 0xFF if async */
 	u8		 maxSyncOffset;		/* 0 if async */
@@ -627,7 +631,8 @@ typedef struct _MPT_ADAPTER
 	LANPage1_t		 lan_cnfg_page1;
 	u8			 FirstWhoInit;
 	u8			 upload_fw;	/* If set, do a fw upload */
-	u8			 pad1[6];
+	u8			 reload_fw;	/* Force a FW Reload on next reset */
+	u8			 pad1[5];
 } MPT_ADAPTER;
 
 
@@ -889,6 +894,8 @@ typedef struct _MPT_SCSI_HOST {
 	MPT_Q_TRACKER		  taskQ;		/* TM request Q */
 	spinlock_t		  freedoneQlock;
 	int			  taskQcnt;
+	int			  num_chain;		/* Number of chain buffers */
+	int			  max_sge;		/* Max No of SGE*/
 	u8			  numTMrequests;
 	u8			  tmPending;
 	u8			  resetPending;
@@ -905,6 +912,9 @@ typedef struct _MPT_SCSI_HOST {
 	MPT_FRAME_HDR		 *cmdPtr;		/* Ptr to nonOS request */
 	struct scsi_cmnd	 *abortSCpnt;
 	MPT_LOCAL_REPLY		  localReply;		/* internal cmd reply struct */
+	unsigned long		  hard_resets;		/* driver forced bus resets count */
+	unsigned long		  soft_resets;		/* fw/external bus resets count */
+	unsigned long		  timeouts;		/* cmd timeouts */
 } MPT_SCSI_HOST;
 
 /*

@@ -98,11 +98,14 @@
  	- location of collision counter is chip specific
  	- allow selecting backoff algorithm (module parameter)
 
+	LK1.1.15 (jgarzik):
+	- Use new MII lib helper generic_mii_ioctl
+
 */
 
 #define DRV_NAME	"via-rhine"
-#define DRV_VERSION	"1.1.14"
-#define DRV_RELDATE	"May-3-2002"
+#define DRV_VERSION	"1.1.15"
+#define DRV_RELDATE	"November-22-2002"
 
 
 /* A few user-configurable values.
@@ -1794,10 +1797,10 @@ static void __devexit via_rhine_remove_one (struct pci_dev *pdev)
 
 
 static struct pci_driver via_rhine_driver = {
-	name:		"via-rhine",
-	id_table:	via_rhine_pci_tbl,
-	probe:		via_rhine_init_one,
-	remove:		__devexit_p(via_rhine_remove_one),
+	.name		= "via-rhine",
+	.id_table	= via_rhine_pci_tbl,
+	.probe		= via_rhine_init_one,
+	.remove		= __devexit_p(via_rhine_remove_one),
 };
 
 

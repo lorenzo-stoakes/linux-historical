@@ -32,8 +32,14 @@ if [ "$CONFIG_USB" = "y" -o  "$CONFIG_USB" = "m" ]; then
    comment 'USB Device Class drivers'
    dep_tristate '  USB Audio support' CONFIG_USB_AUDIO $CONFIG_USB $CONFIG_SOUND
    dep_tristate '    EMI 2|6 USB Audio interface support' CONFIG_USB_EMI26 $CONFIG_USB_AUDIO
-   dep_tristate '  USB Bluetooth support (EXPERIMENTAL)' CONFIG_USB_BLUETOOTH $CONFIG_USB $CONFIG_EXPERIMENTAL
-   dep_tristate '  USB MIDI support' CONFIG_USB_MIDI $CONFIG_USB
+   if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+      if [ "$CONFIG_BLUEZ" = "n" ]; then
+         dep_tristate '  USB Bluetooth support (EXPERIMENTAL)' CONFIG_USB_BLUETOOTH $CONFIG_USB
+      else
+         comment '  USB Bluetooth can only be used with disabled Bluetooth subsystem'
+      fi
+   fi
+   dep_tristate '  USB MIDI support' CONFIG_USB_MIDI $CONFIG_USB $CONFIG_SOUND
    if [ "$CONFIG_SCSI" = "n" ]; then
       comment '  SCSI support is needed for USB Storage'
    fi
@@ -63,6 +69,7 @@ if [ "$CONFIG_USB" = "y" -o  "$CONFIG_USB" = "m" ]; then
    fi
    dep_tristate '  Aiptek 6000U/8000U tablet support' CONFIG_USB_AIPTEK $CONFIG_USB $CONFIG_INPUT
    dep_tristate '  Wacom Intuos/Graphire tablet support' CONFIG_USB_WACOM $CONFIG_USB $CONFIG_INPUT
+   dep_tristate '  Griffin Technology PowerMate support' CONFIG_USB_POWERMATE $CONFIG_USB $CONFIG_INPUT
 
    comment 'USB Imaging devices'
    dep_tristate '  USB Kodak DC-2xx Camera support' CONFIG_USB_DC2XX $CONFIG_USB

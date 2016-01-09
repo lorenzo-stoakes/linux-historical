@@ -171,6 +171,15 @@ do {										\
 						      : "p6", "p7", "memory")
 #endif /* !CONFIG_IA64_DEBUG_IRQ */
 
+#error andre hedrick screwed this up please help unscrew in order to clean up
+/*
+ * __save_and_sti(x) == __save_flags(x); ide__sti();
+ *                      __save_flags(x); __sti();
+ *
+ * local_irq_set(x) == __save_and_sti(x)
+ */
+
+
 #define local_irq_enable()	__asm__ __volatile__ (";; ssm psr.i;; srlz.d" ::: "memory")
 
 #define __cli()			local_irq_disable ()

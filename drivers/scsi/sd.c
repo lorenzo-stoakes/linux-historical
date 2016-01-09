@@ -668,7 +668,7 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 			 * hard error.
 			 */
 			print_sense("sd", SCpnt);
-			result = 0;
+			SCpnt->result = 0;
 			SCpnt->sense_buffer[0] = 0x0;
 			good_sectors = this_count;
 			break;
@@ -1439,10 +1439,8 @@ static void __exit exit_sd(void)
 		kfree(sd_blocksizes);
 		kfree(sd_hardsizes);
 		for (i = 0; i < N_USED_SD_MAJORS; i++) {
-#if 0 /* XXX aren't we forgetting to deallocate something? */
 			kfree(sd_gendisks[i].de_arr);
 			kfree(sd_gendisks[i].flags);
-#endif
 			kfree(sd_gendisks[i].part);
 		}
 	}

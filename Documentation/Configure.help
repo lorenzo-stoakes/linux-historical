@@ -246,13 +246,21 @@ CONFIG_X86_TSC_DISABLE
 
   If unsure, say N.
 
-Multiquad support for NUMA systems
-CONFIG_MULTIQUAD
+Multiquad support for NUMAQ systems
+CONFIG_X86_NUMAQ
   This option is used for getting Linux to run on a (IBM/Sequent) NUMA 
   multiquad box. This changes the way that processors are bootstrapped,
   and uses Clustered Logical APIC addressing mode instead of Flat Logical.
   You will need a new lynxer.elf file to flash your firmware with - send
   email to Martin.Bligh@us.ibm.com
+
+Support for IBM Summit (EXA) systems
+CONFIG_X86_SUMMIT
+  This option is needed for IBM systems that use the Summit/EXA chipset.
+  (EXA: Extendable Xseries Architecture)In particular, it is needed for 
+  the x440 (even for the 4-CPU model).
+
+  If you don't have this computer, you may safely say N.
 
 IO-APIC support on uniprocessors
 CONFIG_X86_UP_IOAPIC
@@ -3539,6 +3547,13 @@ AMD Irongate, 761, and 762 support
 CONFIG_AGP_AMD
   This option gives you AGP support for the GLX component of the
   XFree86 4.x on AMD Irongate, 761, and 762 chipsets.
+
+  You should say Y here if you use XFree86 3.3.6 or 4.x and want to
+  use GLX or DRI.  If unsure, say N.
+
+CONFIG_AGP_AMD_8151
+  This option gives you AGP support for the GLX component of
+  XFree86 on AMD K8 with an AGP 8151 chipset.
 
   You should say Y here if you use XFree86 3.3.6 or 4.x and want to
   use GLX or DRI.  If unsure, say N.
@@ -10816,6 +10831,15 @@ CONFIG_YELLOWFIN
   say M here and read <file:Documentation/modules.txt>.  This is
   recommended.  The module will be called yellowfin.o.
 
+Realtek 8169 Gigabit Ethernet support
+CONFIG_R8169
+  Say Y here if you have a Realtek 8169 PCI Gigabit Ethernet adapter.
+
+  If you want to compile this driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  This is
+  recommended.  The module will be called r8169.o.
+
 General Instruments Surfboard 1000
 CONFIG_NET_SB1000
   This is a driver for the General Instrument (also known as
@@ -13762,6 +13786,21 @@ CONFIG_USB_WACOM
   This driver is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called wacom.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
+Griffin Technology PowerMate support
+CONFIG_USB_POWERMATE
+  Say Y here if you want to use the Griffin Technology, Inc. USB
+  PowerMate device. This device is a stainless steel dial which 
+  can measure clockwise and anticlockwise rotation. The dial also
+  acts as a pushbutton. The base contains an LED which can be
+  instructed to pulse or to switch to a particular intensity.
+
+  You can download userspace tools from http://sowerbutts.com/powermate/
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called powermate.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
 Aiptek 6000U/8000U tablet support
@@ -21278,6 +21317,8 @@ CONFIG_BLUEZ
                HCI Device drivers (interface to the hardware)
                L2CAP Module (L2CAP protocol)
                SCO Module (SCO links)
+               RFCOMM Module (RFCOMM protocol)
+               BNEP Module (BNEP protocol)
 
   Say Y here to enable Linux Bluetooth support and to build BlueZ Core
   layer.
@@ -21306,6 +21347,19 @@ CONFIG_BLUEZ_SCO
   Say Y here to compile SCO support into the kernel or say M to
   compile it as module (sco.o).
 
+RFCOMM protocol support
+CONFIG_BLUEZ_RFCOMM
+  RFCOMM provides connection oriented stream transport. RFCOMM
+  support is required for Dialup Networking, OBEX and other Bluetooth
+  applications.
+
+  Say Y here to compile RFCOMM support into the kernel or say M to
+  compile it as module (rfcomm.o).
+
+RFCOMM TTY emulation support
+CONFIG_BLUEZ_RFCOMM_TTY
+  This option enables TTY emulation support for RFCOMM channels.
+
 BNEP protocol support
 CONFIG_BLUEZ_BNEP
   BNEP (Bluetooth Network Encapsulation Protocol) is Ethernet
@@ -21318,6 +21372,14 @@ CONFIG_BLUEZ_BNEP
 
   Say Y here to compile BNEP support into the kernel or say M to
   compile it as module (bnep.o).
+
+BNEP multicast filter support
+CONFIG_BLUEZ_BNEP_MC_FILTER
+  This option enables the multicast filter support for BNEP.
+
+BNEP protocol filter support
+CONFIG_BLUEZ_BNEP_PROTO_FILTER
+  This option enables the protocol filter support for BNEP.
 
 HCI UART driver
 CONFIG_BLUEZ_HCIUART
@@ -21333,10 +21395,25 @@ CONFIG_BLUEZ_HCIUART
 HCI UART (H4) protocol support 
 CONFIG_BLUEZ_HCIUART_H4
   UART (H4) is serial protocol for communication between Bluetooth 
-  device and host. This protocol is required for most UART based 
-  Bluetooth device (including PCMCIA and CF). 
+  device and host. This protocol is required for most Bluetooth devices 
+  with UART interface, including PCMCIA and CF cards. 
 
   Say Y here to compile support for HCI UART (H4) protocol.
+
+HCI BCSP protocol support 
+CONFIG_BLUEZ_HCIUART_BCSP
+  BCSP (BlueCore Serial Protocol) is serial protocol for communication 
+  between Bluetooth device and host. This protocol is required for non
+  USB Bluetooth devices based on CSR BlueCore chip, including PCMCIA and 
+  CF cards.
+
+  Say Y here to compile support for HCI BCSP protocol.
+
+HCI BCSP transmit CRC with every BCSP packet
+CONFIG_BLUEZ_HCIUART_BCSP_TXCRC
+  If you say Y here, a 16-bit CRC checksum will be transmitted along with
+  every BCSP (BlueCore Serial Protocol) packet sent to the Bluetooth chip.
+  This increases reliability, but slightly reduces efficiency.
 
 HCI USB driver
 CONFIG_BLUEZ_HCIUSB
@@ -21398,6 +21475,20 @@ CONFIG_BLUEZ_HCIBLUECARD
 
   Say Y here to compile support for HCI BlueCard devices into the
   kernel or say M to compile it as module (bluecard_cs.o).
+
+HCI UART (PC Card) device driver
+CONFIG_BLUEZ_HCIBTUART
+  Bluetooth HCI UART (PC Card) driver.
+  This driver provides support for Bluetooth PCMCIA devices with
+  an UART interface:
+     Xircom CreditCard Bluetooth Adapter
+     Xircom RealPort2 Bluetooth Adapter
+     Sphinx PICO Card
+     H-Soft blue+Card
+     Cyber-blue Compact Flash Card
+
+  Say Y here to compile support for HCI UART devices into the
+  kernel or say M to compile it as module (btuart_cs.o).
 
 # The following options are for Linux when running on the Hitachi
 # SuperH family of RISC microprocessors.

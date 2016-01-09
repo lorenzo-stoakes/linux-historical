@@ -504,7 +504,29 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 		count = inb_p(0x40);    /* read the latched count */
 		count |= inb(0x40) << 8;
+
+		/* Any unpaired read will cause the above to swap MSB/LSB
+		   forever.  Try to detect this and reset the counter. 
+		   
+		   This happens very occasionally with buggy SMM bios
+		   code at least */
+		   
+		if (count > LATCH) {
+			printk(KERN_WARNING 
+			       "i8253 count too high! resetting..\n");
+			outb_p(0x34, 0x43);
+			outb_p(LATCH & 0xff, 0x40);
+			outb(LATCH >> 8, 0x40);
+			count = LATCH - 1;
+		}
+
 		spin_unlock(&i8253_lock);
+
+		/* Some i8253 clones hold the LATCH value visible
+		   momentarily as they flip back to zero */
+		if (count == LATCH) {
+			count--;
+		}
 
 		count = ((LATCH-1) - count) * TICK_SIZE;
 		delay_at_last_interrupt = (count + LATCH/2) / LATCH;

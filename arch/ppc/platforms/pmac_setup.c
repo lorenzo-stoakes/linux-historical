@@ -708,44 +708,7 @@ pmac_halt(void)
    pmac_power_off();
 }
 
-
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-/*
- * IDE stuff.
- */
-static int __pmac
-pmac_ide_check_region(ide_ioreg_t from, unsigned int extent)
-{
-#ifdef CONFIG_BLK_DEV_IDE_PMAC
-	if (pmac_ide_check_base(from) >= 0)
-		return 0;
-#endif
-	return check_region(from, extent);
-}
-
-static void __pmac
-pmac_ide_request_region(ide_ioreg_t from,
-			unsigned int extent,
-			const char *name)
-{
-#ifdef CONFIG_BLK_DEV_IDE_PMAC
-	if (pmac_ide_check_base(from) >= 0)
-		return;
-#endif
-	request_region(from, extent, name);
-}
-
-static void __pmac
-pmac_ide_release_region(ide_ioreg_t from,
-			unsigned int extent)
-{
-#ifdef CONFIG_BLK_DEV_IDE_PMAC
-	if (pmac_ide_check_base(from) >= 0)
-		return;
-#endif
-	release_region(from, extent);
-}
-
 #ifndef CONFIG_BLK_DEV_IDE_PMAC
 /*
  * This is only used if we have a PCI IDE controller, not
@@ -926,9 +889,6 @@ pmac_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	select_adb_keyboard();
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-        ppc_ide_md.ide_check_region	= pmac_ide_check_region;
-        ppc_ide_md.ide_request_region	= pmac_ide_request_region;
-        ppc_ide_md.ide_release_region	= pmac_ide_release_region;
 #ifdef CONFIG_BLK_DEV_IDE_PMAC
         ppc_ide_md.ide_init_hwif	= pmac_ide_init_hwif_ports;
         ppc_ide_md.default_io_base	= pmac_ide_get_base;

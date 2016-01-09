@@ -589,7 +589,7 @@ s64 commitZeroLink(tid_t tid, struct inode *ip)
 		break;
 	case S_IFLNK:
 		/* fast symbolic link */
-		if (ip->i_size <= 256) {
+		if (ip->i_size < IDATASIZE) {
 			ip->i_size = 0;
 			return 0;
 		}
@@ -661,7 +661,7 @@ int freeZeroLink(struct inode *ip)
 		break;
 	case S_IFLNK:
 		/* if its contained in inode nothing to do */
-		if (ip->i_size <= 256)
+		if (ip->i_size < IDATASIZE)
 			return 0;
 		break;
 	default:

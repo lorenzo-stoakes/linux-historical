@@ -309,9 +309,11 @@ extern int __min_ipl;
 #define __sti()			do { barrier(); setipl(IPL_MIN); } while(0)
 #define __save_flags(flags)	((flags) = rdps())
 #define __save_and_cli(flags)	do { (flags) = swpipl(IPL_MAX); barrier(); } while(0)
+#define __save_and_sti(flags)	do { barrier(); (flags) = swpipl(IPL_MIN); } while(0)
 #define __restore_flags(flags)	do { barrier(); setipl(flags); barrier(); } while(0)
 
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)            __save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()

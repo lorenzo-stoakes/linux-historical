@@ -30,10 +30,9 @@
 #define DEBUG_NODIRECT 0
 #define DEBUG_FORCEDAC 0
 
-/* Most Alphas support 32-bit ISA DMA. Exceptions are XL, Ruffian and
-   Nautilus (see asm/dma.h for details). */
-#define ISA_DMA_MASK	(MAX_DMA_ADDRESS - IDENT_ADDR - 1 < 0xffffffff ? \
-			 MAX_DMA_ADDRESS - IDENT_ADDR - 1 : 0xffffffff)
+/* Most Alphas support 32-bit ISA DMA. Exceptions are XL, Ruffian,
+   Sable, and Alcor (see asm-alpha/dma.h for details). */
+#define ISA_DMA_MASK	(MAX_DMA_ADDRESS - IDENT_ADDR - 1)
 
 static inline unsigned long
 mk_iommu_pte(unsigned long paddr)
@@ -133,8 +132,8 @@ iommu_arena_find_pages(struct pci_iommu_arena *arena, long n, long mask)
 	return p;
 }
 
-long
-iommu_arena_alloc(struct pci_iommu_arena *arena, long n)
+static long
+iommu_arena_alloc(struct pci_iommu_arena *arena, long n, unsigned int align)
 {
 	unsigned long flags;
 	unsigned long *ptes;
@@ -144,7 +143,7 @@ iommu_arena_alloc(struct pci_iommu_arena *arena, long n)
 
 	/* Search for N empty ptes */
 	ptes = arena->ptes;
-	mask = arena->align_entry - 1;
+	mask = max(align, arena->align_entry) - 1;
 	p = iommu_arena_find_pages(arena, n, mask);
 	if (p < 0) {
 		spin_unlock_irqrestore(&arena->lock, flags);
@@ -233,7 +232,8 @@ pci_map_single_1(struct pci_dev *pdev, void *cpu_addr, size_t size,
 		arena = hose->sg_isa;
 
 	npages = calc_npages((paddr & ~PAGE_MASK) + size);
-	dma_ofs = iommu_arena_alloc(arena, npages);
+	/* Force allocation to 64KB boundary for all ISA devices. */
+	dma_ofs = iommu_arena_alloc(arena, npages, pdev ? 0 : 8);
 	if (dma_ofs < 0) {
 		printk(KERN_WARNING "pci_map_single failed: "
 		       "could not allocate dma page tables\n");
@@ -505,7 +505,7 @@ sg_fill(struct scatterlist *leader, struct scatterlist *end,
 
 	paddr &= ~PAGE_MASK;
 	npages = calc_npages(paddr + size);
-	dma_ofs = iommu_arena_alloc(arena, npages);
+	dma_ofs = iommu_arena_alloc(arena, npages, 0);
 	if (dma_ofs < 0) {
 		/* If we attempted a direct map above but failed, die.  */
 		if (leader->dma_address == 0)

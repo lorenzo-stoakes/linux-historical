@@ -52,6 +52,8 @@
 #include <linux/ac97_codec.h>
 #include <asm/uaccess.h>
 
+#define CODEC_ID_BUFSZ 14
+
 static int ac97_read_mixer(struct ac97_codec *codec, int oss_channel);
 static void ac97_write_mixer(struct ac97_codec *codec, int oss_channel, 
 			     unsigned int left, unsigned int right);
@@ -657,7 +659,7 @@ int ac97_read_proc (char *page, char **start, off_t off,
  *	codec_id	-  Turn id1/id2 into a PnP string
  *	@id1: Vendor ID1
  *	@id2: Vendor ID2
- *	@buf: 10 byte buffer
+ *	@buf: CODEC_ID_BUFSZ byte buffer
  *
  *	Fills buf with a zero terminated PnP ident string for the id1/id2
  *	pair. For convenience the return is the passed in buffer pointer.
@@ -665,12 +667,14 @@ int ac97_read_proc (char *page, char **start, off_t off,
  
 static char *codec_id(u16 id1, u16 id2, char *buf)
 {
-	if(id1&0x8080)
-		snprintf(buf, 10, "%0x4X:%0x4X", id1, id2);
-	buf[0] = (id1 >> 8);
-	buf[1] = (id1 & 0xFF);
-	buf[2] = (id2 >> 8);
-	snprintf(buf+3, 7, "%d", id2&0xFF);
+	if(id1&0x8080) {
+		snprintf(buf, CODEC_ID_BUFSZ, "0x%04x:0x%04x", id1, id2);
+	} else {
+		buf[0] = (id1 >> 8);
+		buf[1] = (id1 & 0xFF);
+		buf[2] = (id2 >> 8);
+		snprintf(buf+3, CODEC_ID_BUFSZ - 3, "%d", id2&0xFF);
+	}
 	return buf;
 }
  
@@ -702,7 +706,7 @@ int ac97_probe_codec(struct ac97_codec *codec)
 	u16 id1, id2;
 	u16 audio, modem;
 	int i;
-	char cidbuf[10];
+	char cidbuf[CODEC_ID_BUFSZ];
 
 	/* probing AC97 codec, AC97 2.0 says that bit 15 of register 0x00 (reset) should 
 	 * be read zero.
@@ -746,7 +750,7 @@ int ac97_probe_codec(struct ac97_codec *codec)
 	}
 	if (codec->name == NULL)
 		codec->name = "Unknown";
-	printk(KERN_INFO "ac97_codec: AC97 %s codec, id: %s(%s)\n", 
+	printk(KERN_INFO "ac97_codec: AC97 %s codec, id: %s (%s)\n", 
 		modem ? "Modem" : (audio ? "Audio" : ""),
 	       codec_id(id1, id2, cidbuf), codec->name);
 

@@ -121,6 +121,8 @@ static struct usb_device_id scanner_device_ids [] = {
 	{ USB_DEVICE(0x03f0, 0x605) },	/* 2200C */
 	/* iVina */
 	{ USB_DEVICE(0x0638, 0x0268) }, /* 1200U */
+	/* Lexmark */
+	{ USB_DEVICE(0x043d, 0x002d) }, /* X70/X73 */
 	/* Lifetec */
 	{ USB_DEVICE(0x05d8, 0x4002) }, /* Lifetec LT9385 */
 	/* Memorex */
@@ -136,17 +138,25 @@ static struct usb_device_id scanner_device_ids [] = {
 	/* Minolta */
 	//	{ USB_DEVICE(0x0638,0x026a) }, /* Minolta Dimage Scan Dual II */
 	/* Mustek */
-	{ USB_DEVICE(0x055f, 0x0001) },	/* 1200 CU */
+	{ USB_DEVICE(0x055f, 0x0001) },	/* ScanExpress 1200 CU */
 	{ USB_DEVICE(0x0400, 0x1000) },	/* BearPaw 1200 */
-	{ USB_DEVICE(0x055f, 0x0002) },	/* 600 CU */
-	{ USB_DEVICE(0x055f, 0x0873) }, /* 600 USB */
-	{ USB_DEVICE(0x055f, 0x0003) },	/* 1200 USB */
-	{ USB_DEVICE(0x055f, 0x0006) },	/* 1200 UB */
+	{ USB_DEVICE(0x055f, 0x0002) },	/* ScanExpress 600 CU */
+	{ USB_DEVICE(0x055f, 0x0873) }, /* ScanExpress 600 USB */
+	{ USB_DEVICE(0x055f, 0x0003) },	/* ScanExpress 1200 USB */
+	{ USB_DEVICE(0x055f, 0x0006) },	/* ScanExpress 1200 UB */
+	{ USB_DEVICE(0x055f, 0x0007) },	/* ScanExpress 1200 USB Plus */
+	{ USB_DEVICE(0x055f, 0x0210) },	/* ScanExpress A3 USB */
 	{ USB_DEVICE(0x0400, 0x1001) }, /* BearPaw 2400 */
-	{ USB_DEVICE(0x055f, 0x0008) }, /* 1200 CU Plus */
-	{ USB_DEVICE(0x0ff5, 0x0010) }, /* BearPaw 1200F */
+	{ USB_DEVICE(0x055f, 0x0008) }, /* ScanExpress 1200 CU Plus */
+	{ USB_DEVICE(0x055f, 0x0010) }, /* BearPaw 1200F */
 	{ USB_DEVICE(0x055f, 0x0218) }, /* BearPaw 2400 TA */
-	{ USB_DEVICE(0x05d8, 0x4002) }, /* 1200 CU and 1200 UB Plus */
+	{ USB_DEVICE(0x05d8, 0x4002) }, /* BearPaw 1200 CU and ScanExpress 1200 UB Plus */
+	{ USB_DEVICE(0x055f, 0x0219) }, /* BearPaw 2400 TA Plus */
+	{ USB_DEVICE(0x055f, 0x021c) }, /* BearPaw 1200 CU Plus */
+	{ USB_DEVICE(0x055f, 0x021d) }, /* Bearpaw 2400 CU Plus */
+	{ USB_DEVICE(0x055f, 0x021e) }, /* BearPaw 1200 TA/CS */
+	{ USB_DEVICE(0x055f, 0x0400) }, /* BearPaw 2400 TA PRO */
+	{ USB_DEVICE(0x055f, 0x1000) }, /* BearPaw 4800 TA PRO */
 	/* Plustek */
 	{ USB_DEVICE(0x07b3, 0x0017) }, /* OpticPro UT12 */
 	{ USB_DEVICE(0x07b3, 0x0011) }, /* OpticPro UT24 */

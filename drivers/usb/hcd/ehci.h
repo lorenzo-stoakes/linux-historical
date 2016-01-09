@@ -21,6 +21,23 @@
 
 /* definitions used for the EHCI driver */
 
+/* statistics can be kept for for tuning/monitoring */
+struct ehci_stats {
+	/* irq usage */
+	unsigned long		normal;
+	unsigned long		error;
+	unsigned long		reclaim;
+
+	/* termination of urbs from core */
+	unsigned long		complete;
+	unsigned long		unlink;
+
+	/* qhs patched to recover from td queueing race
+	 * (can avoid by using 'dummy td', allowing fewer irqs)
+	 */
+	unsigned long		qpatch;
+};
+
 /* ehci_hcd->lock guards shared data against other CPUs:
  *   ehci_hcd:	async, reclaim, periodic (and shadow), ...
  *   hcd_dev:	ep[]
@@ -39,7 +56,8 @@ struct ehci_hcd {			/* one per controller */
 	/* async schedule support */
 	struct ehci_qh		*async;
 	struct ehci_qh		*reclaim;
-	int			reclaim_ready;
+	int			reclaim_ready : 1,
+				async_idle : 1;
 
 	/* periodic schedule support */
 #define	DEFAULT_I_TDPS		1024		/* some HCs can do less */
@@ -50,7 +68,7 @@ struct ehci_hcd {			/* one per controller */
 
 	union ehci_shadow	*pshadow;	/* mirror hw periodic table */
 	int			next_uframe;	/* scan periodic, start here */
-	unsigned		periodic_urbs;	/* how many urbs scheduled? */
+	unsigned		periodic_sched;	/* periodic activity count */
 
 	/* deferred work from IRQ, etc */
 	struct tasklet_struct	tasklet;
@@ -69,10 +87,19 @@ struct ehci_hcd {			/* one per controller */
 	struct pci_pool		*qtd_pool;	/* one or more per qh */
 	struct pci_pool		*itd_pool;	/* itd per iso urb */
 	struct pci_pool		*sitd_pool;	/* sitd per split iso urb */
+
+	struct timer_list	watchdog;
+
+#ifdef EHCI_STATS
+	struct ehci_stats	stats;
+#	define COUNT(x) do { (x)++; } while (0)
+#else
+#	define COUNT(x) do {} while (0)
+#endif
 };
 
 /* unwrap an HCD pointer to get an EHCI_HCD pointer */ 
-#define hcd_to_ehci(hcd_ptr) list_entry(hcd_ptr, struct ehci_hcd, hcd)
+#define hcd_to_ehci(hcd_ptr) container_of(hcd_ptr, struct ehci_hcd, hcd)
 
 /* NOTE:  urb->transfer_flags expected to not use this bit !!! */
 #define EHCI_STATE_UNLINK	0x8000		/* urb being unlinked */
@@ -219,7 +246,6 @@ struct ehci_qtd {
 
 	/* dma same in urb's qtds, except 1st control qtd (setup buffer) */
 	struct urb		*urb;			/* qtd's urb */
-	dma_addr_t		buf_dma;		/* buffer address */
 	size_t			length;			/* length of buffer */
 } __attribute__ ((aligned (32)));
 
@@ -287,15 +313,20 @@ struct ehci_qh {
 	struct list_head	qtd_list;	/* sw qtd list */
 
 	atomic_t		refcount;
-	unsigned short		usecs;		/* intr bandwidth */
-	short			qh_state;
+
+	u8			qh_state;
 #define	QH_STATE_LINKED		1		/* HC sees this */
 #define	QH_STATE_UNLINK		2		/* HC may still see this */
 #define	QH_STATE_IDLE		3		/* HC doesn't see this */
 
-#ifdef EHCI_SOFT_RETRIES
-	int			retries;
-#endif
+	/* periodic schedule info */
+	u8			usecs;		/* intr bandwidth */
+	u8			gap_uf;		/* uframes split/csplit gap */
+	u8			c_usecs;	/* ... split completion bw */
+	unsigned short		period;		/* polling interval */
+	unsigned short		start;		/* where polling starts */
+#define NO_FRAME ((unsigned short)~0)			/* pick new start */
+
 } __attribute__ ((aligned (32)));
 
 /*-------------------------------------------------------------------------*/
@@ -360,6 +391,9 @@ struct ehci_sitd {
 	union ehci_shadow	sitd_next;	/* ptr to periodic q entry */
 	struct urb		*urb;
 	dma_addr_t		buf_dma;	/* buffer address */
+
+	unsigned short		usecs;		/* start bandwidth */
+	unsigned short		c_usecs;	/* completion bandwidth */
 } __attribute__ ((aligned (32)));
 
 /*-------------------------------------------------------------------------*/
@@ -381,5 +415,40 @@ struct ehci_fstn {
 	dma_addr_t		fstn_dma;
 	union ehci_shadow	fstn_next;	/* ptr to periodic q entry */
 } __attribute__ ((aligned (32)));
+
+/*-------------------------------------------------------------------------*/
+
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,32)
+
+#define SUBMIT_URB(urb,mem_flags) usb_submit_urb(urb)
+#define STUB_DEBUG_FILES
+
+static inline int hcd_register_root (struct usb_hcd *hcd)
+{
+	return usb_new_device (hcd_to_bus (hcd)->root_hub);
+}
+
+#else	/* LINUX_VERSION_CODE */
+
+// hcd_to_bus() eventually moves to hcd.h on 2.5 too
+static inline struct usb_bus *hcd_to_bus (struct usb_hcd *hcd)
+	{ return &hcd->self; }
+// ... as does hcd_register_root()
+static inline int hcd_register_root (struct usb_hcd *hcd)
+{
+	return usb_register_root_hub (
+		hcd_to_bus (hcd)->root_hub, &hcd->pdev->dev);
+}
+
+#define SUBMIT_URB(urb,mem_flags) usb_submit_urb(urb,mem_flags)
+
+#ifndef DEBUG
+#define STUB_DEBUG_FILES
+#endif	/* DEBUG */
+
+#endif	/* LINUX_VERSION_CODE */
+
+/*-------------------------------------------------------------------------*/
 
 #endif /* __LINUX_EHCI_HCD_H */

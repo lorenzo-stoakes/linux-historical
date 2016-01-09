@@ -15,12 +15,13 @@
 
 /*
  * a maximum of 16 APICs with the current APIC ID architecture.
+ * xAPICs can have up to 256.  SAPICs have 16 ID bits.
  */
-#ifdef CONFIG_MULTIQUAD
+#ifdef CONFIG_X86_CLUSTERED_APIC
 #define MAX_APICS 256
-#else /* !CONFIG_MULTIQUAD */
+#else
 #define MAX_APICS 16
-#endif /* CONFIG_MULTIQUAD */
+#endif
 
 #define MAX_MPC_ENTRY 1024
 

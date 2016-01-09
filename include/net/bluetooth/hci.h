@@ -39,6 +39,8 @@
 #define HCI_DEV_UNREG   2
 #define HCI_DEV_UP	3
 #define HCI_DEV_DOWN	4
+#define HCI_DEV_SUSPEND	5
+#define HCI_DEV_RESUME	6
 
 /* HCI device types */
 #define HCI_VHCI	0
@@ -46,6 +48,7 @@
 #define HCI_PCCARD	2
 #define HCI_UART 	3
 #define HCI_RS232 	4
+#define HCI_PCI		5
 
 /* HCI device flags */
 enum {
@@ -542,7 +545,7 @@ typedef struct {
 	bdaddr_t bdaddr;
 	__u8     role;
 } __attribute__ ((packed)) evt_role_change;
-#define EVT_ROLE_CHANGE_SIZE 1
+#define EVT_ROLE_CHANGE_SIZE 8
 
 #define EVT_PIN_CODE_REQ        0x16
 typedef struct {

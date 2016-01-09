@@ -64,6 +64,7 @@ obj-$(CONFIG_USB_HID)		+= hid.o
 obj-$(CONFIG_USB_KBD)		+= usbkbd.o
 obj-$(CONFIG_USB_AIPTEK)	+= aiptek.o
 obj-$(CONFIG_USB_WACOM)		+= wacom.o
+obj-$(CONFIG_USB_POWERMATE)	+= powermate.o
 
 obj-$(CONFIG_USB_SCANNER)	+= scanner.o
 obj-$(CONFIG_USB_ACM)		+= acm.o
@@ -77,7 +78,7 @@ obj-$(CONFIG_USB_DC2XX)		+= dc2xx.o
 obj-$(CONFIG_USB_MDC800)	+= mdc800.o
 obj-$(CONFIG_USB_USS720)	+= uss720.o
 obj-$(CONFIG_USB_DABUSB)	+= dabusb.o
-obj-$(CONFIG_USB_VICAM)		+= vicam.o
+obj-$(CONFIG_USB_VICAM)		+= vicam.o usbvideo.o
 obj-$(CONFIG_USB_OV511)		+= ov511.o
 obj-$(CONFIG_USB_SE401)		+= se401.o
 obj-$(CONFIG_USB_STV680)	+= stv680.o

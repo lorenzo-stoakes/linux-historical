@@ -568,19 +568,18 @@ struct netdev_private {
 	struct net_device_stats stats;
 	struct pci_dev *pci_dev;
 	/* Frequently used values: keep some adjacent for cache effect. */
+	spinlock_t lock;
 	unsigned int cur_rx, dirty_rx;	/* Producer/consumer ring indices */
 	unsigned int cur_tx, dirty_tx;
 	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
 	unsigned int tx_full:1,		/* The Tx queue is full. */
 	/* These values keep track of the transceiver/media in use. */
-		autoneg:1,		/* Autonegotiation allowed. */
-		full_duplex:1,		/* Full-duplex operation. */
 		speed100:1;		/* Set if speed == 100MBit. */
 	unsigned int intr_mitigation;
 	u32 tx_mode;
 	u8 tx_threshold;
 	/* MII transceiver section. */
-	u16 advertising;		/* NWay media advertisement */
+	struct mii_if_info mii_if;		/* MII lib hooks/info */
 	int phy_cnt;			/* MII device addresses. */
 	unsigned char phys[PHY_CNT];	/* MII device addresses. */
 };
@@ -723,9 +722,17 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
 	dev->irq = irq;
 
 	np = dev->priv;
+	spin_lock_init(&np->lock);
 	pci_set_drvdata(pdev, dev);
 
 	np->pci_dev = pdev;
+
+	np->mii_if.dev = dev;
+	np->mii_if.mdio_read = mdio_read;
+	np->mii_if.mdio_write = mdio_write;
+	np->mii_if.phy_id_mask = 0x1f;
+	np->mii_if.reg_num_mask = 0x1f;
+
 	drv_flags = netdrv_tbl[chip_idx].drv_flags;
 
 	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
@@ -734,15 +741,15 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
 
 	/* The lower four bits are the media type. */
 	if (option & 0x200)
-		np->full_duplex = 1;
+		np->mii_if.full_duplex = 1;
 
 	if (card_idx < MAX_UNITS && full_duplex[card_idx] > 0)
-		np->full_duplex = 1;
+		np->mii_if.full_duplex = 1;
 
-	if (np->full_duplex)
-		np->autoneg = 0;
+	if (np->mii_if.full_duplex)
+		np->mii_if.force_media = 0;
 	else
-		np->autoneg = 1;
+		np->mii_if.force_media = 1;
 	np->speed100 = 1;
 
 	/* The chip-specific entries in the device structure. */
@@ -784,15 +791,19 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
 			mii_status = mdio_read(dev, phy, MII_BMSR);
 			if (mii_status != 0) {
 				np->phys[phy_idx++] = phy;
-				np->advertising = mdio_read(dev, phy, MII_ADVERTISE);
+				np->mii_if.advertising = mdio_read(dev, phy, MII_ADVERTISE);
 				printk(KERN_INFO "%s: MII PHY found at address %d, status "
 					   "0x%4.4x advertising %4.4x.\n",
-					   dev->name, phy, mii_status, np->advertising);
+					   dev->name, phy, mii_status, np->mii_if.advertising);
 				/* there can be only one PHY on-board */
 				break;
 			}
 		}
 		np->phy_cnt = phy_idx;
+		if (np->phy_cnt > 0)
+			np->mii_if.phy_id = np->phys[0];
+		else
+			memset(&np->mii_if, 0, sizeof(np->mii_if));
 	}
 
 #ifdef ZEROCOPY
@@ -839,7 +850,6 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
 	long mdio_addr = dev->base_addr + MIICtrl + (phy_id<<7) + (location<<2);
 	writel(value, mdio_addr);
 	/* The busy-wait will occur before a read. */
-	return;
 }
 
 
@@ -892,6 +902,7 @@ static int netdev_open(struct net_device *dev)
 		return -ENOMEM;
 	}
 
+	netif_carrier_off(dev);
 	init_ring(dev);
 	/* Set the size of the Rx buffers. */
 	writel((np->rx_buf_sz << RxBufferLenShift) |
@@ -982,7 +993,7 @@ static int netdev_open(struct net_device *dev)
 		printk(KERN_DEBUG "%s: Setting the Rx and Tx modes.\n", dev->name);
 	set_rx_mode(dev);
 
-	np->advertising = mdio_read(dev, np->phys[0], MII_ADVERTISE);
+	np->mii_if.advertising = mdio_read(dev, np->phys[0], MII_ADVERTISE);
 	check_duplex(dev);
 
 	/* Enable GPIO interrupts on link change */
@@ -1023,25 +1034,25 @@ static void check_duplex(struct net_device *dev)
 	struct netdev_private *np = dev->priv;
 	u16 reg0;
 
-	mdio_write(dev, np->phys[0], MII_ADVERTISE, np->advertising);
+	mdio_write(dev, np->phys[0], MII_ADVERTISE, np->mii_if.advertising);
 	mdio_write(dev, np->phys[0], MII_BMCR, BMCR_RESET);
 	udelay(500);
 	while (mdio_read(dev, np->phys[0], MII_BMCR) & BMCR_RESET);
 
 	reg0 = mdio_read(dev, np->phys[0], MII_BMCR);
 
-	if (np->autoneg) {
+	if (!np->mii_if.force_media) {
 		reg0 |= BMCR_ANENABLE | BMCR_ANRESTART;
 	} else {
 		reg0 &= ~(BMCR_ANENABLE | BMCR_ANRESTART);
 		if (np->speed100)
 			reg0 |= BMCR_SPEED100;
-		if (np->full_duplex)
+		if (np->mii_if.full_duplex)
 			reg0 |= BMCR_FULLDPLX;
 		printk(KERN_DEBUG "%s: Link forced to %sMbit %s-duplex\n",
 		       dev->name,
 		       np->speed100 ? "100" : "10",
-		       np->full_duplex ? "full" : "half");
+		       np->mii_if.full_duplex ? "full" : "half");
 	}
 	mdio_write(dev, np->phys[0], MII_BMCR, reg0);
 }
@@ -1552,16 +1563,16 @@ static void netdev_media_change(struct net_device *dev)
 			reg5 = mdio_read(dev, np->phys[0], MII_LPA);
 			if (reg4 & ADVERTISE_100FULL && reg5 & LPA_100FULL) {
 				np->speed100 = 1;
-				np->full_duplex = 1;
+				np->mii_if.full_duplex = 1;
 			} else if (reg4 & ADVERTISE_100HALF && reg5 & LPA_100HALF) {
 				np->speed100 = 1;
-				np->full_duplex = 0;
+				np->mii_if.full_duplex = 0;
 			} else if (reg4 & ADVERTISE_10FULL && reg5 & LPA_10FULL) {
 				np->speed100 = 0;
-				np->full_duplex = 1;
+				np->mii_if.full_duplex = 1;
 			} else {
 				np->speed100 = 0;
-				np->full_duplex = 0;
+				np->mii_if.full_duplex = 0;
 			}
 		} else {
 			/* autonegotiation is disabled */
@@ -1570,17 +1581,18 @@ static void netdev_media_change(struct net_device *dev)
 			else
 				np->speed100 = 0;
 			if (reg0 & BMCR_FULLDPLX)
-				np->full_duplex = 1;
+				np->mii_if.full_duplex = 1;
 			else
-				np->full_duplex = 0;
+				np->mii_if.full_duplex = 0;
 		}
+		netif_carrier_on(dev);
 		printk(KERN_DEBUG "%s: Link is up, running at %sMbit %s-duplex\n",
 		       dev->name,
 		       np->speed100 ? "100" : "10",
-		       np->full_duplex ? "full" : "half");
+		       np->mii_if.full_duplex ? "full" : "half");
 
 		new_tx_mode = np->tx_mode & ~0x2;	/* duplex setting */
-		if (np->full_duplex)
+		if (np->mii_if.full_duplex)
 			new_tx_mode |= 2;
 		if (np->tx_mode != new_tx_mode) {
 			np->tx_mode = new_tx_mode;
@@ -1589,6 +1601,7 @@ static void netdev_media_change(struct net_device *dev)
 			writel(np->tx_mode, ioaddr + TxMode);
 		}
 	} else {
+		netif_carrier_off(dev);
 		printk(KERN_DEBUG "%s: Link is down\n", dev->name);
 	}
 }
@@ -1715,77 +1728,6 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		return -EFAULT;
 
 	switch (ecmd.cmd) {
-	case ETHTOOL_GSET:
-		ecmd.supported =
-			SUPPORTED_10baseT_Half |
-			SUPPORTED_10baseT_Full |
-			SUPPORTED_100baseT_Half |
-			SUPPORTED_100baseT_Full |
-			SUPPORTED_Autoneg |
-			SUPPORTED_MII;
-
-		ecmd.advertising = ADVERTISED_MII;
-		if (np->advertising & ADVERTISE_10HALF)
-			ecmd.advertising |= ADVERTISED_10baseT_Half;
-		if (np->advertising & ADVERTISE_10FULL)
-			ecmd.advertising |= ADVERTISED_10baseT_Full;
-		if (np->advertising & ADVERTISE_100HALF)
-			ecmd.advertising |= ADVERTISED_100baseT_Half;
-		if (np->advertising & ADVERTISE_100FULL)
-			ecmd.advertising |= ADVERTISED_100baseT_Full;
-		if (np->autoneg) {
-			ecmd.advertising |= ADVERTISED_Autoneg;
-			ecmd.autoneg = AUTONEG_ENABLE;
-		} else
-			ecmd.autoneg = AUTONEG_DISABLE;
-
-		ecmd.port = PORT_MII;
-		ecmd.transceiver = XCVR_INTERNAL;
-		ecmd.phy_address = np->phys[0];
-		ecmd.speed = np->speed100 ? SPEED_100 : SPEED_10;
-		ecmd.duplex = np->full_duplex ? DUPLEX_FULL : DUPLEX_HALF;
-		ecmd.maxtxpkt = TX_RING_SIZE;
-		ecmd.maxrxpkt = np->intr_mitigation; /* not 100% accurate */
-
-
-		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
-			return -EFAULT;
-		return 0;
-
-	case ETHTOOL_SSET: {
-		u16 autoneg, speed100, full_duplex;
-
-		autoneg = (ecmd.autoneg == AUTONEG_ENABLE);
-		speed100 = (ecmd.speed == SPEED_100);
-		full_duplex = (ecmd.duplex == DUPLEX_FULL);
-
-		np->autoneg = autoneg;
-		if (speed100 != np->speed100 ||
-		    full_duplex != np->full_duplex) {
-			np->speed100 = speed100;
-			np->full_duplex = full_duplex;
-			/* change advertising bits */
-			np->advertising &= ~(ADVERTISE_10HALF |
-					     ADVERTISE_10FULL |
-					     ADVERTISE_100HALF |
-					     ADVERTISE_100FULL |
-					     ADVERTISE_100BASE4);
-			if (speed100) {
-				if (full_duplex)
-					np->advertising |= ADVERTISE_100FULL;
-				else
-					np->advertising |= ADVERTISE_100HALF;
-			} else {
-				if (full_duplex)
-					np->advertising |= ADVERTISE_10FULL;
-				else
-					np->advertising |= ADVERTISE_10HALF;
-			}
-		}
-		check_duplex(dev);
-		return 0;
-	}
-
 	case ETHTOOL_GDRVINFO: {
 		struct ethtool_drvinfo info;
 		memset(&info, 0, sizeof(info));
@@ -1799,26 +1741,35 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		return 0;
 	}
 
+	/* get settings */
+	case ETHTOOL_GSET: {
+		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
+		spin_lock_irq(&np->lock);
+		mii_ethtool_gset(&np->mii_if, &ecmd);
+		spin_unlock_irq(&np->lock);
+		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
+			return -EFAULT;
+		return 0;
+	}
+	/* set settings */
+	case ETHTOOL_SSET: {
+		int r;
+		struct ethtool_cmd ecmd;
+		if (copy_from_user(&ecmd, useraddr, sizeof(ecmd)))
+			return -EFAULT;
+		spin_lock_irq(&np->lock);
+		r = mii_ethtool_sset(&np->mii_if, &ecmd);
+		spin_unlock_irq(&np->lock);
+		return r;
+	}
 	/* restart autonegotiation */
 	case ETHTOOL_NWAY_RST: {
-		int tmp;
-		int r = -EINVAL;
-		/* if autoneg is off, it's an error */
-		tmp = mdio_read(dev, np->phys[0], MII_BMCR);
-		if (tmp & BMCR_ANENABLE) {
-			tmp |= (BMCR_ANRESTART);
-			mdio_write(dev, np->phys[0], MII_BMCR, tmp);
-			r = 0;
-		}
-		return r;
+		return mii_nway_restart(&np->mii_if);
 	}
 	/* get link status */
 	case ETHTOOL_GLINK: {
 		struct ethtool_value edata = {ETHTOOL_GLINK};
-		if (mdio_read(dev, np->phys[0], MII_BMSR) & BMSR_LSTATUS)
-			edata.data = 1;
-		else
-			edata.data = 0;
+		edata.data = mii_link_ok(&np->mii_if);
 		if (copy_to_user(useraddr, &edata, sizeof(edata)))
 			return -EFAULT;
 		return 0;
@@ -1849,50 +1800,25 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct netdev_private *np = dev->priv;
-	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&rq->ifr_data;
+	struct mii_ioctl_data *data = (struct mii_ioctl_data *) & rq->ifr_data;
+	int rc;
 
-	switch(cmd) {
-	case SIOCETHTOOL:
-		return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
+	if (!netif_running(dev))
+		return -EINVAL;
 
-	/* Legacy mii-diag interface */
-	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
-	case SIOCDEVPRIVATE:		/* for binary compat, remove in 2.5 */
-		data->phy_id = np->phys[0] & 0x1f;
-		/* Fall Through */
+	if (cmd == SIOCETHTOOL)
+		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
 
-	case SIOCGMIIREG:		/* Read MII PHY register. */
-	case SIOCDEVPRIVATE+1:		/* for binary compat, remove in 2.5 */
-		data->val_out = mdio_read(dev, data->phy_id & 0x1f, data->reg_num & 0x1f);
-		return 0;
-
-	case SIOCSMIIREG:		/* Write MII PHY register. */
-	case SIOCDEVPRIVATE+2:		/* for binary compat, remove in 2.5 */
-		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
-		if (data->phy_id == np->phys[0]) {
-			u16 value = data->val_in;
-			switch (data->reg_num) {
-			case 0:
-				if (value & (BMCR_RESET | BMCR_ANENABLE))
-					/* Autonegotiation. */
-					np->autoneg = 1;
-				else {
-					np->full_duplex = (value & BMCR_FULLDPLX) ? 1 : 0;
-					np->autoneg = 0;
-				}
-				break;
-			case 4:
-				np->advertising = value;
-				break;
-			}
+	else {
+		spin_lock_irq(&np->lock);
+		rc = generic_mii_ioctl(&np->mii_if, data, cmd, NULL);
+		spin_unlock_irq(&np->lock);
+		
+		if ((cmd == SIOCSMIIREG) && (data->phy_id == np->phys[0]))
 			check_duplex(dev);
-		}
-		mdio_write(dev, data->phy_id & 0x1f, data->reg_num & 0x1f, data->val_in);
-		return 0;
-	default:
-		return -EOPNOTSUPP;
 	}
+
+	return rc;
 }
 
 static int netdev_close(struct net_device *dev)
@@ -2012,10 +1938,10 @@ static void __devexit starfire_remove_one (struct pci_dev *pdev)
 
 
 static struct pci_driver starfire_driver = {
-	name:		DRV_NAME,
-	probe:		starfire_init_one,
-	remove:		__devexit_p(starfire_remove_one),
-	id_table:	starfire_pci_tbl,
+	.name		= DRV_NAME,
+	.probe		= starfire_init_one,
+	.remove		= __devexit_p(starfire_remove_one),
+	.id_table	= starfire_pci_tbl,
 };
 
 

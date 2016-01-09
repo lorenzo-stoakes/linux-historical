@@ -109,7 +109,7 @@ static __inline__ char *__irq_itoa(unsigned int irq)
 	return buff;
 }
 
-#define NR_IRQS    15
+#define NR_IRQS    16
 
 extern void disable_irq(unsigned int);
 #define disable_irq_nosync disable_irq

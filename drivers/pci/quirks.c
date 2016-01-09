@@ -167,6 +167,21 @@ static void __init quirk_vsfx(struct pci_dev *dev)
 	}
 }
 
+/*
+ *	Ali Magik requires workarounds to be used by the drivers
+ *	that DMA to AGP space. Latency must be set to 0xA and triton
+ *	workaround applied too
+ *	[Info kindly provided by ALi]
+ */	
+ 
+static void __init quirk_alimagik(struct pci_dev *dev)
+{
+	if((pci_pci_problems&PCIPCI_ALIMAGIK)==0)
+	{
+		printk(KERN_INFO "Limiting direct PCI/PCI transfers.\n");
+		pci_pci_problems|=PCIPCI_ALIMAGIK|PCIPCI_TRITON;
+	}
+}
 
 /*
  *	Natoma has some interesting boundary conditions with Zoran stuff
@@ -210,6 +225,19 @@ static void __init quirk_io_region(struct pci_dev *dev, unsigned region, unsigne
 		pci_claim_resource(dev, nr);
 	}
 }	
+
+/*
+ *	ATI Northbridge setups MCE the processor if you even
+ *	read somewhere between 0x3b0->0x3bb or read 0x3d3
+ */
+ 
+static void __devinit quirk_ati_exploding_mce(struct pci_dev *dev)
+{
+	printk(KERN_INFO "ATI Northbridge, reserving I/O ports 0x3b0 to 0x3bb.\n");
+	/* Mae rhaid in i beidio a edrych ar y lleoliad I/O hyn */
+	request_region(0x3b0, 0x0C, "RadeonIGP");
+	request_region(0x3d3, 0x01, "RadeonIGP");
+}
 
 /*
  * Let's make the southbridge information explicit instead
@@ -521,6 +549,8 @@ static struct pci_fixup pci_fixups[] __initdata = {
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_INTEL, 	PCI_DEVICE_ID_INTEL_82443BX_0, 	quirk_natoma }, 
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_INTEL, 	PCI_DEVICE_ID_INTEL_82443BX_1, 	quirk_natoma }, 
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_INTEL, 	PCI_DEVICE_ID_INTEL_82443BX_2, 	quirk_natoma },
+	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_AL, 	PCI_DEVICE_ID_AL_M1647, 	quirk_alimagik },
+	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_AL, 	PCI_DEVICE_ID_AL_M1651, 	quirk_alimagik },
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_SI,	PCI_DEVICE_ID_SI_5597,		quirk_nopcipci },
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_SI,	PCI_DEVICE_ID_SI_496,		quirk_nopcipci },
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_VIA,	PCI_DEVICE_ID_VIA_8363_0,	quirk_vialatency },
@@ -548,6 +578,7 @@ static struct pci_fixup pci_fixups[] __initdata = {
 
 	{ PCI_FIXUP_FINAL, 	PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_VIPER_7410,	quirk_amd_ioapic },
 	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_FE_GATE_700C, quirk_amd_ordering },
+	{ PCI_FIXUP_FINAL,	PCI_VENDOR_ID_ATI,	PCI_DEVICE_ID_ATI_RADEON_IGP,   quirk_ati_exploding_mce },
 	/*
 	 * i82380FB mobile docking controller: its PCI-to-PCI bridge
 	 * is subtractive decoding (transparent), and does indicate this

@@ -19,7 +19,7 @@
 BTFIXUPDEF_CALL(char *, __irq_itoa, unsigned int)
 #define __irq_itoa(irq) BTFIXUP_CALL(__irq_itoa)(irq)
 
-#define NR_IRQS    15
+#define NR_IRQS    16
 
 /* Dave Redman (djhr@tadpole.co.uk)
  * changed these to function pointers.. it saves cycles and will allow

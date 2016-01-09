@@ -73,6 +73,14 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
      tristate '    Stallion EasyIO or EC8/32 support' CONFIG_STALLION
      tristate '    Stallion EC8/64, ONboard, Brumby support' CONFIG_ISTALLION
    fi
+   if [ "$CONFIG_PARISC" = "y" ]; then
+     if [ "$CONFIG_PDC_CONSOLE" != "y" ]; then
+       bool '  Serial MUX support' CONFIG_SERIAL_MUX CONFIG_SERIAL_NONSTANDARD
+     fi
+     if [ "$CONFIG_SERIAL_MUX" != "y" ]; then
+       bool '  PDC software console support' CONFIG_PDC_CONSOLE CONFIG_SERIAL_NONSTANDARD
+     fi
+   fi
    if [ "$CONFIG_MIPS" = "y" ]; then
      bool '  TX3912/PR31700 serial port support' CONFIG_SERIAL_TX3912
      dep_bool '     Console on TX3912/PR31700 serial port' CONFIG_SERIAL_TX3912_CONSOLE $CONFIG_SERIAL_TX3912
@@ -216,6 +224,7 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
    tristate '  Mixcom Watchdog' CONFIG_MIXCOMWD 
    tristate '  SBC-60XX Watchdog Timer' CONFIG_60XX_WDT
    dep_tristate '  SC1200 Watchdog Timer (EXPERIMENTAL)' CONFIG_SC1200_WDT $CONFIG_EXPERIMENTAL
+   tristate '  NatSemi SCx200 Watchdog' CONFIG_SCx200_WDT
    tristate '  Software Watchdog' CONFIG_SOFT_WATCHDOG
    tristate '  W83877F (EMACS) Watchdog Timer' CONFIG_W83877F_WDT
    tristate '  WDT Watchdog timer' CONFIG_WDT
@@ -239,6 +248,7 @@ if [ "$CONFIG_ARCH_NETWINDER" = "y" ]; then
    fi
    tristate 'NetWinder flash support' CONFIG_NWFLASH
 fi
+dep_tristate 'NatSemi SCx200 GPIO Support' CONFIG_SCx200_GPIO $CONFIG_SCx200
 
 if [ "$CONFIG_X86" = "y" -o "$CONFIG_X86_64" = "y" ]; then
    dep_tristate 'AMD 768 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI

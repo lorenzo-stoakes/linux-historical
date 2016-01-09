@@ -660,27 +660,6 @@ prep_ide_default_io_base(int index)
 	}
 }
 
-static int __prep
-prep_ide_check_region(ide_ioreg_t from, unsigned int extent)
-{
-	return check_region(from, extent);
-}
-
-static void __prep
-prep_ide_request_region(ide_ioreg_t from,
-			unsigned int extent,
-			const char *name)
-{
-	request_region(from, extent, name);
-}
-
-static void __prep
-prep_ide_release_region(ide_ioreg_t from,
-			unsigned int extent)
-{
-	release_region(from, extent);
-}
-
 static void __init
 prep_ide_init_hwif_ports (hw_regs_t *hw, ide_ioreg_t data_port, ide_ioreg_t ctrl_port, int *irq)
 {
@@ -865,9 +844,6 @@ prep_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
 	ppc_ide_md.default_irq = prep_ide_default_irq;
 	ppc_ide_md.default_io_base = prep_ide_default_io_base;
-	ppc_ide_md.ide_check_region = prep_ide_check_region;
-	ppc_ide_md.ide_request_region = prep_ide_request_region;
-	ppc_ide_md.ide_release_region = prep_ide_release_region;
 	ppc_ide_md.ide_init_hwif = prep_ide_init_hwif_ports;
 #endif
 

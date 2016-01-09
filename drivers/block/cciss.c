@@ -66,6 +66,12 @@ const struct pci_device_id cciss_pci_device_id[] = {
                         0x0E11, 0x4082, 0, 0, 0},
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSB,
                         0x0E11, 0x4083, 0, 0, 0},
+	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSC,
+                        0x0E11, 0x409A, 0, 0, 0},
+	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSC,
+                        0x0E11, 0x409B, 0, 0, 0},
+	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSC,
+                        0x0E11, 0x409C, 0, 0, 0},
 	{0,}
 };
 MODULE_DEVICE_TABLE(pci, cciss_pci_device_id);
@@ -81,6 +87,9 @@ static struct board_type products[] = {
 	{ 0x40800E11, "Smart Array 5i", &SA5B_access},
 	{ 0x40820E11, "Smart Array 532", &SA5B_access},
 	{ 0x40830E11, "Smart Array 5312", &SA5B_access},
+	{ 0x409A0E11, "Smart Array 641", &SA5_access},
+	{ 0x409B0E11, "Smart Array 642", &SA5_access},
+	{ 0x409C0E11, "Smart Array 6400", &SA5_access},
 };
 
 /* How long to wait (in millesconds) for board to go into simple mode */

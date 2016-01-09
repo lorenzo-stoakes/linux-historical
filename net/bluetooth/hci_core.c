@@ -717,7 +717,7 @@ int hci_get_dev_list(unsigned long arg)
 	if (!dev_num)
 		return -EINVAL;
 	
-	size = dev_num * sizeof(struct hci_dev_req) + sizeof(__u16);
+	size = dev_num * sizeof(*dr) + sizeof(*dl);
 
 	if (verify_area(VERIFY_WRITE, (void *) arg, size))
 		return -EFAULT;
@@ -738,7 +738,7 @@ int hci_get_dev_list(unsigned long arg)
 	read_unlock_bh(&hdev_list_lock);
 
 	dl->dev_num = n;
-	size = n * sizeof(struct hci_dev_req) + sizeof(__u16);
+	size = n * sizeof(*dr) + sizeof(*dl);
 
 	copy_to_user((void *) arg, dl, size);
 	kfree(dl);
@@ -863,6 +863,22 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	MOD_DEC_USE_COUNT;
 	return 0;
 }
+
+/* Suspend HCI device */
+int hci_suspend_dev(struct hci_dev *hdev)
+{
+	hci_notify(hdev, HCI_DEV_SUSPEND);
+	hci_run_hotplug(hdev->name, "suspend");
+	return 0;
+}
+
+/* Resume HCI device */
+int hci_resume_dev(struct hci_dev *hdev)
+{
+	hci_notify(hdev, HCI_DEV_RESUME);
+	hci_run_hotplug(hdev->name, "resume");
+	return 0;
+}       
 
 /* Receive frame from HCI drivers */
 int hci_recv_frame(struct sk_buff *skb)

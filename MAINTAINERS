@@ -104,12 +104,12 @@ S:	Maintained
 
 8139CP 10/100 FAST ETHERNET DRIVER
 P:	Jeff Garzik
-M:	jgarzik@mandrakesoft.com
+M:	jgarzik@pobox.com
 S:	Maintained
 
 8139TOO 10/100 FAST ETHERNET DRIVER
 P:	Jeff Garzik
-M:	jgarzik@mandrakesoft.com
+M:	jgarzik@pobox.com
 W:	http://sourceforge.net/projects/gkernel/
 S:	Maintained
 
@@ -295,7 +295,7 @@ S:	Maintained
 
 CIRRUS LOGIC GENERIC FBDEV DRIVER
 P:	Jeff Garzik
-M:	jgarzik@mandrakesoft.com
+M:	jgarzik@pobox.com
 L:	linux-fbdev-devel@lists.sourceforge.net
 S:	Odd Fixes
 
@@ -792,7 +792,7 @@ S:	Maintained
 
 INTEL I8XX RANDOM NUMBER GENERATOR SUPPORT
 P:	Jeff Garzik
-M:	jgarzik@mandrakesoft.com
+M:	jgarzik@pobox.com
 W:	http://sourceforge.net/projects/gkernel/
 S:	Maintained
 
@@ -1106,7 +1106,7 @@ NETWORK DEVICE DRIVERS
 P:	Andrew Morton
 M:	akpm@zip.com.au
 P:	Jeff Garzik
-M:	jgarzik@mandrakesoft.com
+M:	jgarzik@pobox.com
 L:	linux-net@vger.kernel.org
 S:	Maintained
 
@@ -1492,7 +1492,7 @@ P:	Alan Cox
 M:	alan@redhat.com
 S:	Maintained for 2.2 only
 
-SPARC:
+UltraSPARC (sparc64):
 P:	David S. Miller
 M:	davem@redhat.com
 P:	Eddie C. Dost
@@ -1504,6 +1504,10 @@ M:	anton@samba.org
 L:	sparclinux@vger.kernel.org
 L:	ultralinux@vger.kernel.org
 S:	Maintained
+
+SPARC (sparc32):
+L:	sparclinux@vger.kernel.org
+S:	Unmaintained - please send patches to mailing list
 
 SPECIALIX IO8+ MULTIPORT SERIAL CARD DRIVER
 P:	Roger Wolff
@@ -1631,7 +1635,7 @@ S:	Maintained
 
 TULIP NETWORK DRIVER
 P:	Jeff Garzik
-M:	jgarzik@mandrakesoft.com
+M:	jgarzik@pobox.com
 L:	tulip-users@lists.sourceforge.net
 W:	http://sourceforge.net/projects/tulip/
 S:	Maintained

@@ -1413,12 +1413,6 @@ int __init blk_dev_init(void)
 #ifdef CONFIG_ISP16_CDI
 	isp16_init();
 #endif
-#if defined(CONFIG_IDE) && defined(CONFIG_BLK_DEV_IDE)
-	ide_init();		/* this MUST precede hd_init */
-#endif
-#if defined(CONFIG_IDE) && defined(CONFIG_BLK_DEV_HD)
-	hd_init();
-#endif
 #ifdef CONFIG_BLK_DEV_PS2
 	ps2esdi_init();
 #endif

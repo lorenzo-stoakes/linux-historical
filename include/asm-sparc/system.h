@@ -146,7 +146,7 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.kpsr)),		\
 	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.ksp)),		\
 	  "r" (task_pc)									\
-	: "g1", "g2", "g3", "g4", "g5", "g7", "l0", "l1",				\
+	: "g1", "g2", "g3", "g4", "g5", "g7", "l0", "l1", "l3",				\
 	"l4", "l5", "l6", "l7", "i0", "i1", "i2", "i3", "i4", "i5", "o0", "o1", "o2",	\
 	"o3");										\
 here:;  } while(0)
@@ -241,12 +241,31 @@ extern __inline__ unsigned long read_psr_and_cli(void)
 	return retval;
 }
 
+extern __inline__ unsigned long read_psr_and_sti(void)
+{
+	unsigned long retval;
+
+	__asm__ __volatile__(
+		"rd	%%psr, %0\n\t"
+		"nop; nop; nop;\n\t"	/* Sun4m + Cypress + SMP bug */
+		"andn	%0, %1, %%g1\n\t"
+		"wr	%%g1, 0x0, %%psr\n\t"
+		"nop; nop; nop\n\t"
+		: "=r" (retval)
+		: "i" (PSR_PIL)
+		: "g1", "memory");
+
+	return retval;
+}
+
 #define __save_flags(flags)	((flags) = getipl())
 #define __save_and_cli(flags)	((flags) = read_psr_and_cli())
+#define __save_and_sti(flags)	((flags) = read_psr_and_sti())
 #define __restore_flags(flags)	setipl((flags))
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)		__save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 
 #ifdef CONFIG_SMP

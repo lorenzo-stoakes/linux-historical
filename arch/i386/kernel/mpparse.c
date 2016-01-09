@@ -65,8 +65,14 @@ static unsigned int num_processors;
 
 /* Bitmask of physically existing CPUs */
 unsigned long phys_cpu_present_map;
+unsigned long logical_cpu_present_map;
 
+#ifdef CONFIG_X86_CLUSTERED_APIC
 unsigned char esr_disable = 0;
+unsigned char clustered_apic_mode = CLUSTERED_APIC_NONE;
+unsigned int apic_broadcast_id = APIC_BROADCAST_ID_APIC;
+#endif
+unsigned char raw_phys_apicid[NR_CPUS] = { [0 ... NR_CPUS-1] = BAD_APICID };
 
 /*
  * Intel MP BIOS table parsing routines:
@@ -231,11 +237,9 @@ void __init MP_processor_info (struct mpc_config_processor *m)
 	}
 	ver = m->mpc_apicver;
 
-	if (clustered_apic_mode == CLUSTERED_APIC_NUMAQ) {
-		phys_cpu_present_map |= (logical_apicid&0xf) << (4*quad);
-	} else {
-		phys_cpu_present_map |= 1 << m->mpc_apicid;
-	}
+	logical_cpu_present_map |= 1 << (num_processors-1);
+ 	phys_cpu_present_map |= apicid_to_phys_cpu_present(m->mpc_apicid);
+ 
 	/*
 	 * Validate version
 	 */
@@ -244,6 +248,7 @@ void __init MP_processor_info (struct mpc_config_processor *m)
 		ver = 0x10;
 	}
 	apic_version[m->mpc_apicid] = ver;
+	raw_phys_apicid[num_processors - 1] = m->mpc_apicid;
 }
 
 static void __init MP_bus_info (struct mpc_config_bus *m)
@@ -398,7 +403,7 @@ static void __init smp_read_mpc_oem(struct mp_config_oemtable *oemtable, \
 
 static int __init smp_read_mpc(struct mp_config_table *mpc)
 {
-	char str[16];
+	char oem[16], prod[14];
 	int count=sizeof(*mpc);
 	unsigned char *mpt=((unsigned char *)mpc)+count;
 
@@ -423,14 +428,16 @@ static int __init smp_read_mpc(struct mp_config_table *mpc)
 		printk(KERN_ERR "SMP mptable: null local APIC address!\n");
 		return 0;
 	}
-	memcpy(str,mpc->mpc_oem,8);
-	str[8]=0;
-	printk("OEM ID: %s ",str);
+	memcpy(oem,mpc->mpc_oem,8);
+	oem[8]=0;
+	printk("OEM ID: %s ",oem);
 
-	memcpy(str,mpc->mpc_productid,12);
-	str[12]=0;
-	printk("Product ID: %s ",str);
+	memcpy(prod,mpc->mpc_productid,12);
+	prod[12]=0;
+	printk("Product ID: %s ",prod);
 
+	detect_clustered_apic(oem, prod);
+	
 	printk("APIC at: 0x%lX\n",mpc->mpc_lapic);
 
 	/* save the local APIC address, it might be non-default,
@@ -510,8 +517,18 @@ static int __init smp_read_mpc(struct mp_config_table *mpc)
 	}
 
 	if (clustered_apic_mode){
-		esr_disable = 1;
+		phys_cpu_present_map = logical_cpu_present_map;
 	}
+
+
+	printk("Enabling APIC mode: ");
+	if(clustered_apic_mode == CLUSTERED_APIC_NUMAQ)
+		printk("Clustered Logical.	");
+	else if(clustered_apic_mode == CLUSTERED_APIC_XAPIC)
+		printk("Physical.	");
+	else
+		printk("Flat.	");
+	printk("Using %d I/O APICs\n",nr_ioapics);
 
 	if (!num_processors)
 		printk(KERN_ERR "SMP mptable: no processors registered!\n");

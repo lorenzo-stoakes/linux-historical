@@ -313,7 +313,7 @@ static int CDCEther_start_xmit( struct sk_buff *skb, struct net_device *net )
 	// into an integer number of USB packets, we force it to send one 
 	// more byte so the device will get a runt USB packet signalling the 
 	// end of the ethernet frame
-	if ( (skb->len) ^ (ether_dev->data_ep_out_size) ) {
+	if ( skb->len % ether_dev->data_ep_out_size) {
 		// It was not an exact multiple
 		// no need to add anything extra
 		count = skb->len;

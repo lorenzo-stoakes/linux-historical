@@ -343,7 +343,7 @@ static int keyspan_write(struct usb_serial_port *port, int from_user,
 		if (this_urb->status == -EINPROGRESS) {
 			if (this_urb->transfer_flags & USB_ASYNC_UNLINK)
 				break;
-			if (jiffies - p_priv->tx_start_time[flip] < 10 * HZ)
+			if (time_before(jiffies, p_priv->tx_start_time[flip] + 10 * HZ))
 				break;
 			this_urb->transfer_flags |= USB_ASYNC_UNLINK;
 			usb_unlink_urb(this_urb);
@@ -530,6 +530,7 @@ static void	usa26_instat_callback(struct urb *urb)
 		dbg("%s - resubmit read urb failed. (%d)", __FUNCTION__, err);
 	}
 exit:
+	;
 }
 
 static void	usa26_glocont_callback(struct urb *urb)
@@ -665,6 +666,7 @@ static void	usa28_instat_callback(struct urb *urb)
 		dbg("%s - resubmit read urb failed. (%d)", __FUNCTION__, err);
 	}
 exit:	
+	;
 }
 
 static void	usa28_glocont_callback(struct urb *urb)
@@ -758,6 +760,7 @@ static void	usa49_instat_callback(struct urb *urb)
 		dbg("%s - resubmit read urb failed. (%d)", __FUNCTION__, err);
 	}
 exit:	
+	;
 }
 
 static void	usa49_inack_callback(struct urb *urb)

@@ -165,7 +165,7 @@ static struct dev_info device_list[] =
 	{"HP", "OPEN-", "*", BLIST_SPARSELUN | BLIST_LARGELUN},			/* HP XP Arrays */
 	{"CMD", "CRA-7280", "*", BLIST_SPARSELUN | BLIST_LARGELUN},   // CMD RAID Controller
 	{"CNSI", "G7324", "*", BLIST_SPARSELUN | BLIST_LARGELUN},     // Chaparral G7324 RAID
-	{"CNSi", "G8324", "*", BLIST_SPARSELUN},     // Chaparral G8324 RAID
+	{"CNSi", "G8324", "*", BLIST_SPARSELUN | BLIST_LARGELUN},     // Chaparral G8324 RAID
 	{"Zzyzx", "RocketStor 500S", "*", BLIST_SPARSELUN},
 	{"Zzyzx", "RocketStor 2000", "*", BLIST_SPARSELUN},
 	{"SONY", "TSL",       "*", BLIST_FORCELUN},  // DDS3 & DDS4 autoloaders

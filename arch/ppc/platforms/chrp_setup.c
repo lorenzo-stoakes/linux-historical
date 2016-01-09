@@ -533,31 +533,6 @@ chrp_init2(void)
 }
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-/*
- * IDE stuff.
- */
-
-static int __chrp
-chrp_ide_check_region(ide_ioreg_t from, unsigned int extent)
-{
-        return check_region(from, extent);
-}
-
-static void __chrp
-chrp_ide_request_region(ide_ioreg_t from,
-			unsigned int extent,
-			const char *name)
-{
-        request_region(from, extent, name);
-}
-
-static void __chrp
-chrp_ide_release_region(ide_ioreg_t from,
-			unsigned int extent)
-{
-        release_region(from, extent);
-}
-
 static void __chrp
 chrp_ide_init_hwif_ports(hw_regs_t *hw, ide_ioreg_t data_port, ide_ioreg_t ctrl_port, int *irq)
 {
@@ -657,9 +632,6 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #endif /* CONFIG_SMP */
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-        ppc_ide_md.ide_check_region = chrp_ide_check_region;
-        ppc_ide_md.ide_request_region = chrp_ide_request_region;
-        ppc_ide_md.ide_release_region = chrp_ide_release_region;
         ppc_ide_md.ide_init_hwif = chrp_ide_init_hwif_ports;
 #endif
 

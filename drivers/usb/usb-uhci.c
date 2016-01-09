@@ -2514,6 +2514,7 @@ _static int process_interrupt (uhci_t *s, struct urb *urb)
 			}
 			else {
 				uhci_unlink_urb_async(s, urb, UNLINK_ASYNC_STORE_URB);
+				uhci_clean_iso_step2(s, urb_priv);
 				// correct toggle after unlink
 				usb_dotoggle (urb->dev, usb_pipeendpoint (urb->pipe), usb_pipeout (urb->pipe));
 				clr_td_ioc(desc); // inactivate TD

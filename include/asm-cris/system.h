@@ -69,6 +69,7 @@ struct __xchg_dummy { unsigned long a[100]; };
 
 /* For spinlocks etc */
 #define local_irq_save(x) __asm__ __volatile__ ("move $ccr,%0\n\tdi" : "=rm" (x) : : "memory"); 
+#define local_irq_set(x) __asm__ __volatile__ ("move $ccr,%0\n\tei" : "=rm" (x) : : "memory");
 #define local_irq_restore(x) restore_flags(x)
 
 #define local_irq_disable()  cli()
@@ -80,7 +81,8 @@ struct __xchg_dummy { unsigned long a[100]; };
 #define sti() __sti()
 #define save_flags(x) __save_flags(x)
 #define restore_flags(x) __restore_flags(x)
-#define save_and_cli(x) do { __save_flags(x); cli(); } while(0)
+#define save_and_cli(x) do { save_flags(x); cli(); } while(0)
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0)
 
 static inline unsigned long __xchg(unsigned long x, void * ptr, int size)
 {

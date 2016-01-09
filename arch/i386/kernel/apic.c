@@ -261,6 +261,16 @@ void __init init_bsp_APIC(void)
 	apic_write_around(APIC_LVT1, value);
 }
 
+static unsigned long calculate_ldr(unsigned long old)
+{
+	unsigned long id;
+	if(clustered_apic_mode == CLUSTERED_APIC_XAPIC)
+		id = physical_to_logical_apicid(hard_smp_processor_id());
+	else
+		id = 1UL << smp_processor_id();
+	return (old & ~APIC_LDR_MASK)|SET_APIC_LOGICAL_ID(id);
+}
+
 void __init setup_local_APIC (void)
 {
 	unsigned long value, ver, maxlvt;
@@ -298,15 +308,16 @@ void __init setup_local_APIC (void)
 		 * for us. Otherwise put the APIC into clustered or flat
 		 * delivery mode. Must be "all ones" explicitly for 82489DX.
 		 */
-		apic_write_around(APIC_DFR, APIC_DFR_FLAT);
+		if(clustered_apic_mode == CLUSTERED_APIC_XAPIC)
+			apic_write_around(APIC_DFR, APIC_DFR_CLUSTER);
+		else
+			apic_write_around(APIC_DFR, APIC_DFR_FLAT);
 
 		/*
 		 * Set up the logical destination ID.
 		 */
 		value = apic_read(APIC_LDR);
-		value &= ~APIC_LDR_MASK;
-		value |= (1<<(smp_processor_id()+24));
-		apic_write_around(APIC_LDR, value);
+		apic_write_around(APIC_LDR, calculate_ldr(value));
 	}
 
 	/*
