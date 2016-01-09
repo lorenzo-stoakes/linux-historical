@@ -385,6 +385,7 @@ pmac_ide_do_setfeature(ide_drive_t *drive, byte command)
 	SELECT_DRIVE(HWIF(drive), drive);
 	SELECT_MASK(HWIF(drive), drive, 0);
 	udelay(1);
+	(void)GET_STAT(); /* Get rid of pending error state */
 	if(wait_for_ready(drive)) {
 		printk(KERN_ERR "pmac_ide_do_setfeature disk not ready before SET_FEATURE!\n");
 		goto out;

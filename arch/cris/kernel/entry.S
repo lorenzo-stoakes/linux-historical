@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.35 2001/10/30 17:10:15 bjornw Exp $
+/* $Id: entry.S,v 1.37 2001/12/07 17:03:55 bjornw Exp $
  *
  *  linux/arch/cris/entry.S
  *
@@ -7,6 +7,15 @@
  *  Authors:	Bjorn Wesen (bjornw@axis.com)
  *
  *  $Log: entry.S,v $
+ *  Revision 1.37  2001/12/07 17:03:55  bjornw
+ *  Call a c-hook called watchdog_bite_hook instead of show_registers directly
+ *
+ *  Revision 1.36  2001/11/22 13:36:36  bjornw
+ *  * In ret_from_intr, check regs->dccr for usermode reentrance instead of
+ *    DCCR explicitely (because the latter might not reflect current reality)
+ *  * In mmu_bus_fault, set $r9 _after_ calling the C-code instead of before
+ *    since $r9 is call-clobbered and is potentially needed afterwards
+ *
  *  Revision 1.35  2001/10/30 17:10:15  bjornw
  *  Add some syscalls
  *
@@ -217,8 +226,11 @@ _handle_softirq:
 	
 ret_from_intr:
 	;; check for resched only if we're going back to user-mode
-
-	move	$ccr, $r0
+	;; this test matches the user_regs(regs) macro
+	;; we cannot simply test $dccr, because that does not necessarily
+	;; reflect what mode we'll return into.
+	
+	move.d	[$sp + LDCCR], $r0; regs->dccr
 	btstq	8, $r0		; U-flag
 	bpl	_Rexit		; go back directly
 	nop
@@ -468,8 +480,6 @@ mmu_bus_fault:
 	moveq	1, $r10
 	push	$r10		; frametype == 1, BUSFAULT frame type
 
-	moveq	0, $r9		; busfault is equivalent to an irq
-		
 	move.d	$sp, $r10	; pt_regs argument to handle_mmu_bus_fault
 		
 	jsr	handle_mmu_bus_fault  ; in arch/cris/mm/fault.c
@@ -479,6 +489,8 @@ mmu_bus_fault:
 	;; process due to a SEGV, scheduled due to a page blocking or
 	;; whatever.
 
+	moveq	0, $r9		; busfault is equivalent to an irq
+		
 	ba	ret_from_intr
 	nop
 		
@@ -585,7 +597,7 @@ Watchdog_bite:
 	jsr	printk
 
 	move.d	$sp, $r10
-	jsr	show_registers
+	jsr	watchdog_bite_hook
 
 ;; This nop is here so we see the "Watchdog_bite" label in ksymoops dumps
 ;; rather than "spurious_interrupt".

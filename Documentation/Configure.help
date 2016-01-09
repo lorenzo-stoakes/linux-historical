@@ -15671,13 +15671,10 @@ CONFIG_ADB_CUDA
 
 Support for PMU-based PowerMacs
 CONFIG_ADB_PMU
-  On the PowerBook 3400 and 2400, the PMU is a 6805 microprocessor
-  core whose primary function is to control battery charging and
-  system power.  The PMU also controls the ADB (Apple Desktop Bus)
-  which connects to the keyboard and mouse, as well as the
-  non-volatile RAM and the RTC (real time clock) chip.  Say Y to
-  enable support for this device; you should do so if your machine
-  is one of these PowerBooks.
+  This provides support for PMU based Power Macintosh systems.  This
+  includes all PowerBooks and all AGP-based machines.
+  
+  If unsure say Y.
 
 Include MacIO ADB driver
 CONFIG_ADB_MACIO
@@ -20468,7 +20465,7 @@ CONFIG_DMASOUND_ATARI
   <file:Documentation/modules.txt>.
 
 PowerMac DMA sound support
-CONFIG_DMASOUND_AWACS
+CONFIG_DMASOUND_PMAC
   If you want to use the internal audio of your PowerMac in Linux,
   answer Y to this question. This will provide a Sun-like /dev/audio,
   compatible with the Linux/i386 sound system. Otherwise, say N.
@@ -20728,6 +20725,14 @@ CONFIG_PMAC_PBOOK
   have it autoloaded. The act of removing the module shuts down the
   sound hardware for more power savings.
 
+APM emulation
+CONFIG_PMAC_APM_EMU
+  This driver provides an emulated /dev/apm_bios and /proc/apm. The
+  first one is mostly intended for XFree to sleep & wakeup properly,
+  the second ones provides some battery informations to allow existing
+  APM utilities to work. It provides less useful informations than
+  tools specifically designed for PowerBooks or /proc/pmu/battery_x
+
 Backlight control for LCD screens
 CONFIG_PMAC_BACKLIGHT
   Say Y here to build in code to manage the LCD backlight on a
@@ -20806,7 +20811,7 @@ CONFIG_RPXLITE
     End of life: mid 2001 (?)
     URL: <http://www.tz-mikroelektronik.de/ServiceModule/index.html>
 
-  HERMES:
+  HERMES_PRO:
     Hermes-Pro ISDN/LAN router with integrated 8 x hub
     Manufacturer: Multidata Gesellschaft für Datentechnik und Informatik
       <http://www.multidata.de/>

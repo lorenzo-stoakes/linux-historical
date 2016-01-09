@@ -981,3 +981,4 @@ EXPORT_NO_SYMBOLS;
 
 module_init(init_ufs_fs)
 module_exit(exit_ufs_fs)
+MODULE_LICENSE("GPL");

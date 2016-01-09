@@ -24,15 +24,18 @@
 static struct net_device *mace_devs;
 static int port_aaui = -1;
 
-#define N_RX_RING	8
-#define N_TX_RING	6
-#define MAX_TX_ACTIVE	1
-#define NCMDS_TX	1	/* dma commands per element in tx ring */
-#define RX_BUFLEN	(ETH_FRAME_LEN + 8)
-#define TX_TIMEOUT	HZ	/* 1 second */
+#define N_RX_RING		8
+#define N_TX_RING		6
+#define MAX_TX_ACTIVE		1
+#define NCMDS_TX		1	/* dma commands per element in tx ring */
+#define RX_BUFLEN		(ETH_FRAME_LEN + 8)
+#define TX_TIMEOUT		HZ	/* 1 second */
+
+/* Chip rev needs workaround on HW & multicast addr change */
+#define BROKEN_ADDRCHG_REV	0x0941
 
 /* Bits in transmit DMA status */
-#define TX_DMA_ERR	0x80
+#define TX_DMA_ERR		0x80
 
 struct mace_data {
     volatile struct mace *mace;
@@ -56,6 +59,7 @@ struct mace_data {
     struct timer_list tx_timeout;
     int timeout_active;
     int port_aaui;
+    int chipid;
     struct device_node* of_node;
     struct net_device *next_mace;
 };
@@ -177,8 +181,10 @@ static void __init mace_probe1(struct device_node *mace)
 		dev->dev_addr[j] = rev? bitrev(addr[j]): addr[j];
 		printk("%c%.2x", (j? ':': ' '), dev->dev_addr[j]);
 	}
-	printk(", chip revision %d.%d\n",
-		in_8(&mp->mace->chipid_hi), in_8(&mp->mace->chipid_lo));
+	mp->chipid = (in_8(&mp->mace->chipid_hi) << 8) |
+			in_8(&mp->mace->chipid_lo);
+	printk(", chip revision %d.%d\n", mp->chipid >> 8, mp->chipid & 0xff);
+		
 
 	mp = (struct mace_data *) dev->priv;
 	mp->maccc = ENXMT | ENRCV;
@@ -297,10 +303,9 @@ static void mace_reset(struct net_device *dev)
     __mace_set_address(dev, dev->dev_addr);
 
     /* clear the multicast filter */
-    if (in_8(&mb->chipid_hi) == 0x09) {
-	printk("chip 0x09 mcast workaround...\n");
+    if (mp->chipid == BROKEN_ADDRCHG_REV)
 	out_8(&mb->iac, LOGADDR);
-    } else {
+    else {
 	out_8(&mb->iac, ADDRCHG | LOGADDR);
 	while ((in_8(&mb->iac) & ADDRCHG) != 0)
 		;
@@ -309,7 +314,7 @@ static void mace_reset(struct net_device *dev)
 	out_8(&mb->ladrf, 0);
 
     /* done changing address */
-    if (in_8(&mb->chipid_hi) != 0x09)
+    if (mp->chipid != BROKEN_ADDRCHG_REV)
 	out_8(&mb->iac, 0);
 
     if (mp->port_aaui)
@@ -320,21 +325,22 @@ static void mace_reset(struct net_device *dev)
 
 static void __mace_set_address(struct net_device *dev, void *addr)
 {
-    volatile struct mace *mb = ((struct mace_data *) dev->priv)->mace;
+    struct mace_data *mp = (struct mace_data *) dev->priv;
+    volatile struct mace *mb = mp->mace;
     unsigned char *p = addr;
     int i;
 
     /* load up the hardware address */
-    if (in_8(&mb->chipid_hi) == 0x09) {
-	printk("chip 0x09 hwaddr workaround...\n");
+    if (mp->chipid == BROKEN_ADDRCHG_REV)
     	out_8(&mb->iac, PHYADDR);
-    } else {
+    else {
+    	out_8(&mb->iac, ADDRCHG | PHYADDR);
 	while ((in_8(&mb->iac) & ADDRCHG) != 0)
 	    ;
     }
     for (i = 0; i < 6; ++i)
 	out_8(&mb->padr, dev->dev_addr[i] = p[i]);
-    if (in_8(&mb->chipid_hi) != 0x09)
+    if (mp->chipid != BROKEN_ADDRCHG_REV)
         out_8(&mb->iac, 0);
 }
 
@@ -592,18 +598,17 @@ static void mace_set_multicast(struct net_device *dev)
 	printk("\n");
 #endif
 
-	if (in_8(&mb->chipid_hi) == 0x09) {
-	    printk("chip 0x09 mcast workaround...\n");
+	if (mp->chipid == BROKEN_ADDRCHG_REV)
 	    out_8(&mb->iac, LOGADDR);
-	} else {
+	else {
 	    out_8(&mb->iac, ADDRCHG | LOGADDR);
 	    while ((in_8(&mb->iac) & ADDRCHG) != 0)
 		;
 	}
 	for (i = 0; i < 8; ++i)
 	    out_8(&mb->ladrf, multicast_filter[i]);
-	if (in_8(&mb->chipid_hi) != 0x09)
-	    out_8(&mb->iac, LOGADDR);
+	if (mp->chipid != BROKEN_ADDRCHG_REV)
+	    out_8(&mb->iac, 0);
     }
     /* reset maccc */
     out_8(&mb->maccc, mp->maccc);

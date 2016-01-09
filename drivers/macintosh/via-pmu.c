@@ -444,7 +444,7 @@ int via_pmu_start(void)
 			pmu_battery_count = (prim_info[6] >> 16) & 0xff;
 		}
 	}
-#endif /# CONFIG_PMAC_PBOOK */
+#endif /* CONFIG_PMAC_PBOOK */
 	/* Create /proc/pmu */
 	proc_pmu_root = proc_mkdir("pmu", 0);
 	if (proc_pmu_root) {

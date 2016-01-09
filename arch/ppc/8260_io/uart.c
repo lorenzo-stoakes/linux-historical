@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.uart.c 1.11 12/13/01 16:53:53 trini
+ * BK Id: SCCS/s.uart.c 1.13 12/29/01 14:50:03 trini
  */
 /*
  *  UART driver for MPC8260 CPM SCC or SMC
@@ -1736,7 +1736,7 @@ static void rs_8xx_wait_until_sent(struct tty_struct *tty, int timeout)
 		schedule_timeout(char_time);
 		if (signal_pending(current))
 			break;
-		if (timeout && ((orig_jiffies + timeout) < jiffies))
+		if (timeout && time_after(jiffies, orig_jiffies + timeout))
 			break;
 		bdp = info->tx_cur;
 	} while (bdp->cbd_sc & BD_SC_READY);

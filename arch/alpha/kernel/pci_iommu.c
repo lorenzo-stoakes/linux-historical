@@ -30,6 +30,10 @@
 #define DEBUG_NODIRECT 0
 #define DEBUG_FORCEDAC 0
 
+/* Most Alphas support 32-bit ISA DMA. Exceptions are XL, Ruffian and
+   Nautilus (see asm/dma.h for details). */
+#define ISA_DMA_MASK	(MAX_DMA_ADDRESS - IDENT_ADDR - 1 < 0xffffffff ? \
+			 MAX_DMA_ADDRESS - IDENT_ADDR - 1 : 0xffffffff)
 
 static inline unsigned long
 mk_iommu_pte(unsigned long paddr)
@@ -181,7 +185,7 @@ pci_map_single_1(struct pci_dev *pdev, void *cpu_addr, size_t size,
 		 int dac_allowed)
 {
 	struct pci_controller *hose = pdev ? pdev->sysdata : pci_isa_hose;
-	dma_addr_t max_dma = pdev ? pdev->dma_mask : 0x00ffffff;
+	dma_addr_t max_dma = pdev ? pdev->dma_mask : ISA_DMA_MASK;
 	struct pci_iommu_arena *arena;
 	long npages, dma_ofs, i;
 	unsigned long paddr;
@@ -215,16 +219,8 @@ pci_map_single_1(struct pci_dev *pdev, void *cpu_addr, size_t size,
 	/* If the machine doesn't define a pci_tbi routine, we have to
 	   assume it doesn't support sg mapping.  */
 	if (! alpha_mv.mv_pci_tbi) {
-		static int been_here = 0;
-		if (!been_here) {
-		    printk(KERN_WARNING "pci_map_single: no hw sg, using "
-			   "direct map when possible\n");
-		    been_here = 1;
-		}
-		if (paddr + size <= __direct_map_size)
-		    return (paddr + __direct_map_base);
-		else
-		    return 0;
+		printk(KERN_WARNING "pci_map_single failed: no hw sg\n");
+		return 0;
 	}
 		
 	arena = hose->sg_pci;
@@ -593,7 +589,7 @@ pci_map_sg(struct pci_dev *pdev, struct scatterlist *sg, int nents,
 	/* Second, figure out where we're going to map things.  */
 	if (alpha_mv.mv_pci_tbi) {
 		hose = pdev ? pdev->sysdata : pci_isa_hose;
-		max_dma = pdev ? pdev->dma_mask : 0x00ffffff;
+		max_dma = pdev ? pdev->dma_mask : ISA_DMA_MASK;
 		arena = hose->sg_pci;
 		if (!arena || arena->dma_base + arena->size - 1 > max_dma)
 			arena = hose->sg_isa;
@@ -656,7 +652,7 @@ pci_unmap_sg(struct pci_dev *pdev, struct scatterlist *sg, int nents,
 		return;
 
 	hose = pdev ? pdev->sysdata : pci_isa_hose;
-	max_dma = pdev ? pdev->dma_mask : 0x00ffffff;
+	max_dma = pdev ? pdev->dma_mask : ISA_DMA_MASK;
 	arena = hose->sg_pci;
 	if (!arena || arena->dma_base + arena->size - 1 > max_dma)
 		arena = hose->sg_isa;

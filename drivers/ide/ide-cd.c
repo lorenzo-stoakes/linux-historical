@@ -1462,11 +1462,9 @@ int cdrom_queue_packet_command(ide_drive_t *drive, struct packet_command *pc)
 		ide_init_drive_cmd (&req);
 		req.cmd = PACKET_COMMAND;
 		req.buffer = (char *)pc;
-		if (ide_do_drive_cmd (drive, &req, ide_wait)) {
-			printk("%s: do_drive_cmd returned stat=%02x,err=%02x\n",
-				drive->name, req.buffer[0], req.buffer[1]);
-			/* FIXME: we should probably abort/retry or something */
-		}
+		ide_do_drive_cmd (drive, &req, ide_wait);
+		/* FIXME: we should probably abort/retry or something 
+		 * in case of failure */
 		if (pc->stat != 0) {
 			/* The request failed.  Retry if it was due to a unit
 			   attention status

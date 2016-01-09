@@ -1887,7 +1887,6 @@ int ide_revalidate_disk (kdev_t i_rdev)
 		if (drive->part[p].nr_sects > 0) {
 			kdev_t devp = MKDEV(major, minor+p);
 			invalidate_device(devp, 1);
-			set_blocksize(devp, 1024);
 		}
 		drive->part[p].start_sect = 0;
 		drive->part[p].nr_sects   = 0;

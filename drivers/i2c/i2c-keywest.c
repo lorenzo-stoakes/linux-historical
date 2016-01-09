@@ -486,13 +486,12 @@ create_iface(struct device_node* np)
 	for (bsteps = 0; (steps & 0x01) == 0; bsteps++)
 		steps >>= 1;
 
-	/* For now, we declare 4 channels on uninorth and 1 on keylargo */
 	if (!strcmp(np->parent->name, "uni-n")) {
-		nchan = 4;
+		nchan = 2;
 		addroffset = 3;
 	} else {
-		nchan = 1;
 		addroffset = 0;
+		nchan = 1;
 	}
 
 	tsize = sizeof(struct keywest_iface) +

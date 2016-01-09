@@ -876,7 +876,7 @@ static int reiserfs_symlink (struct inode * dir, struct dentry * dentry, const c
     }
 
     item_len = ROUND_UP (strlen (symname));
-    if (item_len > MAX_ITEM_LEN (dir->i_sb->s_blocksize)) {
+    if (item_len > MAX_DIRECT_ITEM_LEN (dir->i_sb->s_blocksize)) {
 	iput(inode) ;
 	return -ENAMETOOLONG;
     }
