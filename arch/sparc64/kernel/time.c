@@ -38,6 +38,7 @@
 #include <asm/smp.h>
 
 extern rwlock_t xtime_lock;
+extern unsigned long wall_jiffies;
 
 spinlock_t mostek_lock = SPIN_LOCK_UNLOCKED;
 spinlock_t rtc_lock = SPIN_LOCK_UNLOCKED;
@@ -1006,7 +1007,9 @@ void do_settimeofday(struct timeval *tv)
 	write_lock_irq(&xtime_lock);
 
 	tv->tv_usec -= do_gettimeoffset();
-	if(tv->tv_usec < 0) {
+	tv->tv_usec -= (jiffies - wall_jiffies) * (1000000 / HZ);
+
+	while (tv->tv_usec < 0) {
 		tv->tv_usec += 1000000;
 		tv->tv_sec--;
 	}
@@ -1018,6 +1021,31 @@ void do_settimeofday(struct timeval *tv)
 	time_esterror = NTP_PHASE_LIMIT;
 
 	write_unlock_irq(&xtime_lock);
+}
+
+void do_gettimeofday(struct timeval *tv)
+{
+	unsigned long flags;
+	unsigned long usec, sec;
+
+	read_lock_irqsave(&xtime_lock, flags);
+	usec = do_gettimeoffset();
+	{
+		unsigned long lost = jiffies - wall_jiffies;
+		if (lost)
+			usec += lost * (1000000 / HZ);
+	}
+	sec = xtime.tv_sec;
+	usec += xtime.tv_usec;
+	read_unlock_irqrestore(&xtime_lock, flags);
+
+	while (usec >= 1000000) {
+		usec -= 1000000;
+		sec++;
+	}
+
+	tv->tv_sec = sec;
+	tv->tv_usec = usec;
 }
 
 static int set_rtc_mmss(unsigned long nowtime)

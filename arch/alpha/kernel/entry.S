@@ -234,8 +234,8 @@ kernel_clone:
  * arch_kernel_thread(fn, arg, clone_flags)
  */
 .align 3
-.globl	kernel_thread
-.ent	kernel_thread
+.globl	arch_kernel_thread
+.ent	arch_kernel_thread
 arch_kernel_thread:
 	ldgp	$29,0($27)	/* we can be called from a module */
 	.frame $30, 4*8, $26
@@ -265,7 +265,7 @@ arch_kernel_thread:
 	mov	$0,$16
 	mov	$31,$26
 	jsr	$31,sys_exit
-.end	kernel_thread
+.end	arch_kernel_thread
 
 /*
  * __kernel_execve(path, argv, envp, regs)

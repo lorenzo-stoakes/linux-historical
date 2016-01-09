@@ -212,6 +212,7 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
    bool '  Disable watchdog shutdown on close' CONFIG_WATCHDOG_NOWAYOUT
    tristate '  Acquire SBC Watchdog Timer' CONFIG_ACQUIRE_WDT
    tristate '  Advantech SBC Watchdog Timer' CONFIG_ADVANTECH_WDT
+   tristate '  ALi M7101 PMU on ALi 1535D+ Watchdog Timer' CONFIG_ALIM1535_WDT
    tristate '  ALi M7101 PMU Watchdog Timer' CONFIG_ALIM7101_WDT
    tristate '  AMD "Elan" SC520 Watchdog Timer' CONFIG_SC520_WDT
    tristate '  Berkshire Products PC Watchdog' CONFIG_PCWATCHDOG
@@ -258,7 +259,7 @@ fi
 dep_tristate 'NatSemi SCx200 GPIO Support' CONFIG_SCx200_GPIO $CONFIG_SCx200
 
 if [ "$CONFIG_X86" = "y" -o "$CONFIG_X86_64" = "y" ]; then
-   dep_tristate 'AMD 768 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI
+   dep_tristate 'AMD 768/8111 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI
 fi
 if [ "$CONFIG_X86" = "y" -o "$CONFIG_IA64" = "y" ]; then
    dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI

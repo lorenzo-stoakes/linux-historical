@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/pci/alim15x3.c		Version 0.16	2003/01/02
+ * linux/drivers/ide/pci/alim15x3.c		Version 0.17	2003/03/05
  *
  *  Copyright (C) 1998-2000 Michel Aubry, Maintainer
  *  Copyright (C) 1998-2000 Andrzej Krzysztofowicz, Maintainer
@@ -8,6 +8,9 @@
  *  Copyright (C) 1998-2000 Andre Hedrick (andre@linux-ide.org)
  *  May be copied or modified under the terms of the GNU General Public License
  *  Copyright (C) 2002 Alan Cox <alan@redhat.com>
+ *
+ *  Changes for ALi 156x ported from RH 8.0 driver changes by
+ *			Clear Zang
  *
  *  (U)DMA capable version of ali 1533/1543(C), 1535(D)
  *
@@ -300,6 +303,7 @@ static void ali15x3_tune_drive (ide_drive_t *drive, u8 pio)
 	int port = hwif->channel ? 0x5c : 0x58;
 	int portFIFO = hwif->channel ? 0x55 : 0x54;
 	u8 cd_dma_fifo = 0;
+	int unit = drive->select.b.unit & 1;
 
 	pio = ide_get_best_pio_mode(drive, pio, 5, &d);
 	s_time = ide_pio_timings[pio].setup_time;
@@ -328,13 +332,13 @@ static void ali15x3_tune_drive (ide_drive_t *drive, u8 pio)
 	 */
 	pci_read_config_byte(dev, portFIFO, &cd_dma_fifo);
 	if (drive->media==ide_disk) {
-		if (hwif->channel) {
+		if (unit) {
 			pci_write_config_byte(dev, portFIFO, (cd_dma_fifo & 0x0F) | 0x50);
 		} else {
 			pci_write_config_byte(dev, portFIFO, (cd_dma_fifo & 0xF0) | 0x05);
 		}
 	} else {
-		if (hwif->channel) {
+		if (unit) {
 			pci_write_config_byte(dev, portFIFO, cd_dma_fifo & 0x0F);
 		} else {
 			pci_write_config_byte(dev, portFIFO, cd_dma_fifo & 0xF0);
@@ -377,7 +381,7 @@ static u8 ali15x3_can_ultra (ide_drive_t *drive)
 	struct hd_driveid *id	= drive->id;
 #endif /* CONFIG_WDC_ALI15X3 */
 
-	if (m5229_revision <= 0x20) {
+	if (m5229_revision < 0xC1) {	/* According to ALi */
 		return 0;
 	} else if ((m5229_revision < 0xC2) &&
 #ifndef CONFIG_WDC_ALI15X3
@@ -407,7 +411,7 @@ static u8 ali15x3_ratemask (ide_drive_t *drive)
 	u8 mode = 0, can_ultra	= ali15x3_can_ultra(drive);
 
 	if (m5229_revision >= 0xC4 && can_ultra) {
-		mode = 3;
+		mode = 4;
 	} else if (m5229_revision >= 0xC2 && can_ultra) {
 		mode = 2;
 	} else if (can_ultra) {
@@ -439,11 +443,18 @@ static int ali15x3_tune_chipset (ide_drive_t *drive, u8 xferspeed)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
 	struct pci_dev *dev	= hwif->pci_dev;
-	u8 speed	= ide_rate_filter(ali15x3_ratemask(drive), xferspeed);
+	u8 speed		= ide_rate_filter(ali15x3_ratemask(drive), xferspeed);
+	u8 speed1		= speed;
 	u8 unit			= (drive->select.b.unit & 0x01);
 	u8 tmpbyte		= 0x00;
 	int m5229_udma		= (hwif->channel) ? 0x57 : 0x56;
 
+	if (speed == XFER_UDMA_6)
+	{
+		speed1 = 0x47;
+		if(m5229_revision == 0xC4)
+			speed1 --;
+	}
 	if (speed < XFER_UDMA_0) {
 		u8 ultra_enable	= (unit) ? 0x7f : 0xf7;
 		/*
@@ -461,7 +472,7 @@ static int ali15x3_tune_chipset (ide_drive_t *drive, u8 xferspeed)
 		/*
 		 * enable ultra dma and set timing
 		 */
-		tmpbyte |= ((0x08 | ((4-speed)&0x07)) << (unit << 2));
+		tmpbyte |= ((0x08 | ((4-speed1)&0x07)) << (unit << 2));
 		pci_write_config_byte(dev, m5229_udma, tmpbyte);
 		if (speed >= XFER_UDMA_3) {
 			pci_read_config_byte(dev, 0x4b, &tmpbyte);
@@ -514,10 +525,10 @@ static int ali15x3_config_drive_for_dma(ide_drive_t *drive)
 
 	drive->init_speed = 0;
 
-	if ((id != NULL) && ((id->capability & 1) != 0) && drive->autodma) {
+	if ((id->capability & 1) != 0 && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
-			goto fast_ata_pio;
+			goto ata_pio;
 		if ((id->field_valid & 4) && (m5229_revision >= 0xC2)) {
 			if (id->dma_ultra & hwif->ultra_mask) {
 				/* Force if Capable UltraDMA */
@@ -539,12 +550,12 @@ try_dma_modes:
 			if (!config_chipset_for_dma(drive))
 				goto no_dma_set;
 		} else {
-			goto fast_ata_pio;
+			goto ata_pio;
 		}
-	} else if ((id->capability & 8) || (id->field_valid & 2)) {
-fast_ata_pio:
+	} else {
+ata_pio:
+		hwif->tuneproc(drive, 255);
 no_dma_set:
-		hwif->tuneproc(drive, 5);
 		return hwif->ide_dma_off_quietly(drive);
 	}
 	return hwif->ide_dma_on(drive);
@@ -634,23 +645,25 @@ static unsigned int __init init_chipset_ali15x3 (struct pci_dev *dev, const char
 	        return 0;
 	}
 
-	/*
-	 * set south-bridge's enable bit, m1533, 0x79
-	 */
+	if (m5229_revision < 0xC5 && isa_dev)
+	{	
+		/*
+		 * set south-bridge's enable bit, m1533, 0x79
+		 */
 
-	pci_read_config_byte(isa_dev, 0x79, &tmpbyte);
-	if (m5229_revision == 0xC2) {
-		/*
-		 * 1543C-B0 (m1533, 0x79, bit 2)
-		 */
-		pci_write_config_byte(isa_dev, 0x79, tmpbyte | 0x04);
-	} else if (m5229_revision >= 0xC3) {
-		/*
-		 * 1553/1535 (m1533, 0x79, bit 1)
-		 */
-		pci_write_config_byte(isa_dev, 0x79, tmpbyte | 0x02);
+		pci_read_config_byte(isa_dev, 0x79, &tmpbyte);
+		if (m5229_revision == 0xC2) {
+			/*
+			 * 1543C-B0 (m1533, 0x79, bit 2)
+			 */
+			pci_write_config_byte(isa_dev, 0x79, tmpbyte | 0x04);
+		} else if (m5229_revision >= 0xC3) {
+			/*
+			 * 1553/1535 (m1533, 0x79, bit 1)
+			 */
+			pci_write_config_byte(isa_dev, 0x79, tmpbyte | 0x02);
+		}
 	}
-
 	local_irq_restore(flags);
 	return 0;
 }
@@ -661,9 +674,6 @@ static unsigned int __init init_chipset_ali15x3 (struct pci_dev *dev, const char
  *
  *	This checks if the controller and the cable are capable
  *	of UDMA66 transfers. It doesn't check the drives.
- *	But see note 2 below!
- *
- *	FIXME: frobs bits that are not defined on newer ALi devicea
  */
 
 static unsigned int __init ata66_ali15x3 (ide_hwif_t *hwif)
@@ -675,8 +685,12 @@ static unsigned int __init ata66_ali15x3 (ide_hwif_t *hwif)
 	unsigned long flags;
 	u8 tmpbyte;
 
+	/* Revision C5 and higher we must rely on drive side */
+	if (m5229_revision >= 0xC5)
+		return 1;
+		
 	local_irq_save(flags);
-
+	
 	if (m5229_revision >= 0xC2) {
 		/*
 		 * Ultra66 cable detection (from Host View)
@@ -751,6 +765,8 @@ static void __init init_hwif_common_ali15x3 (ide_hwif_t *hwif)
 		hwif->drives[1].autotune = 1;
 		return;
 	}
+
+	hwif->atapi_dma = 1;
 
 	if (m5229_revision > 0x20)
 		hwif->ultra_mask = 0x3f;

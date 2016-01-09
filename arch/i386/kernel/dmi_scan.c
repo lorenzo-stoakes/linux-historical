@@ -11,6 +11,8 @@
 #include <asm/system.h>
 #include <linux/bootmem.h>
 
+#include "pci-i386.h"
+
 unsigned long dmi_broken;
 int is_sony_vaio_laptop;
 
@@ -413,6 +415,8 @@ static __init int swab_apm_power_in_minutes(struct dmi_blacklist *d)
  */
  
 extern int skip_ioapic_setup;
+extern int broken_440gx_bios;
+extern unsigned int pci_probe;
 static __init int broken_pirq(struct dmi_blacklist *d)
 {
 	printk(KERN_INFO " *** Possibly defective BIOS detected (irqtable)\n");
@@ -423,16 +427,9 @@ static __init int broken_pirq(struct dmi_blacklist *d)
 #ifdef CONFIG_X86_IO_APIC
 	skip_ioapic_setup = 0;
 #endif
-	return 0;
-}
-
-/*
- * Toshiba keyboard likes to repeat keys when they are not repeated.
- */
-
-static __init int broken_toshiba_keyboard(struct dmi_blacklist *d)
-{
-	printk(KERN_WARNING "Toshiba with broken keyboard detected. If your keyboard sometimes generates 3 keypresses instead of one, contact pavel@ucw.cz\n");
+	broken_440gx_bios = 1;
+	pci_probe |= PCI_BIOS_IRQ_SCAN;
+	
 	return 0;
 }
 
@@ -574,6 +571,11 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 	{ apm_is_horked, "Intel D850MD", { /* APM crashes */
 			MATCH(DMI_BIOS_VENDOR, "Intel Corp."),
 			MATCH(DMI_BIOS_VERSION, "MV85010A.86A.0016.P07.0201251536"),
+			NO_MATCH, NO_MATCH,
+			} },
+	{ apm_is_horked, "Intel D810EMO", { /* APM crashes */
+			MATCH(DMI_BIOS_VENDOR, "Intel Corp."),
+			MATCH(DMI_BIOS_VERSION, "MO81010A.86A.0008.P04.0004170800"),
 			NO_MATCH, NO_MATCH,
 			} },
 	{ apm_is_horked, "Dell XPS-Z", { /* APM crashes */
@@ -753,10 +755,6 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			NO_MATCH, NO_MATCH, NO_MATCH
 			} },
 			
-	{ broken_toshiba_keyboard, "Toshiba Satellite 4030cdt", { /* Keyboard generates spurious repeats */
-			MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),
-			NO_MATCH, NO_MATCH, NO_MATCH
-			} },
 	{ init_ints_after_s1, "Toshiba Satellite 4030cdt", { /* Reinitialization of 8259 is needed after S1 resume */
 			MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),
 			NO_MATCH, NO_MATCH, NO_MATCH

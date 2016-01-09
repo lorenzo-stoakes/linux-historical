@@ -795,6 +795,7 @@ void __init print_IO_APIC(void)
 	printk(KERN_DEBUG ".......     : IO APIC version: %04X\n", reg_01.version);
 	if (	(reg_01.version != 0x01) && /* 82489DX IO-APICs */
 		(reg_01.version != 0x02) && /* VIA */
+		(reg_01.version != 0x03) && /* later VIA */
 		(reg_01.version != 0x10) && /* oldest IO-APICs */
 		(reg_01.version != 0x11) && /* Pentium/Pro IO-APICs */
 		(reg_01.version != 0x13) && /* Xeon IO-APICs */

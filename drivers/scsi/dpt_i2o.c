@@ -1318,7 +1318,9 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 	while(*status == 0){
 		if(time_after(jiffies,timeout)){
 			printk(KERN_WARNING"%s: IOP Reset Timeout\n",pHba->name);
-			kfree(status);
+			/* We loose 4 bytes of "status" here, but we cannot
+			   free these because controller may awake and corrupt
+			   those bytes at any time */
 			return -ETIMEDOUT;
 		}
 		rmb();
@@ -1336,6 +1338,9 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 			}
 			if(time_after(jiffies,timeout)){
 				printk(KERN_ERR "%s:Timeout waiting for IOP Reset.\n",pHba->name);
+			/* We loose 4 bytes of "status" here, but we cannot
+			   free these because controller may awake and corrupt
+			   those bytes at any time */
 				return -ETIMEDOUT;
 			}
 		} while (m == EMPTY_QUEUE);

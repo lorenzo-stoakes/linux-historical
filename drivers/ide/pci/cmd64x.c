@@ -458,7 +458,7 @@ static int cmd64x_config_drive_for_dma (ide_drive_t *drive)
 	ide_hwif_t *hwif	= HWIF(drive);
 	struct hd_driveid *id	= drive->id;
 
-	if ((id != NULL) && ((id->capability & 1) != 0) && drive->autodma) {
+	if ((id->capability & 1) != 0 && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;
@@ -596,7 +596,7 @@ static unsigned int __init init_chipset_cmd64x (struct pci_dev *dev, const char 
 #ifdef __i386__
 	if (dev->resource[PCI_ROM_RESOURCE].start) {
 		pci_write_config_byte(dev, PCI_ROM_ADDRESS, dev->resource[PCI_ROM_RESOURCE].start | PCI_ROM_ADDRESS_ENABLE);
-		printk("%s: ROM enabled at 0x%08lx\n", name, dev->resource[PCI_ROM_RESOURCE].start);
+		printk(KERN_INFO "%s: ROM enabled at 0x%08lx\n", name, dev->resource[PCI_ROM_RESOURCE].start);
 	}
 #endif
 
@@ -604,7 +604,7 @@ static unsigned int __init init_chipset_cmd64x (struct pci_dev *dev, const char 
 		case PCI_DEVICE_ID_CMD_643:
 			break;
 		case PCI_DEVICE_ID_CMD_646:
-			printk("%s: chipset revision 0x%02X, ", name, class_rev);
+			printk(KERN_INFO "%s: chipset revision 0x%02X, ", name, class_rev);
 			switch(class_rev) {
 				case 0x07:
 				case 0x05:

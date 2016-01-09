@@ -177,14 +177,17 @@ extern void free_reserved_mem(void *, void *);
 extern void pbus_size_bridges(struct pci_bus *);
 extern void pbus_assign_resources(struct pci_bus *);
 
+static struct resource irongate_mem = {
+	.name	= "Irongate PCI MEM",
+	.flags	= IORESOURCE_MEM,
+};
+
 void __init
 nautilus_init_pci(void)
 {
 	struct pci_controller *hose = hose_head;
 	struct pci_bus *bus;
-	struct pci_dev *irongate, *dev;
-	unsigned long saved_io_start, saved_io_end;
-	unsigned long saved_mem_start, saved_mem_end;
+	struct pci_dev *dev;
 	unsigned long bus_align, bus_size, pci_mem;
 	unsigned long memtop = max_low_pfn << PAGE_SHIFT;
 
@@ -193,42 +196,36 @@ nautilus_init_pci(void)
 	hose->bus = bus;
 	hose->last_busno = bus->subordinate;
 
-	/* We're going to size the root bus, so we must
-	   - have a non-NULL PCI device associated with the bus
-	   - preserve hose resources. */
-	irongate = pci_find_slot(0, 0);
-	bus->self = irongate;
-	saved_io_start = bus->resource[0]->start;
-	saved_io_end = bus->resource[0]->end;
-	saved_mem_start = bus->resource[1]->start;
-	saved_mem_end = bus->resource[1]->end;
+	bus->self = pci_find_slot(0, 0);
+	bus->resource[1] = &irongate_mem;
 
 	pbus_size_bridges(bus);
 
-	/* Don't care about IO. */
-	bus->resource[0]->start = saved_io_start;
-	bus->resource[0]->end = saved_io_end;
+	/* IO port range. */
+	bus->resource[0]->start = 0;
+	bus->resource[0]->end = 0xffff;
 
+	/* Set up PCI memory range - limit is hardwired to 0xffffffff,
+	   base must be at aligned to 16Mb. */
 	bus_align = bus->resource[1]->start;
 	bus_size = bus->resource[1]->end + 1 - bus_align;
-	/* Align to 16Mb. */
 	if (bus_align < 0x1000000UL)
 		bus_align = 0x1000000UL;
 
-	/* Restore hose MEM resource. */
-	bus->resource[1]->start = saved_mem_start;
-	bus->resource[1]->end = saved_mem_end;
-
 	pci_mem = (0x100000000UL - bus_size) & -bus_align;
+
+	bus->resource[1]->start = pci_mem;
+	bus->resource[1]->end = 0xffffffffUL;
+	if (request_resource(&iomem_resource, bus->resource[1]) < 0)
+		printk(KERN_ERR "Failed to request MEM on hose 0\n");
 
 	if (pci_mem < memtop && pci_mem > alpha_mv.min_mem_address) {
 		free_reserved_mem(__va(alpha_mv.min_mem_address),
 				  __va(pci_mem));
-		printk("nautilus_init_arch: %ldk freed\n",
+		printk("nautilus_init_pci: %ldk freed\n",
 			(pci_mem - alpha_mv.min_mem_address) >> 10);
 	}
 
-	alpha_mv.min_mem_address = pci_mem;
 	if ((IRONGATE0->dev_vendor >> 16) > 0x7006)	/* Albacore? */
 		IRONGATE0->pci_mem = pci_mem;
 
@@ -237,10 +234,6 @@ nautilus_init_pci(void)
 	pci_for_each_dev(dev) {
 		pdev_enable_device(dev);
 	}
-
-	/* To break the loop in common_swizzle() */
-	bus->self = NULL;
-
 	pci_fixup_irqs(alpha_mv.pci_swizzle, alpha_mv.pci_map_irq);
 }
 

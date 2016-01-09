@@ -2206,7 +2206,7 @@
 	1001  FDC 37C922
 	a011  83C170QF
 	b106  SMC34C90
-10b9  Acer Laboratories Inc. [ALi]
+10b9  ALi Corporation. [ALi]
 	0111  C-Media CMI8738/C3DX Audio Device (OEM)
 		10b9 0111  C-Media CMI8738/C3DX Audio Device (OEM)
 	1435  M1435
@@ -2228,6 +2228,7 @@
 	1541  M1541
 		10b9 1541  ALI M1541 Aladdin V/V+ AGP System Controller
 	1543  M1543
+	1563  M1563 South Bridge supporting HT Technology
 	1621  M1621
 	1631  ALI M1631 PCI North Bridge Aladdin Pro III
 	1632  M1632M Northbridge+Trident
@@ -2236,7 +2237,9 @@
 	1646  M1646 Northbridge+Trident
 	1647  M1647 Northbridge [MAGiK 1 / MobileMAGiK 1]
 	1651  M1651/M1651T Northbridge [Aladdin-Pro 5/5M,Aladdin-Pro 5T/5TM]
-	1671  M1671 Northbridge [Aladdin-P4]
+	1671  M1671 Super P4 Northbridge [AGP4X,PCI, and SDR/DDR]
+	1681  M1681 P4 Northbridge [AGP8X,HT, and SDR/DDR]
+	1687  M1687 K8 Northbridge [AGP8X and HT]
 	3141  M3141
 	3143  M3143
 	3145  M3145
@@ -2257,6 +2260,7 @@
 	5239  USB 2.0 Controller
 	5243  M1541 PCI to AGP Controller
 	5247  PCI to AGP Controller
+	5249  HTT to PCI Bridge
 	5251  M5251 P1394 OHCI 1.0 Controller
 	5253  M5253 P1394 OHCI 1.1 Controller
 	5261  M5261 Ethernet Controller
@@ -5540,6 +5544,7 @@
 15e8  National Datacomm Corp
 	0130  Wireless PCI Card
 15e9  Pacific Digital Corp
+	1841  ADMA-100 DiscStaQ ATA Controller
 15ea  Tokyo Denshi Sekei K.K.
 15eb  Drsearch GmbH
 15ec  Beckhoff GmbH

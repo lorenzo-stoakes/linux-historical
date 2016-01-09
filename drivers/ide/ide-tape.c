@@ -422,7 +422,7 @@
  *		sharing a (fast) ATA-2 disk with any (slow) new ATAPI device.
  */
 
-#define IDETAPE_VERSION "1.17b"
+#define IDETAPE_VERSION "1.17b-ac1"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -2450,13 +2450,10 @@ static ide_startstop_t idetape_issue_packet_command (ide_drive_t *drive, idetape
 		set_bit(PC_DMA_IN_PROGRESS, &pc->flags);
 #endif /* CONFIG_BLK_DEV_IDEDMA */
 	if (test_bit(IDETAPE_DRQ_INTERRUPT, &tape->flags)) {
-		if (HWGROUP(drive)->handler != NULL)
-			BUG();
-		ide_set_handler(drive,
+		ide_execute_command(drive, WIN_PACKETCMD,
 				&idetape_transfer_pc,
 				IDETAPE_WAIT_CMD,
 				NULL);
-		HWIF(drive)->OUTB(WIN_PACKETCMD, IDE_COMMAND_REG);
 		return ide_started;
 	} else {
 		HWIF(drive)->OUTB(WIN_PACKETCMD, IDE_COMMAND_REG);
@@ -5841,15 +5838,16 @@ static int idetape_chrdev_release (struct inode *inode, struct file *filp)
  *
  *	0 	If this tape driver is not currently supported by us.
  */
-static int idetape_identify_device (ide_drive_t *drive,struct hd_driveid *id)
+static int idetape_identify_device (ide_drive_t *drive)
 {
 	struct idetape_id_gcw gcw;
+	struct hd_driveid *id = drive->id;
 #if IDETAPE_DEBUG_INFO
 	unsigned short mask,i;
 #endif /* IDETAPE_DEBUG_INFO */
 
-	if (!id)
-		return 0;
+	if(drive->id_read == 0)
+		return 1;
 
 	*((unsigned short *) &gcw) = id->config;
 
@@ -6513,7 +6511,7 @@ int idetape_attach (ide_drive_t *drive)
 
 	MOD_INC_USE_COUNT;
 
-	if (!idetape_identify_device(drive, drive->id)) {
+	if (idetape_identify_device(drive)) {
 		printk(KERN_ERR "ide-tape: %s: not supported by this "
 			"version of ide-tape\n", drive->name);
 			ret = 1;
@@ -6624,7 +6622,7 @@ int idetape_init (void)
 		return -EBUSY;
 	}
 	do {
-		if (!idetape_identify_device(drive, drive->id)) {
+		if (!idetape_identify_device(drive)) {
 			printk(KERN_ERR "ide-tape: %s: not supported by this "
 				"version of ide-tape\n", drive->name);
 			continue;

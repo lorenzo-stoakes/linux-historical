@@ -572,7 +572,7 @@ static int ide_setup_pci_controller(struct pci_dev *dev, ide_pci_device_t *d, in
 static ata_index_t do_ide_setup_pci_device (struct pci_dev *dev, ide_pci_device_t *d, u8 noisy)
 {
 	u32 port, at_least_one_hwif_enabled = 0, autodma = 0;
-	int pciirq = 0;
+	unsigned int pciirq = 0;
 	int tried_config = 0;
 	int drive0_tune, drive1_tune;
 	ata_index_t index;
@@ -612,10 +612,8 @@ static ata_index_t do_ide_setup_pci_device (struct pci_dev *dev, ide_pci_device_
 		pciirq = 0;
 	} else {
 		if (d->init_chipset)
-		{
-			if(d->init_chipset(dev, d->name) < 0)
-				return index;
-		}
+			d->init_chipset(dev, d->name);
+
 		if (noisy)
 #ifdef __sparc__
 			printk(KERN_INFO "%s: 100%% native mode on irq %s\n",
@@ -626,9 +624,6 @@ static ata_index_t do_ide_setup_pci_device (struct pci_dev *dev, ide_pci_device_
 #endif
 	}
 	
-	if(pciirq < 0)		/* Error not an IRQ */
-		return index;
-
 	/*
 	 * Set up the IDE ports
 	 */

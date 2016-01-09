@@ -631,61 +631,49 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 	int error, request_id;
 	dma_addr_t dma_handle;
 	unsigned short tw_aen_code;
-	struct timeval before, timeout;
-	unsigned long flags = 0x0;
+	unsigned long before;
+	unsigned long flags;
 	unsigned int data_buffer_length = 0;
 	unsigned long data_buffer_length_adjusted = 0;
 	unsigned long *cpu_addr;
 	TW_New_Ioctl *tw_ioctl;
 	TW_Passthru *passthru;
 	TW_Device_Extension *tw_dev = tw_device_extension_list[MINOR(inode->i_rdev)];
+	int retval = -EFAULT;
 
 	dprintk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl()\n");
 
 	/* Only let one of these through at a time */
-	if (test_and_set_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags)) {
-		return -EBUSY;
-	}
+	if (down_interruptible(&tw_dev->ioctl_sem))
+		return -EINTR;
 
 	/* First copy down the buffer length */
 	error = copy_from_user(&data_buffer_length, (void *)arg, sizeof(unsigned int));
-	if (error) {
-		printk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): Error copying buffer length from userspace.\n");
-		clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
-		return -EFAULT;
-	}
+	if (error)
+		goto out;
 
 	/* Check size */
 	if (data_buffer_length > TW_MAX_SECTORS * 512) {
-		printk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): Invalid buffer size (%d).\n", data_buffer_length);
-		clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
-		return -EFAULT;
+		retval = -EINVAL;
+		goto out;
 	}
 
 	/* Hardware can only do multiple of 512 byte transfers */
-	if (data_buffer_length % 512)
-		data_buffer_length_adjusted = data_buffer_length + 512 - (data_buffer_length % 512);
-	else
-		data_buffer_length_adjusted = data_buffer_length;
+	data_buffer_length_adjusted = (data_buffer_length + 511) & ~511;
 
 	/* Now allocate ioctl buf memory */
 	cpu_addr = pci_alloc_consistent(tw_dev->tw_pci_dev, data_buffer_length_adjusted+sizeof(TW_New_Ioctl) - 1, &dma_handle);
 	if (cpu_addr == NULL) {
-		printk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): Error allocating memory.\n");
-		clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
-		return -ENOMEM;
+		retval = -ENOMEM;
+		goto out;
 	}
 
 	tw_ioctl = (TW_New_Ioctl *)cpu_addr;
 
 	/* Now copy down the entire ioctl */
 	error = copy_from_user(tw_ioctl, (void *)arg, data_buffer_length + sizeof(TW_New_Ioctl) - 1);
-	if (error) {
-		printk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): Error copying data from userspace.\n");
-		pci_free_consistent(tw_dev->tw_pci_dev, data_buffer_length_adjusted+sizeof(TW_New_Ioctl) - 1, cpu_addr, dma_handle);
-		clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
-		return -EFAULT;
-	}
+	if (error)
+		goto out2;
 
 	passthru = (TW_Passthru *)&tw_ioctl->firmware_command;
 
@@ -697,6 +685,7 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 		case TW_OP_AEN_LISTEN:
 			dprintk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): caught TW_AEN_LISTEN.\n");
 			memset(tw_ioctl->data_buffer, 0, tw_ioctl->data_buffer_length);
+			spin_lock_irqsave(&tw_dev->tw_lock, flags);
 			if (tw_dev->aen_head == tw_dev->aen_tail) {
 				tw_aen_code = TW_AEN_QUEUE_EMPTY;
 			} else {
@@ -707,6 +696,7 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 					tw_dev->aen_head = tw_dev->aen_head + 1;
 				}
 			}
+			spin_unlock_irqrestore(&tw_dev->tw_lock, flags);
 			memcpy(tw_ioctl->data_buffer, &tw_aen_code, sizeof(tw_aen_code));
 			break;
 		case TW_CMD_PACKET_WITH_DATA:
@@ -746,14 +736,12 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 			spin_unlock_irqrestore(&tw_dev->tw_lock, flags);
 
 			/* Now wait for the command to complete */
-			do_gettimeofday(&before);
+			before = jiffies;
 
-	tw_ioctl_chrdev_retry:
-
-			if (tw_dev->chrdev_request_id != TW_IOCTL_CHRDEV_FREE) {
-				interruptible_sleep_on_timeout(&tw_dev->ioctl_wqueue, 1);
-				do_gettimeofday(&timeout);
-				if (before.tv_sec + TW_IOCTL_CHRDEV_TIMEOUT < timeout.tv_sec) {
+			while (tw_dev->chrdev_request_id != TW_IOCTL_CHRDEV_FREE) {
+				/* FIXME: we need to sleep here */
+				udelay(10);
+				if (time_after(jiffies, before + HZ *TW_IOCTL_CHRDEV_TIMEOUT)) {
 					/* Now we need to reset the board */
 					printk(KERN_WARNING "3w-xxxx: scsi%d: Character ioctl (0x%x) timed out, resetting card.\n", tw_dev->host->host_no, cmd);
 					spin_lock_irqsave(&tw_dev->tw_lock, flags);
@@ -765,13 +753,11 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 						printk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): Reset failed for card %d.\n", tw_dev->host->host_no);
 					}
 					spin_unlock_irqrestore(&tw_dev->tw_lock, flags);
-					clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
 					if (signal_pending(current))
-						return -EINTR;
+						retval = -EINTR;
 					else
-						return -EIO;
-				} else {
-					goto tw_ioctl_chrdev_retry;
+						retval = -EIO;
+					goto out2;
 				}
 			}
 
@@ -786,24 +772,20 @@ static int tw_chrdev_ioctl(struct inode *inode, struct file *file, unsigned int 
 			spin_unlock_irqrestore(&tw_dev->tw_lock, flags);
 			break;
 		default:
-			printk(KERN_WARNING "3w-xxxx: Unknown chrdev ioctl 0x%x.\n", cmd);
+			retval = -ENOTTY;
+			goto out2;
 	}
 
 	/* Now copy the entire response to userspace */
 	error = copy_to_user((void *)arg, tw_ioctl, sizeof(TW_New_Ioctl) + tw_ioctl->data_buffer_length - 1);
-	if (error) {
-		printk(KERN_WARNING "3w-xxxx: tw_chrdev_ioctl(): Error copying data to userspace.\n");
-		pci_free_consistent(tw_dev->tw_pci_dev, data_buffer_length_adjusted+sizeof(TW_New_Ioctl) - 1, cpu_addr, dma_handle);
-		clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
-		return -EFAULT;
-	}
-
+	if (error == 0)
+		retval = 0;
+out2:
 	/* Now free ioctl buf memory */
 	pci_free_consistent(tw_dev->tw_pci_dev, data_buffer_length_adjusted+sizeof(TW_New_Ioctl) - 1, cpu_addr, dma_handle);
-
-	clear_bit(TW_IN_CHRDEV_IOCTL, &tw_dev->flags);
-
-	return 0;
+out:
+	up(&tw_dev->ioctl_sem);
+	return retval;
 } /* End tw_chrdev_ioctl() */
 
 /* This function handles open for the character device */
@@ -1398,6 +1380,7 @@ int tw_initialize_device_extension(TW_Device_Extension *tw_dev)
 	spin_lock_init(&tw_dev->tw_lock);
 	tw_dev->chrdev_request_id = TW_IOCTL_CHRDEV_FREE;
 	init_waitqueue_head(&tw_dev->ioctl_wqueue);
+	init_MUTEX(&tw_dev->ioctl_sem);
 
 	return 0;
 } /* End tw_initialize_device_extension() */

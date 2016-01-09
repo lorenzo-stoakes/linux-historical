@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/pci/hpt366.c		Version 0.34	Sept 17, 2002
+ * linux/drivers/ide/pci/hpt366.c		Version 0.35	March 18, 2003
  *
  * Copyright (C) 1999-2002		Andre Hedrick <andre@linux-ide.org>
  * Portions Copyright (C) 2001	        Sun Microsystems, Inc.
@@ -8,6 +8,10 @@
  * Special Thanks to Jon Burchmore in SanDiego for the deep pockets, his
  * donation of an ABit BP6 mainboard, processor, and memory acellerated
  * development and support.
+ *
+ * Highpoint have their own driver (source except for the raid part)
+ * available from http://www.highpoint-tech.com/hpt3xx-opensource-v131.tgz
+ * This may be useful to anyone wanting to work on the mainstream hpt IDE.
  *
  * Note that final HPT370 support was done by force extraction of GPL.
  *
@@ -96,7 +100,10 @@ static int hpt366_get_info (char *buffer, char **addr, off_t offset, int count)
 		u8 c0, c1;
 
 		p += sprintf(p, "\nController: %d\n", i);
-		p += sprintf(p, "Chipset: HPT%s\n", chipset_nums[class_rev]);
+		if(class_rev < 9)
+			p += sprintf(p, "Chipset: HPT%s\n", chipset_nums[class_rev]);
+		else
+			p += sprintf(p, "Chipset: HPT revision %d\n", class_rev);
 		p += sprintf(p, "--------------- Primary Channel "
 				"--------------- Secondary Channel "
 				"--------------\n");
@@ -158,6 +165,13 @@ static int hpt366_get_info (char *buffer, char **addr, off_t offset, int count)
 }
 #endif  /* defined(DISPLAY_HPT366_TIMINGS) && defined(CONFIG_PROC_FS) */
 
+/*
+ *	This wants fixing so that we do everything not by classrev
+ *	(which breaks on the newest chips) but by creating an
+ *	enumeration of chip variants and using that
+ */
+ 
+
 static u32 hpt_revision (struct pci_dev *dev)
 {
 	u32 class_rev;
@@ -165,6 +179,9 @@ static u32 hpt_revision (struct pci_dev *dev)
 	class_rev &= 0xff;
 
 	switch(dev->device) {
+		/* Remap new 372N onto 372 */
+		case PCI_DEVICE_ID_TTI_HPT372N:
+			class_rev = PCI_DEVICE_ID_TTI_HPT372; break;
 		case PCI_DEVICE_ID_TTI_HPT374:
 			class_rev = PCI_DEVICE_ID_TTI_HPT374; break;
 		case PCI_DEVICE_ID_TTI_HPT371:
@@ -214,6 +231,11 @@ static u8 hpt3xx_ratemask (ide_drive_t *drive)
 	return mode;
 }
 
+/*
+ *	Note for the future; the SATA hpt37x we must set
+ *	either PIO or UDMA modes 0,4,5
+ */
+ 
 static u8 hpt3xx_ratefilter (ide_drive_t *drive, u8 speed)
 {
 	struct pci_dev *dev	= HWIF(drive)->pci_dev;
@@ -386,7 +408,6 @@ static void hpt372_tune_chipset (ide_drive_t *drive, u8 xferspeed)
 	u8 drive_fast	= 0, drive_pci = 0x40 + (drive->dn * 4);
 	u32 list_conf	= 0, drive_conf = 0;
 	u32 conf_mask	= (speed >= XFER_MW_DMA_0) ? 0xc0000000 : 0x30070000;
-
 	/*
 	 * Disable the "fast interrupt" prediction.
 	 * don't holdoff on interrupts. (== 0x01 despite what the docs say)
@@ -509,7 +530,7 @@ static int hpt366_config_drive_xfer_rate (ide_drive_t *drive)
 
 	drive->init_speed = 0;
 
-	if (id && (id->capability & 1) && drive->autodma) {
+	if ((id->capability & 1) && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;
@@ -684,14 +705,20 @@ static int hpt3xx_tristate (ide_drive_t * drive, int state)
 	pci_read_config_byte(dev, 0x59, &reg59h);
 	pci_read_config_byte(dev, state_reg, &regXXh);
 
-	if (state) {
-		(void) ide_do_reset(drive);
-		pci_write_config_byte(dev, state_reg, regXXh|0x80);
-		pci_write_config_byte(dev, 0x59, reg59h|reset);
-	} else {
-		pci_write_config_byte(dev, 0x59, reg59h & ~(reset));
-		pci_write_config_byte(dev, state_reg, regXXh & ~(0x80));
-		(void) ide_do_reset(drive);
+	switch(state)
+	{
+		case BUSSTATE_ON:
+			(void) ide_do_reset(drive);
+			pci_write_config_byte(dev, state_reg, regXXh|0x80);
+			pci_write_config_byte(dev, 0x59, reg59h|reset);
+			break;
+		case BUSSTATE_OFF:
+			pci_write_config_byte(dev, 0x59, reg59h & ~(reset));
+			pci_write_config_byte(dev, state_reg, regXXh & ~(0x80));
+			(void) ide_do_reset(drive);
+			break;
+		default:
+			return -EINVAL;
 	}
 	return 0;
 }
@@ -758,6 +785,8 @@ static int hpt370_busproc(ide_drive_t * drive, int state)
 		tri_reg |= TRISTATE_BIT;
 		bus_reg |= resetmask;
 		break;
+	default:
+		return -EINVAL;
 	}
 	pci_write_config_byte(dev, 0x59, bus_reg);
 	pci_write_config_word(dev, tristate, tri_reg);
@@ -771,72 +800,127 @@ static int __init init_hpt37x(struct pci_dev *dev)
 	u16 freq;
 	u32 pll;
 	u8 reg5bh;
-
+	u8 reg5ah;
+	unsigned long dmabase = pci_resource_start(dev, 4);
+	u8 did, rid;	
+	int is_372n = 0;
 #if 1
-	u8 reg5ah = 0;
 	pci_read_config_byte(dev, 0x5a, &reg5ah);
 	/* interrupt force enable */
 	pci_write_config_byte(dev, 0x5a, (reg5ah & ~0x10));
 #endif
 
+	did = inb(dmabase + 0x22);
+	rid = inb(dmabase + 0x28);
+	
+	if((did == 4 && rid == 6) || (did == 5 && rid > 1))
+		is_372n = 1;
+		
+	if(is_372n)
+		printk(KERN_ERR "HPT372N support is EXPERIMENTAL ONLY.\n");
+		
 	/*
 	 * default to pci clock. make sure MA15/16 are set to output
-	 * to prevent drives having problems with 40-pin cables.
+	 * to prevent drives having problems with 40-pin cables. Needed
+	 * for some drives such as IBM-DTLA which will not enter ready
+	 * state on reset when PDIAG is a input.
+	 *
+	 * ToDo: should we set 0x21 when using PLL mode ?
 	 */
 	pci_write_config_byte(dev, 0x5b, 0x23);
 
 	/*
 	 * set up the PLL. we need to adjust it so that it's stable. 
 	 * freq = Tpll * 192 / Tpci
+	 *
+	 * Todo. For non x86 should probably check the dword is
+	 * set to 0xABCDExxx indicating the BIOS saved f_CNT
 	 */
 	pci_read_config_word(dev, 0x78, &freq);
 	freq &= 0x1FF;
-	if (freq < 0x9c) {
-		pll = F_LOW_PCI_33;
-		if (hpt_minimum_revision(dev,8))
-			pci_set_drvdata(dev, (void *) thirty_three_base_hpt374);
-		else if (hpt_minimum_revision(dev,5))
-			pci_set_drvdata(dev, (void *) thirty_three_base_hpt372);
-		else if (hpt_minimum_revision(dev,4))
-			pci_set_drvdata(dev, (void *) thirty_three_base_hpt370a);
-		else
-			pci_set_drvdata(dev, (void *) thirty_three_base_hpt370);
-		printk("HPT37X: using 33MHz PCI clock\n");
-	} else if (freq < 0xb0) {
-		pll = F_LOW_PCI_40;
-	} else if (freq < 0xc8) {
-		pll = F_LOW_PCI_50;
-		if (hpt_minimum_revision(dev,8))
-			return -EOPNOTSUPP;
-		else if (hpt_minimum_revision(dev,5))
-			pci_set_drvdata(dev, (void *) fifty_base_hpt372);
-		else if (hpt_minimum_revision(dev,4))
-			pci_set_drvdata(dev, (void *) fifty_base_hpt370a);
-		else
-			pci_set_drvdata(dev, (void *) fifty_base_hpt370a);
-		printk("HPT37X: using 50MHz PCI clock\n");
-	} else {
-		pll = F_LOW_PCI_66;
-		if (hpt_minimum_revision(dev,8))
-		{
-			printk(KERN_ERR "HPT37x: 66MHz timings are not supported.\n");
-			return -EOPNOTSUPP;
-		}
-		else if (hpt_minimum_revision(dev,5))
-			pci_set_drvdata(dev, (void *) sixty_six_base_hpt372);
-		else if (hpt_minimum_revision(dev,4))
-			pci_set_drvdata(dev, (void *) sixty_six_base_hpt370a);
-		else
-			pci_set_drvdata(dev, (void *) sixty_six_base_hpt370);
-		printk("HPT37X: using 66MHz PCI clock\n");
-	}
 	
+	/*
+	 * The 372N uses different PCI clock information and has
+	 * some other complications
+	 *	On PCI33 timing we must clock switch
+	 *	On PCI66 timing we must NOT use the PCI clock
+	 *
+	 * Currently we always set up the PLL for the 372N
+	 */
+	 
+	if(is_372n)
+	{
+		printk(KERN_INFO "hpt: HPT372N detected, using 372N timing.\n");
+		if(freq < 0x55)
+			pll = F_LOW_PCI_33;
+		else if(freq < 0x70)
+			pll = F_LOW_PCI_40;
+		else if(freq < 0x7F)
+			pll = F_LOW_PCI_50;
+		else
+			pll = F_LOW_PCI_66;
+			
+		printk(KERN_INFO "FREQ: %d PLL: %d\n", freq, pll);
+			
+		/* We always use the pll not the PCI clock on 372N */
+	}
+	else
+	{
+		if(freq < 0x9C)
+			pll = F_LOW_PCI_33;
+		else if(freq < 0xb0)
+			pll = F_LOW_PCI_40;
+		else if(freq <0xc8)
+			pll = F_LOW_PCI_50;
+		else
+			pll = F_LOW_PCI_66;
+	
+		if (pll == F_LOW_PCI_33) {
+			if (hpt_minimum_revision(dev,8))
+				pci_set_drvdata(dev, (void *) thirty_three_base_hpt374);
+			else if (hpt_minimum_revision(dev,5))
+				pci_set_drvdata(dev, (void *) thirty_three_base_hpt372);
+			else if (hpt_minimum_revision(dev,4))
+				pci_set_drvdata(dev, (void *) thirty_three_base_hpt370a);
+			else
+				pci_set_drvdata(dev, (void *) thirty_three_base_hpt370);
+			printk("HPT37X: using 33MHz PCI clock\n");
+		} else if (pll == F_LOW_PCI_40) {
+		} else if (pll == F_LOW_PCI_50) {
+			if (hpt_minimum_revision(dev,8))
+				pci_set_drvdata(dev, NULL);
+			else if (hpt_minimum_revision(dev,5))
+				pci_set_drvdata(dev, (void *) fifty_base_hpt372);
+			else if (hpt_minimum_revision(dev,4))
+				pci_set_drvdata(dev, (void *) fifty_base_hpt370a);
+			else
+				pci_set_drvdata(dev, (void *) fifty_base_hpt370a);
+			printk("HPT37X: using 50MHz PCI clock\n");
+		} else {
+			if (hpt_minimum_revision(dev,8))
+			{
+				printk(KERN_ERR "HPT37x: 66MHz timings are not supported.\n");
+				pci_set_drvdata(dev, NULL);
+			}
+			else if (hpt_minimum_revision(dev,5))
+				pci_set_drvdata(dev, (void *) sixty_six_base_hpt372);
+			else if (hpt_minimum_revision(dev,4))
+				pci_set_drvdata(dev, (void *) sixty_six_base_hpt370a);
+			else
+				pci_set_drvdata(dev, (void *) sixty_six_base_hpt370);
+			printk("HPT37X: using 66MHz PCI clock\n");
+		}
+	}
+			
 	/*
 	 * only try the pll if we don't have a table for the clock
 	 * speed that we're running at. NOTE: the internal PLL will
 	 * result in slow reads when using a 33MHz PCI clock. we also
 	 * don't like to use the PLL because it will cause glitches
 	 * on PRST/SRST when the HPT state engine gets reset.
+	 *
+	 * ToDo: Use 66MHz PLL when ATA133 devices are present on a
+	 * 372 device so we can get ATA133 support
 	 */
 	if (pci_get_drvdata(dev)) 
 		goto init_hpt37X_done;
@@ -923,7 +1007,7 @@ static int __init init_hpt366 (struct pci_dev *dev)
 	if (!pci_get_drvdata(dev))
 	{
 		printk(KERN_ERR "hpt366: unknown bus timing.\n");
-		return -EOPNOTSUPP;
+		pci_set_drvdata(dev, NULL);
 	}
 	return 0;
 }
@@ -1061,6 +1145,12 @@ static void __init init_dma_hpt366 (ide_hwif_t *hwif, unsigned long dmabase)
 
 	if (!dmabase)
 		return;
+		
+	if(pci_get_drvdata(hwif->pci_dev) == NULL)
+	{
+		printk(KERN_WARNING "hpt: no known IDE timings, disabling DMA.\n");
+		return;
+	}
 
 	dma_old = hwif->INB(dmabase+2);
 
@@ -1131,6 +1221,12 @@ static void __init init_setup_hpt366 (struct pci_dev *dev, ide_pci_device_t *d)
 	pci_read_config_dword(dev, PCI_CLASS_REVISION, &class_rev);
 	class_rev &= 0xff;
 
+	/* New ident 372N reports revision 1. We could do the 
+	   io port based type identification instead perhaps (DID, RID) */
+	   
+	if(d->device == PCI_DEVICE_ID_TTI_HPT372N)
+		class_rev = 5;
+		
 	strcpy(d->name, chipset_names[class_rev]);
 
 	switch(class_rev) {
@@ -1190,6 +1286,7 @@ static struct pci_device_id hpt366_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_TTI, PCI_DEVICE_ID_TTI_HPT302, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 2},
 	{ PCI_VENDOR_ID_TTI, PCI_DEVICE_ID_TTI_HPT371, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 3},
 	{ PCI_VENDOR_ID_TTI, PCI_DEVICE_ID_TTI_HPT374, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4},
+	{ PCI_VENDOR_ID_TTI, PCI_DEVICE_ID_TTI_HPT372N, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5},
 	{ 0, },
 };
 

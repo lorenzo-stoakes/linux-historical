@@ -1,7 +1,7 @@
 /* -*- linux-c -*- */
 
 /* 
- * Driver for USB Scanners (linux-2.4.21)
+ * Driver for USB Scanners (linux-2.4)
  *
  * Copyright (C) 1999, 2000, 2001, 2002 David E. Nelson
  * Copyright (C) 2002, 2003 Henning Meier-Geinitz
@@ -353,8 +353,9 @@
  *    - Don't print errors when the device is busy.
  *      
  * 0.4.11  2003-02-25
- *    - Added vendor/product ids for Artec, Avision, Brother, Medion, Primax,
- *      Prolink, Fujitsu, Plustek, and SYSCAN scanners.
+ *    - Added vendor/product ids for Artec, Avision, Brother, Canon, Compaq,
+ *      Fujitsu, Hewlett-Packard, Lexmark, LG Electronics, Medion, Microtek,
+ *      Primax, Prolink,  Plustek, SYSCAN, Trust and UMAX scanners.
  *
  * TODO
  *    - Performance

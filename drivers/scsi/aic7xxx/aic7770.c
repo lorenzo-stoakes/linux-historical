@@ -37,9 +37,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/aic7xxx/aic7770.c#21 $
+ * $Id: //depot/aic7xxx/aic7xxx/aic7770.c#27 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7770.c,v 1.1 2000/09/16 20:02:27 gibbs Exp $
+ * $FreeBSD$
  */
 
 #ifdef __linux__
@@ -56,6 +56,8 @@
 #define ID_AHA_274x	0x04907771
 #define ID_AHA_284xB	0x04907756 /* BIOS enabled */
 #define ID_AHA_284x	0x04907757 /* BIOS disabled*/
+#define	ID_OLV_274x	0x04907782 /* Olivetti OEM */
+#define	ID_OLV_274xD	0x04907783 /* Olivetti OEM (Differential) */
 
 static int aha2840_load_seeprom(struct ahc_softc *ahc);
 static ahc_device_setup_t ahc_aic7770_VL_setup;
@@ -76,6 +78,18 @@ struct aic7770_identity aic7770_ident_table [] =
 		0xFFFFFFFE,
 		"Adaptec 284X SCSI adapter",
 		ahc_aic7770_VL_setup
+	},
+	{
+		ID_OLV_274x,
+		0xFFFFFFFF,
+		"Adaptec (Olivetti OEM) 274X SCSI adapter",
+		ahc_aic7770_EISA_setup
+	},
+	{
+		ID_OLV_274xD,
+		0xFFFFFFFF,
+		"Adaptec (Olivetti OEM) 274X Differential SCSI adapter",
+		ahc_aic7770_EISA_setup
 	},
 	/* Generic chip probes for devices we don't know 'exactly' */
 	{
@@ -105,7 +119,6 @@ int
 aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 {
 	u_long	l;
-	u_long	s;
 	int	error;
 	int	have_seeprom;
 	u_int	hostconf;
@@ -235,13 +248,6 @@ aic7770_config(struct ahc_softc *ahc, struct aic7770_identity *entry, u_int io)
 	 */
 	ahc_outb(ahc, BCTL, ENABLE);
 
-	/*
-	 * Allow interrupts.
-	 */
-	ahc_lock(ahc, &s);
-	ahc_intr_enable(ahc, TRUE);
-	ahc_unlock(ahc, &s);
-
 	ahc_list_unlock(&l);
 
 	return (0);
@@ -274,7 +280,7 @@ aha2840_load_seeprom(struct ahc_softc *ahc)
 	if (bootverbose)
 		printf("%s: Reading SEEPROM...", ahc_name(ahc));
 	have_seeprom = ahc_read_seeprom(&sd, (uint16_t *)sc,
-					/*start_addr*/0, sizeof(*sc)/2);
+					/*start_addr*/0, sizeof(sc)/2);
 
 	if (have_seeprom) {
 

@@ -520,13 +520,6 @@ static void
 handle_signal(unsigned long sig, struct k_sigaction *ka,
 	      siginfo_t *info, sigset_t *oldset, struct pt_regs *regs)
 {
-	/* Are we from a system call? */
-	if (regs->trap == 0x0C00
-	    && ((int)regs->result == -ERESTARTNOHAND ||
-		((int)regs->result == -ERESTARTSYS &&
-		 !(ka->sa.sa_flags & SA_RESTART))))
-		regs->result = -EINTR;
-
 	/* Set up Signal Frame */
 	if (ka->sa.sa_flags & SA_SIGINFO)
 		setup_rt_frame(sig, ka, info, oldset, regs);
@@ -542,6 +535,35 @@ handle_signal(unsigned long sig, struct k_sigaction *ka,
 		sigaddset(&current->blocked,sig);
 		recalc_sigpending(current);
 		spin_unlock_irq(&current->sigmask_lock);
+	}
+}
+
+static inline void
+syscall_restart(struct pt_regs *regs, struct k_sigaction *ka)
+{
+	switch ((int)regs->result) {
+		case -ERESTARTNOHAND:
+			/* ERESTARTNOHAND means that the syscall should only
+			   be restarted if there was no handler for the signal,
+			   and since we only get here if there is a handler,
+			   we dont restart */
+			regs->result = -EINTR;
+			break;
+
+		case -ERESTARTSYS:
+			/* ERESTARTSYS means to restart the syscall if there is
+			   no handler or the handler was registered with SA_RESTART */
+			if (!(ka->sa.sa_flags & SA_RESTART)) {
+				regs->result = -EINTR;
+				break;
+			}
+		/* fallthrough */
+		case -ERESTARTNOINTR:
+			/* ERESTARTNOINTR means that the syscall should be
+			   called again after the signal handler returns */
+			regs->gpr[3] = regs->orig_gpr3;
+			regs->nip -= 4;
+			regs->result = 0;
 	}
 }
 
@@ -675,6 +697,8 @@ do_signal(sigset_t *oldset, struct pt_regs *regs)
 		struct k_sigaction *ka = &current->sig->action[signr-1];
 
 		/* Whee!  Actually deliver the signal.  */
+		if (regs->trap == 0x0C00)
+			syscall_restart(regs, ka);
 		handle_signal(signr, ka, &info, oldset, regs);
 		return 1;
 	}

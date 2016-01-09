@@ -28,6 +28,7 @@
 /* free a single auerbuf */
 void auerbuf_free(struct auerbuf *bp)
 {
+	if (!bp) return;
 	kfree(bp->bufp);
 	kfree(bp->dr);
 	if (bp->urbp) {
@@ -81,7 +82,7 @@ void auerbuf_init(struct auerbufctl *bcp)
 int auerbuf_setup(struct auerbufctl *bcp, unsigned int numElements,
 		  unsigned int bufsize)
 {
-	struct auerbuf *bep;
+	struct auerbuf *bep = NULL;
 
 	dbg("auerbuf_setup called with %d elements of %d bytes",
 	    numElements, bufsize);
@@ -113,6 +114,7 @@ int auerbuf_setup(struct auerbufctl *bcp, unsigned int numElements,
 
       bl_fail:			/* not enought memory. Free allocated elements */
 	dbg("auerbuf_setup: no more memory");
+	auerbuf_free (bep);
 	auerbuf_free_buffers(bcp);
 	return -ENOMEM;
 }

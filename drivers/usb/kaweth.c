@@ -74,7 +74,7 @@
 
 #include "kawethfw.h"
 
-#define KAWETH_MTU			1514
+#define KAWETH_MTU			1500
 #define KAWETH_BUF_SIZE			1664
 #define KAWETH_TX_TIMEOUT		(5 * HZ)
 #define KAWETH_SCRATCH_SIZE		32
@@ -1036,7 +1036,8 @@ static void *kaweth_probe(
 	kaweth->net->hard_start_xmit = kaweth_start_xmit;
 	kaweth->net->set_multicast_list = kaweth_set_rx_mode;
 	kaweth->net->get_stats = kaweth_netdev_stats;
-	kaweth->net->mtu = le16_to_cpu(kaweth->configuration.segment_size);
+	kaweth->net->mtu = le16_to_cpu(kaweth->configuration.segment_size < KAWETH_MTU ?
+				       kaweth->configuration.segment_size : KAWETH_MTU);
 
 	memset(&kaweth->stats, 0, sizeof(kaweth->stats));
 

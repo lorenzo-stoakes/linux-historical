@@ -2955,12 +2955,18 @@ static int ia_pkt_tx (struct atm_vcc *vcc, struct sk_buff *skb) {
           return 0;
         }
         if ((u32)skb->data & 3) {
-           printk("Misaligned SKB\n");
-           if (vcc->pop)
-                 vcc->pop(vcc, skb);
-           else
-                 dev_kfree_skb_any(skb);
-           return 0;
+           /* The copy will end up aligned */
+           struct sk_buff *newskb = skb_copy(skb, GFP_ATOMIC);
+           if(newskb == NULL)
+           {
+	           if (vcc->pop)
+	                 vcc->pop(vcc, skb);
+	           else
+	                 dev_kfree_skb_any(skb);
+	           return 0;
+	   }
+	   kfree(skb);
+	   skb = newskb;
         }       
 	/* Get a descriptor number from our free descriptor queue  
 	   We get the descr number from the TCQ now, since I am using  
@@ -3013,9 +3019,7 @@ static int ia_pkt_tx (struct atm_vcc *vcc, struct sk_buff *skb) {
 	/* Figure out the exact length of the packet and padding required to 
            make it  aligned on a 48 byte boundary.  */
 	total_len = skb->len + sizeof(struct cpcs_trailer);  
-	last = total_len - (total_len/48)*48;  
-	pad = 48 - last;  
-	total_len = pad + total_len;  
+	total_len = ((total_len + 47) / 48) * 48;
 	IF_TX(printk("ia packet len:%d padding:%d\n", total_len, pad);)  
  
 	/* Put the packet in a tx buffer */   

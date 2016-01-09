@@ -550,7 +550,7 @@ static int sohci_submit_urb (struct urb * urb)
 	int i, size = 0;
 	unsigned long flags;
 	int bustime = 0;
-	int mem_flags = ALLOC_FLAGS;
+	int mem_flags = GFP_ATOMIC;
 	
 	if (!urb->dev || !urb->dev->bus)
 		return -ENODEV;
@@ -708,6 +708,7 @@ static int sohci_submit_urb (struct urb * urb)
 
 		/* drive timeouts by SF (messy, but works) */
 		writel (OHCI_INTR_SF, &ohci->regs->intrenable);	
+		(void)readl (&ohci->regs->intrdisable); /* PCI posting flush */
 	}
 #endif
 
@@ -782,8 +783,10 @@ static int sohci_unlink_urb (struct urb * urb)
 
 				/* wait until all TDs are deleted */
 				set_current_state(TASK_UNINTERRUPTIBLE);
-				while (timeout && (urb->status == USB_ST_URB_PENDING))
+				while (timeout && (urb->status == USB_ST_URB_PENDING)) {
 					timeout = schedule_timeout (timeout);
+					set_current_state(TASK_UNINTERRUPTIBLE);
+				}
 				set_current_state(TASK_RUNNING);
 				remove_wait_queue (&unlink_wakeup, &wait); 
 				if (urb->status == USB_ST_URB_PENDING) {
@@ -1284,6 +1287,7 @@ static void ep_rm_ed (struct usb_device * usb_dev, ed_t * ed)
 		/* enable SOF interrupt */
 		writel (OHCI_INTR_SF, &ohci->regs->intrstatus);
 		writel (OHCI_INTR_SF, &ohci->regs->intrenable);
+		(void)readl (&ohci->regs->intrdisable); /* PCI posting flush */
 	}
 }
 
@@ -1404,6 +1408,7 @@ static void td_submit_urb (struct urb * urb)
 			if (!ohci->sleeping) {
 				wmb();
 				writel (OHCI_BLF, &ohci->regs->cmdstatus); /* start bulk list */
+				(void)readl (&ohci->regs->intrdisable); /* PCI posting flush */
 			}
 			break;
 
@@ -1432,6 +1437,7 @@ static void td_submit_urb (struct urb * urb)
 			if (!ohci->sleeping) {
 				wmb();
 				writel (OHCI_CLF, &ohci->regs->cmdstatus); /* start Control list */
+				(void)readl (&ohci->regs->intrdisable); /* PCI posting flush */
 			}
 			break;
 
@@ -2239,6 +2245,8 @@ static int hc_start (ohci_t * ohci)
 	writel (RH_HS_LPSC, &ohci->regs->roothub.status);
 #endif	/* OHCI_USE_NPS */
 
+	(void)readl (&ohci->regs->intrdisable); /* PCI posting flush */
+
 	// POTPGT delay is bits 24-31, in 2 ms units.
 	mdelay ((roothub_a (ohci) >> 23) & 0x1fe);
  
@@ -2340,24 +2348,30 @@ static void hc_interrupt (int irq, void * __ohci, struct pt_regs * r)
   
 	if (ints & OHCI_INTR_WDH) {
 		writel (OHCI_INTR_WDH, &regs->intrdisable);	
+		(void)readl (&regs->intrdisable); /* PCI posting flush */
 		dl_done_list (ohci, dl_reverse_done_list (ohci));
 		writel (OHCI_INTR_WDH, &regs->intrenable); 
+		(void)readl (&regs->intrdisable); /* PCI posting flush */
 	}
   
 	if (ints & OHCI_INTR_SO) {
 		dbg("USB Schedule overrun");
 		writel (OHCI_INTR_SO, &regs->intrenable); 	 
+		(void)readl (&regs->intrdisable); /* PCI posting flush */
 	}
 
 	// FIXME:  this assumes SOF (1/ms) interrupts don't get lost...
 	if (ints & OHCI_INTR_SF) { 
 		unsigned int frame = le16_to_cpu (ohci->hcca->frame_no) & 1;
 		writel (OHCI_INTR_SF, &regs->intrdisable);	
+		(void)readl (&regs->intrdisable); /* PCI posting flush */
 		if (ohci->ed_rm_list[!frame] != NULL) {
 			dl_del_list (ohci, !frame);
 		}
-		if (ohci->ed_rm_list[frame] != NULL)
+		if (ohci->ed_rm_list[frame] != NULL) {
 			writel (OHCI_INTR_SF, &regs->intrenable);	
+			(void)readl (&regs->intrdisable); /* PCI posting flush */
+		}
 	}
 
 	if (!list_empty (&ohci->timeout_list)) {
@@ -2371,6 +2385,7 @@ static void hc_interrupt (int irq, void * __ohci, struct pt_regs * r)
 
 	writel (ints, &regs->intrstatus);
 	writel (OHCI_INTR_MIE, &regs->intrenable);	
+	(void)readl (&regs->intrdisable); /* PCI posting flush */
 }
 
 /*-------------------------------------------------------------------------*/
@@ -2521,6 +2536,7 @@ hc_found_ohci (struct pci_dev *dev, int irq,
 
 	/* FIXME this is a second HC reset; why?? */
 	writel (ohci->hc_control = OHCI_USB_RESET, &ohci->regs->control);
+	(void)readl (&ohci->regs->intrdisable); /* PCI posting flush */
 	wait_ms (10);
 
 	usb_register_bus (ohci->bus);

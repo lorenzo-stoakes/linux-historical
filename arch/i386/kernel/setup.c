@@ -2459,6 +2459,8 @@ void __init get_cpu_vendor(struct cpuinfo_x86 *c)
 	else if (!strcmp(v, "GenuineTMx86") ||
 		 !strcmp(v, "TransmetaCPU"))
 		c->x86_vendor = X86_VENDOR_TRANSMETA;
+	else if (!strcmp(v, "SiS SiS SiS "))
+		c->x86_vendor = X86_VENDOR_SIS;
 	else
 		c->x86_vendor = X86_VENDOR_UNKNOWN;
 }
@@ -2510,6 +2512,9 @@ static struct cpu_model_info cpu_models[] __initdata = {
 	{ X86_VENDOR_RISE,	5,
 	  { "iDragon", NULL, "iDragon", NULL, NULL, NULL, NULL,
 	    NULL, "iDragon II", "iDragon II", NULL, NULL, NULL, NULL, NULL, NULL }},
+	{ X86_VENDOR_SIS,	5,
+	  { NULL, NULL, NULL, NULL, "SiS55x", NULL, NULL,
+	    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }},
 };
 
 /* Look up CPU names by table lookup. */

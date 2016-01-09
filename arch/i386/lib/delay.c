@@ -56,7 +56,7 @@ static void __loop_delay(unsigned long loops)
 		:"=&a" (d0)
 		:"0" (loops));
 }
-extern __cyclone_delay(unsigned long loops);
+extern void __cyclone_delay(unsigned long loops);
 extern int use_cyclone;
 void __delay(unsigned long loops)
 {

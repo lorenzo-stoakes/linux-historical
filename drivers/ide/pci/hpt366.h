@@ -512,6 +512,20 @@ static ide_pci_device_t hpt366_chipsets[] __devinitdata = {
 		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
 		.bootable	= OFF_BOARD,
 		.extra		= 0
+	},{	/* 5 */
+		.vendor		= PCI_VENDOR_ID_TTI,
+		.device		= PCI_DEVICE_ID_TTI_HPT372N,
+		.name		= "HPT372N",
+		.init_setup	= init_setup_hpt37x,
+		.init_chipset	= init_chipset_hpt366,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_hpt366,
+		.init_dma	= init_dma_hpt366,
+		.channels	= 2,	/* 4 */
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= OFF_BOARD,
+		.extra		= 0
 	},{
 		.vendor		= 0,
 		.device		= 0,

@@ -490,7 +490,7 @@ static int config_drive_for_dma (ide_drive_t *drive)
 	struct hd_driveid *id = drive->id;
 	ide_hwif_t *hwif = HWIF(drive);
 
-	if (id && (id->capability & 1) && hwif->autodma) {
+	if ((id->capability & 1) && hwif->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			return hwif->ide_dma_off(drive);
@@ -689,11 +689,6 @@ int __ide_dma_read (ide_drive_t *drive /*, struct request *rq */)
 	drive->waiting_for_dma = 1;
 	if (drive->media != ide_disk)
 		return 0;
-	/* paranoia check */
-	if (HWGROUP(drive)->handler != NULL)
-		BUG();
-	ide_set_handler(drive, &ide_dma_intr, 2*WAIT_CMD, dma_timer_expiry);
-
 	/*
 	 * FIX ME to use only ACB ide_task_t args Struct
 	 */
@@ -710,8 +705,7 @@ int __ide_dma_read (ide_drive_t *drive /*, struct request *rq */)
 	}
 #endif
 	/* issue cmd to drive */
-	hwif->OUTB(command, IDE_COMMAND_REG);
-
+	ide_execute_command(drive, command, &ide_dma_intr, 2*WAIT_CMD, dma_timer_expiry);
 	return HWIF(drive)->ide_dma_count(drive);
 }
 
@@ -741,10 +735,6 @@ int __ide_dma_write (ide_drive_t *drive /*, struct request *rq */)
 	drive->waiting_for_dma = 1;
 	if (drive->media != ide_disk)
 		return 0;
-	/* paranoia check */
-	if (HWGROUP(drive)->handler != NULL)
-		BUG();
-	ide_set_handler(drive, &ide_dma_intr, 2*WAIT_CMD, dma_timer_expiry);
 	/*
 	 * FIX ME to use only ACB ide_task_t args Struct
 	 */
@@ -761,7 +751,7 @@ int __ide_dma_write (ide_drive_t *drive /*, struct request *rq */)
 	}
 #endif
 	/* issue cmd to drive */
-	hwif->OUTB(command, IDE_COMMAND_REG);
+	ide_execute_command(drive, command, &ide_dma_intr, 2*WAIT_CMD, dma_timer_expiry);
 	return HWIF(drive)->ide_dma_count(drive);
 }
 
@@ -825,7 +815,9 @@ int __ide_dma_test_irq (ide_drive_t *drive)
 	if (!drive->waiting_for_dma)
 		printk(KERN_WARNING "%s: (%s) called while not waiting\n",
 			drive->name, __FUNCTION__);
+#if 0
 	drive->waiting_for_dma++;
+#endif
 	return 0;
 }
 

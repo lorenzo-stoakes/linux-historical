@@ -4895,19 +4895,18 @@ static int megadev_ioctl (struct inode *inode, struct file *filep,
 
 			if( kvaddr == NULL ) {
 				printk(KERN_WARNING "megaraid:allocation failed\n");
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)	/*0x20400 */
-				kfree(scsicmd);
-#else
-				scsi_init_free((char *)scsicmd, sizeof(Scsi_Cmnd));
-#endif
-				return -ENOMEM;
+				ret = -ENOMEM;
+				goto out;
 			}
 
 			ioc.ui.fcs.buffer = kvaddr;
 
 			if (inlen) {
 				/* copyin the user data */
-				copy_from_user(kvaddr, (char *)uaddr, length );
+				if (copy_from_user(kvaddr, (char *)uaddr, length )) {
+					ret = -EFAULT;
+					goto out;
+				}
 			}
 		}
 
@@ -4925,7 +4924,8 @@ static int megadev_ioctl (struct inode *inode, struct file *filep,
 
 		if( !scsicmd->result && outlen ) {
 			if (copy_to_user(uaddr, kvaddr, length))
-				return -EFAULT;
+				ret = -EFAULT;
+				goto out;
 		}
 
 		/*
@@ -4944,6 +4944,7 @@ static int megadev_ioctl (struct inode *inode, struct file *filep,
 			put_user (scsicmd->result, &uioc->mbox[17]);
 		}
 
+out:
 		if (kvaddr) {
 			dma_free_consistent(pdevp, length, kvaddr, dma_addr);
 		}

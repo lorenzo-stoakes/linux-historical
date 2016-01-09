@@ -33,7 +33,6 @@
 #include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <linux/proc_fs.h>
 
@@ -1661,7 +1660,7 @@ void * __jbd_kmalloc (char *where, size_t size, int flags, int retry)
 		 * messages. */
 		jbd_debug(1, "ENOMEM in %s, retrying.\n", where);
 
-		if (time_after(jiffies, last_warning + 5*HZ)) {
+		if (time_after(jiffies, last_warning + 120*HZ)) {
 			printk(KERN_NOTICE
 			       "ENOMEM in %s, retrying.\n", where);
 			last_warning = jiffies;

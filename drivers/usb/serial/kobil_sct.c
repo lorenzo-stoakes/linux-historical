@@ -254,6 +254,7 @@ static int kobil_open (struct usb_serial_port *port, struct file *filp)
 		port->write_urb = usb_alloc_urb(0);  
 		if (!port->write_urb) {
 			dbg("%s - port %d usb_alloc_urb failed", __FUNCTION__, port->number);
+			kfree(transfer_buffer);
 			return -1;
 		}
 	}
@@ -261,6 +262,7 @@ static int kobil_open (struct usb_serial_port *port, struct file *filp)
 	// allocate memory for write_urb transfer buffer
 	port->write_urb->transfer_buffer = (unsigned char *) kmalloc(write_urb_transfer_buffer_length, GFP_KERNEL);
 	if (! port->write_urb->transfer_buffer) {
+		kfree(transfer_buffer);
 		return -1;
 	} 
 

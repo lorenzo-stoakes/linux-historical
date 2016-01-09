@@ -2927,23 +2927,13 @@ static int __init i810_ac97_init(struct i810_card *card)
 		
 		/* Check for an AC97 1.0 soft modem (ID1) */
 		
-		if(codec->codec_read(codec, AC97_RESET) & 2)
+		if(codec->modem)
 		{
-			printk(KERN_WARNING "i810_audio: codec %d is an AC97 1.0 softmodem - skipping.\n", ac97_id);
+			printk(KERN_WARNING "i810_audio: codec %d is a softmodem - skipping.\n", ac97_id);
 			kfree(codec);
 			continue;
 		}
 		
-		/* Check for an AC97 2.x soft modem */
-		
-		codec->codec_write(codec, AC97_EXTENDED_MODEM_ID, 0L);
-		if(codec->codec_read(codec, AC97_EXTENDED_MODEM_ID) & 1)
-		{
-			printk(KERN_WARNING "i810_audio: codec %d is an AC97 2.x softmodem - skipping.\n", ac97_id);
-			kfree(codec);
-			continue;
-		}
-	
 		card->ac97_features = eid;
 
 		/* Now check the codec for useful features to make up for

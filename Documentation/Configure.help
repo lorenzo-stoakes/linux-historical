@@ -11095,6 +11095,7 @@ CONFIG_E1000
      82544       PRO/1000 XF Server Adapter           A50484-xxx
      82544       PRO/1000 T Desktop Adapter           A62947-xxx
      82540       PRO/1000 MT Desktop Adapter          A78408-xxx
+     82541       PRO/1000 MT Desktop Adapter          C91016-xxx
      82545       PRO/1000 MT Server Adapter           A92165-xxx
      82546       PRO/1000 MT Dual Port Server Adapter A92111-xxx
      82545       PRO/1000 MF Server Adapter           A91622-xxx
@@ -21552,12 +21553,21 @@ CONFIG_BLUEZ_HCIUSB
   Say Y here to compile support for Bluetooth USB devices into the
   kernel or say M to compile it as module (hci_usb.o).
 
+HCI USB SCO (voice) support
+CONFIG_BLUEZ_USB_SCO
+  This option enables the SCO support in the HCI USB driver. You need this
+  to transmit voice data with your Bluetooth USB device. And your device
+  must also support sending SCO data over the HCI layer, because some of
+  them sends the SCO data to an internal PCM adapter.
+ 
+  Say Y here to compile support for HCI SCO data.
+ 
 HCI USB zero packet support
 CONFIG_BLUEZ_USB_ZERO_PACKET
-  Support for USB zero packets.
   This option is provided only as a work around for buggy Bluetooth USB 
-  devices. Do _not_ enable it unless you know for sure that your device 
+  devices. Do NOT enable it unless you know for sure that your device 
   requires zero packets.
+ 
   Most people should say N here.
 
 HCI VHCI Virtual HCI device driver

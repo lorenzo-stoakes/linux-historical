@@ -38,6 +38,7 @@ static int aec62xx_get_info (char *buffer, char **addr, off_t offset, int count)
 	char *chipset_nums[] = {"error", "error", "error", "error",
 				"error", "error", "850UF",   "860",
 				 "860R",   "865",  "865R", "error"  };
+	int len;
 	int i;
 
 	for (i = 0; i < n_aec_devs; i++) {
@@ -170,7 +171,11 @@ static int aec62xx_get_info (char *buffer, char **addr, off_t offset, int count)
 #endif /* DEBUG_AEC_REGS */
 		}
 	}
-	return p-buffer;/* => must be less than 4k! */
+	/* p - buffer must be less than 4k! */
+	len = (p - buffer) - offset;
+	*addr = buffer + offset;
+	
+	return len > count ? count : len;
 }
 #endif	/* defined(DISPLAY_AEC62xx_TIMINGS) && defined(CONFIG_PROC_FS) */
 
@@ -324,7 +329,7 @@ static int aec62xx_config_drive_xfer_rate (ide_drive_t *drive)
 	ide_hwif_t *hwif	= HWIF(drive);
 	struct hd_driveid *id	= drive->id;
 
-	if (id && (id->capability & 1) && drive->autodma) {
+	if ((id->capability & 1) && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;
@@ -409,7 +414,7 @@ static unsigned int __init init_chipset_aec62xx (struct pci_dev *dev, const char
 
 	if (dev->resource[PCI_ROM_RESOURCE].start) {
 		pci_write_config_dword(dev, PCI_ROM_ADDRESS, dev->resource[PCI_ROM_RESOURCE].start | PCI_ROM_ADDRESS_ENABLE);
-		printk("%s: ROM enabled at 0x%08lx\n", name, dev->resource[PCI_ROM_RESOURCE].start);
+		printk(KERN_INFO "%s: ROM enabled at 0x%08lx\n", name, dev->resource[PCI_ROM_RESOURCE].start);
 	}
 
 #if defined(DISPLAY_AEC62XX_TIMINGS) && defined(CONFIG_PROC_FS)

@@ -174,6 +174,7 @@ rtrap_xcall:
 		 * sched+signal checks with IRQs disabled.
 		 */
 to_user:	wrpr			%g0, RTRAP_PSTATE_IRQOFF, %pstate
+		wrpr			0, %pil
 __handle_preemption_continue:
 		ldx			[%g6 + AOFF_task_need_resched], %l0
 		brnz,pn			%l0, __handle_preemption

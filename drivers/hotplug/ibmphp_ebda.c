@@ -597,8 +597,8 @@ static char *convert_2digits_to_char (int var)
 	char *str1;
 
 	str = (char *) kmalloc (3, GFP_KERNEL);
-	memset (str, 0, 3);
-	str1 = (char *) kmalloc (2, GFP_KERNEL);
+	if (!str)
+		return NULL;
 	memset (str, 0, 3);
 	bit = (int)(var / 10);
 	switch (bit) {
@@ -608,13 +608,20 @@ static char *convert_2digits_to_char (int var)
 		return str;
 	default: 	
 		//2 digits number
+		str1 = (char *) kmalloc (2, GFP_KERNEL);
+		if (!str1) {
+			break;
+		}
+		memset (str, 0, 3);
 		*str1 = (char)(bit + 48);
 		strncpy (str, str1, 1);
 		memset (str1, 0, 3);
 		*str1 = (char)((var % 10) + 48);
 		strcat (str, str1);
+		kfree(str1);
 		return str;
-	}	
+	}
+	kfree(str);
 	return NULL;	
 }
 
@@ -1022,6 +1029,10 @@ static int __init ebda_rsrc_controller (void)
 			bus_info_ptr1 = ibmphp_find_same_bus_num (hpc_ptr->slots[index].slot_bus_num);
 			if (!bus_info_ptr1) {
 				iounmap (io_mem);
+				kfree (hp_slot_ptr->name);
+				kfree (hp_slot_ptr->info);
+				kfree (hp_slot_ptr->private);
+				kfree (hp_slot_ptr);
 				return -ENODEV;
 			}
 			((struct slot *) hp_slot_ptr->private)->bus_on = bus_info_ptr1;
@@ -1036,12 +1047,20 @@ static int __init ebda_rsrc_controller (void)
 			rc = ibmphp_hpc_fillhpslotinfo (hp_slot_ptr);
 			if (rc) {
 				iounmap (io_mem);
+				kfree (hp_slot_ptr->name);
+				kfree (hp_slot_ptr->info);
+				kfree (hp_slot_ptr->private);
+				kfree (hp_slot_ptr);
 				return rc;
 			}
 
 			rc = ibmphp_init_devno ((struct slot **) &hp_slot_ptr->private);
 			if (rc) {
 				iounmap (io_mem);
+				kfree (hp_slot_ptr->name);
+				kfree (hp_slot_ptr->info);
+				kfree (hp_slot_ptr->private);
+				kfree (hp_slot_ptr);
 				return rc;
 			}
 			hp_slot_ptr->ops = &ibmphp_hotplug_slot_ops;

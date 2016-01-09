@@ -538,7 +538,7 @@ fi
 endmenu
 
 if [ "$CONFIG_ARCH_CLPS711X" = "y" ]; then
-   source drivers/ssi/Config.in
+   source drivers/scsi/Config.in
 fi
 
 source drivers/ieee1394/Config.in

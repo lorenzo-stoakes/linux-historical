@@ -129,7 +129,8 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 #endif
 	extern unsigned long start;
 	char *cp;
-	unsigned long TotalMemory;
+	/* Default to 32MiB memory. */
+	unsigned long TotalMemory = 0x02000000;
 	int dev_handle;
 	int mem_info[2];
 	int res, size;
@@ -217,12 +218,13 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 				start_multi = 1;
 		}
 		memcpy(hold_residual,residual,sizeof(RESIDUAL));
+
+		/* Copy the memory info. */
+		if (residual->TotalMemory)
+			TotalMemory = residual->TotalMemory;
 	} else {
 		/* Tell the user we didn't find anything. */
 		puts("No residual data found.\n");
-
-		/* Assume 32M in the absence of more info... */
-		TotalMemory = 0x02000000;
 
 		/*
 		 * This is a 'best guess' check.  We want to make sure
@@ -255,9 +257,6 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 			TotalMemory = mem_info[1];
 			break;
 		}
-
-		hold_residual->TotalMemory = TotalMemory;
-		residual = hold_residual;
 
 		/* Enforce a sane MSR for booting. */
 		_put_MSR(MSR_IP);
@@ -379,6 +378,11 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 
 		rec->tag = BI_FIRST;
 		rec->size = sizeof(struct bi_record);
+		rec = (struct bi_record *)((unsigned long)rec + rec->size);
+
+		rec->tag = BI_MEMSIZE;
+		rec->data[0] = TotalMemory;
+		rec->size = sizeof(struct bi_record) + sizeof(unsigned long);
 		rec = (struct bi_record *)((unsigned long)rec + rec->size);
 
 		rec->tag = BI_BOOTLOADER_ID;

@@ -2,12 +2,12 @@
  * linux/drivers/ide/pci/cy82c693.c		Version 0.40	Sep. 10, 2002
  *
  *  Copyright (C) 1998-2000 Andreas S. Krebs (akrebs@altavista.net), Maintainer
- *  Copyright (C) 1998-2002 Andre Hedrick <andre@linux-ide.org>, Integrater
+ *  Copyright (C) 1998-2002 Andre Hedrick <andre@linux-ide.org>, Integrator
  *
  * CYPRESS CY82C693 chipset IDE controller
  *
  * The CY82C693 chipset is used on Digital's PC-Alpha 164SX boards.
- * Writting the driver was quite simple, since most of the job is
+ * Writing the driver was quite simple, since most of the job is
  * done by the generic pci-ide support. 
  * The hard part was finding the CY82C693's datasheet on Cypress's
  * web page :-(. But Altavista solved this problem :-).
@@ -192,23 +192,21 @@ int cy82c693_ide_dma_on (ide_drive_t *drive)
 	printk (KERN_INFO "dma_on: %s\n", drive->name);
 #endif /* CY82C693_DEBUG_INFO */
 
-	if (id != NULL) {		
-		/* Enable DMA on any drive that has DMA
-		 * (multi or single) enabled
-		 */
-		if (id->field_valid & 2) {	/* regular DMA */
-			int mmode, smode;
+	/* Enable DMA on any drive that has DMA
+	 * (multi or single) enabled
+	 */
+	if (id->field_valid & 2) {	/* regular DMA */
+		int mmode, smode;
 
-			mmode = id->dma_mword & (id->dma_mword >> 8);
-			smode = id->dma_1word & (id->dma_1word >> 8);
+		mmode = id->dma_mword & (id->dma_mword >> 8);
+		smode = id->dma_1word & (id->dma_1word >> 8);
 			       		      
-			if (mmode != 0) {
-				/* enable multi */
-				cy82c693_dma_enable(drive, (mmode >> 1), 0);
-			} else if (smode != 0) {
-				/* enable single */
-				cy82c693_dma_enable(drive, (smode >> 1), 1);
-			}
+		if (mmode != 0) {
+			/* enable multi */
+			cy82c693_dma_enable(drive, (mmode >> 1), 0);
+		} else if (smode != 0) {
+			/* enable single */
+			cy82c693_dma_enable(drive, (smode >> 1), 1);
 		}
 	}
         return __ide_dma_on(drive);
@@ -335,7 +333,7 @@ static void cy82c693_tune_drive (ide_drive_t *drive, u8 pio)
 /*
  * this function is called during init and is used to setup the cy82c693 chip
  */
-unsigned int __init init_chipset_cy82c693(struct pci_dev *dev, const char *name)
+static unsigned int __init init_chipset_cy82c693(struct pci_dev *dev, const char *name)
 {
 	if (PCI_FUNC(dev->devfn) != 1)
 		return 0;
@@ -387,7 +385,7 @@ unsigned int __init init_chipset_cy82c693(struct pci_dev *dev, const char *name)
 /*
  * the init function - called for each ide channel once
  */
-void __init init_hwif_cy82c693(ide_hwif_t *hwif)
+static void __init init_hwif_cy82c693(ide_hwif_t *hwif)
 {
 	hwif->autodma = 0;
 

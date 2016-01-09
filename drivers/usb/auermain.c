@@ -55,7 +55,7 @@ do {			\
 
 /*-------------------------------------------------------------------*/
 /* Version Information */
-#define DRIVER_VERSION "1.2.0"
+#define DRIVER_VERSION "1.2.3"
 #define DRIVER_AUTHOR  "Wolfgang Mües <wolfgang@iksw-muees.de>"
 #define DRIVER_DESC    "Auerswald PBX/System Telephone usb driver"
 

@@ -155,7 +155,7 @@ static int sl82c105_check_drive (ide_drive_t *drive)
 		if (!drive->autodma)
 			break;
 
-		if (!id || !(id->capability & 1))
+		if (!(id->capability & 1))
 			break;
 
 		/* Consult the list of known "bad" drives */
@@ -470,7 +470,7 @@ static void __init init_hwif_sl82c105(ide_hwif_t *hwif)
 	  */
 	hwif->drives[0].pio_speed = XFER_PIO_0;
 	hwif->drives[0].autotune = 1;
-	hwif->drives[1].pio_speed = XFER_PIO_1;
+	hwif->drives[1].pio_speed = XFER_PIO_0;
 	hwif->drives[1].autotune = 1;
 
 	pci_read_config_dword(dev, 0x40, &val);

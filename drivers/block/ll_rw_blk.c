@@ -1129,7 +1129,7 @@ void generic_make_request (int rw, struct buffer_head * bh)
 
 		if (maxsector < count || maxsector - count < sector) {
 			/* Yecch */
-			bh->b_state &= (1 << BH_Lock) | (1 << BH_Mapped);
+			bh->b_state &= ~(1 << BH_Dirty);
 
 			/* This may well happen - the kernel calls bread()
 			   without checking the size of the device, e.g.,
@@ -1140,7 +1140,6 @@ void generic_make_request (int rw, struct buffer_head * bh)
 			       kdevname(bh->b_rdev), rw,
 			       (sector + count)>>1, minorsize);
 
-			/* Yecch again */
 			bh->b_end_io(bh, 0);
 			return;
 		}

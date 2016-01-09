@@ -34,8 +34,9 @@ static struct pci_dev *bmide_dev;
 static int slc90e66_get_info (char *buffer, char **addr, off_t offset, int count)
 {
 	char *p = buffer;
+	int len;
 	unsigned long bibma = pci_resource_start(bmide_dev, 4);
-        u16 reg40 = 0, psitre = 0, reg42 = 0, ssitre = 0;
+	u16 reg40 = 0, psitre = 0, reg42 = 0, ssitre = 0;
 	u8  c0 = 0, c1 = 0;
 	u8  reg44 = 0, reg47 = 0, reg48 = 0, reg4a = 0, reg4b = 0;
 
@@ -110,7 +111,11 @@ static int slc90e66_get_info (char *buffer, char **addr, off_t offset, int count
  *	FIXME.... Add configuration junk data....blah blah......
  */
 
-	return p-buffer;	 /* => must be less than 4k! */
+	/* p - buffer must be less than 4k! */
+	len = (p - buffer) - offset;
+	*addr = buffer + offset;
+	
+	return len > count ? count : len;
 }
 #endif  /* defined(DISPLAY_SLC90E66_TIMINGS) && defined(CONFIG_PROC_FS) */
 
@@ -269,7 +274,7 @@ static int slc90e66_config_drive_xfer_rate (ide_drive_t *drive)
 
 	drive->init_speed = 0;
 
-	if (id && (id->capability & 1) && drive->autodma) {
+	if ((id->capability & 1) && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;

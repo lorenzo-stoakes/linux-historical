@@ -5,21 +5,18 @@
 #include <linux/pci.h>
 #include <linux/ide.h>
 
-extern void init_setup_pdcadma(struct pci_dev *, ide_pci_device_t *);
-extern unsigned int init_chipset_pdcadma(struct pci_dev *, const char *);
-extern void init_hwif_pdcadma(ide_hwif_t *);
-extern void init_dma_pdcadma(ide_hwif_t *, unsigned long);
+extern void init_hwif_adma100(ide_hwif_t *);
 
-static ide_pci_device_t pdcadma_chipsets[] __devinitdata = {
+static ide_pci_device_t adma100_chipsets[] __devinitdata = {
 	{
 		.vendor		= PCI_VENDOR_ID_PDC,
-		.device		= PCI_DEVICE_ID_PDC_1841,
+		.device		= PCI_DEVICE_ID_PDC_ADMA100,
 		.name		= "ADMA100",
-		.init_setup	= init_setup_pdcadma,
-		.init_chipset	= init_chipset_pdcadma,
+		.init_setup	= NULL,
+		.init_chipset	= NULL,
 		.init_iops	= NULL,
-		.init_hwif	= init_hwif_pdcadma,
-		.init_dma	= init_dma_pdcadma,
+		.init_hwif	= init_hwif_adma100,
+		.init_dma	= NULL,
 		.channels	= 2,
 		.autodma	= NODMA,
 		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
@@ -31,6 +28,6 @@ static ide_pci_device_t pdcadma_chipsets[] __devinitdata = {
 		.channels	= 0,
 		.bootable	= EOL,
 	}
-}
+};
 
 #endif /* ADMA_100_H */

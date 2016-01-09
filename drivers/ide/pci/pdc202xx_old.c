@@ -177,13 +177,17 @@ static char * pdc202xx_info (char *buf, struct pci_dev *dev)
 static int pdc202xx_get_info (char *buffer, char **addr, off_t offset, int count)
 {
 	char *p = buffer;
-	int i;
+	int i, len;
 
 	for (i = 0; i < n_pdc202_devs; i++) {
 		struct pci_dev *dev	= pdc202_devs[i];
 		p = pdc202xx_info(buffer, dev);
 	}
-	return p-buffer;	/* => must be less than 4k! */
+	/* p - buffer must be less than 4k! */
+	len = (p - buffer) - offset;
+	*addr = buffer + offset;
+	
+	return len > count ? count : len;
 }
 #endif  /* defined(DISPLAY_PDC202XX_TIMINGS) && defined(CONFIG_PROC_FS) */
 
@@ -400,7 +404,7 @@ static int config_chipset_for_dma (ide_drive_t *drive)
 	 * fall back to U33 mode. The BIOS INT 13 hooks turn
 	 * the clock on then off for each read/write issued. I don't
 	 * do that here because it would require modifying the
-	 * kernel, seperating the fop routines from the kernel or
+	 * kernel, separating the fop routines from the kernel or
 	 * somehow hooking the fops calls. It may also be possible to
 	 * leave the 66Mhz clock on and readjust the timing
 	 * parameters.
@@ -487,7 +491,7 @@ static int pdc202xx_config_drive_xfer_rate (ide_drive_t *drive)
 
 	drive->init_speed = 0;
 
-	if (id && (id->capability & 1) && drive->autodma) {
+	if ((id->capability & 1) && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;

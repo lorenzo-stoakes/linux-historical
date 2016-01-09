@@ -51,6 +51,7 @@
 #include <asm/isa.h>
 #endif
 #include <asm/a.out.h>
+#include <asm/timer.h>
 
 struct poll {
 	int fd;
@@ -367,3 +368,5 @@ EXPORT_SYMBOL(batten_down_hatches);
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 EXPORT_SYMBOL(do_BUG);
 #endif
+
+EXPORT_SYMBOL(tick_ops);

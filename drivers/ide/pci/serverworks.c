@@ -57,7 +57,7 @@ static int n_svwks_devs;
 static int svwks_get_info (char *buffer, char **addr, off_t offset, int count)
 {
 	char *p = buffer;
-	int i;
+	int i, len;
 
 	p += sprintf(p, "\n                             "
 			"ServerWorks OSB4/CSB5/CSB6\n");
@@ -195,7 +195,11 @@ static int svwks_get_info (char *buffer, char **addr, off_t offset, int count)
 	}
 	p += sprintf(p, "\n");
 
-	return p-buffer;	 /* => must be less than 4k! */
+	/* p - buffer must be less than 4k! */
+	len = (p - buffer) - offset;
+	*addr = buffer + offset;
+	
+	return len > count ? count : len;
 }
 #endif  /* defined(DISPLAY_SVWKS_TIMINGS) && defined(CONFIG_PROC_FS) */
 
@@ -436,7 +440,7 @@ static int svwks_config_drive_xfer_rate (ide_drive_t *drive)
 
 	drive->init_speed = 0;
 
-	if (id && (id->capability & 1) && drive->autodma) {
+	if ((id->capability & 1) && drive->autodma) {
 		/* Consult the list of known "bad" drives */
 		if (hwif->ide_dma_bad_drive(drive))
 			goto fast_ata_pio;
@@ -578,7 +582,7 @@ static unsigned int __init init_chipset_svwks (struct pci_dev *dev, const char *
 			 * This is a device pin issue on CSB6.
 			 * Since there will be a future raid mode,
 			 * early versions of the chipset require the
-			 * interrupt pin to be set, and it is a compatablity
+			 * interrupt pin to be set, and it is a compatibility
 			 * mode issue.
 			 */
 			dev->irq = 0;

@@ -1,11 +1,12 @@
 /*
- *  linux/drivers/ide/ide-disk.c	Version 1.16	April 7, 2002
- *
- *  Copyright (C) 1998-2002  Linux ATA Developemt
- *				Andre Hedrick <andre@linux-ide.org>
- *
+ *  linux/drivers/ide/ide-disk.c	Version 1.18	Mar 05, 2003
  *
  *  Copyright (C) 1994-1998  Linus Torvalds & authors (see below)
+ *  Copyright (C) 1998-2002  Linux ATA Developemt
+ *				Andre Hedrick <andre@linux-ide.org>
+ *  Copyright (C) 2003	     Red Hat <alan@redhat.com>
+ *
+ *
  */
 
 /*
@@ -38,9 +39,11 @@
  * Version 1.15		convert all calls to ide_raw_taskfile
  *				since args will return register content.
  * Version 1.16		added suspend-resume-checkpower
+ * Version 1.17		do flush on standy, do flush on ATA < ATA6
+ *			fix wcache setup.
  */
 
-#define IDEDISK_VERSION	"1.16"
+#define IDEDISK_VERSION	"1.17"
 
 #undef REALLY_SLOW_IO		/* most systems can safely undef this */
 
@@ -67,7 +70,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-/* FIXME: soem day we shouldnt need to look in here! */
+/* FIXME: some day we shouldnt need to look in here! */
 
 #include "legacy/pdc4030.h"
 
@@ -159,8 +162,6 @@ static ide_startstop_t read_intr (ide_drive_t *drive)
 			return DRIVER(drive)->error(drive, "read_intr", stat);
 		}
 		/* no data yet, so wait for another interrupt */
-		if (HWGROUP(drive)->handler != NULL)
-			BUG();
 		ide_set_handler(drive, &read_intr, WAIT_CMD, NULL);
 		return ide_started;
 	}
@@ -196,8 +197,6 @@ read_next:
 	if (i > 0) {
 		if (msect)
 			goto read_next;
-		if (HWGROUP(drive)->handler != NULL)
-			BUG();
 		ide_set_handler(drive, &read_intr, WAIT_CMD, NULL);
                 return ide_started;
 	}
@@ -237,8 +236,6 @@ static ide_startstop_t write_intr (ide_drive_t *drive)
 				char *to = ide_map_buffer(rq, &flags);
 				taskfile_output_data(drive, to, SECTOR_WORDS);
 				ide_unmap_buffer(to, &flags);
-				if (HWGROUP(drive)->handler != NULL)
-					BUG();
 				ide_set_handler(drive, &write_intr, WAIT_CMD, NULL);
                                 return ide_started;
 			}
@@ -332,8 +329,6 @@ static ide_startstop_t multwrite_intr (ide_drive_t *drive)
 			if (rq->nr_sectors) {
 				if (ide_multwrite(drive, drive->mult_count))
 					return ide_stopped;
-				if (HWGROUP(drive)->handler != NULL)
-					BUG();
 				ide_set_handler(drive, &multwrite_intr, WAIT_CMD, NULL);
 				return ide_started;
 			}
@@ -467,12 +462,12 @@ static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsig
 #endif /* CONFIG_BLK_DEV_IDEDMA */
 		if (HWGROUP(drive)->handler != NULL)
 			BUG();
-		ide_set_handler(drive, &read_intr, WAIT_CMD, NULL);
 
 		command = ((drive->mult_count) ?
 			   ((lba48) ? WIN_MULTREAD_EXT : WIN_MULTREAD) :
 			   ((lba48) ? WIN_READ_EXT : WIN_READ));
-		hwif->OUTB(command, IDE_COMMAND_REG);
+	
+		ide_execute_command(drive, command, &read_intr, WAIT_CMD, NULL);
 		return ide_started;
 	} else if (rq_data_dir(rq) == WRITE) {
 		ide_startstop_t startstop;
@@ -509,8 +504,6 @@ static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsig
 	 * MAJOR DATA INTEGRITY BUG !!! only if we error 
 	 */
 			hwgroup->wrq = *rq; /* scratchpad */
-			if (HWGROUP(drive)->handler != NULL)
-				BUG();
 			ide_set_handler(drive, &multwrite_intr, WAIT_CMD, NULL);
 			if (ide_multwrite(drive, drive->mult_count)) {
 				unsigned long flags;
@@ -523,8 +516,6 @@ static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsig
 		} else {
 			unsigned long flags;
 			char *to = ide_map_buffer(rq, &flags);
-			if (HWGROUP(drive)->handler != NULL)
-				BUG();
 			ide_set_handler(drive, &write_intr, WAIT_CMD, NULL);
 			taskfile_output_data(drive, to, SECTOR_WORDS);
 			ide_unmap_buffer(to, &flags);
@@ -716,6 +707,7 @@ static int idedisk_open (struct inode *inode, struct file *filp, ide_drive_t *dr
 	MOD_INC_USE_COUNT;
 	if (drive->removable && drive->usage == 1) {
 		ide_task_t args;
+		int cf;
 		memset(&args, 0, sizeof(ide_task_t));
 		args.tfRegister[IDE_COMMAND_OFFSET] = WIN_DOORLOCK;
 		args.command_type = ide_cmd_type_parser(&args);
@@ -727,11 +719,37 @@ static int idedisk_open (struct inode *inode, struct file *filp, ide_drive_t *dr
 		 */
 		if (drive->doorlocking && ide_raw_taskfile(drive, &args, NULL))
 			drive->doorlocking = 0;
+		drive->wcache = 0;
+		/* Cache enabled ? */
+		if (drive->id->csfo & 1)
+			drive->wcache = 1;
+		/* Cache command set available ? */
+		if (drive->id->cfs_enable_1 & (1<<5))
+			drive->wcache = 1;
+		/* ATA6 cache extended commands */
+		cf = drive->id->command_set_2 >> 24;
+		if((cf & 0xC0) == 0x40 && (cf & 0x30) != 0)
+			drive->wcache = 1;
 	}
 	return 0;
 }
 
 static int do_idedisk_flushcache(ide_drive_t *drive);
+
+static int ide_cacheflush_p(ide_drive_t *drive)
+{
+	if(drive->wcache)
+	{
+		if (do_idedisk_flushcache(drive))
+		{
+			printk (KERN_INFO "%s: Write Cache FAILED Flushing!\n",
+				drive->name);
+			return -EIO;
+		}
+		return 1;
+	}
+	return 0;
+}
 
 static void idedisk_release (struct inode *inode, struct file *filp, ide_drive_t *drive)
 {
@@ -744,10 +762,7 @@ static void idedisk_release (struct inode *inode, struct file *filp, ide_drive_t
 		if (drive->doorlocking && ide_raw_taskfile(drive, &args, NULL))
 			drive->doorlocking = 0;
 	}
-	if ((drive->id->cfs_enable_2 & 0x3000) && drive->wcache)
-		if (do_idedisk_flushcache(drive))
-			printk (KERN_INFO "%s: Write Cache FAILED Flushing!\n",
-				drive->name);
+	ide_cacheflush_p(drive);
 	MOD_DEC_USE_COUNT;
 }
 
@@ -956,6 +971,38 @@ ide_startstop_t idedisk_error (ide_drive_t *drive, const char *msg, u8 stat)
 	return ide_stopped;
 }
 
+ide_startstop_t idedisk_abort(ide_drive_t *drive, const char *msg)
+{
+	ide_hwif_t *hwif;
+	struct request *rq;
+
+	if (drive == NULL || (rq = HWGROUP(drive)->rq) == NULL)
+		return ide_stopped;
+
+	hwif = HWIF(drive);
+	/* retry only "normal" I/O: */
+	switch (rq->cmd) {
+		case IDE_DRIVE_CMD:
+		case IDE_DRIVE_TASK:
+		case IDE_DRIVE_TASKFILE:
+			rq->errors = 1;
+			ide_end_drive_cmd(drive, BUSY_STAT, 0);
+			return ide_stopped;
+#if 0
+		case IDE_DRIVE_TASKFILE:
+			rq->errors = 1;
+			ide_end_taskfile(drive, BUSY_STAT, 0);
+			return ide_stopped;
+#endif
+		default:
+			break;
+	}
+
+	rq->errors |= ERROR_RESET;
+	DRIVER(drive)->end_request(drive, 0);
+	return ide_stopped;
+}
+
 /*
  * Queries for true maximum capacity of the drive.
  * Returns maximum LBA address (> 0) of the drive, 0 if failed.
@@ -1106,6 +1153,7 @@ static inline int idedisk_supports_host_protected_area(ide_drive_t *drive)
  * in above order (i.e., if value of higher priority is available,
  * reset will be ignored).
  */
+#define IDE_STROKE_LIMIT	(32000*1024*2)
 static void init_idedisk_capacity (ide_drive_t  *drive)
 {
 	struct hd_driveid *id = drive->id;
@@ -1126,7 +1174,7 @@ static void init_idedisk_capacity (ide_drive_t  *drive)
 		drive->cyl = (unsigned int) capacity_2 / (drive->head * drive->sect);
 		drive->select.b.lba	= 1;
 		set_max_ext = idedisk_read_native_max_address_ext(drive);
-		if (set_max_ext > capacity_2) {
+		if (set_max_ext > capacity_2 && capacity_2 > IDE_STROKE_LIMIT) {
 #ifdef CONFIG_IDEDISK_STROKE
 			set_max_ext = idedisk_read_native_max_address_ext(drive);
 			set_max_ext = idedisk_set_max_address_ext(drive, set_max_ext);
@@ -1153,7 +1201,7 @@ static void init_idedisk_capacity (ide_drive_t  *drive)
 		drive->select.b.lba = 1;
 	}
 
-	if (set_max > capacity) {
+	if (set_max > capacity && capacity > IDE_STROKE_LIMIT) {
 #ifdef CONFIG_IDEDISK_STROKE
 		set_max = idedisk_read_native_max_address(drive);
 		set_max = idedisk_set_max_address(drive, set_max);
@@ -1216,7 +1264,7 @@ static ide_startstop_t idedisk_special (ide_drive_t *drive)
 		}
 	} else if (s->b.set_multmode) {
 		s->b.set_multmode = 0;
-		if (drive->id && drive->mult_req > drive->id->max_multsect)
+		if (drive->mult_req > drive->id->max_multsect)
 			drive->mult_req = drive->id->max_multsect;
 		if (!IS_PDC4030_DRIVE) {
 			ide_task_t args;
@@ -1301,7 +1349,7 @@ static int proc_idedisk_read_cache
 	char		*out = page;
 	int		len;
 
-	if (drive->id)
+	if (drive->id_read)
 		len = sprintf(out,"%i\n", drive->id->buf_size / 2);
 	else
 		len = sprintf(out,"(none)\n");
@@ -1435,7 +1483,7 @@ static int do_idedisk_suspend (ide_drive_t *drive)
 {
 	if (drive->suspend_reset)
 		return 1;
-
+	ide_cacheflush_p(drive);
 	return call_idedisk_suspend(drive, 0);
 }
 
@@ -1573,7 +1621,7 @@ static void idedisk_setup (ide_drive_t *drive)
 	
 	idedisk_add_settings(drive);
 
-	if (id == NULL)
+	if (drive->id_read == 0)
 		return;
 
 	/*
@@ -1679,10 +1727,7 @@ static void idedisk_setup (ide_drive_t *drive)
 
 static int idedisk_cleanup(ide_drive_t *drive)
 {
-	if ((drive->id->cfs_enable_2 & 0x3000) && drive->wcache)
-		if (do_idedisk_flushcache(drive))
-			printk (KERN_INFO "%s: Write Cache FAILED Flushing!\n",
-				drive->name);
+	ide_cacheflush_p(drive);
 	return ide_unregister_subdriver(drive);
 }
 
@@ -1708,6 +1753,7 @@ static ide_driver_t idedisk_driver = {
 	end_request:		idedisk_end_request,
 	sense:			idedisk_dump_status,
 	error:			idedisk_error,
+	abort:			idedisk_abort,
 	ioctl:			idedisk_ioctl,
 	open:			idedisk_open,
 	release:		idedisk_release,

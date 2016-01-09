@@ -388,6 +388,7 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 	us->current_urb->actual_length = 0;
 	us->current_urb->error_count = 0;
 	us->current_urb->transfer_flags = USB_ASYNC_UNLINK;
+	us->current_urb->status = 0;
 
 	/* submit the URB */
 	status = usb_submit_urb(us->current_urb);
@@ -434,6 +435,7 @@ int usb_stor_bulk_msg(struct us_data *us, void *data, int pipe,
 	us->current_urb->actual_length = 0;
 	us->current_urb->error_count = 0;
 	us->current_urb->transfer_flags = USB_ASYNC_UNLINK;
+	us->current_urb->status = 0;
 
 	/* submit the URB */
 	status = usb_submit_urb(us->current_urb);
@@ -1061,7 +1063,7 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 				 US_BULK_GET_MAX_LUN, 
 				 USB_DIR_IN | USB_TYPE_CLASS | 
 				 USB_RECIP_INTERFACE,
-				 0, us->ifnum, data, sizeof(data), HZ);
+				 0, us->ifnum, data, sizeof(*data), HZ);
 
 	US_DEBUGP("GetMaxLUN command result is %d, data is %d\n", 
 		  result, *data);

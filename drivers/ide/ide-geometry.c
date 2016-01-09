@@ -211,7 +211,7 @@ int ide_xlate_1024 (kdev_t i_rdev, int xparm, int ptheads, const char *msg)
 	drive->part[0].nr_sects = current_capacity(drive);
 
 	if (ret)
-		printk(KERN_INFO "%s%s [%d/%d/%d]", msg, msg1,
+		printk("%s%s [%d/%d/%d]", msg, msg1,
 		       drive->bios_cyl, drive->bios_head, drive->bios_sect);
 	return ret;
 }

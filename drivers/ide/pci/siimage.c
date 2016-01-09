@@ -55,6 +55,7 @@ static char * print_siimage_get_info (char *buf, struct pci_dev *dev, int index)
 static int siimage_get_info (char *buffer, char **addr, off_t offset, int count)
 {
 	char *p = buffer;
+	int len;
 	u16 i;
 
 	p += sprintf(p, "\n");
@@ -62,7 +63,11 @@ static int siimage_get_info (char *buffer, char **addr, off_t offset, int count)
 		struct pci_dev *dev	= siimage_devs[i];
 		p = print_siimage_get_info(p, dev, i);
 	}
-	return p-buffer;	/* => must be less than 4k! */
+	/* p - buffer must be less than 4k! */
+	len = (p - buffer) - offset;
+	*addr = buffer + offset;
+	
+	return len > count ? count : len;
 }
 
 #endif	/* defined(DISPLAY_SIIMAGE_TIMINGS) && defined(CONFIG_PROC_FS) */
@@ -267,7 +272,7 @@ static int siimage_config_drive_for_dma (ide_drive_t *drive)
 	ide_hwif_t *hwif	= HWIF(drive);
 	struct hd_driveid *id	= drive->id;
 
-	if (id != NULL && (id->capability & 1) != 0 && drive->autodma) {
+	if ((id->capability & 1) != 0 && drive->autodma) {
 		if (!(hwif->atapi_dma))
 			goto fast_ata_pio;
 		/* Consult the list of known "bad" drives */
@@ -413,7 +418,7 @@ static int siimage_busproc (ide_drive_t * drive, int state)
 			hwif->drives[1].failures = hwif->drives[1].max_failures + 1;
 			break;
 		default:
-			return 0;
+			return -EINVAL;
 	}
 	hwif->bus_state = state;
 	return 0;
@@ -521,7 +526,19 @@ static unsigned int setup_mmio_siimage (struct pci_dev *dev, const char *name)
 	unsigned long addr;
 	void *ioaddr;
 
-	ioaddr = ioremap_nocache(bar5, (end5 - bar5));
+	/*
+	 *	Drop back to PIO if we can't map the mmio. Some
+	 *	systems seem to get terminally confused in the PCI
+	 *	spaces.
+	 */
+	 
+	if(check_mem_region(bar5, (end5-bar5)+1)!=0)
+	{
+		printk(KERN_WARNING "siimage: IDE controller MMIO ports not available.\n");
+		return 0;
+	}
+		
+	ioaddr = ioremap_nocache(bar5, (end5 - bar5)+1);
 
 	if (ioaddr == NULL)
 		return 0;

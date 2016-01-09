@@ -85,9 +85,6 @@ LIBS := $(TOPDIR)/lib/lib.a $(LIBS) $(TOPDIR)/arch/sparc64/prom/promlib.a \
 vmlinux.aout: vmlinux
 	$(ELFTOAOUT) -o $(TOPDIR)/vmlinux.aout $(TOPDIR)/vmlinux
 
-archclean:
-	rm -f $(TOPDIR)/vmlinux.aout
-
 archmrproper:
 	rm -f $(TOPDIR)/include/asm-sparc64/asm_offsets.h
 
@@ -96,5 +93,14 @@ archdep: check_asm
 check_asm: include/linux/version.h
 	$(MAKE) -C arch/sparc64/kernel check_asm
 
+
+MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot
+
+archclean:
+	@$(MAKEBOOT) clean
+
 tftpboot.img:
-	$(MAKE) -C arch/sparc64/boot tftpboot.img
+	@$(MAKEBOOT) tftpboot.img
+
+image:
+	@$(MAKEBOOT) image

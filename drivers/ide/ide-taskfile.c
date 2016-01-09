@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/ide-taskfile.c	Version 0.33	April 11, 2002
+ * linux/drivers/ide/ide-taskfile.c	Version 0.38	March 05, 2003
  *
  *  Copyright (C) 2000-2002	Michael Cornwell <cornwell@acm.org>
  *  Copyright (C) 2000-2002	Andre Hedrick <andre@linux-ide.org>
@@ -201,8 +201,7 @@ ide_startstop_t do_rw_taskfile (ide_drive_t *drive, ide_task_t *task)
 
 	hwif->OUTB((taskfile->device_head & HIHI) | drive->select.all, IDE_SELECT_REG);
 	if (task->handler != NULL) {
-		ide_set_handler(drive, task->handler, WAIT_WORSTCASE, NULL);
-		hwif->OUTB(taskfile->command, IDE_COMMAND_REG);
+		ide_execute_command(drive, taskfile->command, task->handler, WAIT_WORSTCASE, NULL);
 		if (task->prehandler != NULL)
 			return task->prehandler(drive, task->rq);
 		return ide_started;
@@ -244,13 +243,13 @@ ide_startstop_t do_rw_taskfile (ide_drive_t *drive, ide_task_t *task)
 		case WIN_WRITEDMA_ONCE:
 		case WIN_WRITEDMA:
 		case WIN_WRITEDMA_EXT:
-			if (drive->using_dma && !(hwif->ide_dma_write(drive)));
+			if (drive->using_dma && !(hwif->ide_dma_write(drive)))
 				return ide_started;
 		case WIN_READDMA_ONCE:
 		case WIN_READDMA:
 		case WIN_READDMA_EXT:
 		case WIN_IDENTIFY_DMA:
-			if (drive->using_dma && !(hwif->ide_dma_read(drive)));
+			if (drive->using_dma && !(hwif->ide_dma_read(drive)))
 				return ide_started;
 		default:
 			break;
@@ -909,7 +908,7 @@ ide_startstop_t task_mulout_intr (ide_drive_t *drive)
 				 * NOTE: could rewind beyond beginning :-/
 				 */
 			} else {
-				printk("%s: MULTI-WRITE assume all data " \
+				printk(KERN_ERR "%s: MULTI-WRITE assume all data " \
 					"transfered is bad status=0x%02x\n",
 					drive->name, stat);
 			}
@@ -930,7 +929,7 @@ ide_startstop_t task_mulout_intr (ide_drive_t *drive)
 				 * NOTE: could rewind beyond beginning :-/
 				 */
 			} else {
-				printk("%s: MULTI-WRITE assume all data " \
+				printk(KERN_ERR "%s: MULTI-WRITE assume all data " \
 					"transfered is bad status=0x%02x\n",
 					drive->name, stat);
 			}
@@ -1547,7 +1546,7 @@ int ide_taskfile_ioctl (ide_drive_t *drive, struct inode *inode, struct file *fi
 		case TASKFILE_MULTI_OUT:
 			if (!drive->mult_count) {
 				/* (hs): give up if multcount is not set */
-				printk("%s: %s Multimode Write " \
+				printk(KERN_ERR "%s: %s Multimode Write " \
 					"multcount is not set\n",
 					drive->name, __FUNCTION__);
 				err = -EPERM;
@@ -1575,7 +1574,7 @@ int ide_taskfile_ioctl (ide_drive_t *drive, struct inode *inode, struct file *fi
 		case TASKFILE_MULTI_IN:
 			if (!drive->mult_count) {
 				/* (hs): give up if multcount is not set */
-				printk("%s: %s Multimode Read failure " \
+				printk(KERN_ERR "%s: %s Multimode Read failure " \
 					"multcount is not set\n",
 					drive->name, __FUNCTION__);
 				err = -EPERM;
@@ -1673,7 +1672,7 @@ EXPORT_SYMBOL(ide_wait_cmd);
 int ide_cmd_ioctl (ide_drive_t *drive, struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
 #if 1
-	int err = 0;
+	int err = -EIO;
 	u8 args[4], *argbuf = args;
 	u8 xfer_rate = 0;
 	int argsize = 4;
@@ -1929,9 +1928,8 @@ ide_startstop_t flagged_taskfile (ide_drive_t *drive, ide_task_t *task)
  			if (task->handler == NULL)
 				return ide_stopped;
 
-			ide_set_handler(drive, task->handler, WAIT_WORSTCASE, NULL);
 			/* Issue the command */
-			hwif->OUTB(taskfile->command, IDE_COMMAND_REG);
+			ide_execute_command(drive, taskfile->command, task->handler, WAIT_WORSTCASE, NULL);
 			if (task->prehandler != NULL)
 				return task->prehandler(drive, HWGROUP(drive)->rq);
 	}

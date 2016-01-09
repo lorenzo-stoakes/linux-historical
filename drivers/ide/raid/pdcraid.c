@@ -144,15 +144,8 @@ static int pdcraid_ioctl(struct inode *inode, struct file *file, unsigned int cm
 			return 0;
 		}
 
-			
-		case BLKROSET:
-		case BLKROGET:
-		case BLKSSZGET:
-			return blk_ioctl(inode->i_rdev, cmd, arg);
-
 		default:
-			printk("Invalid ioctl \n");
-			return -EINVAL;
+			return blk_ioctl(inode->i_rdev, cmd, arg);
 	};
 
 	return 0;

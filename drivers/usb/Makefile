@@ -61,9 +61,21 @@ ifneq ($(CONFIG_USB_EHCI_HCD),n)
 endif
 
 subdir-$(CONFIG_USB_EHCI_HCD)	+= host
+
 subdir-$(CONFIG_USB_UHCI_ALT)	+= host
+ifeq ($(CONFIG_USB_UHCI_ALT),y)
+	obj-y += host/uhci.o
+endif
+
 subdir-$(CONFIG_USB_UHCI)	+= host
+ifeq ($(CONFIG_USB_UHCI),y)
+	obj-y += host/usb-uhci.o
+endif
+
 subdir-$(CONFIG_USB_OHCI)	+= host
+ifeq ($(CONFIG_USB_OHCI),y)
+	obj-y += host/usb-ohci.o
+endif
 
 obj-$(CONFIG_USB_MOUSE)		+= usbmouse.o
 obj-$(CONFIG_USB_HID)		+= hid.o

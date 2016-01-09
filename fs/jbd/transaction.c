@@ -739,7 +739,8 @@ done_locked:
 		int offset;
 		char *source;
 
-		J_ASSERT_JH(jh, buffer_uptodate(jh2bh(jh)));
+		J_EXPECT_JH(jh, buffer_uptodate(jh2bh(jh)),
+			    "Possible IO failure.\n");
 		page = jh2bh(jh)->b_page;
 		offset = ((unsigned long) jh2bh(jh)->b_data) & ~PAGE_MASK;
 		source = kmap(page);
@@ -1137,7 +1138,6 @@ int journal_dirty_metadata (handle_t *handle, struct buffer_head *bh)
 	
 	spin_lock(&journal_datalist_lock);
 	set_bit(BH_JBDDirty, &bh->b_state);
-	set_buffer_flushtime(bh);
 
 	J_ASSERT_JH(jh, jh->b_transaction != NULL);
 	
@@ -2089,6 +2089,13 @@ void journal_file_buffer(struct journal_head *jh,
 	spin_unlock(&journal_datalist_lock);
 }
 
+static void jbd_refile_buffer(struct buffer_head *bh)
+{
+	if (buffer_dirty(bh) && (bh->b_list != BUF_DIRTY))
+		set_buffer_flushtime(bh);
+	refile_buffer(bh);
+}
+
 /* 
  * Remove a buffer from its current buffer list in preparation for
  * dropping it from its current transaction entirely.  If the buffer has
@@ -2109,7 +2116,7 @@ void __journal_refile_buffer(struct journal_head *jh)
 		__journal_unfile_buffer(jh);
 		jh->b_transaction = NULL;
 		/* Onto BUF_DIRTY for writeback */
-		refile_buffer(jh2bh(jh));
+		jbd_refile_buffer(jh2bh(jh));
 		return;
 	}
 	

@@ -4,7 +4,7 @@
  *
  * (C) 2000 Red Hat. GPL'd
  *
- * $Id: cfi_cmdset_0001.c,v 1.110 2003/01/09 16:57:28 jocke Exp $
+ * $Id: cfi_cmdset_0001.c,v 1.114 2003/03/18 12:28:40 dwmw2 Exp $
  *
  * 
  * 10/10/2000	Nicolas Pitre <nico@cam.org>
@@ -152,7 +152,7 @@ struct mtd_info *cfi_cmdset_0001(struct map_info *map, int primary)
 		}
 		
 		if (extp->MajorVersion != '1' || 
-		    (extp->MinorVersion < '0' || extp->MinorVersion > '2')) {
+		    (extp->MinorVersion < '0' || extp->MinorVersion > '3')) {
 			printk(KERN_WARNING "  Unknown IntelExt Extended Query "
 			       "version %c.%c.\n",  extp->MajorVersion,
 			       extp->MinorVersion);
@@ -170,13 +170,17 @@ struct mtd_info *cfi_cmdset_0001(struct map_info *map, int primary)
 		cfi_tell_features(extp);
 #endif	
 
-#ifdef DISABLE_ERASE_SUSPEND_ON_WRITE
-/* Enable this if you suspect buggy suspend support */ 
-		if(extp->SuspendCmdSupport & 1)
+		if(extp->SuspendCmdSupport & 1) {
+//#define CMDSET0001_DISABLE_ERASE_SUSPEND_ON_WRITE
+#ifdef CMDSET0001_DISABLE_ERASE_SUSPEND_ON_WRITE
+/* Some Intel Strata Flash prior to FPO revision C has bugs in this area */ 
 			printk(KERN_WARNING "cfi_cmdset_0001: Suspend "
 			       "erase on write disabled.\n");
-		extp->SuspendCmdSupport &= ~1;
+			extp->SuspendCmdSupport &= ~1;
+#else
+			printk(KERN_NOTICE "cfi_cmdset_0001: Erase suspend on write enabled\n");
 #endif
+		}
 		/* Install our own private info structure */
 		cfi->cmdset_priv = extp;	
 	}
@@ -896,7 +900,6 @@ static int do_write_oneword(struct map_info *map, struct flchip *chip, unsigned 
 		chip->word_write_time++;
 
 	/* Done and happy. */
-	DISABLE_VPP(map);
 	chip->state = FL_STATUS;
 	/* check for lock bit */
 	if (status & CMD(0x02)) {
@@ -921,7 +924,9 @@ static int do_write_oneword(struct map_info *map, struct flchip *chip, unsigned 
 		   do. */
 		cfi_write(map, CMD(0xd0), adr);
 		cfi_write(map, CMD(0x70), adr);		
-	}
+	} else
+		DISABLE_VPP(map); /* must not clear the VPP if there is a suspended erase to be resumed */
+
 	wake_up(&chip->wq);
 	spin_unlock(chip->mutex);
 	return ret;
@@ -1260,7 +1265,6 @@ static inline int do_write_buffer(struct map_info *map, struct flchip *chip,
 		chip->buffer_write_time++;
 
 	/* Done and happy. */
-	DISABLE_VPP(map);
 	chip->state = FL_STATUS;
 	/* check for lock bit */
 	if (status & CMD(0x02)) {
@@ -1285,7 +1289,9 @@ static inline int do_write_buffer(struct map_info *map, struct flchip *chip,
 		   do. */
 		cfi_write(map, CMD(0xd0), adr);
 		cfi_write(map, CMD(0x70), adr);		
-	}
+	} else
+		DISABLE_VPP(map); /* must not clear the VPP if there is a suspended erase to be resumed */
+
 	wake_up(&chip->wq);
 	spin_unlock(chip->mutex);
 	return ret;

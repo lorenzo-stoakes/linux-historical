@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/ide.c		Version 7.00beta1	Nov 29 2002
+ *  linux/drivers/ide/ide.c		Version 7.00beta2	Mar 05 2003
  *
  *  Copyright (C) 1994-1998  Linus Torvalds & authors (see below)
  */
@@ -217,6 +217,9 @@ EXPORT_SYMBOL(idefloppy);
 EXPORT_SYMBOL(idetape);
 EXPORT_SYMBOL(idescsi);
 
+extern ide_driver_t idedefault_driver;
+static void setup_driver_defaults (ide_drive_t *drive);
+
 /*
  * Do not even *think* about calling this!
  */
@@ -273,6 +276,8 @@ static void init_hwif_data (unsigned int index)
 		drive->max_failures		= IDE_DEFAULT_MAX_FAILURES;
 		drive->using_dma		= 0;
 		drive->is_flash			= 0;
+		drive->driver			= &idedefault_driver;
+		setup_driver_defaults(drive);
 		init_waitqueue_head(&drive->wqueue);
 	}
 }
@@ -350,9 +355,7 @@ unsigned long current_capacity (ide_drive_t *drive)
 {
 	if (!drive->present)
 		return 0;
-	if (drive->driver != NULL)
-		return DRIVER(drive)->capacity(drive);
-	return 0;
+	return DRIVER(drive)->capacity(drive);
 }
 
 EXPORT_SYMBOL(current_capacity);
@@ -486,7 +489,7 @@ int ide_revalidate_disk (kdev_t i_rdev)
 		drive->part[p].nr_sects   = 0;
 	};
 
-	if (DRIVER(drive) && DRIVER(drive)->revalidate)
+	if (DRIVER(drive)->revalidate)
 		DRIVER(drive)->revalidate(drive);
 
 	drive->busy = 0;
@@ -555,9 +558,9 @@ static int ide_open (struct inode * inode, struct file * filp)
 
 	if ((drive = get_info_ptr(inode->i_rdev)) == NULL)
 		return -ENXIO;
-	if (drive->driver == NULL)
+	if (drive->driver == &idedefault_driver)
 		ide_driver_module(1);
-	if (drive->driver == NULL) {
+	if (drive->driver == &idedefault_driver) {
 		if (drive->media == ide_disk)
 			(void) request_module("ide-disk");
 		if (drive->scsi)
@@ -575,7 +578,7 @@ static int ide_open (struct inode * inode, struct file * filp)
 	while (drive->busy)
 		sleep_on(&drive->wqueue);
 	drive->usage++;
-	if (drive->driver != NULL && !drive->dead)
+	if (!drive->dead)
 		return DRIVER(drive)->open(inode, filp, drive);
 	printk(KERN_WARNING "%s: driver not present\n", drive->name);
 	drive->usage--;
@@ -592,8 +595,7 @@ static int ide_release (struct inode * inode, struct file * file)
 
 	if ((drive = get_info_ptr(inode->i_rdev)) != NULL) {
 		drive->usage--;
-		if (drive->driver != NULL)
-			DRIVER(drive)->release(inode, file, drive);
+		DRIVER(drive)->release(inode, file, drive);
 	}
 	return 0;
 }
@@ -666,7 +668,7 @@ int ide_unregister (unsigned int index)
 			continue;
 		if (drive->busy || drive->usage)
 			goto abort;
-		if (drive->driver != NULL && DRIVER(drive)->shutdown(drive))
+		if (DRIVER(drive)->shutdown(drive))
 			goto abort;
 	}
 	hwif->present = 0;
@@ -679,8 +681,7 @@ int ide_unregister (unsigned int index)
 		drive = &hwif->drives[unit];
 		if (!drive->present)
 			continue;
-		if (drive->driver != NULL)
-			DRIVER(drive)->cleanup(drive);
+		DRIVER(drive)->cleanup(drive);
 		minor = drive->select.b.unit << PARTN_BITS;
 		for (p = 0; p < (1<<PARTN_BITS); ++p) {
 			if (drive->part[p].nr_sects > 0) {
@@ -1022,10 +1023,45 @@ int ide_register (int arg1, int arg2, int irq)
 
 EXPORT_SYMBOL(ide_register);
 
-void ide_add_setting (ide_drive_t *drive, const char *name, int rw, int read_ioctl, int write_ioctl, int data_type, int min, int max, int mul_factor, int div_factor, void *data, ide_procset_t *set)
+
+/*
+ *	Locks for IDE setting functionality
+ */
+
+DECLARE_MUTEX(ide_setting_sem);
+EXPORT_SYMBOL(ide_setting_sem);
+
+/**
+ *	ide_add_setting	-	add an ide setting option
+ *	@drive: drive to use
+ *	@name: setting name
+ *	@rw: true if the function is read write
+ *	@read_ioctl: function to call on read
+ *	@write_ioctl: function to call on write
+ *	@data_type: type of data
+ *	@min: range minimum
+ *	@max: range maximum
+ *	@mul_factor: multiplication scale
+ *	@div_factor: divison scale
+ *	@data: private data field
+ *	@set: setting
+ *
+ *	Removes the setting named from the device if it is present.
+ *	The function takes the settings_lock to protect against 
+ *	parallel changes. This function must not be called from IRQ
+ *	context. Returns 0 on success or -1 on failure.
+ *
+ *	BUGS: This code is seriously over-engineered. There is also
+ *	magic about how the driver specific features are setup. If
+ *	a driver is attached we assume the driver settings are auto
+ *	remove.
+ */
+ 
+int ide_add_setting (ide_drive_t *drive, const char *name, int rw, int read_ioctl, int write_ioctl, int data_type, int min, int max, int mul_factor, int div_factor, void *data, ide_procset_t *set)
 {
 	ide_settings_t **p = (ide_settings_t **) &drive->settings, *setting = NULL;
 
+	down(&ide_setting_sem);
 	while ((*p) && strcmp((*p)->name, name) < 0)
 		p = &((*p)->next);
 	if ((setting = kmalloc(sizeof(*setting), GFP_KERNEL)) == NULL)
@@ -1044,33 +1080,78 @@ void ide_add_setting (ide_drive_t *drive, const char *name, int rw, int read_ioc
 	setting->div_factor = div_factor;
 	setting->data = data;
 	setting->set = set;
+	
 	setting->next = *p;
-	if (drive->driver)
+	if (drive->driver != &idedefault_driver)
 		setting->auto_remove = 1;
 	*p = setting;
-	return;
+	up(&ide_setting_sem);
+	return 0;
 abort:
+	up(&ide_setting_sem);
 	if (setting)
 		kfree(setting);
+	return -1;
 }
 
 EXPORT_SYMBOL(ide_add_setting);
 
-void ide_remove_setting (ide_drive_t *drive, char *name)
+/**
+ *	__ide_remove_setting	-	remove an ide setting option
+ *	@drive: drive to use
+ *	@name: setting name
+ *
+ *	Removes the setting named from the device if it is present.
+ *	The caller must hold the setting semaphore.
+ */
+ 
+static void __ide_remove_setting (ide_drive_t *drive, char *name)
 {
-	ide_settings_t **p = (ide_settings_t **) &drive->settings, *setting;
+	ide_settings_t **p, *setting;
+
+	p = (ide_settings_t **) &drive->settings;
 
 	while ((*p) && strcmp((*p)->name, name))
 		p = &((*p)->next);
 	if ((setting = (*p)) == NULL)
 		return;
+
 	(*p) = setting->next;
+	
 	kfree(setting->name);
 	kfree(setting);
 }
 
+/**
+ *	ide_remove_setting	-	remove an ide setting option
+ *	@drive: drive to use
+ *	@name: setting name
+ *
+ *	Removes the setting named from the device if it is present.
+ *	The function takes the settings_lock to protect against 
+ *	parallel changes. This function must not be called from IRQ
+ *	context.
+ */
+ 
+void ide_remove_setting (ide_drive_t *drive, char *name)
+{
+	down(&ide_setting_sem);
+	__ide_remove_setting(drive, name);
+	up(&ide_setting_sem);
+}
+
 EXPORT_SYMBOL(ide_remove_setting);
 
+/**
+ *	ide_find_setting_by_ioctl	-	find a drive specific ioctl
+ *	@drive: drive to scan
+ *	@cmd: ioctl command to handle
+ *
+ *	Scan's the device setting table for a matching entry and returns
+ *	this or NULL if no entry is found. The caller must hold the
+ *	setting semaphore
+ */
+ 
 static ide_settings_t *ide_find_setting_by_ioctl (ide_drive_t *drive, int cmd)
 {
 	ide_settings_t *setting = drive->settings;
@@ -1080,9 +1161,20 @@ static ide_settings_t *ide_find_setting_by_ioctl (ide_drive_t *drive, int cmd)
 			break;
 		setting = setting->next;
 	}
+	
 	return setting;
 }
 
+/**
+ *	ide_find_setting_by_name	-	find a drive specific setting
+ *	@drive: drive to scan
+ *	@name: setting name
+ *
+ *	Scan's the device setting table for a matching entry and returns
+ *	this or NULL if no entry is found. The caller must hold the
+ *	setting semaphore
+ */
+ 
 ide_settings_t *ide_find_setting_by_name (ide_drive_t *drive, char *name)
 {
 	ide_settings_t *setting = drive->settings;
@@ -1095,20 +1187,44 @@ ide_settings_t *ide_find_setting_by_name (ide_drive_t *drive, char *name)
 	return setting;
 }
 
+/**
+ *	auto_remove_settings	-	remove driver specific settings
+ *	@drive: drive
+ *
+ *	Automatically remove all the driver specific settings for this
+ *	drive. This function may sleep and must not be called from IRQ
+ *	context. Takes the settings_lock
+ */
+ 
 static void auto_remove_settings (ide_drive_t *drive)
 {
 	ide_settings_t *setting;
+	down(&ide_setting_sem);
 repeat:
 	setting = drive->settings;
 	while (setting) {
 		if (setting->auto_remove) {
-			ide_remove_setting(drive, setting->name);
+			__ide_remove_setting(drive, setting->name);
 			goto repeat;
 		}
 		setting = setting->next;
 	}
+	up(&ide_setting_sem);
 }
 
+/**
+ *	ide_read_setting	-	read an IDE setting
+ *	@drive: drive to read from
+ *	@setting: drive setting
+ *
+ *	Read a drive setting and return the value. The caller
+ *	must hold the ide_setting_sem when making this call.
+ *
+ *	BUGS: the data return and error are the same return value
+ *	so an error -EINVAL and true return of the same value cannot
+ *	be told apart
+ */
+ 
 int ide_read_setting (ide_drive_t *drive, ide_settings_t *setting)
 {
 	int		val = -EINVAL;
@@ -1157,10 +1273,22 @@ int ide_spin_wait_hwgroup (ide_drive_t *drive)
 
 EXPORT_SYMBOL(ide_spin_wait_hwgroup);
 
-/*
- * FIXME:  This should be changed to enqueue a special request
- * to the driver to change settings, and then wait on a sema for completion.
- * The current scheme of polling is kludgey, though safe enough.
+/**
+ *	ide_write_setting	-	read an IDE setting
+ *	@drive: drive to read from
+ *	@setting: drive setting
+ *	@val: value
+ *
+ *	Write a drive setting if it is possible. The caller
+ *	must hold the ide_setting_sem when making this call.
+ *
+ *	BUGS: the data return and error are the same return value
+ *	so an error -EINVAL and true return of the same value cannot
+ *	be told apart
+ *
+ *	FIXME:  This should be changed to enqueue a special request
+ *	to the driver to change settings, and then wait on a sema for completion.
+ *	The current scheme of polling is kludgy, though safe enough.
  */
 int ide_write_setting (ide_drive_t *drive, ide_settings_t *setting, int val)
 {
@@ -1211,13 +1339,17 @@ static int set_io_32bit(ide_drive_t *drive, int arg)
 
 static int set_using_dma (ide_drive_t *drive, int arg)
 {
-	if (!drive->driver || !DRIVER(drive)->supports_dma)
+	if (!DRIVER(drive)->supports_dma)
 		return -EPERM;
-	if (!drive->id || !(drive->id->capability & 1))
+	if (!(drive->id->capability & 1))
 		return -EPERM;
 	if (HWIF(drive)->ide_dma_check == NULL)
 		return -EPERM;
+	if (HWIF(drive)->ide_dma_check(drive) != 0)
+		return -EIO;
 	if (arg) {
+		if (HWIF(drive)->ide_dma_check(drive) != 0)
+			return -EIO;
 		if (HWIF(drive)->ide_dma_on(drive)) return -EIO;
 	} else {
 		if (HWIF(drive)->ide_dma_off(drive)) return -EIO;
@@ -1259,11 +1391,9 @@ int ide_atapi_to_scsi (ide_drive_t *drive, int arg)
 		drive->scsi = 0;
 		return 0;
 	}
-	if (drive->driver != NULL) {
-		if (DRIVER(drive)->cleanup(drive)) {
-			drive->scsi = 0;
-			return 0;
-		}
+	if (DRIVER(drive)->cleanup(drive)) {
+		drive->scsi = 0;
+		return 0;
 	}
 	drive->scsi = (u8) arg;
 	ide_attach_drive(drive);
@@ -1303,7 +1433,7 @@ void ide_delay_50ms (void)
 	mdelay(50);
 #else
 	__set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout(HZ/20);
+	schedule_timeout(1+HZ/20);
 #endif /* CONFIG_BLK_DEV_IDECS */
 }
 
@@ -1320,13 +1450,13 @@ int ide_replace_subdriver (ide_drive_t *drive, const char *driver)
 {
 	if (!drive->present || drive->busy || drive->usage || drive->dead)
 		goto abort;
-	if (drive->driver != NULL && DRIVER(drive)->cleanup(drive))
+	if (DRIVER(drive)->cleanup(drive))
 		goto abort;
 	strncpy(drive->driver_req, driver, 9);
 	ide_driver_module(0);
 	drive->driver_req[0] = 0;
 	ide_driver_module(0);
-	if (DRIVER(drive) && !strcmp(DRIVER(drive)->name, driver))
+	if (!strcmp(DRIVER(drive)->name, driver))
 		return 0;
 abort:
 	return 1;
@@ -1386,7 +1516,12 @@ int ide_attach_drive (ide_drive_t *drive)
 		}
 #endif /* CONFIG_BLK_DEV_IDETAPE */
 		default:
+		{
+			extern int idedefault_attach(ide_drive_t *drive);
+			if(idedefault_attach(drive))
+				printk(KERN_CRIT "ide: failed to attach default driver.\n");
 			return 1;
+		}
 	}
 	return 0;
 }
@@ -1408,16 +1543,22 @@ static int ide_ioctl (struct inode *inode, struct file *file,
 	if ((drive = get_info_ptr(inode->i_rdev)) == NULL)
 		return -ENODEV;
 
+	down(&ide_setting_sem);
 	if ((setting = ide_find_setting_by_ioctl(drive, cmd)) != NULL) {
 		if (cmd == setting->read_ioctl) {
 			err = ide_read_setting(drive, setting);
+			up(&ide_setting_sem);
 			return err >= 0 ? put_user(err, (long *) arg) : err;
 		} else {
 			if ((MINOR(inode->i_rdev) & PARTN_MASK))
-				return -EINVAL;
-			return ide_write_setting(drive, setting, arg);
+				err = -EINVAL;
+			else 
+				err = ide_write_setting(drive, setting, arg);
+			up(&ide_setting_sem);
+			return err;
 		}
 	}
+	up(&ide_setting_sem);
 
 	ide_init_drive_cmd (&rq);
 	switch (cmd) {
@@ -1471,7 +1612,7 @@ static int ide_ioctl (struct inode *inode, struct file *file,
 		case HDIO_GET_IDENTITY:
 			if (MINOR(inode->i_rdev) & PARTN_MASK)
 				return -EINVAL;
-			if (drive->id == NULL)
+			if (drive->id_read == 0)
 				return -ENOMSG;
 			if (copy_to_user((char *)arg, (char *)drive->id, (cmd == HDIO_GET_IDENTITY) ? sizeof(*drive->id) : 142))
 				return -EFAULT;
@@ -1516,7 +1657,7 @@ static int ide_ioctl (struct inode *inode, struct file *file,
 		case HDIO_SCAN_HWIF:
 		{
 			int args[3];
-			if (!capable(CAP_SYS_ADMIN)) return -EACCES;
+			if (!capable(CAP_SYS_RAWIO)) return -EACCES;
 			if (copy_from_user(args, (void *)arg, 3 * sizeof(int)))
 				return -EFAULT;
 			if (ide_register(args[0], args[1], args[2]) == -1)
@@ -1524,14 +1665,12 @@ static int ide_ioctl (struct inode *inode, struct file *file,
 			return 0;
 		}
 	        case HDIO_UNREGISTER_HWIF:
-			if (!capable(CAP_SYS_ADMIN)) return -EACCES;
+			if (!capable(CAP_SYS_RAWIO)) return -EACCES;
 			/* (arg > MAX_HWIFS) checked in function */
 			ide_unregister(arg);
 			return 0;
 		case HDIO_SET_NICE:
 			if (!capable(CAP_SYS_ADMIN)) return -EACCES;
-			if (drive->driver == NULL)
-				return -EPERM;
 			if (arg != (arg & ((1 << IDE_NICE_DSC_OVERLAP) | (1 << IDE_NICE_1))))
 				return -EPERM;
 			drive->dsc_overlap = (arg >> IDE_NICE_DSC_OVERLAP) & 1;
@@ -1545,18 +1684,27 @@ static int ide_ioctl (struct inode *inode, struct file *file,
 		{
 			unsigned long flags;
 			if (!capable(CAP_SYS_ADMIN)) return -EACCES;
-#if 1
+			
+			/*
+			 *	Abort the current command on the
+			 *	group if there is one, taking
+			 *	care not to allow anything else
+			 *	to be queued and to die on the
+			 *	spot if we miss one somehow
+			 */
+
 			spin_lock_irqsave(&io_request_lock, flags);
-			if ( HWGROUP(drive)->handler != NULL) {
-				printk(KERN_ERR "%s: ide_set_handler: handler not null; %p\n", drive->name, HWGROUP(drive)->handler);
-				(void) HWGROUP(drive)->handler(drive);
-//				HWGROUP(drive)->handler = NULL;
-				HWGROUP(drive)->expiry	= NULL;
-				del_timer(&HWGROUP(drive)->timer);
-			}
+			
+			DRIVER(drive)->abort(drive, "drive reset");
+			if(HWGROUP(drive)->handler)
+				BUG();
+				
+			/* Ensure nothing gets queued after we
+			   drop the lock. Reset will clear the busy */
+			   
+			HWGROUP(drive)->busy = 1;
 			spin_unlock_irqrestore(&io_request_lock, flags);
 
-#endif
 			(void) ide_do_reset(drive);
 			if (drive->suspend_reset) {
 /*
@@ -1594,12 +1742,11 @@ static int ide_ioctl (struct inode *inode, struct file *file,
 			if (!capable(CAP_SYS_ADMIN))
 				return -EACCES;
 			if (HWIF(drive)->busproc)
-				HWIF(drive)->busproc(drive, (int)arg);
-			return 0;
+				return HWIF(drive)->busproc(drive, (int)arg);
+			return -EOPNOTSUPP;
 
 		default:
-			if (drive->driver != NULL)
-				return DRIVER(drive)->ioctl(drive, inode, file, cmd, arg);
+			return DRIVER(drive)->ioctl(drive, inode, file, cmd, arg);
 			return -EPERM;
 	}
 }
@@ -1610,9 +1757,7 @@ static int ide_check_media_change (kdev_t i_rdev)
 
 	if ((drive = get_info_ptr(i_rdev)) == NULL)
 		return -ENODEV;
-	if (drive->driver != NULL)
-		return DRIVER(drive)->media_change(drive);
-	return 0;
+	return DRIVER(drive)->media_change(drive);
 }
 
 /*
@@ -2168,6 +2313,7 @@ static void __init probe_for_hwifs (void)
 
 void __init ide_init_builtin_subdrivers (void)
 {
+	idedefault_init();
 #ifdef CONFIG_BLK_DEV_IDEDISK
 	(void) idedisk_init();
 #endif /* CONFIG_BLK_DEV_IDEDISK */
@@ -2265,8 +2411,7 @@ static int default_cleanup (ide_drive_t *drive)
  
 static int default_shutdown(ide_drive_t *drive)
 {
-	if (drive->usage || drive->busy ||
-	    drive->driver == NULL || DRIVER(drive)->busy) {
+	if (drive->usage || drive->busy || DRIVER(drive)->busy) {
 		return 1;
 	}
 	drive->dead = 1;
@@ -2312,6 +2457,11 @@ static u8 default_sense (ide_drive_t *drive, const char *msg, u8 stat)
 static ide_startstop_t default_error (ide_drive_t *drive, const char *msg, u8 stat)
 {
 	return ide_error(drive, msg, stat);
+}
+
+static ide_startstop_t default_abort (ide_drive_t *drive, const char *msg)
+{
+	return ide_abort(drive, msg);
 }
 
 static int default_ioctl (ide_drive_t *drive, struct inode *inode, struct file *file,
@@ -2380,6 +2530,7 @@ static void setup_driver_defaults (ide_drive_t *drive)
 	if (d->end_request == NULL)	d->end_request = default_end_request;
 	if (d->sense == NULL)		d->sense = default_sense;
 	if (d->error == NULL)		d->error = default_error;
+	if (d->error == NULL)		d->abort = default_abort;
 	if (d->ioctl == NULL)		d->ioctl = default_ioctl;
 	if (d->open == NULL)		d->open = default_open;
 	if (d->release == NULL)		d->release = default_release;
@@ -2394,6 +2545,9 @@ static void setup_driver_defaults (ide_drive_t *drive)
 ide_drive_t *ide_scan_devices (u8 media, const char *name, ide_driver_t *driver, int n)
 {
 	unsigned int unit, index, i;
+	
+	if(driver == NULL)	/* No driver is actually &idedefault_driver */
+		driver = &idedefault_driver;
 
 	for (index = 0, i = 0; index < MAX_HWIFS; ++index) {
 		ide_hwif_t *hwif = &ide_hwifs[index];
@@ -2418,14 +2572,17 @@ int ide_register_subdriver (ide_drive_t *drive, ide_driver_t *driver, int versio
 {
 	unsigned long flags;
 	
+	BUG_ON(drive->driver == NULL);
+	
 	spin_lock_irqsave(&io_request_lock, flags);
 	if (version != IDE_SUBDRIVER_VERSION || !drive->present ||
-	    drive->driver != NULL || drive->busy || drive->usage) {
+	    drive->driver != &idedefault_driver || drive->busy || drive->usage) {
 		spin_unlock_irqrestore(&io_request_lock, flags);
 		return 1;
 	}
 	drive->driver = driver;
 	setup_driver_defaults(drive);
+	printk("%s: attached %s driver.\n", drive->name, driver->name);
 	spin_unlock_irqrestore(&io_request_lock, flags);
 	if (drive->autotune != 2) {
 		/* DMA timings and setup moved to ide-probe.c */
@@ -2451,8 +2608,7 @@ int ide_unregister_subdriver (ide_drive_t *drive)
 	unsigned long flags;
 	
 	spin_lock_irqsave(&io_request_lock, flags);
-	if (drive->usage || drive->busy ||
-	    drive->driver == NULL || DRIVER(drive)->busy) {
+	if (drive->usage || drive->busy || DRIVER(drive)->busy) {
 		spin_unlock_irqrestore(&io_request_lock, flags);
 		return 1;
 	}
@@ -2464,7 +2620,8 @@ int ide_unregister_subdriver (ide_drive_t *drive)
 	ide_remove_proc_entries(drive->proc, generic_subdriver_entries);
 #endif
 	auto_remove_settings(drive);
-	drive->driver = NULL;
+	drive->driver = &idedefault_driver;
+	setup_driver_defaults(drive);
 	spin_unlock_irqrestore(&io_request_lock, flags);
 	return 0;
 }
@@ -2574,14 +2731,11 @@ static int ide_notify_reboot (struct notifier_block *this, unsigned long event, 
 			/* set the drive to standby */
 			printk("%s ", drive->name);
 			if (event != SYS_RESTART)
-				if (drive->driver != NULL && DRIVER(drive)->standby(drive))
-				continue;
+				if (DRIVER(drive)->standby(drive))
+					continue;
 
-			if (drive->driver != NULL)
-			{
-				DRIVER(drive)->cleanup(drive);
-				continue;
-			}
+			DRIVER(drive)->cleanup(drive);
+			continue;
 		}
 	}
 	printk("\n");

@@ -23,6 +23,7 @@
 #define PIRQ_VERSION 0x0100
 
 int broken_hp_bios_irq9;
+int broken_440gx_bios;
 
 static struct irq_routing_table *pirq_table;
 
@@ -681,7 +682,10 @@ static int pcibios_lookup_irq(struct pci_dev *dev, int assign)
 void __init pcibios_irq_init(void)
 {
 	DBG("PCI: IRQ init\n");
-	pirq_table = pirq_find_routing_table();
+	if (broken_440gx_bios)
+ 		pirq_table = NULL;	
+ 	else
+		pirq_table = pirq_find_routing_table();
 #ifdef CONFIG_PCI_BIOS
 	if (!pirq_table && (pci_probe & PCI_BIOS_IRQ_SCAN))
 		pirq_table = pcibios_get_irq_routing_table();

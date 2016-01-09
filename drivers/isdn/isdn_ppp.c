@@ -1176,7 +1176,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	if (!lp) {
 		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", netdev->name);
 		retval = 1;
-		goto unlock;
+		goto out;
 	}
 	/* we have our lp locked from now on */
 

@@ -87,6 +87,7 @@ static int sc1200_get_info (char *buffer, char **addr, off_t offset, int count)
 {
 	char *p = buffer;
 	unsigned long bibma = pci_resource_start(bmide_dev, 4);
+	int len;
 	u8  c0 = 0, c1 = 0;
 
 	/*
@@ -111,7 +112,10 @@ static int sc1200_get_info (char *buffer, char **addr, off_t offset, int count)
 	p += sprintf(p, "DMA\n");
 	p += sprintf(p, "PIO\n");
 
-	return p-buffer;
+	len = (p - buffer) - offset;
+	*addr = buffer + offset;
+	
+	return len > count ? count : len;
 }
 #endif /* DISPLAY_SC1200_TIMINGS && CONFIG_PROC_FS */
 
@@ -161,7 +165,7 @@ static int sc1200_autoselect_dma_mode (ide_drive_t *drive)
 	 */
 	if (mate->present) {
 		struct hd_driveid *mateid = mate->id;
-		if (mateid && (mateid->capability & 1) && !hwif->ide_dma_bad_drive(mate)) {
+		if ((mateid->capability & 1) && !hwif->ide_dma_bad_drive(mate)) {
 			if ((mateid->field_valid & 4) && (mateid->dma_ultra & 7))
 				udma_ok = 1;
 			else if ((mateid->field_valid & 2) && (mateid->dma_mword & 7))
@@ -174,7 +178,7 @@ static int sc1200_autoselect_dma_mode (ide_drive_t *drive)
 	 * Now see what the current drive is capable of,
 	 * selecting UDMA only if the mate said it was ok.
 	 */
-	if (id && (id->capability & 1) && hwif->autodma && !hwif->ide_dma_bad_drive(drive)) {
+	if ((id->capability & 1) && hwif->autodma && !hwif->ide_dma_bad_drive(drive)) {
 		if (udma_ok && (id->field_valid & 4) && (id->dma_ultra & 7)) {
 			if      (id->dma_ultra & 4)
 				mode = XFER_UDMA_2;

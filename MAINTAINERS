@@ -351,25 +351,25 @@ L:	codalist@coda.cs.cmu.edu
 W:	http://www.coda.cs.cmu.edu/
 S:	Maintained
 
-COMPAQ FIBRE CHANNEL 64-bit/66MHz PCI non-intelligent HBA
-P:      Amy Vanzant-Hodge 
-M:      Amy Vanzant-Hodge (fibrechannel@compaq.com)
-L:	compaqandlinux@cpqlin.van-dijk.net
-W:	ftp.compaq.com/pub/products/drivers/linux
-S:      Supported
+HP (was COMPAQ) FIBRE CHANNEL 64-bit/66MHz PCI non-intelligent HBA
+P:      Stephen Cameron
+M:      arrays@hp.com 
+M:      steve.cameron@hp.com
+L:	cpqfc-discuss@lists.sourceforge.net
+S:      Odd Fixes
 
-COMPAQ SMART2 RAID DRIVER
-P:	Charles White	
-M:	Charles White <arrays@compaq.com>
-L:	compaqandlinux@cpqlin.van-dijk.net
-W:	ftp.compaq.com/pub/products/drivers/linux
-S:	Supported	
+HP (was COMPAQ) SMART2 RAID DRIVER
+P:	Stephen Cameron
+M:	arrays@hp.com
+M:	steve.cameron@hp.com
+L:	cpqarray-discuss@lists.sourceforge.net
+S:	Odd Fixes
 
-COMPAQ SMART CISS RAID DRIVER 
-P:	Charles White
-M:	Charles White <arrays@compaq.com>
-L:	compaqandlinux@cpqlin.van-dijk.net
-W:	ftp.compaq.com/pub/products/drivers/linux	
+HP (was COMPAQ) SMART CISS RAID DRIVER 
+P:	Stephen Cameron
+M:	arrays@hp.com
+M:	steve.cameron@hp.com
+L:	cciss-discuss@lists.sourceforge.net
 S:	Supported 
 
 COMPUTONE INTELLIPORT MULTIPORT CARD
@@ -844,6 +844,14 @@ INTEL IA32 MICROCODE UPDATE SUPPORT
 P:	Tigran Aivazian
 M:	tigran@veritas.com
 S:	Maintained
+
+INTEL PRO/1000 GIGABIT ETHERNET SUPPORT
+P:	Jeb Cramer
+M:	cramerj@intel.com
+P:	Scott Feldman
+M:	scott.feldman@intel.com
+W:	http://sourceforge.net/projects/e1000/
+S:	Supported
 
 INTERMEZZO FILE SYSTEM
 P:	Peter J. Braam
@@ -1640,6 +1648,12 @@ M:	mj@ucw.cz
 L:	linux-video@atrey.karlin.mff.cuni.cz
 S:	Maintained
 
+SYSKONNECT DRIVER
+P: Mirko Lindner
+M: mlindner@syskonnect.de
+W: http://www.syskonnect.com
+S: Supported
+
 SYSV FILESYSTEM
 P:	Christoph Hellwig
 M:	hch@infradead.org
@@ -1772,11 +1786,12 @@ S:	Maintained
 W:	http://www.kroah.com/linux-usb/
 
 USB CDC ETHERNET DRIVER
-P:	Brad Hards
-M:	bradh@frogmouth.net
+P:	Greg Kroah-Hartman
+M:	greg@kroah.com
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
 S:	Maintained
+W:	http://www.kroah.com/linux-usb/
 
 USB EHCI DRIVER
 P:	David Brownell
@@ -1944,6 +1959,11 @@ VIA 82Cxxx AUDIO DRIVER
 P:	Jeff Garzik
 L:	linux-via@gtf.org
 S:	Odd fixes
+
+VIA RHINE NETWORK DRIVER
+P:	Roger Luethi
+M:	rl@hellgate.ch
+S:	Maintained
 
 USB DIAMOND RIO500 DRIVER
 P:	Cesar Miquel
