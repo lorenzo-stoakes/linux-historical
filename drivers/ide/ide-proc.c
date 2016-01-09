@@ -74,6 +74,11 @@
 
 #include <asm/io.h>
 
+#ifdef CONFIG_ALL_PPC
+#include <asm/prom.h>
+#include <asm/pci-bridge.h>
+#endif
+
 #ifndef MIN
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -419,12 +424,34 @@ int proc_ide_read_imodel
 		case ide_cmd646:	name = "cmd646";	break;
 		case ide_cy82c693:	name = "cy82c693";	break;
 		case ide_4drives:	name = "4drives";	break;
-		case ide_pmac:		name = "mac-io";	break;
+		case ide_pmac:		name = "pmac";		break;
 		default:		name = "(unknown)";	break;
 	}
 	len = sprintf(page, "%s\n", name);
 	PROC_IDE_READ_RETURN(page,start,off,count,eof,len);
 }
+
+#ifdef CONFIG_ALL_PPC
+static int proc_ide_read_devspec
+	(char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+	ide_hwif_t		*hwif = (ide_hwif_t *) data;
+	int			len;
+	struct device_node	*ofnode = NULL;
+
+#ifdef CONFIG_BLK_DEV_IDE_PMAC
+	extern struct device_node* pmac_ide_get_of_node(int index);
+	if (hwif->chipset == ide_pmac)
+		ofnode = pmac_ide_get_of_node(hwif->index);
+#endif /* CONFIG_BLK_DEV_IDE_PMAC */
+#ifdef CONFIG_PCI
+	if (ofnode == NULL && hwif->pci_dev)
+		ofnode = pci_device_to_OF_node(hwif->pci_dev);
+#endif /* CONFIG_PCI */		
+	len = sprintf(page, "%s\n", ofnode ? ofnode->full_name : "");
+	PROC_IDE_READ_RETURN(page,start,off,count,eof,len);
+}
+#endif /* CONFIG_ALL_PPC */
 
 EXPORT_SYMBOL(proc_ide_read_imodel);
 
@@ -852,6 +879,9 @@ static ide_proc_entry_t hwif_entries[] = {
 	{ "config",	S_IFREG|S_IRUGO|S_IWUSR,proc_ide_read_config,	proc_ide_write_config },
 	{ "mate",	S_IFREG|S_IRUGO,	proc_ide_read_mate,	NULL },
 	{ "model",	S_IFREG|S_IRUGO,	proc_ide_read_imodel,	NULL },
+#ifdef CONFIG_ALL_PPC
+	{ "devspec",	S_IFREG|S_IRUGO,	proc_ide_read_devspec,	NULL },
+#endif	
 	{ NULL,	0, NULL, NULL }
 };
 

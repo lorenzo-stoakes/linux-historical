@@ -3,7 +3,7 @@
  * 		
  * Copyright 2000,2001 Andi Kleen, SuSE Labs.
  * 
- * $Id: ia32entry.S,v 1.39 2003/01/14 14:29:59 ak Exp $ 		
+ * $Id: ia32entry.S,v 1.40 2003/04/03 09:46:54 ak Exp $ 		
  */		 
 
 #include <asm/calling.h>
@@ -368,7 +368,7 @@ ia32_sys_call_table:
 	.quad quiet_ni_syscall  
 	.quad quiet_ni_syscall  /* fremovexattr - 237 */
 	.quad sys_tkill
-	.quad quiet_ni_syscall  /* sendfile64 - 2.5 only */
+	.quad sys_sendfile64
 	.quad quiet_ni_syscall  /* futex */
 	.quad quiet_ni_syscall  /* sched_setaffinity */
 	.quad quiet_ni_syscall  /* sched_getaffinity */	

@@ -146,7 +146,8 @@ struct hw_interrupt_type open_pic_ipi = {
  */
 extern unsigned long* _get_SP(void);
 #define check_arg_irq(irq) \
-    if (irq < open_pic_irq_offset || irq >= (NumSources+open_pic_irq_offset)){ \
+    if (irq < open_pic_irq_offset || irq >= NumSources+open_pic_irq_offset \
+	|| ISR[irq - open_pic_irq_offset] == 0) { \
       printk("open_pic.c:%d: illegal irq %d\n", __LINE__, irq); \
       print_backtrace(_get_SP()); }
 #define check_arg_cpu(cpu) \
@@ -565,14 +566,19 @@ void openpic_request_IPIs(void)
 	if (OpenPIC == NULL)
 		return;
 
+	/* IPIs are marked SA_INTERRUPT as they must run with irqs disabled */
 	request_irq(OPENPIC_VEC_IPI+open_pic_irq_offset,
-		    openpic_ipi_action, 0, "IPI0 (call function)", 0);
+		    openpic_ipi_action, SA_INTERRUPT,
+		    "IPI0 (call function)", 0);
 	request_irq(OPENPIC_VEC_IPI+open_pic_irq_offset+1,
-		    openpic_ipi_action, 0, "IPI1 (reschedule)", 0);
+		    openpic_ipi_action, SA_INTERRUPT,
+		    "IPI1 (reschedule)", 0);
 	request_irq(OPENPIC_VEC_IPI+open_pic_irq_offset+2,
-		    openpic_ipi_action, 0, "IPI2 (invalidate tlb)", 0);
+		    openpic_ipi_action, SA_INTERRUPT,
+		    "IPI2 (invalidate tlb)", 0);
 	request_irq(OPENPIC_VEC_IPI+open_pic_irq_offset+3,
-		    openpic_ipi_action, 0, "IPI3 (xmon break)", 0);
+		    openpic_ipi_action, SA_INTERRUPT,
+		    "IPI3 (xmon break)", 0);
 
 	for ( i = 0; i < OPENPIC_NUM_IPI ; i++ )
 		openpic_enable_ipi(OPENPIC_VEC_IPI+open_pic_irq_offset+i);
@@ -649,7 +655,6 @@ openpic_init_nmi_irq(u_int irq)
 				OPENPIC_PRIORITY_MASK,
 				9 << OPENPIC_PRIORITY_SHIFT);
 }
-
 
 /*
  *

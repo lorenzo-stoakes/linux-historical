@@ -157,7 +157,7 @@ static void ide_outl (u32 addr, unsigned long port)
 
 static void ide_outsl (unsigned long port, void *addr, u32 count)
 {
-	return outsl(port, addr, count);
+	outsl(port, addr, count);
 }
 
 void default_hwif_iops (ide_hwif_t *hwif)
@@ -393,7 +393,7 @@ void atapi_input_bytes (ide_drive_t *drive, void *buffer, u32 bytecount)
 		insw_swapw(IDE_DATA_REG, buffer, bytecount / 2);
 		return;
 	}
-#endif /* CONFIG_ATARI */
+#endif /* CONFIG_ATARI || CONFIG_Q40 */
 	hwif->ata_input_data(drive, buffer, bytecount / 4);
 	if ((bytecount & 0x03) >= 2)
 		hwif->INSW(IDE_DATA_REG, ((u8 *)buffer)+(bytecount & ~0x03), 1);
@@ -412,7 +412,7 @@ void atapi_output_bytes (ide_drive_t *drive, void *buffer, u32 bytecount)
 		outsw_swapw(IDE_DATA_REG, buffer, bytecount / 2);
 		return;
 	}
-#endif /* CONFIG_ATARI */
+#endif /* CONFIG_ATARI || CONFIG_Q40 */
 	hwif->ata_output_data(drive, buffer, bytecount / 4);
 	if ((bytecount & 0x03) >= 2)
 		hwif->OUTSW(IDE_DATA_REG, ((u8*)buffer)+(bytecount & ~0x03), 1);
@@ -429,6 +429,23 @@ void ide_fix_driveid (struct hd_driveid *id)
 # ifdef __BIG_ENDIAN
 	int i;
 	u16 *stringcast;
+
+#ifdef __mc68000__
+	if (!MACH_IS_AMIGA && !MACH_IS_MAC && !MACH_IS_Q40 && !MACH_IS_ATARI)
+		return;
+
+#ifdef M68K_IDE_SWAPW
+	if (M68K_IDE_SWAPW) {	/* fix bus byteorder first */
+		u_char *p = (u_char *)id;
+		u_char t;
+		for (i = 0; i < 512; i += 2) {
+			t = p[i];
+			p[i] = p[i+1];
+			p[i+1] = t;
+		}
+	}
+#endif
+#endif /* __mc68000__ */
 
 	id->config         = __le16_to_cpu(id->config);
 	id->cyls           = __le16_to_cpu(id->cyls);

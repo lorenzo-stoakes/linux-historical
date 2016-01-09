@@ -32,6 +32,9 @@ typedef u16 arm_length_t;
 #define LOCAL_BUS 0xffc0
 #define ALL_NODES 0x003f
 
+#define NODEID_TO_BUS(nodeid)	((nodeid & BUS_MASK) >> BUS_SHIFT)
+#define NODEID_TO_NODE(nodeid)	(nodeid & NODE_MASK)
+
 /* Can be used to consistently print a node/bus ID. */
 #define NODE_BUS_FMT    "%02d:%04d"
 #define NODE_BUS_ARGS(nodeid) \

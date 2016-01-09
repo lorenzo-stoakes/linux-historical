@@ -16,9 +16,9 @@
 #else
 
 struct bi_record {
-    unsigned long tag;			/* tag ID */
-    unsigned long size;			/* size of record (in bytes) */
-    unsigned long data[0];		/* data */
+	unsigned long tag;		/* tag ID */
+	unsigned long size;		/* size of record (in bytes) */
+	unsigned long data[0];		/* data */
 };
 
 #define BI_FIRST		0x1010  /* first record - marker */

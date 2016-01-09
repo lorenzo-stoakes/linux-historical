@@ -83,7 +83,7 @@ aic79xx_asm_cmd = aicasm/aicasm -I. -r aic79xx_reg.h \
 endif
 $(aic79xx_gen): aic79xx.seq aic79xx.reg aicasm/aicasm
 	$(aic79xx_asm_cmd)
+endif
 
 aicasm/aicasm: aicasm/*.[chyl]
 	$(MAKE) -C aicasm
-endif

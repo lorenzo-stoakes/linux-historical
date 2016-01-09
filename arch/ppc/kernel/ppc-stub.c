@@ -509,12 +509,12 @@ handle_exception (struct pt_regs *regs)
 	*ptr++ = hexchars[PC_REGNUM >> 4];
 	*ptr++ = hexchars[PC_REGNUM & 0xf];
 	*ptr++ = ':';
-	ptr = mem2hex((char *)regs->nip, ptr, 4);
+	ptr = mem2hex((char *)&regs->nip, ptr, 4);
 	*ptr++ = ';';
 	*ptr++ = hexchars[SP_REGNUM >> 4];
 	*ptr++ = hexchars[SP_REGNUM & 0xf];
 	*ptr++ = ':';
-	ptr = mem2hex(((char *)&regs) + SP_REGNUM*4, ptr, 4);
+	ptr = mem2hex(((char *)regs) + SP_REGNUM*4, ptr, 4);
 	*ptr++ = ';';
 #endif
 

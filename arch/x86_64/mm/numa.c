@@ -1,7 +1,7 @@
 /* 
  * Generic VM initialization for x86-64 NUMA setups.
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: numa.c,v 1.5 2002/10/23 05:27:46 ak Exp $
+ * $Id: numa.c,v 1.6 2003/04/03 12:28:08 ak Exp $
  */ 
 #include <linux/kernel.h>
 #include <linux/mm.h>
@@ -183,7 +183,7 @@ void show_mem(void)
 }
 
 /* [numa=off] */
-static __init int numa_setup(char *opt) 
+__init int numa_setup(char *opt) 
 { 
 	if (!strncmp(opt,"off",3))
 		numa_off = 1;

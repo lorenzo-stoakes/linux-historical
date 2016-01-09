@@ -31,7 +31,16 @@ ipchains-objs		:= $(ip_nf_compat-objs) ipchains_core.o
 # connection tracking
 obj-$(CONFIG_IP_NF_CONNTRACK) += ip_conntrack.o
 
+# Amanda protocol support
+obj-$(CONFIG_IP_NF_AMANDA) += ip_conntrack_amanda.o
+obj-$(CONFIG_IP_NF_NAT_AMANDA) += ip_nat_amanda.o
+ifdef CONFIG_IP_NF_NAT_AMANDA
+	export-objs += ip_conntrack_amanda.o
+endif
+
+
 # connection tracking helpers
+obj-$(CONFIG_IP_NF_TFTP) += ip_conntrack_tftp.o
 obj-$(CONFIG_IP_NF_FTP) += ip_conntrack_ftp.o
 ifdef CONFIG_IP_NF_NAT_FTP
 	export-objs += ip_conntrack_ftp.o
@@ -43,6 +52,7 @@ ifdef CONFIG_IP_NF_NAT_IRC
 endif
 
 # NAT helpers 
+obj-$(CONFIG_IP_NF_NAT_TFTP) += ip_nat_tftp.o
 obj-$(CONFIG_IP_NF_NAT_FTP) += ip_nat_ftp.o
 obj-$(CONFIG_IP_NF_NAT_IRC) += ip_nat_irc.o
 

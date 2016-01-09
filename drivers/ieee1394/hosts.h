@@ -142,7 +142,13 @@ enum reset_types {
 
         /* Short (arbitrated) reset -- only available on 1394a capable
            IEEE 1394 capable controllers */
-        SHORT_RESET
+        SHORT_RESET,
+
+	/* Variants, that set force_root before issueing the bus reset */
+	LONG_RESET_FORCE_ROOT, SHORT_RESET_FORCE_ROOT,
+
+	/* Variants, that clear force_root before issueing the bus reset */
+	LONG_RESET_NO_FORCE_ROOT, SHORT_RESET_NO_FORCE_ROOT
 };
 
 struct hpsb_host_driver {

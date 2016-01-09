@@ -50,9 +50,6 @@
 #define MAX_HWIFS	4	/* same as the other archs */
 #endif
 
-/*
- * FIXME: IOPS struct calls needed for taskfile.
- */
 
 static __inline__ int ide_default_irq(ide_ioreg_t base)
 {
@@ -69,7 +66,9 @@ static __inline__ ide_ioreg_t ide_default_io_base(int index)
  * Set up a hw structure for a specified data port, control port and IRQ.
  * This should follow whatever the default interface uses.
  */
-static __inline__ void ide_init_hwif_ports(hw_regs_t *hw, ide_ioreg_t data_port, ide_ioreg_t ctrl_port, int *irq)
+static __inline__ void ide_init_hwif_ports(hw_regs_t *hw,
+					   ide_ioreg_t data_port,
+					   ide_ioreg_t ctrl_port, int *irq)
 {
 	if (data_port || ctrl_port)
 		printk("ide_init_hwif_ports: must not be called\n");
@@ -83,170 +82,94 @@ static __inline__ void ide_init_default_hwifs(void)
 {
 }
 
-static __inline__ int ide_request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *),
-			unsigned long flags, const char *device, void *dev_id)
-{
-#ifdef CONFIG_AMIGA
-	if (MACH_IS_AMIGA)
-		return request_irq(irq, handler, 0, device, dev_id);
-#endif /* CONFIG_AMIGA */
-#ifdef CONFIG_Q40
-	if (MACH_IS_Q40)
-	  	return request_irq(irq, handler, 0, device, dev_id);
-#endif /* CONFIG_Q40*/
-#ifdef CONFIG_MAC
-	if (MACH_IS_MAC)
-		return request_irq(irq, handler, 0, device, dev_id);
-#endif /* CONFIG_MAC */
-	return 0;
-}
-
-static __inline__ void ide_free_irq(unsigned int irq, void *dev_id)
-{
-#ifdef CONFIG_AMIGA
-	if (MACH_IS_AMIGA)
-		free_irq(irq, dev_id);
-#endif /* CONFIG_AMIGA */
-#ifdef CONFIG_Q40
-	if (MACH_IS_Q40)
-	  	free_irq(irq, dev_id);
-#endif /* CONFIG_Q40*/
-#ifdef CONFIG_MAC
-	if (MACH_IS_MAC)
-		free_irq(irq, dev_id);
-#endif /* CONFIG_MAC */
-}
-
 /*
- * We should really implement those some day.
+ * Get rid of defs from io.h - ide has its private and conflicting versions
+ * Since so far no single m68k platform uses ISA/PCI I/O space for IDE, we
+ * always use the `raw' MMIO versions
  */
-static __inline__ int ide_check_region (ide_ioreg_t from, unsigned int extent)
-{
-	return 0;
-}
-
-static __inline__ void ide_request_region (ide_ioreg_t from, unsigned int extent, const char *name)
-{
-#ifdef CONFIG_Q40
-        if (MACH_IS_Q40)
-            request_region((q40ide_ioreg_t)from,extent,name);
-#endif
-}
-
-static __inline__ void ide_release_region (ide_ioreg_t from, unsigned int extent)
-{
-#ifdef CONFIG_Q40
-        if (MACH_IS_Q40)
-            release_region((q40ide_ioreg_t)from,extent);
-#endif
-}
-
-#undef SUPPORT_SLOW_DATA_PORTS
-#define SUPPORT_SLOW_DATA_PORTS 0
-
-#undef SUPPORT_VLB_SYNC
-#define SUPPORT_VLB_SYNC 0
-
-/* this definition is used only on startup .. */
-#undef HD_DATA
-#define HD_DATA NULL
-
-
-/*
- * get rid of defs from io.h
- * ide still has some private and conflicting versions
- */
+#undef inb
+#undef inw
 #undef insw
+#undef inl
 #undef insl
+#undef outb
+#undef outw
 #undef outsw
+#undef outl
 #undef outsl
+#undef readb
+#undef readw
+#undef readl
+#undef writeb
+#undef writew
+#undef writel
 
-
-/*
- * define IO method and translation,
- * so far only Q40 has ide-if on ISA
- */
-#ifndef CONFIG_Q40
-
-#define ADDR_TRANS_B(_addr_) (_addr_)
-#define ADDR_TRANS_W(_addr_) (_addr_)
-#define ADDR_TRANS_L(_addr_) (_addr_)
-
-#else
-
-#define ADDR_TRANS_B(_addr_) (MACH_IS_Q40 ? ((unsigned char *)Q40_ISA_IO_B(_addr_)) : (_addr_))
-#define ADDR_TRANS_W(_addr_) (MACH_IS_Q40 ? ((unsigned char *)Q40_ISA_IO_W(_addr_)) : (_addr_))
-#define ADDR_TRANS_L(_addr_) (MACH_IS_Q40 ? ((unsigned char *)Q40_ISA_IO_L(_addr_)) : (_addr_))
+#define inb				in_8
+#define inw				in_be16
+#define insw(port, addr, n)		raw_insw((u16 *)port, addr, n)
+#define inl				in_be32
+#define insl(port, addr, n)		raw_insl((u32 *)port, addr, n)
+#define outb(val, port)			out_8(port, val)
+#define outw(val, port)			out_be16(port, val)
+#define outsw(port, addr, n)		raw_outsw((u16 *)port, addr, n)
+#define outl(val, port)			out_be32(port, val)
+#define outsl(port, addr, n)		raw_outsl((u32 *)port, addr, n)
+#define readb				in_8
+#define readw				in_be16
+#define __ide_mm_insw(port, addr, n)	raw_insw((u16 *)port, addr, n)
+#define readl				in_be32
+#define __ide_mm_insl(port, addr, n)	raw_insl((u32 *)port, addr, n)
+#define writeb(val, port)		out_8(port, val)
+#define writew(val, port)		out_be16(port, val)
+#define __ide_mm_outsw(port, addr, n)	raw_outsw((u16 *)port, addr, n)
+#define writel(val, port)		out_be32(port, val)
+#define __ide_mm_outsl(port, addr, n)	raw_outsl((u32 *)port, addr, n)
+#if defined(CONFIG_ATARI) || defined(CONFIG_Q40)
+#define insw_swapw(port, addr, n)	raw_insw_swapw((u16 *)port, addr, n)
+#define outsw_swapw(port, addr, n)	raw_outsw_swapw((u16 *)port, addr, n)
 #endif
 
-#define HAVE_ARCH_OUT_BYTE 1
 
-#define OUT_BYTE(v,p)	out_8(ADDR_TRANS_B((p)), (v))
-#define OUT_WORD(v,p)	out_be16(ADDR_TRANS_W((p)), (v))
-#define OUT_LONG(v,p)	out_be32(ADDR_TRANS_L((p)), (v))
-
-#define HAVE_ARCH_IN_BYTE 1
-
-#define IN_BYTE(p)	in_8(ADDR_TRANS_B((p)))
-#define IN_WORD(p)	in_be16(ADDR_TRANS_W((p)))
-#define IN_LONG(p)	in_be32(ADDR_TRANS_L((p)))
-
-#define insw(port, buf, nr) raw_insw(ADDR_TRANS_W(port), buf, nr)
-#define outsw(port, buf, nr) raw_outsw(ADDR_TRANS_W(port), buf, nr)
-
-#define insl(data_reg, buffer, wcount) insw(data_reg, buffer, (wcount)<<1)
-#define outsl(data_reg, buffer, wcount) outsw(data_reg, buffer, (wcount)<<1)
-
-
-#if defined(CONFIG_ATARI) || defined(CONFIG_Q40)
-
-#define insl_swapw(data_reg, buffer, wcount) \
-    insw_swapw(data_reg, buffer, (wcount)<<1)
-#define outsl_swapw(data_reg, buffer, wcount) \
-    outsw_swapw(data_reg, buffer, (wcount)<<1)
-
-#define insw_swapw(port, buf, nr) raw_insw_swapw(ADDR_TRANS_W(port), buf, nr)
-#define outsw_swapw(port, buf, nr) raw_outsw_swapw(ADDR_TRANS_W(port),buf,nr)
-
-#endif /* CONFIG_ATARI || CONFIG_Q40 */
-
-
-/* Q40 and Atari have byteswapped IDE bus and since many interesting
+/* Q40 and Atari have byteswapped IDE busses and since many interesting
  * values in the identification string are text, chars and words they
- * happened to be almost correct without swapping.. However *_capacity 
+ * happened to be almost correct without swapping.. However *_capacity
  * is needed for drives over 8 GB. RZ */
 #if defined(CONFIG_Q40) || defined(CONFIG_ATARI)
 #define M68K_IDE_SWAPW  (MACH_IS_Q40 || MACH_IS_ATARI)
 #endif
 
-#ifdef CONFIG_ATARI
-#define IDE_ARCH_LOCK 1
+#ifdef CONFIG_BLK_DEV_FALCON_IDE
+#define IDE_ARCH_LOCK
 
-static __inline__ void ide_release_lock (int *ide_lock)
+extern int falconide_intr_lock;
+
+static __inline__ void ide_release_lock(void)
 {
 	if (MACH_IS_ATARI) {
-		if (*ide_lock == 0) {
+		if (falconide_intr_lock == 0) {
 			printk("ide_release_lock: bug\n");
 			return;
 		}
-		*ide_lock = 0;
+		falconide_intr_lock = 0;
 		stdma_release();
 	}
 }
 
-static __inline__ void ide_get_lock (int *ide_lock, void (*handler)(int, void *, struct pt_regs *), void *data)
+static __inline__ void ide_get_lock(void (*handler)(int, void *, struct pt_regs *), void *data)
 {
 	if (MACH_IS_ATARI) {
-		if (*ide_lock == 0) {
+		if (falconide_intr_lock == 0) {
 			if (in_interrupt() > 0)
 				panic( "Falcon IDE hasn't ST-DMA lock in interrupt" );
 			stdma_lock(handler, data);
-			*ide_lock = 1;
+			falconide_intr_lock = 1;
 		}
 	}
 }
-#endif /* CONFIG_ATARI */
+#endif /* CONFIG_BLK_DEV_FALCON_IDE */
+
+#define IDE_ARCH_ACK_INTR
+#define ide_ack_intr(hwif)	((hwif)->hw.ack_intr ? (hwif)->hw.ack_intr(hwif) : 1)
 
 #endif /* __KERNEL__ */
-
 #endif /* _M68K_IDE_H */

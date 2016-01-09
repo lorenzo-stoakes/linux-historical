@@ -651,6 +651,7 @@ static void acm_disconnect(struct usb_device *dev, void *ptr)
 static struct usb_device_id acm_ids[] = {
 	{ USB_DEVICE(0x22B8, 0x1005) },		/* Motorola TimePort 280 */
 	{ USB_DEVICE_INFO(USB_CLASS_COMM, 0, 0) },
+	{ USB_DEVICE_INFO(USB_CLASS_COMM, 2, 0) },
 	{ }
 };
 

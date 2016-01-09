@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Petko Manolov - Petkan (petkan@users.sourceforge.net)
+ * Copyright (c) 1999-2003 Petko Manolov - Petkan (petkan@users.sourceforge.net)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as published
@@ -51,6 +51,8 @@
 #define	NO_CARRIER		0x10
 #define	LOSS_CARRIER		0x08
 #define	JABBER_TIMEOUT		0x04
+
+#define	LINK_STATUS		0x01
 
 #define	PEGASUS_REQT_READ	0xc0
 #define	PEGASUS_REQT_WRITE	0x40
@@ -231,8 +233,6 @@ PEGASUS_DEV( "LANEED USB Ethernet LD-USB/TX", VENDOR_LANEED, 0x400b,
 PEGASUS_DEV( "LANEED USB Ethernet LD-USB/T", VENDOR_LANEED, 0xabc1,
 		DEFAULT_GPIO_RESET )
 PEGASUS_DEV( "LANEED USB Ethernet LD-USB/TX", VENDOR_LANEED, 0x200c,
-		DEFAULT_GPIO_RESET | PEGASUS_II )
-PEGASUS_DEV( "LANEED USB Ethernet LD-USBL/TX", VENDOR_LANEED, 0x4005,
 		DEFAULT_GPIO_RESET | PEGASUS_II )
 PEGASUS_DEV( "Linksys USB10TX", VENDOR_LINKSYS, 0x2202,
 		LINKSYS_GPIO_RESET )

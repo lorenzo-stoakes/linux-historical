@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.93 2003/02/20 12:52:08 ak Exp $		
+ *  $Id: entry.S,v 1.95 2003/04/03 09:46:54 ak Exp $		
  */
 
 /*
@@ -311,7 +311,7 @@ ENTRY(common_interrupt)
 	je   1f
 	swapgs
 1:	cld
-#ifdef CONFIG_KGDB
+#ifdef CONFIG_X86_REMOTE_DEBUG
 	SAVE_ALL
 	movq %rsp,%rdi
 #else			
@@ -542,12 +542,12 @@ bad_gs:
  * Create a kernel thread.
  *
  * C extern interface:
- *	extern long kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+ *	extern long arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
  *
  * asm input arguments:
  *	rdi: fn, rsi: arg, rdx: flags
  */
-ENTRY(kernel_thread)
+ENTRY(arch_kernel_thread)
 	FAKE_STACK_FRAME $child_rip
 	SAVE_ALL
 

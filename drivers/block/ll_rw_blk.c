@@ -1375,11 +1375,12 @@ int end_that_request_first (struct request *req, int uptodate, char *name)
 
 void end_that_request_last(struct request *req)
 {
-	if (req->waiting != NULL)
-		complete(req->waiting);
-	req_finished_io(req);
+	struct completion *waiting = req->waiting;
 
+	req_finished_io(req);
 	blkdev_release_request(req);
+	if (waiting)
+		complete(waiting);
 }
 
 int __init blk_dev_init(void)

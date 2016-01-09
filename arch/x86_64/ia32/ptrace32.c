@@ -8,7 +8,7 @@
  * This allows to access 64bit processes too; but there is no way to see the extended 
  * register contents.
  *
- * $Id: ptrace32.c,v 1.16 2003/03/14 16:06:35 ak Exp $
+ * $Id: ptrace32.c,v 1.17 2003/03/24 09:25:15 ak Exp $
  */ 
 
 #include <linux/kernel.h>
@@ -173,18 +173,15 @@ static struct task_struct *find_target(int request, int pid, int *err)
 		get_task_struct(child);
 	read_unlock(&tasklist_lock);
 	if (child) { 
-		*err = -ESRCH;
-		if (!(child->ptrace & PT_PTRACED))
+		*err = -EPERM;
+		if (pid == 1) 
 			goto out;
-		if (child->state != TASK_STOPPED) {
-			if (request != PTRACE_KILL)
+		*err = ptrace_check_attach(child, request == PTRACE_KILL); 
+		if (*err < 0) 
 				goto out;
-		}
-		if (child->p_pptr != current)
-			goto out;
-
 		return child; 
 	} 
+
  out:
 	free_task_struct(child);
 	return NULL; 

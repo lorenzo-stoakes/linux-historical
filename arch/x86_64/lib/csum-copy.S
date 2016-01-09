@@ -50,15 +50,25 @@ csum_partial_copy_generic:
 	cmpl	 $3*64,%edx
 	jle	 1f
 
+	source
 	prefetch (%rdi)
+	source
 	prefetch 1*64(%rdi)
+	source
 	prefetch 2*64(%rdi)
+	source
 	prefetch 3*64(%rdi)
+	source
 	prefetch 4*64(%rdi)
+	dest
 	prefetchw (%rsi)
+	dest
 	prefetchw 1*64(%rsi)
+	dest
 	prefetchw 2*64(%rsi)
+	dest
 	prefetchw 3*64(%rsi)
+	dest
 	prefetchw 4*64(%rsi)
 
 1:			
@@ -107,6 +117,7 @@ csum_partial_copy_generic:
 	source
 	movq  56(%rdi),%r13
 		
+	source
 	prefetch 5*64(%rdi)
 						
 	adcq  %rbx,%rax
@@ -138,6 +149,7 @@ csum_partial_copy_generic:
 	dest
 	movq %r13,56(%rsi)
 	
+	dest
 	prefetchw 5*64(%rsi)
 	
 	leaq 64(%rdi),%rdi

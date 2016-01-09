@@ -53,6 +53,7 @@
 #define CONFIG_ROM_MODEL_ID			0x17
 #define CONFIG_ROM_NODE_CAPABILITES		0x0C
 #define CONFIG_ROM_UNIT_DIRECTORY		0xd1
+#define CONFIG_ROM_LOGICAL_UNIT_DIRECTORY	0xd4
 #define CONFIG_ROM_SPECIFIER_ID			0x12 
 #define CONFIG_ROM_UNIT_SW_VERSION		0x13
 #define CONFIG_ROM_DESCRIPTOR_LEAF		0x81
@@ -114,6 +115,10 @@ struct unit_directory {
 
 	/* For linking directories belonging to a node */
 	struct list_head node_list;
+		
+	/* for tracking unit versus logical unit */
+	struct unit_directory *parent;
+	int n_children;
 
 	int count;		/* Number of quadlets */
 	quadlet_t quadlets[0];

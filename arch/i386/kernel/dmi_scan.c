@@ -427,8 +427,10 @@ static __init int broken_pirq(struct dmi_blacklist *d)
 #ifdef CONFIG_X86_IO_APIC
 	skip_ioapic_setup = 0;
 #endif
+#ifdef CONFIG_PCI
 	broken_440gx_bios = 1;
 	pci_probe |= PCI_BIOS_IRQ_SCAN;
+#endif
 	
 	return 0;
 }

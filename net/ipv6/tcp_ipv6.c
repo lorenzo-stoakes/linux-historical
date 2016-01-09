@@ -775,7 +775,7 @@ void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 
 			dst = ip6_route_output(sk, &fl);
 		} else
-			dst_clone(dst);
+			dst_hold(dst);
 
 		if (dst->error) {
 			sk->err_soft = -dst->error;
@@ -936,7 +936,7 @@ static void tcp_v6_send_check(struct sock *sk, struct tcphdr *th, int len,
 	struct ipv6_pinfo *np = &sk->net_pinfo.af_inet6;
 
 	if (skb->ip_summed == CHECKSUM_HW) {
-		th->check = csum_ipv6_magic(&np->saddr, &np->daddr, len, IPPROTO_TCP,  0);
+		th->check = ~csum_ipv6_magic(&np->saddr, &np->daddr, len, IPPROTO_TCP,  0);
 		skb->csum = offsetof(struct tcphdr, check);
 	} else {
 		th->check = csum_ipv6_magic(&np->saddr, &np->daddr, len, IPPROTO_TCP, 

@@ -99,7 +99,7 @@ static spinlock_t gen_rtc_lock = SPIN_LOCK_UNLOCKED;
 static void gen_rtc_interrupt(unsigned long arg);
 
 /*
- * Routine to poll RTC seconds field for change as often as posible,
+ * Routine to poll RTC seconds field for change as often as possible,
  * after first RTC_UIE use timer to reduce polling
  */
 static void genrtc_troutine(void *data)

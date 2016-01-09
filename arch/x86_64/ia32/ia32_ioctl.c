@@ -1,4 +1,4 @@
-/* $Id: ia32_ioctl.c,v 1.30 2003/03/12 06:03:23 ak Exp $
+/* $Id: ia32_ioctl.c,v 1.31 2003/03/21 07:50:07 ak Exp $
  * ioctl32.c: Conversion between 32bit and 64bit native ioctls.
  *
  * Copyright (C) 1997-2000  Jakub Jelinek  (jakub@redhat.com)
@@ -2909,35 +2909,28 @@ static int serial_struct_ioctl(unsigned fd, unsigned cmd,  void *ptr)
 {
 	typedef struct serial_struct SS;
 	struct serial_struct32 *ss32 = ptr; 
-	int err = 0;
+	int err;
 	struct serial_struct ss; 
 	mm_segment_t oldseg = get_fs(); 
-	set_fs(KERNEL_DS);
 	if (cmd == TIOCSSERIAL) { 
-		err = -EFAULT;
 		if (copy_from_user(&ss, ss32, sizeof(struct serial_struct32)))
-			goto out;
+			return -EFAULT;
 		memmove(&ss.iomem_reg_shift, ((char*)&ss.iomem_base)+4, 
 			sizeof(SS)-offsetof(SS,iomem_reg_shift)); 
 		ss.iomem_base = (void *)((unsigned long)ss.iomem_base & 0xffffffff);
 	}
-	if (!err)
+	set_fs(KERNEL_DS);
 		err = sys_ioctl(fd,cmd,(unsigned long)(&ss)); 
-	if (cmd == TIOCGSERIAL && err >= 0) { 
-		__u32 base;
-		if (__copy_to_user(ss32,&ss,offsetof(SS,iomem_base)) ||
-		    __copy_to_user(&ss32->iomem_reg_shift,
-				   &ss.iomem_reg_shift,
-				   sizeof(SS) - offsetof(SS, iomem_reg_shift)))
-			err = -EFAULT;
-		if (ss.iomem_base > (unsigned char *)0xffffffff)
-			base = -1; 
-		else
-			base = (unsigned long)ss.iomem_base;
-		err |= __put_user(base, &ss32->iomem_base); 		
-	} 
- out:
 	set_fs(oldseg);
+	if (cmd == TIOCGSERIAL && err >= 0) { 
+		if (__copy_to_user(ss32,&ss,offsetof(SS,iomem_base)) ||
+		    __put_user((unsigned long)ss.iomem_base  >> 32 ? 
+			       0xffffffff : (unsigned)(unsigned long)ss.iomem_base,
+			       &ss32->iomem_base) ||
+		    __put_user(ss.iomem_reg_shift, &ss32->iomem_reg_shift) || 
+		    __put_user(ss.port_high, &ss32->port_high))
+			return -EFAULT;
+	} 
 	return err;	
 }
 

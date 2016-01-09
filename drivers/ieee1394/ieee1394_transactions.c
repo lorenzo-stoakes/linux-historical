@@ -12,6 +12,7 @@
 #include <linux/sched.h>
 #include <asm/errno.h>
 #include <asm/bitops.h>
+#include <linux/interrupt.h>
 
 #include "ieee1394.h"
 #include "ieee1394_types.h"
@@ -146,6 +147,17 @@ void fill_phy_packet(struct hpsb_packet *packet, quadlet_t data)
         packet->speed_code = SPEED_100; /* Force speed to be 100Mbps */
 }
 
+void fill_async_stream_packet(struct hpsb_packet *packet, int length,
+				     int channel, int tag, int sync)
+{
+	packet->header[0] = (length << 16) | (tag << 14) | (channel << 8)
+		| (TCODE_STREAM_DATA << 4) | sync;
+
+	packet->header_size = 4;
+	packet->data_size = length;
+	packet->type = hpsb_async;
+	packet->tcode = TCODE_ISO_DATA;
+}
 
 /**
  * get_tlabel - allocate a transaction label
@@ -537,7 +549,6 @@ hpsb_write_fail:
 }
 
 
-/* We need a hpsb_lock64 function for the 64 bit equivalent.  Probably. */
 int hpsb_lock(struct hpsb_host *host, nodeid_t node, unsigned int generation,
 	      u64 addr, int extcode, quadlet_t *data, quadlet_t arg)
 {
@@ -588,6 +599,112 @@ int hpsb_lock(struct hpsb_host *host, nodeid_t node, unsigned int generation,
 hpsb_lock_fail:
         free_tlabel(host, node, packet->tlabel);
         free_hpsb_packet(packet);
+
+        return retval;
+}
+
+int hpsb_lock64(struct hpsb_host *host, nodeid_t node, unsigned int generation,
+		u64 addr, int extcode, octlet_t *data, octlet_t arg)
+{
+	struct hpsb_packet *packet;
+	int retval = 0;
+
+	BUG_ON(in_interrupt()); // We can't be called in an interrupt, yet
+
+	packet = hpsb_make_lock64packet(host, node, addr, extcode);
+
+        switch (extcode) {
+        case EXTCODE_MASK_SWAP:
+        case EXTCODE_COMPARE_SWAP:
+        case EXTCODE_BOUNDED_ADD:
+        case EXTCODE_WRAP_ADD:
+                packet->data[0] = (arg >> 32);
+                packet->data[1] = (arg & 0xffffffff);
+                packet->data[2] = (*data >> 32);
+                packet->data[3] = (*data & 0xffffffff);
+                break;
+        case EXTCODE_FETCH_ADD:
+        case EXTCODE_LITTLE_ADD:
+                packet->data[0] = (*data >> 32);
+                packet->data[1] = (*data & 0xffffffff);
+                break;
+        default:
+                return -EINVAL;
+        }
+
+	if (!packet)
+		return -ENOMEM;
+
+	packet->generation = generation;
+	if (!hpsb_send_packet(packet)) {
+		retval = -EINVAL;
+		goto hpsb_lock64_fail;
+	}
+	down(&packet->state_change);
+	down(&packet->state_change);
+	retval = hpsb_packet_success(packet);
+
+	if (retval == 0)
+		*data = (u64)packet->data[1] << 32 | packet->data[0];
+
+hpsb_lock64_fail:
+        free_tlabel(host, node, packet->tlabel);
+	free_hpsb_packet(packet);
+
+        return retval;
+}
+
+int hpsb_send_gasp(struct hpsb_host *host, int channel, unsigned int generation,
+		   quadlet_t *buffer, size_t length, u32 specifier_id,
+		   unsigned int version)
+{
+#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
+	int i;
+#endif
+
+	struct hpsb_packet *packet;
+	int retval = 0;
+	u16 specifier_id_hi = (specifier_id & 0x00ffff00) >> 8;
+	u8 specifier_id_lo = specifier_id & 0xff;
+
+#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
+	HPSB_DEBUG("Send GASP: channel = %d, length = %d", channel, length);
+#endif
+
+	length += 8;
+
+	packet = alloc_hpsb_packet(length + (length % 4 ? 4 - (length % 4) : 0));
+	if (!packet)
+		return -ENOMEM;
+
+	if (length % 4) {
+		packet->data[length / 4] = 0;
+	}
+
+	packet->host = host;
+	fill_async_stream_packet(packet, length, channel, 3, 0);
+        
+	packet->data[0] = cpu_to_be32((host->node_id << 16) | specifier_id_hi);
+	packet->data[1] = cpu_to_be32((specifier_id_lo << 24) | (version & 0x00ffffff));
+
+	memcpy(&(packet->data[2]), buffer, length - 4);
+
+#ifdef CONFIG_IEEE1394_VERBOSEDEBUG
+	HPSB_DEBUG("GASP: packet->header_size = %d", packet->header_size);
+	HPSB_DEBUG("GASP: packet->data_size = %d", packet->data_size);
+
+	for(i=0; i<(packet->data_size/4); i++)
+		HPSB_DEBUG("GASP: data[%d]: 0x%08x", i*4, be32_to_cpu(packet->data[i]));
+#endif
+
+	packet->generation = generation;
+
+	packet->no_waiter = 1;
+
+	if (!hpsb_send_packet(packet)) {
+        free_hpsb_packet(packet);
+		retval = -EINVAL;
+	}
 
         return retval;
 }

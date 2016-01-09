@@ -16,7 +16,7 @@
  *
  * This file assumes that there is a hole at the end of user address space.
  *
- * $Id: sys_ia32.c,v 1.53 2003/03/12 09:45:06 ak Exp $
+ * $Id: sys_ia32.c,v 1.54 2003/03/24 09:28:26 ak Exp $
  */
 
 #include <linux/config.h>
@@ -961,7 +961,7 @@ asmlinkage ssize_t sys_readv(unsigned long,const struct iovec *,unsigned long);
 asmlinkage ssize_t sys_writev(unsigned long,const struct iovec *,unsigned long);
 
 static struct iovec *
-get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type, int *errp)
+get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 *count, int type, int *errp)
 {
 	int i;
 	u32 buf, len;
@@ -971,17 +971,17 @@ get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type, i
 	/* Get the "struct iovec" from user memory */
 
 	*errp = 0; 
-	if (!count)
+	if (!*count)
 		return 0;
 	*errp = -EINVAL;
-	if (count > UIO_MAXIOV)
+	if (*count > UIO_MAXIOV)
 		return(struct iovec *)0;
 	*errp = -EFAULT;
-	if(verify_area(VERIFY_READ, iov32, sizeof(struct iovec32)*count))
+	if(verify_area(VERIFY_READ, iov32, sizeof(struct iovec32)**count))
 		return(struct iovec *)0;
-	if (count > UIO_FASTIOV) {
+	if (*count > UIO_FASTIOV) {
 		*errp = -ENOMEM; 
-		iov = kmalloc(count*sizeof(struct iovec), GFP_KERNEL);
+		iov = kmalloc(*count*sizeof(struct iovec), GFP_KERNEL);
 		if (!iov)
 			return((struct iovec *)0);
 	} else
@@ -989,14 +989,19 @@ get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type, i
 
 	ivp = iov;
 	totlen = 0;
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < *count; i++) {
 		*errp = __get_user(len, &iov32->iov_len) |
 		  	__get_user(buf, &iov32->iov_base);	
 		if (*errp)
 			goto error;
 		*errp = verify_area(type, (void *)A(buf), len);
-		if (*errp) 
+		if (*errp) { 
+			if (i > 0) { 
+				*count = i;
+				break;
+			}	
 			goto error;
+		}
 		/* SuS checks: */
 		*errp = -EINVAL; 
 		if ((int)len < 0)
@@ -1025,7 +1030,7 @@ sys32_readv(int fd, struct iovec32 *vector, u32 count)
 	int ret;
 	mm_segment_t old_fs = get_fs();
 
-	if ((iov = get_iovec32(vector, iovstack, count, VERIFY_WRITE, &ret)) == NULL)
+	if ((iov = get_iovec32(vector, iovstack, &count, VERIFY_WRITE, &ret)) == NULL)
 		return ret;
 	set_fs(KERNEL_DS);
 	ret = sys_readv(fd, iov, count);
@@ -1043,7 +1048,7 @@ sys32_writev(int fd, struct iovec32 *vector, u32 count)
 	int ret;
 	mm_segment_t old_fs = get_fs();
 
-	if ((iov = get_iovec32(vector, iovstack, count, VERIFY_READ, &ret)) == NULL)
+	if ((iov = get_iovec32(vector, iovstack, &count, VERIFY_READ, &ret)) == NULL)
 		return ret;
 	set_fs(KERNEL_DS);
 	ret = sys_writev(fd, iov, count);
@@ -2545,7 +2550,7 @@ struct exec_domain ia32_exec_domain = {
 
 static int __init ia32_init (void)
 {
-	printk("IA32 emulation $Id: sys_ia32.c,v 1.53 2003/03/12 09:45:06 ak Exp $\n");  
+	printk("IA32 emulation $Id: sys_ia32.c,v 1.54 2003/03/24 09:28:26 ak Exp $\n");  
 	ia32_exec_domain.signal_map = default_exec_domain.signal_map;
 	ia32_exec_domain.signal_invmap = default_exec_domain.signal_invmap;
 	register_exec_domain(&ia32_exec_domain);

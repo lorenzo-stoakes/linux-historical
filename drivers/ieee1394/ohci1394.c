@@ -30,8 +30,10 @@
  * . DMA mmap for iso receive
  * . Config ROM generation
  *
+ * Things implemented, but still in test phase:
+ * . Async Stream Packets Transmit (Receive done via Iso interface)
+ *
  * Things not implemented:
- * . Async Stream Packets
  * . DMA error recovery
  *
  * Known bugs:
@@ -76,6 +78,10 @@
  *
  * Dan Maas <dmaas@maasdigital.com>
  *  . New isochronous API (rawiso)
+ *
+ * Nandu Santhi <contactnandu@users.sourceforge.net>
+ *  . Added support for nVidia nForce2 onboard Firewire chipset
+ * 
  */
 
 #include <linux/config.h>
@@ -141,7 +147,7 @@ printk(KERN_INFO "%s_%d: " fmt "\n" , OHCI1394_DRIVER_NAME, card , ## args)
 #define OHCI_DMA_FREE(fmt, args...) \
 	HPSB_ERR("%s(%s)free(%d): "fmt, OHCI1394_DRIVER_NAME, __FUNCTION__, \
 		--global_outstanding_dmas, ## args)
-u32 global_outstanding_dmas = 0;
+static int global_outstanding_dmas = 0;
 #else
 #define OHCI_DMA_ALLOC(fmt, args...)
 #define OHCI_DMA_FREE(fmt, args...)
@@ -156,7 +162,7 @@ printk(level "%s: " fmt "\n" , OHCI1394_DRIVER_NAME , ## args)
 printk(level "%s_%d: " fmt "\n" , OHCI1394_DRIVER_NAME, card , ## args)
 
 static char version[] __devinitdata =
-	"$Rev: 810 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 866 $ Ben Collins <bcollins@debian.org>";
 
 /* Module Parameters */
 MODULE_PARM(attempt_root,"i");
@@ -348,18 +354,16 @@ static void handle_selfid(struct ti_ohci *ohci, struct hpsb_host *host,
 
 	DBGMSG(ohci->id, "SelfID complete");
 
-	hpsb_selfid_complete(host, phyid, isroot);
-
 	return;
 }
 
 static void ohci_soft_reset(struct ti_ohci *ohci) {
 	int i;
 
-	reg_write(ohci, OHCI1394_HCControlSet, 0x00010000);
+	reg_write(ohci, OHCI1394_HCControlSet, OHCI1394_HCControl_softReset);
   
 	for (i = 0; i < OHCI_LOOP_COUNT; i++) {
-		if (reg_read(ohci, OHCI1394_HCControlSet) & 0x00010000)
+		if (!reg_read(ohci, OHCI1394_HCControlSet) & OHCI1394_HCControl_softReset)
 			break;
 		mdelay(1);
 	}
@@ -516,7 +520,7 @@ static void ohci_initialize(struct ti_ohci *ohci)
 	reg_write(ohci, OHCI1394_NodeID, 0x0000ffc0);
 
 	/* Enable posted writes */
-	reg_write(ohci, OHCI1394_HCControlSet, 0x00040000);
+	reg_write(ohci, OHCI1394_HCControlSet, OHCI1394_HCControl_postedWriteEnable);
 
 	/* Clear link control register */
 	reg_write(ohci, OHCI1394_LinkControlClear, 0xffffffff);
@@ -579,7 +583,7 @@ static void ohci_initialize(struct ti_ohci *ohci)
 		  (OHCI1394_MAX_PHYS_RESP_RETRIES<<8));
 
 	/* We don't want hardware swapping */
-	reg_write(ohci, OHCI1394_HCControlClear, 0x40000000);
+	reg_write(ohci, OHCI1394_HCControlClear, OHCI1394_HCControl_noByteSwap);
 
 	/* Enable interrupts */
 	reg_write(ohci, OHCI1394_IntMaskSet,
@@ -596,7 +600,7 @@ static void ohci_initialize(struct ti_ohci *ohci)
 		  OHCI1394_cycleInconsistent);
 
 	/* Enable link */
-	reg_write(ohci, OHCI1394_HCControlSet, 0x00020000);
+	reg_write(ohci, OHCI1394_HCControlSet, OHCI1394_HCControl_linkEnable);
 
 	buf = reg_read(ohci, OHCI1394_Version);
 	PRINT(KERN_INFO, ohci->id, "OHCI-1394 %d.%d (PCI): IRQ=[%d]  "
@@ -892,12 +896,61 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 	struct ti_ohci *ohci = host->hostdata;
 	int retval = 0;
 	unsigned long flags;
+	int phy_reg;
 
 	switch (cmd) {
 	case RESET_BUS:
 		DBGMSG(ohci->id, "devctl: Bus reset requested%s",
 		       attempt_root ? " and attempting to become root" : "");
-		set_phy_reg_mask (ohci, 1, 0x40 | (attempt_root ? 0x80 : 0));
+		switch (arg) {
+		case SHORT_RESET:
+			phy_reg = get_phy_reg(ohci, 5);
+			phy_reg |= 0x40;
+			set_phy_reg(ohci, 5, phy_reg); /* set ISBR */
+			break;
+		case LONG_RESET:
+			phy_reg = get_phy_reg(ohci, 1);
+			phy_reg |= 0x40 | (attempt_root ? 0x80 : 0);
+			set_phy_reg(ohci, 1, phy_reg); /* set IBR */
+			break;
+		case SHORT_RESET_NO_FORCE_ROOT:
+			phy_reg = get_phy_reg(ohci, 1);
+			if (phy_reg & 0x80) {
+				phy_reg &= ~0x80 | (attempt_root ? 0x80 : 0);
+				set_phy_reg(ohci, 1, phy_reg); /* clear RHB */
+			}
+
+			phy_reg = get_phy_reg(ohci, 5);
+			phy_reg |= 0x40;
+			set_phy_reg(ohci, 5, phy_reg); /* set ISBR */
+			break;
+		case LONG_RESET_NO_FORCE_ROOT:
+			phy_reg = get_phy_reg(ohci, 1);
+			phy_reg &= ~0x80;
+			phy_reg |= 0x40 | (attempt_root ? 0x80 : 0);
+			set_phy_reg(ohci, 1, phy_reg); /* clear RHB, set IBR */
+			break;
+		case SHORT_RESET_FORCE_ROOT:
+			phy_reg = get_phy_reg(ohci, 1);
+			if (!(phy_reg & 0x80)) {
+				phy_reg |= 0x80;
+				set_phy_reg(ohci, 1, phy_reg); /* set RHB */
+			}
+
+			phy_reg = get_phy_reg(ohci, 5);
+			phy_reg |= 0x40;
+			set_phy_reg(ohci, 5, phy_reg); /* set ISBR */
+			break;
+		case LONG_RESET_FORCE_ROOT:
+			phy_reg = get_phy_reg(ohci, 1);
+			phy_reg |= 0xc0;
+			set_phy_reg(ohci, 1, phy_reg); /* set RHB and IBR */
+			break;
+		default:
+			retval = -1;
+		}
+
+
 		break;
 
 	case GET_CYCLE_COUNTER:
@@ -956,8 +1009,24 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 			return -EFAULT;
 		}
 
+		/* activate the legacy IR context */
+		if (ohci->ir_legacy_context.ohci == NULL) {
+			if (alloc_dma_rcv_ctx(ohci, &ohci->ir_legacy_context,
+					      DMA_CTX_ISO, 0, IR_NUM_DESC,
+					      IR_BUF_SIZE, IR_SPLIT_BUF_SIZE,
+					      OHCI1394_IsoRcvContextBase) < 0) {
+				PRINT(KERN_ERR, ohci->id, "%s: failed to allocate an IR context",
+				      __FUNCTION__);
+				return -ENOMEM;
+			}
+			ohci->ir_legacy_channels = 0;
+			initialize_dma_rcv_ctx(&ohci->ir_legacy_context, 1);
+
+			DBGMSG(ohci->id, "ISO receive legacy context activated");
+		}
+
 		mask = (u64)0x1<<arg;
-		
+
                 spin_lock_irqsave(&ohci->IR_channel_lock, flags);
 
 		if (ohci->ISO_channel_usage & mask) {
@@ -966,23 +1035,6 @@ static int ohci_devctl(struct hpsb_host *host, enum devctl_cmd cmd, int arg)
 			      __FUNCTION__, arg);
 			spin_unlock_irqrestore(&ohci->IR_channel_lock, flags);
 			return -EFAULT;
-		}
-
-		/* activate the legacy IR context */
-		if(ohci->ir_legacy_context.ohci == NULL) {
-			if(alloc_dma_rcv_ctx(ohci, &ohci->ir_legacy_context,
-					     DMA_CTX_ISO, 0, IR_NUM_DESC,
-					     IR_BUF_SIZE, IR_SPLIT_BUF_SIZE,
-					     OHCI1394_IsoRcvContextBase) < 0) {
-				PRINT(KERN_ERR, ohci->id,
-				      "%s: failed to allocate an IR context", 
-				      __FUNCTION__);
-				return -ENOMEM;
-			}
-			ohci->ir_legacy_channels = 0;
-			initialize_dma_rcv_ctx(&ohci->ir_legacy_context, 1);
-
-			DBGMSG(ohci->id, "ISO receive legacy context activated");
 		}
 
 		ohci->ISO_channel_usage |= mask;
@@ -1156,10 +1208,11 @@ static int ohci_iso_recv_init(struct hpsb_iso *iso)
 		/* iso->irq_interval is in packets - translate that to blocks */
 		/* (err, sort of... 1 is always the safest value) */
 		recv->block_irq_interval = iso->irq_interval / recv->nblocks;
+		if(recv->block_irq_interval*4 > recv->nblocks)
+			recv->block_irq_interval = recv->nblocks/4;
 		if(recv->block_irq_interval < 1)
 			recv->block_irq_interval = 1;
-		else if(recv->block_irq_interval*4 > recv->nblocks)
-			recv->block_irq_interval = recv->nblocks/4;
+
 	} else {
 		int max_packet_size;
 
@@ -2253,26 +2306,39 @@ static void ohci_irq_handler(int irq, void *dev_id,
 	}
 
 	if (event & OHCI1394_busReset) {
-		int loops = 0;
-
 		/* The busReset event bit can't be cleared during the
 		 * selfID phase, so we disable busReset interrupts, to
 		 * avoid burying the cpu in interrupt requests. */
 		spin_lock_irqsave(&ohci->event_lock, flags);
-  		reg_write(ohci, OHCI1394_IntMaskClear, OHCI1394_busReset);
-		udelay(10);
-		while (reg_read(ohci, OHCI1394_IntEventSet) & OHCI1394_busReset) {
-			if (loops++ > 10000) {
-				hpsb_reset_bus(host, 1);
-				loops = 0;
-				DBGMSG(ohci->id, "Out of control loop, resetting");
-			}
+		reg_write(ohci, OHCI1394_IntMaskClear, OHCI1394_busReset);
 
-			reg_write(ohci, OHCI1394_IntEventClear, OHCI1394_busReset);
-			spin_unlock_irqrestore(&ohci->event_lock, flags);
+		if (ohci->check_busreset) {
+			int loop_count = 0;
+
 			udelay(10);
-			spin_lock_irqsave(&ohci->event_lock, flags);
-  		}
+
+			while (reg_read(ohci, OHCI1394_IntEventSet) & OHCI1394_busReset) {
+				reg_write(ohci, OHCI1394_IntEventClear, OHCI1394_busReset);
+
+				spin_unlock_irqrestore(&ohci->event_lock, flags);
+				udelay(10);
+				spin_lock_irqsave(&ohci->event_lock, flags);
+
+				/* The loop counter check is to prevent the driver
+				 * from remaining in this state forever. For the
+				 * initial bus reset, the loop continues for ever
+				 * and the system hangs, until some device is plugged-in
+				 * or out manually into a port! The forced reset seems
+				 * to solve this problem. This mainly effects nForce2. */
+				if (loop_count > 10000) {
+					ohci_devctl(host, RESET_BUS, LONG_RESET);
+					DBGMSG(ohci->id, "Detected bus-reset loop. Forced a bus reset!");
+					loop_count = 0;
+				}
+
+				loop_count++;
+			}
+		}
 		spin_unlock_irqrestore(&ohci->event_lock, flags);
 
 		if (!host->in_bus_reset) {
@@ -2412,6 +2478,8 @@ selfid_not_valid:
 	if (event)
 		PRINT(KERN_ERR, ohci->id, "Unhandled interrupt(s) 0x%08x",
 		      event);
+
+	return;
 }
 
 /* Put the buffer back into the dma context */
@@ -3250,6 +3318,18 @@ static int __devinit ohci1394_pci_probe(struct pci_dev *dev,
 		ohci->selfid_swap = 1;
 #endif
 
+#ifndef PCI_DEVICE_ID_NVIDIA_NFORCE2_FW
+#define PCI_DEVICE_ID_NVIDIA_NFORCE2_FW 0x006e
+#endif
+
+	/* These chipsets require a bit of extra care when checking after
+	 * a busreset.  */
+	if ((dev->vendor == PCI_VENDOR_ID_APPLE &&
+	     dev->device == PCI_DEVICE_ID_APPLE_UNI_N_FW) ||
+	    (dev->vendor ==  PCI_VENDOR_ID_NVIDIA &&
+	     dev->device == PCI_DEVICE_ID_NVIDIA_NFORCE2_FW))
+		ohci->check_busreset = 1;
+
 	/* We hardwire the MMIO length, since some CardBus adaptors
 	 * fail to report the right length.  Anyway, the ohci spec
 	 * clearly says it's 2kb, so this shouldn't be a problem. */ 
@@ -3336,7 +3416,7 @@ static int __devinit ohci1394_pci_probe(struct pci_dev *dev,
 	 * accessing registers in the SClk domain without LPS enabled
 	 * will lock up the machine.  Wait 50msec to make sure we have
 	 * full link enabled.  */
-	reg_write(ohci, OHCI1394_HCControlSet, 0x00080000);
+	reg_write(ohci, OHCI1394_HCControlSet, OHCI1394_HCControl_LPS);
 	mdelay(50);
 
 	/* Determine the number of available IR and IT contexts. */

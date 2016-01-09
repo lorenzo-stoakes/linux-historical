@@ -353,7 +353,7 @@
 #include "sbp2.h"
 
 static char version[] __devinitdata =
-	"$Rev: 792 $ James Goodwin <jamesg@filanet.com>";
+	"$Rev: 878 $ James Goodwin <jamesg@filanet.com>";
 
 /*
  * Module load parameter definitions
@@ -548,7 +548,7 @@ static struct hpsb_address_ops sbp2_physdma_ops = {
 static struct hpsb_protocol_driver sbp2_driver = {
 	.name =		"SBP2 Driver",
 	.id_table = 	sbp2_id_table,
-	.probe = 		sbp2_probe,
+	.probe = 	sbp2_probe,
 	.disconnect = 	sbp2_disconnect,
 	.update = 	sbp2_update
 };
@@ -846,7 +846,7 @@ static int sbp2util_create_command_orb_pool(struct scsi_id_instance_data *scsi_i
 	spin_lock_irqsave(&scsi_id->sbp2_command_orb_lock, flags);
 	for (i = 0; i < scsi_id->sbp2_total_command_orbs; i++) {
 		command = (struct sbp2_command_info *)
-		    kmalloc(sizeof(struct sbp2_command_info), GFP_KERNEL);
+		    kmalloc(sizeof(struct sbp2_command_info), GFP_ATOMIC);
 		if (!command) {
 			spin_unlock_irqrestore(&scsi_id->sbp2_command_orb_lock, flags);
 			return(-ENOMEM);
@@ -1312,12 +1312,44 @@ static int sbp2_start_device(struct sbp2scsi_host_info *hi, struct unit_director
 		goto alloc_fail;
 	SBP2_DMA_ALLOC("consistent DMA region for logout ORB");
 
+	/* Query logins ORB DMA */
+	scsi_id->query_logins_orb =
+		pci_alloc_consistent(hi->host->pdev, sizeof(struct sbp2_query_logins_orb),
+				     &scsi_id->query_logins_orb_dma);
+	if (!scsi_id->query_logins_orb)
+		goto alloc_fail;
+	SBP2_DMA_ALLOC("consistent DMA region for query logins ORB");
+
+	/* Query logins response DMA */
+	scsi_id->query_logins_response =
+		pci_alloc_consistent(hi->host->pdev, sizeof(struct sbp2_query_logins_response),
+				     &scsi_id->query_logins_response_dma);
+	if (!scsi_id->query_logins_response)
+		goto alloc_fail;
+	SBP2_DMA_ALLOC("consistent DMA region for query logins response");
+
 	/* Login ORB DMA */
 	scsi_id->login_orb =
 		pci_alloc_consistent(hi->host->pdev, sizeof(struct sbp2_login_orb),
 				     &scsi_id->login_orb_dma);
 	if (scsi_id->login_orb == NULL) {
 alloc_fail:
+		if (scsi_id->query_logins_response) {
+			pci_free_consistent(hi->host->pdev,
+					sizeof(struct sbp2_query_logins_response),
+					scsi_id->query_logins_response,
+					scsi_id->query_logins_response_dma);
+			SBP2_DMA_FREE("query logins response DMA");
+		}
+
+		if (scsi_id->query_logins_orb) {
+			pci_free_consistent(hi->host->pdev,
+					sizeof(struct sbp2_query_logins_orb),
+					scsi_id->query_logins_orb,
+					scsi_id->query_logins_orb_dma);
+			SBP2_DMA_FREE("query logins ORB DMA");
+		}
+
 		if (scsi_id->logout_orb) {
 			pci_free_consistent(hi->host->pdev,
 					sizeof(struct sbp2_logout_orb),
@@ -1487,8 +1519,24 @@ static void sbp2_remove_device(struct sbp2scsi_host_info *hi,
 		pci_free_consistent(hi->host->pdev,
 				    sizeof(struct sbp2_logout_orb),
 				    scsi_id->logout_orb,
-				    scsi_id->reconnect_orb_dma);
+				    scsi_id->logout_orb_dma);
 		SBP2_DMA_FREE("single logout orb");
+	}
+
+	if (scsi_id->query_logins_orb) {
+		pci_free_consistent(hi->host->pdev,
+				    sizeof(struct sbp2_query_logins_orb),
+				    scsi_id->query_logins_orb,
+				    scsi_id->query_logins_orb_dma);
+		SBP2_DMA_FREE("single query logins orb");
+	}
+
+	if (scsi_id->query_logins_response) {
+		pci_free_consistent(hi->host->pdev,
+				    sizeof(struct sbp2_query_logins_response),
+				    scsi_id->query_logins_response,
+				    scsi_id->query_logins_response_dma);
+		SBP2_DMA_FREE("single query logins data");
 	}
 
 	SBP2_DEBUG("SBP-2 device removed, SCSI ID = %d", scsi_id->id);
@@ -1546,6 +1594,99 @@ static __inline__ int sbp2_command_conversion_device_type(u8 device_type)
 }
 
 /*
+ * This function queries the device for the maximum concurrent logins it
+ * supports.
+ */
+static int sbp2_query_logins(struct sbp2scsi_host_info *hi, struct scsi_id_instance_data *scsi_id) 
+{
+	quadlet_t data[2];
+	int max_logins;
+	int active_logins;
+
+	SBP2_DEBUG("sbp2_query_logins");
+
+	scsi_id->query_logins_orb->reserved1 = 0x0;
+	scsi_id->query_logins_orb->reserved2 = 0x0;
+
+	scsi_id->query_logins_orb->query_response_lo = scsi_id->query_logins_response_dma;
+	scsi_id->query_logins_orb->query_response_hi = ORB_SET_NODE_ID(hi->host->node_id);
+	SBP2_DEBUG("sbp2_query_logins: query_response_hi/lo initialized");
+
+	scsi_id->query_logins_orb->lun_misc = ORB_SET_FUNCTION(QUERY_LOGINS_REQUEST);
+	scsi_id->query_logins_orb->lun_misc |= ORB_SET_NOTIFY(1);
+	if (scsi_id->sbp2_device_type_and_lun != SBP2_DEVICE_TYPE_LUN_UNINITIALIZED) {
+		scsi_id->query_logins_orb->lun_misc |= ORB_SET_LUN(scsi_id->sbp2_device_type_and_lun);
+	}
+	SBP2_DEBUG("sbp2_query_logins: lun_misc initialized");
+
+	scsi_id->query_logins_orb->reserved_resp_length =
+		ORB_SET_QUERY_LOGINS_RESP_LENGTH(sizeof(struct sbp2_query_logins_response));
+	SBP2_DEBUG("sbp2_query_logins: reserved_resp_length initialized");
+
+	scsi_id->query_logins_orb->status_FIFO_lo = SBP2_STATUS_FIFO_ADDRESS_LO + 
+						    SBP2_STATUS_FIFO_ENTRY_TO_OFFSET(scsi_id->id);
+	scsi_id->query_logins_orb->status_FIFO_hi = (ORB_SET_NODE_ID(hi->host->node_id) |
+						     SBP2_STATUS_FIFO_ADDRESS_HI);
+	SBP2_DEBUG("sbp2_query_logins: status FIFO initialized");
+
+	sbp2util_cpu_to_be32_buffer(scsi_id->query_logins_orb, sizeof(struct sbp2_query_logins_orb));
+
+	SBP2_DEBUG("sbp2_query_logins: orb byte-swapped");
+
+	memset(scsi_id->query_logins_response, 0, sizeof(struct sbp2_query_logins_response));
+	memset(&scsi_id->status_block, 0, sizeof(struct sbp2_status_block));
+
+	SBP2_DEBUG("sbp2_query_logins: query_logins_response/status FIFO memset");
+
+	data[0] = ORB_SET_NODE_ID(hi->host->node_id);
+	data[1] = scsi_id->query_logins_orb_dma;
+	sbp2util_cpu_to_be32_buffer(data, 8);
+
+	atomic_set(&scsi_id->sbp2_login_complete, 0);
+
+	SBP2_DEBUG("sbp2_query_logins: prepared to write");
+	hpsb_node_write(scsi_id->ne, scsi_id->sbp2_management_agent_addr, data, 8);
+	SBP2_DEBUG("sbp2_query_logins: written");
+
+	if (sbp2util_down_timeout(&scsi_id->sbp2_login_complete, 2*HZ)) {
+		SBP2_ERR("Error querying logins to SBP-2 device - timed out");
+		return(-EIO);
+	}
+
+	if (scsi_id->status_block.ORB_offset_lo != scsi_id->query_logins_orb_dma) {
+		SBP2_ERR("Error querying logins to SBP-2 device - timed out");
+		return(-EIO);
+	}
+
+	if (STATUS_GET_RESP(scsi_id->status_block.ORB_offset_hi_misc) ||
+	    STATUS_GET_DEAD_BIT(scsi_id->status_block.ORB_offset_hi_misc) ||
+	    STATUS_GET_SBP_STATUS(scsi_id->status_block.ORB_offset_hi_misc)) {
+
+		SBP2_ERR("Error querying logins to SBP-2 device - timed out");
+		return(-EIO);
+	}
+
+	sbp2util_cpu_to_be32_buffer(scsi_id->query_logins_response, sizeof(struct sbp2_query_logins_response));
+
+	SBP2_DEBUG("length_max_logins = %x",
+		   (unsigned int)scsi_id->query_logins_response->length_max_logins);
+
+	SBP2_INFO("Query logins to SBP-2 device successful");
+
+	max_logins = RESPONSE_GET_MAX_LOGINS(scsi_id->query_logins_response->length_max_logins);
+	SBP2_INFO("Maximum concurrent logins supported: %d", max_logins);
+
+	active_logins = RESPONSE_GET_ACTIVE_LOGINS(scsi_id->query_logins_response->length_max_logins);
+	SBP2_INFO("Number of active logins: %d", active_logins);
+
+	if (active_logins >= max_logins) {
+		return(-EIO);
+	}
+
+	return 0;
+}
+
+/*
  * This function is called in order to login to a particular SBP-2 device,
  * after a bus reset.
  */
@@ -1558,6 +1699,13 @@ static int sbp2_login_device(struct sbp2scsi_host_info *hi, struct scsi_id_insta
 	if (!scsi_id->login_orb) {
 		SBP2_DEBUG("sbp2_login_device: login_orb not alloc'd!");
 		return(-EIO);
+	}
+
+	if (!sbp2_exclusive_login) {
+		if (sbp2_query_logins(hi, scsi_id)) {
+			SBP2_ERR("Device does not support any more concurrent logins");
+			return(-EIO);
+		}
 	}
 
 	/* Set-up login ORB, assume no password */
@@ -1840,28 +1988,11 @@ static int sbp2_set_busy_timeout(struct sbp2scsi_host_info *hi, struct scsi_id_i
 	return(0);
 }
 
-/*
- * This function is called to parse sbp2 device's config rom unit
- * directory. Used to determine things like sbp2 management agent offset,
- * and command set used (SCSI or RBC). 
- */
-static void sbp2_parse_unit_directory(struct scsi_id_instance_data *scsi_id)
+static void sbp2_parse_logical_unit_directory
+	(struct scsi_id_instance_data *scsi_id, struct unit_directory *ud)
 {
-	struct unit_directory *ud;
 	int i;
-
-	SBP2_DEBUG("sbp2_parse_unit_directory");
-
-	/* Initialize some fields, in case an entry does not exist */
-	scsi_id->sbp2_device_type_and_lun = SBP2_DEVICE_TYPE_LUN_UNINITIALIZED;
-	scsi_id->sbp2_management_agent_addr = 0x0;
-	scsi_id->sbp2_command_set_spec_id = 0x0;
-	scsi_id->sbp2_command_set = 0x0;
-	scsi_id->sbp2_unit_characteristics = 0x0;
-	scsi_id->sbp2_firmware_revision = 0x0;
-
-	ud = scsi_id->ud;
-
+	
 	/* Handle different fields in the unit directory, based on keys */
 	for (i = 0; i < ud->count; i++) {
 		switch (CONFIG_ROM_KEY(ud->quadlets[i])) {
@@ -1923,11 +2054,44 @@ static void sbp2_parse_unit_directory(struct scsi_id_instance_data *scsi_id)
 			else	SBP2_DEBUG("sbp2_firmware_revision = %x",
 				   (unsigned int) scsi_id->sbp2_firmware_revision);
 			break;
-
+#if 0
+		case SBP2_LOGICAL_UNIT_DIRECTORY_OFFSET_KEY:
+			SBP2_DEBUG("sbp2_parse_unit_directory: found logical unit directory");
+			break;
+#endif
 		default:
 			break;
 		}
 	}
+}
+
+/*
+ * This function is called to parse sbp2 device's config rom unit
+ * directory. Used to determine things like sbp2 management agent offset,
+ * and command set used (SCSI or RBC). 
+ */
+static void sbp2_parse_unit_directory(struct scsi_id_instance_data *scsi_id)
+{
+	struct unit_directory *ud;
+	int i;
+
+	SBP2_DEBUG("sbp2_parse_unit_directory");
+
+	/* Initialize some fields, in case an entry does not exist */
+	scsi_id->sbp2_device_type_and_lun = SBP2_DEVICE_TYPE_LUN_UNINITIALIZED;
+	scsi_id->sbp2_management_agent_addr = 0x0;
+	scsi_id->sbp2_command_set_spec_id = 0x0;
+	scsi_id->sbp2_command_set = 0x0;
+	scsi_id->sbp2_unit_characteristics = 0x0;
+	scsi_id->sbp2_firmware_revision = 0x0;
+
+	ud = scsi_id->ud;
+	if (ud->parent != NULL)
+		sbp2_parse_logical_unit_directory(scsi_id, ud->parent);
+	if (ud->n_children == 0)
+		sbp2_parse_logical_unit_directory(scsi_id, ud);
+	else 
+		return;
 
 	/* This is the start of our broken device checking. We try to hack
 	 * around oddities and known defects.  */
@@ -2803,6 +2967,7 @@ static int sbp2_handle_status_write(struct hpsb_host *host, int nodeid, int dest
 		 * It's probably a login/logout/reconnect status.
 		 */
 		if ((scsi_id->login_orb_dma == scsi_id->status_block.ORB_offset_lo) ||
+		    (scsi_id->query_logins_orb_dma == scsi_id->status_block.ORB_offset_lo) ||
 		    (scsi_id->reconnect_orb_dma == scsi_id->status_block.ORB_offset_lo) ||
 		    (scsi_id->logout_orb_dma == scsi_id->status_block.ORB_offset_lo)) {
 			atomic_set(&scsi_id->sbp2_login_complete, 1);

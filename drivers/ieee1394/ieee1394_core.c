@@ -127,9 +127,8 @@ struct hpsb_packet *alloc_hpsb_packet(size_t data_size)
 {
         struct hpsb_packet *packet = NULL;
         void *data = NULL;
-        int kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
 
-        packet = kmem_cache_alloc(hpsb_packet_cache, kmflags);
+        packet = kmem_cache_alloc(hpsb_packet_cache, GFP_ATOMIC);
         if (packet == NULL)
                 return NULL;
 
@@ -137,7 +136,7 @@ struct hpsb_packet *alloc_hpsb_packet(size_t data_size)
         packet->header = packet->embedded_header;
 
         if (data_size) {
-                data = kmalloc(data_size + 8, kmflags);
+                data = kmalloc(data_size + 8, GFP_ATOMIC);
                 if (data == NULL) {
 			kmem_cache_free(hpsb_packet_cache, packet);
                         return NULL;
@@ -472,8 +471,7 @@ int hpsb_send_packet(struct hpsb_packet *packet)
                 quadlet_t *data;
                 size_t size=packet->data_size+packet->header_size;
 
-                int kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
-                data = kmalloc(packet->header_size + packet->data_size, kmflags);
+                data = kmalloc(packet->header_size + packet->data_size, GFP_ATOMIC);
                 if (!data) {
                         HPSB_ERR("unable to allocate memory for concatenating header and data");
                         return 0;
@@ -1196,6 +1194,8 @@ EXPORT_SYMBOL(hpsb_make_packet);
 EXPORT_SYMBOL(hpsb_read);
 EXPORT_SYMBOL(hpsb_write);
 EXPORT_SYMBOL(hpsb_lock);
+EXPORT_SYMBOL(hpsb_lock64);
+EXPORT_SYMBOL(hpsb_send_gasp);
 
 /** highlevel.c **/
 EXPORT_SYMBOL(hpsb_register_highlevel);

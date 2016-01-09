@@ -183,11 +183,6 @@ if ((PREV)->thread.smp_lock_count) {					\
 	 * not preserve it's value.  Hairy, but it lets us remove 2 loads
 	 * and 2 stores in this critical code path.  -DaveM
 	 */
-#if __GNUC__ >= 3
-#define EXTRA_CLOBBER ,"%l1"
-#else
-#define EXTRA_CLOBBER
-#endif
 #define switch_to(prev, next, last)						\
 do {	CHECK_LOCKS(prev);							\
 	if (current->thread.flags & SPARC_FLAG_PERFCTR) {			\
@@ -240,7 +235,7 @@ do {	CHECK_LOCKS(prev);							\
                 "g1", "g2", "g3",       "g5",       "g7",			\
 	              "l2", "l3", "l4", "l5", "l6", "l7",			\
 	  "i0", "i1", "i2", "i3", "i4", "i5",					\
-	  "o0", "o1", "o2", "o3", "o4", "o5",       "o7" EXTRA_CLOBBER);	\
+	  "o0", "o1", "o2", "o3", "o4", "o5",       "o7");			\
 	/* If you fuck with this, update ret_from_syscall code too. */		\
 	if (current->thread.flags & SPARC_FLAG_PERFCTR) {			\
 		write_pcr(current->thread.pcr_reg);				\

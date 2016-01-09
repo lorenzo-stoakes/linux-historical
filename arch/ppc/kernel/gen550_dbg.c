@@ -129,6 +129,7 @@ void
 gen550_init(int i, struct serial_struct *serial_req)
 {
 	rs_table[i].io_type = serial_req->io_type;
+	rs_table[i].port = serial_req->port;
 	rs_table[i].iomem_base = serial_req->iomem_base;
 	rs_table[i].iomem_reg_shift = serial_req->iomem_reg_shift;
 }

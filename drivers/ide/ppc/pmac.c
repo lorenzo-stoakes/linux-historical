@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/ppc/ide-pmac.c
+ * linux/drivers/ide/ppc/pmac.c
  *
  * Support for IDE interfaces on PowerMacs.
  * These IDE interfaces are memory-mapped and have a DBDMA channel
@@ -408,7 +408,7 @@ pmac_ide_selectproc(ide_drive_t *drive)
 	else
 		writel(pmif->timings[0],
 			(unsigned *)(IDE_DATA_REG+IDE_TIMING_CONFIG));
-	io_flush(readl((unsigned *)(IDE_DATA_REG+IDE_TIMING_CONFIG)));
+	(void)readl((unsigned *)(IDE_DATA_REG+IDE_TIMING_CONFIG));
 }
 
 static void __pmac
@@ -430,7 +430,7 @@ pmac_ide_kauai_selectproc(ide_drive_t *drive)
 		writel(pmif->timings[2],
 		       (unsigned *)(IDE_DATA_REG + IDE_KAUAI_ULTRA_CONFIG));
 	}
-	io_flush(readl((unsigned *)(IDE_DATA_REG + IDE_KAUAI_PIO_CONFIG)));
+	(void)readl((unsigned *)(IDE_DATA_REG + IDE_KAUAI_PIO_CONFIG));
 }
 
 static void __pmac
@@ -454,7 +454,6 @@ pmac_outbsync(ide_drive_t *drive, u8 value, unsigned long port)
 	
 	writeb(value, port);	
 	tmp = readl((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG));
-	io_flush(value);
 }
 
 static int __pmac
@@ -469,7 +468,7 @@ pmac_ide_do_setfeature(ide_drive_t *drive, u8 command)
 	SELECT_MASK(drive, 0);
 	udelay(1);
 	/* Get rid of pending error state */
-	io_flush(hwif->INB(IDE_STATUS_REG));
+	(void)hwif->INB(IDE_STATUS_REG);
 	/* Timeout bumped for some powerbooks */
 	if (wait_for_ready(drive, 2000)) {
 		/* Timeout bumped for some powerbooks */
@@ -1139,7 +1138,7 @@ pmac_ide_probe(void)
 		/* Tell common code _not_ to mess with resources */
 		hwif->mmio = 2;
 		hwif->hwif_data = pmif;
-		pmac_ide_init_hwif_ports(&hwif->hw, base, 0, &hwif->irq);
+		pmac_ide_init_hwif_ports(&hwif->hw, regbase, 0, &hwif->irq);
 		memcpy(hwif->io_ports, hwif->hw.io_ports, sizeof(hwif->io_ports));
 		hwif->chipset = ide_pmac;
 		hwif->noprobe = !hwif->io_ports[IDE_DATA_OFFSET] || in_bay;
@@ -1568,7 +1567,7 @@ pmac_ide_dma_read (ide_drive_t *drive)
 	if (ata4 && (pmif->timings[unit] & TR_66_UDMA_EN)) {
 		writel(pmif->timings[unit]+0x00800000UL,
 			(unsigned *)(IDE_DATA_REG+IDE_TIMING_CONFIG));
-		io_flush(readl((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG)));
+		(void)readl((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG));
 	}
 
 	drive->waiting_for_dma = 1;	
@@ -1624,7 +1623,7 @@ pmac_ide_dma_write (ide_drive_t *drive)
 	if (ata4 && (pmif->timings[unit] & TR_66_UDMA_EN)) {
 		writel(pmif->timings[unit],
 			(unsigned *)(IDE_DATA_REG+IDE_TIMING_CONFIG));
-		io_flush(readl((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG)));
+		(void)readl((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG));
 	}
 
 	drive->waiting_for_dma = 1;
@@ -1674,7 +1673,7 @@ pmac_ide_dma_begin (ide_drive_t *drive)
 
 	writel((RUN << 16) | RUN, &dma->control);
 	/* Make sure it gets to the controller right now */
-	io_flush(readl(&dma->control));
+	(void)readl(&dma->control);
 	return 0;
 }
 
@@ -1791,10 +1790,9 @@ pmac_ide_setup_dma(struct device_node *np, int ix)
 			printk(KERN_ERR "ide-pmac(%s): can't request DMA resource !\n", np->name);
 			return;
 		}
+		pmif->dma_regs =
+			(volatile struct dbdma_regs*)ioremap(np->addrs[1].address, 0x200);
 	}
-
-	pmif->dma_regs =
-		(volatile struct dbdma_regs*)ioremap(np->addrs[1].address, 0x200);
 
 	/*
 	 * Allocate space for the DBDMA commands.
@@ -1863,7 +1861,7 @@ idepmac_sleep_device(ide_drive_t *drive)
 		SELECT_DRIVE(drive);
 		SELECT_MASK(drive, 0);
 		hwif->OUTB(drive->select.all, IDE_SELECT_REG);
-		io_flush(hwif->INB(IDE_SELECT_REG));
+		(void) hwif->INB(IDE_SELECT_REG);
 		udelay(100);
 		hwif->OUTB(0x00, IDE_SECTOR_REG);
 		hwif->OUTB(0x00, IDE_NSECTOR_REG);

@@ -205,15 +205,10 @@ asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
 		ret = ptrace_attach(child);
 		goto out_tsk;
 	}
-	ret = -ESRCH;
-	if (!(child->ptrace & PT_PTRACED))
+	ret = ptrace_check_attach(child, request == PTRACE_KILL);
+	if (ret < 0) 
 		goto out_tsk;
-	if (child->state != TASK_STOPPED) {
-		if (request != PTRACE_KILL)
-			goto out_tsk;
-	}
-	if (child->p_pptr != current)
-		goto out_tsk;
+
 	switch (request) {
 	/* when I and D space are separate, these will need to be fixed. */
 	case PTRACE_PEEKTEXT: /* read word at location addr. */ 
@@ -412,8 +407,10 @@ asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
 			ret = -EIO;
 			break;
 		}
-		child->used_math = 1;
+		unlazy_fpu(child);
 		ret = set_fpregs(child, (struct user_i387_struct *)data);
+		if (!ret) 
+			child->used_math = 1;
 		break;
 	}
 

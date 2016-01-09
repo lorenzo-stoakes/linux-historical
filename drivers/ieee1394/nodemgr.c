@@ -92,7 +92,7 @@ static int raw1394_read_proc(char *page, char **start, off_t off,
 
 	list_for_each(lh, &node_list) {
 		struct list_head *l;
-		int ud_count = 0;
+		int ud_count = 0, lud_count = 0;
 
 		ne = list_entry(lh, struct node_entry, list);
 		if (!ne)
@@ -135,7 +135,10 @@ static int raw1394_read_proc(char *page, char **start, off_t off,
 			struct unit_directory *ud = list_entry (l, struct unit_directory, node_list);
 			int printed = 0; // small hack
 
-			PUTF("  Unit Directory %d:\n", ud_count++);
+			if (ud->parent == NULL)
+				PUTF("  Unit Directory %d:\n", lud_count++);
+			else
+				PUTF("  Logical Unit Directory %d:\n", ud_count++);
 			if (ud->flags & UNIT_DIRECTORY_VENDOR_ID) {
 				PUTF("    Vendor/Model ID: %s [%06x]",
 				     ud->vendor_name ?: "Unknown", ud->vendor_id);
@@ -282,6 +285,10 @@ static struct node_entry *nodemgr_scan_root_directory
 	
 	if (nodemgr_read_quadlet(host, nodeid, generation, address, &quad))
 		return NULL;
+
+	if (CONFIG_ROM_BUS_INFO_LENGTH(quad) == 1)  /* minimal config rom */
+		return NULL;
+
 	address += 4 + CONFIG_ROM_BUS_INFO_LENGTH(quad) * 4;
 
 	if (nodemgr_read_quadlet(host, nodeid, generation, address, &quad))
@@ -312,6 +319,7 @@ static struct node_entry *nodemgr_scan_root_directory
 	}
 	ne = kmalloc(total_size, SLAB_ATOMIC);
 	if (ne != NULL) {
+		memset(ne, 0, total_size);
 		if (size != 0) {
 			ne->vendor_name
 				= (const char *) &(ne->quadlets[2]);
@@ -432,7 +440,7 @@ static struct unit_directory *nodemgr_scan_unit_directory
 			   store?  Only count immediate values and
 			   CSR offsets for now.  */
 			code &= CONFIG_ROM_KEY_TYPE_MASK;
-			if ((code & 0x80) == 0)
+			if ((code & CONFIG_ROM_KEY_TYPE_LEAF) == 0)
 				count++;
 			break;
 		}
@@ -480,19 +488,23 @@ static struct unit_directory *nodemgr_scan_unit_directory
  * software_version entries, in order to get driver autoloading working.
  */
 
-static void nodemgr_process_unit_directory(struct node_entry *ne, 
-					   octlet_t address)
+static struct unit_directory * nodemgr_process_unit_directory
+	(struct node_entry *ne, octlet_t address, struct unit_directory *parent)
 {
 	struct unit_directory *ud;
 	quadlet_t quad;
 	quadlet_t *infop;
 	int length;
-
+	struct unit_directory *ud_temp = NULL;
+	
 	if (!(ud = nodemgr_scan_unit_directory(ne, address)))
 		goto unit_directory_error;
 
 	ud->ne = ne;
 	ud->address = address;
+	
+	if (parent != NULL)
+		ud->parent = parent;
 
 	if (nodemgr_read_quadlet(ne->host, ne->nodeid, ne->generation,
 				 address, &quad))
@@ -568,12 +580,48 @@ static void nodemgr_process_unit_directory(struct node_entry *ne,
 			/* TODO: read strings... icons? */
 			break;
 
+		case CONFIG_ROM_LOGICAL_UNIT_DIRECTORY:
+		{
+			ud_temp = nodemgr_process_unit_directory(ne, address + value * 4, ud);
+			/* inherit unspecified values */
+			if (ud_temp != NULL )
+			{
+				ud->n_children++;
+				if ((ud->flags & UNIT_DIRECTORY_VENDOR_ID) && 
+					!(ud_temp->flags & UNIT_DIRECTORY_VENDOR_ID))
+				{
+					ud_temp->flags |=  UNIT_DIRECTORY_VENDOR_ID;
+					ud_temp->vendor_id = ud->vendor_id;
+				}
+				if ((ud->flags & UNIT_DIRECTORY_MODEL_ID) &&
+					!(ud_temp->flags & UNIT_DIRECTORY_MODEL_ID))
+				{
+					ud_temp->flags |=  UNIT_DIRECTORY_MODEL_ID;
+					ud_temp->model_id = ud->model_id;
+				}
+				if ((ud->flags & UNIT_DIRECTORY_SPECIFIER_ID) &&
+					!(ud_temp->flags & UNIT_DIRECTORY_SPECIFIER_ID))
+				{
+					ud_temp->flags |=  UNIT_DIRECTORY_SPECIFIER_ID;
+					ud_temp->specifier_id = ud->specifier_id;
+				}
+				if ((ud->flags & UNIT_DIRECTORY_VERSION) && 
+					!(ud_temp->flags & UNIT_DIRECTORY_VERSION))
+				{
+					ud_temp->flags |=  UNIT_DIRECTORY_VERSION;
+					ud_temp->version = ud->version;
+				}
+			}
+			
+		}
+			break;
+
 		default:
 			/* Which types of quadlets do we want to
 			   store?  Only count immediate values and
 			   CSR offsets for now.  */
 			code &= CONFIG_ROM_KEY_TYPE_MASK;
-			if ((code & 0x80) == 0)
+			if ((code & CONFIG_ROM_KEY_TYPE_LEAF) == 0)
 				*infop = quad;
 			break;
 		}
@@ -582,11 +630,12 @@ static void nodemgr_process_unit_directory(struct node_entry *ne,
 	list_add_tail(&ud->node_list, &ne->unit_directories);
 	list_add_tail(&ud->driver_list, &unit_directory_list);
 
-	return;
+	return ud;
 
 unit_directory_error:	
 	if (ud != NULL)
 		kfree(ud);
+	return NULL;
 }
 
 static void dump_directories (struct node_entry *ne)
@@ -669,7 +718,7 @@ static void nodemgr_process_root_directory(struct node_entry *ne)
 			break;
 
 		case CONFIG_ROM_UNIT_DIRECTORY:
-			nodemgr_process_unit_directory(ne, address + value * 4);
+			nodemgr_process_unit_directory(ne, address + value * 4, NULL);
 			break;			
 
 		case CONFIG_ROM_DESCRIPTOR_LEAF:
@@ -728,7 +777,7 @@ static void nodemgr_call_policy(char *verb, struct unit_directory *ud)
 	envp[i++] = scratch;
 	scratch += sprintf(scratch, "ACTION=%s", verb) + 1;
 	envp[i++] = scratch;
-	scratch += sprintf(scratch, "VENDOR_ID=%06x", ud->ne->vendor_id) + 1;
+	scratch += sprintf(scratch, "VENDOR_ID=%06x", ud->vendor_id) + 1;
 	envp[i++] = scratch;
 	scratch += sprintf(scratch, "GUID=%016Lx", (long long unsigned)ud->ne->guid) + 1;
 	envp[i++] = scratch;
@@ -765,15 +814,13 @@ static void nodemgr_claim_unit_directory(struct unit_directory *ud,
 					 struct hpsb_protocol_driver *driver)
 {
 	ud->driver = driver;
-	list_del(&ud->driver_list);
-	list_add_tail(&ud->driver_list, &driver->unit_directories);
+	list_move_tail(&ud->driver_list, &driver->unit_directories);
 }
 
 static void nodemgr_release_unit_directory(struct unit_directory *ud)
 {
 	ud->driver = NULL;
-	list_del(&ud->driver_list);
-	list_add_tail(&ud->driver_list, &unit_directory_list);
+	list_move_tail(&ud->driver_list, &unit_directory_list);
 }
 
 void hpsb_release_unit_directory(struct unit_directory *ud)
@@ -785,18 +832,21 @@ void hpsb_release_unit_directory(struct unit_directory *ud)
 
 static void nodemgr_free_unit_directories(struct node_entry *ne)
 {
-	struct list_head *lh;
+	struct list_head *lh, *next;
 	struct unit_directory *ud;
 
-	lh = ne->unit_directories.next;
-	while (lh != &ne->unit_directories) {
+	list_for_each_safe(lh, next, &ne->unit_directories) {
 		ud = list_entry(lh, struct unit_directory, node_list);
-		lh = lh->next;
+
 		if (ud->driver && ud->driver->disconnect)
 			ud->driver->disconnect(ud);
+
 		nodemgr_release_unit_directory(ud);
 		nodemgr_call_policy("remove", ud);
+
 		list_del(&ud->driver_list);
+		list_del(&ud->node_list);
+
 		kfree(ud);
 	}
 }
@@ -820,8 +870,9 @@ nodemgr_match_driver(struct hpsb_protocol_driver *driver,
 		    id->specifier_id != ud->specifier_id)
 			continue;
 
+		/* software version does a bitwise comparison instead of equality */
 		if ((id->match_flags & IEEE1394_MATCH_VERSION) &&
-		    id->version != ud->version)
+		    !(id->version & ud->version))
 			continue;
 
 		return id;
@@ -860,7 +911,7 @@ static void nodemgr_bind_drivers (struct node_entry *ne)
 	list_for_each(lh, &ne->unit_directories) {
 		ud = list_entry(lh, struct unit_directory, node_list);
 		driver = nodemgr_find_driver(ud);
-		if (driver != NULL && driver->probe(ud) == 0)
+		if (driver && (!driver->probe || driver->probe(ud) == 0))
 			nodemgr_claim_unit_directory(ud, driver);
 		nodemgr_call_policy("add", ud);
 	}
@@ -869,7 +920,7 @@ static void nodemgr_bind_drivers (struct node_entry *ne)
 int hpsb_register_protocol(struct hpsb_protocol_driver *driver)
 {
 	struct unit_directory *ud;
-	struct list_head *lh;
+	struct list_head *lh, *next;
 
 	if (down_interruptible(&nodemgr_serialize))
 		return -EINTR;
@@ -877,11 +928,12 @@ int hpsb_register_protocol(struct hpsb_protocol_driver *driver)
 	list_add_tail(&driver->list, &driver_list);
 
 	INIT_LIST_HEAD(&driver->unit_directories);
-	lh = unit_directory_list.next;
-	while (lh != &unit_directory_list) {
+
+	list_for_each_safe (lh, next, &unit_directory_list) {
 		ud = list_entry(lh, struct unit_directory, driver_list);
-		lh = lh->next;
-		if (nodemgr_match_driver(driver, ud) && driver->probe(ud) == 0)
+
+		if (nodemgr_match_driver(driver, ud) &&
+		    (!driver->probe || driver->probe(ud) == 0))
 			nodemgr_claim_unit_directory(ud, driver);
 	}
 
@@ -890,6 +942,18 @@ int hpsb_register_protocol(struct hpsb_protocol_driver *driver)
 	/*
 	 * Right now registration always succeeds, but maybe we should
 	 * detect clashes in protocols handled by other drivers.
+     * DRD> No because multiple drivers are needed to handle certain devices.
+     * For example, a DV camera is an IEC 61883 device (dv1394) and AV/C (raw1394).
+     * This will become less an issue with libiec61883 using raw1394.
+     *
+     * BenC: But can we handle this with an ALLOW_SHARED flag for a
+     * protocol? When we get an SBP-3 driver, it will be nice if they were
+     * mutually exclusive, since SBP-3 can handle SBP-2 protocol.
+     *
+     * Not to mention that we currently do not seem to support multiple
+     * drivers claiming the same unitdirectory. If we implement both of
+     * those, then we'll need to keep probing when a driver claims a
+     * unitdirectory, but is sharable.
 	 */
 
 	return 0;
@@ -897,18 +961,19 @@ int hpsb_register_protocol(struct hpsb_protocol_driver *driver)
 
 void hpsb_unregister_protocol(struct hpsb_protocol_driver *driver)
 {
-	struct list_head *lh;
+	struct list_head *lh, *next;
 	struct unit_directory *ud;
 
 	down(&nodemgr_serialize);
 
 	list_del(&driver->list);
-	lh = driver->unit_directories.next;
-	while (lh != &driver->unit_directories) {
+
+	list_for_each_safe (lh, next, &driver->unit_directories) {
 		ud = list_entry(lh, struct unit_directory, driver_list);
-		lh = lh->next;
+
 		if (ud->driver && ud->driver->disconnect)
 			ud->driver->disconnect(ud);
+
 		nodemgr_release_unit_directory(ud);
 	}
 
@@ -976,7 +1041,7 @@ static void nodemgr_update_node(struct node_entry *ne, quadlet_t busoptions,
 
 	list_for_each (lh, &ne->unit_directories) {
 		ud = list_entry (lh, struct unit_directory, node_list);
-		if (ud->driver != NULL && ud->driver->update != NULL)
+		if (ud->driver && ud->driver->update != NULL)
 			ud->driver->update(ud);
 	}
 }
@@ -1021,6 +1086,13 @@ static int read_businfo_block(struct hpsb_host *host, nodeid_t nodeid, unsigned 
 
 	header_size = buffer[0] >> 24;
 	addr += 4;
+
+	if (header_size == 1) {
+		HPSB_INFO("Node " NODE_BUS_FMT " has a minimal ROM.  "
+			  "Vendor is %08x",
+			  NODE_BUS_ARGS(nodeid), buffer[0] & 0x00ffffff);
+		return -1;
+	}
 
 	if (header_size < 4) {
 		HPSB_INFO("Node " NODE_BUS_FMT " has non-standard ROM "
@@ -1120,26 +1192,11 @@ static void nodemgr_node_probe_cleanup(struct hpsb_host *host, unsigned int gene
 	return;
 }
 
-static void nodemgr_node_probe(struct hpsb_host *host)
+static void nodemgr_node_probe(struct hpsb_host *host, int generation)
 {
 	int count;
 	struct selfid *sid = (struct selfid *)host->topology_map;
 	nodeid_t nodeid = LOCAL_BUS;
-	unsigned int generation;
-
-	/* Pause for 1/4 second, to make sure things settle down. If
-	 * schedule_timeout returns non-zero, it means we caught a signal
-	 * and need to return. */
-	set_current_state(TASK_INTERRUPTIBLE);
-	if (schedule_timeout (HZ/4))
-		return;
-
-	/* Now get the generation in which the node ID's we collect
-	 * are valid.  During the bus scan we will use this generation
-	 * for the read transactions, so that if another reset occurs
-	 * during the scan the transactions will fail instead of
-	 * returning bogus data. */
-	generation = get_hpsb_generation(host);
 
 	/* Scan each node on the bus */
 	for (count = host->selfid_count; count; count--, sid++) {
@@ -1157,13 +1214,59 @@ static void nodemgr_node_probe(struct hpsb_host *host)
 	/* If we had a bus reset while we were scanning the bus, it is
 	 * possible that we did not probe all nodes.  In that case, we
 	 * skip the clean up for now, since we could remove nodes that
-	 * were still on the bus.  The bus reset increased
-	 * hi->reset_sem, so there's a bus scan pending which will do
-	 * the clean up eventually. */
+	 * were still on the bus.  The bus reset increased hi->reset_sem,
+	 * so there's a bus scan pending which will do the clean up
+	 * eventually. */
 	if (generation == get_hpsb_generation(host))
 		nodemgr_node_probe_cleanup(host, generation);
 
 	return;
+}
+
+/* Because we are a 1394a-2000 compliant IRM, we need to inform all the other
+ * nodes of the broadcast channel.  (Really we're only setting the validity
+ * bit). */
+static void nodemgr_do_irm_duties(struct hpsb_host *host)
+{
+	quadlet_t bc;
+        
+	if (!host->is_irm)
+		return;
+
+	host->csr.broadcast_channel |= 0x40000000;  /* set validity bit */
+
+	bc = cpu_to_be32(host->csr.broadcast_channel);
+
+	hpsb_write(host, LOCAL_BUS | ALL_NODES, get_hpsb_generation(host),
+		   (CSR_REGISTER_BASE | CSR_BROADCAST_CHANNEL),
+		   &bc,
+		   sizeof(quadlet_t));
+}
+
+/* We need to ensure that if we are not the IRM, that the IRM node is capable of
+ * everything we can do, otherwise issue a bus reset and try to become the IRM
+ * ourselves. */
+static int nodemgr_check_root_capability(struct hpsb_host *host)
+{
+	quadlet_t bc;
+	int status;
+
+	if (host->is_irm)
+		return 1;
+
+	status = hpsb_read(host, LOCAL_BUS | (host->irm_id),
+			   get_hpsb_generation(host),
+			   (CSR_REGISTER_BASE | CSR_BROADCAST_CHANNEL),
+			   &bc, sizeof(quadlet_t));
+
+	if (status < 0 || !(be32_to_cpu(bc) & 0x80000000)) {
+		/* The root node does not have a valid BROADCAST_CHANNEL
+		 * register and we do, so reset the bus with force_root set */
+		HPSB_INFO("Remote root is not IRM capable, resetting...");
+		hpsb_reset_bus(host, LONG_RESET_FORCE_ROOT);
+		return 0;
+	}
+	return 1;
 }
 
 static int nodemgr_host_thread(void *__hi)
@@ -1179,9 +1282,41 @@ static int nodemgr_host_thread(void *__hi)
 	 * happens when we get a bus reset. */
 	while (!down_interruptible(&hi->reset_sem) &&
 	       !down_interruptible(&nodemgr_serialize)) {
-		nodemgr_node_probe(hi->host);
+		unsigned int generation;
+		int i;
+
+		/* Pause for 1/4 second, to make sure things settle down. */
+		for (i = HZ/4; i > 0; i-= HZ/16) {
+			set_current_state(TASK_INTERRUPTIBLE);
+			if (schedule_timeout(HZ/16))
+				goto caught_signal;
+
+			/* Now get the generation in which the node ID's we collect
+			 * are valid.  During the bus scan we will use this generation
+			 * for the read transactions, so that if another reset occurs
+			 * during the scan the transactions will fail instead of
+			 * returning bogus data. */
+			generation = get_hpsb_generation(hi->host);
+
+			/* If we get a reset before we are done waiting, then
+			 * start the the waiting over again */
+			while (!down_trylock(&hi->reset_sem))
+				i = HZ/4;
+		}
+
+		if (!nodemgr_check_root_capability(hi->host)) {
+			/* Do nothing, we are resetting */
+			up(&nodemgr_serialize);
+			continue;
+		}
+
+		nodemgr_node_probe(hi->host, generation);
+		nodemgr_do_irm_duties(hi->host);
+
 		up(&nodemgr_serialize);
 	}
+
+ caught_signal:
 #ifdef CONFIG_IEEE1394_VERBOSEDEBUG
 	HPSB_DEBUG ("NodeMgr: Exiting thread for %s", hi->host->driver->name);
 #endif
@@ -1282,6 +1417,8 @@ static void nodemgr_add_host(struct hpsb_host *host)
 	init_completion(&hi->exited);
         sema_init(&hi->reset_sem, 0);
 
+	spin_lock_irqsave (&host_info_lock, flags);
+
 	hi->pid = kernel_thread(nodemgr_host_thread, hi,
 				CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
 	
@@ -1289,11 +1426,12 @@ static void nodemgr_add_host(struct hpsb_host *host)
 		HPSB_ERR ("NodeMgr: failed to start NodeMgr thread for %s",
 			  host->driver->name);
 		kfree(hi);
+		spin_unlock_irqrestore (&host_info_lock, flags);
 		return;
 	}
 
-	spin_lock_irqsave (&host_info_lock, flags);
-	list_add_tail (&hi->list, &host_info_list);
+	list_add_tail(&hi->list, &host_info_list);
+
 	spin_unlock_irqrestore (&host_info_lock, flags);
 
 	return;

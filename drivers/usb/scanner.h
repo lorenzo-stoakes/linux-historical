@@ -44,7 +44,7 @@
 
 // #define DEBUG
 
-#define DRIVER_VERSION "0.4.11"
+#define DRIVER_VERSION "0.4.12"
 #define DRIVER_DESC "USB Scanner Driver"
 
 #include <linux/usb.h>

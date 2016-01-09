@@ -137,7 +137,10 @@ static void qtd_copy_status (
 			if (QTD_CERR (token))
 				urb->status = -EPIPE;
 			else {
-				dbg ("3strikes");
+				ehci_dbg (ehci, "devpath %s ep%d%s 3strikes\n",
+					urb->dev->devpath,
+					usb_pipeendpoint (urb->pipe),
+					usb_pipein (urb->pipe) ? "in" : "out");
 				urb->status = -EPROTO;
 			}
 		/* CERR nonzero + no errors + halt --> stall */
@@ -866,7 +869,7 @@ static struct ehci_qh *qh_append_tds (
 			 * HC is allowed to fetch the old dummy (4.10.2).
 			 */
 			token = qtd->hw_token;
-			qtd->hw_token = 0;
+			qtd->hw_token = cpu_to_le32 (QTD_STS_HALT);
 			wmb ();
 			dummy = qh->dummy;
 
@@ -918,8 +921,7 @@ submit_async (
 	if (usb_pipein (urb->pipe) && !usb_pipecontrol (urb->pipe))
 		epnum |= 0x10;
 
-	vdbg ("%s: submit_async urb %p len %d ep %d-%s qtd %p [qh %p]",
-		hcd_to_bus (&ehci->hcd)->bus_name,
+	ehci_vdbg (ehci, "submit_async urb %p len %d ep%d%s qtd %p [qh %p]\n",
 		urb, urb->transfer_buffer_length,
 		epnum & 0x0f, (epnum & 0x10) ? "in" : "out",
 		qtd, dev ? dev->ep [epnum] : (void *)~0);

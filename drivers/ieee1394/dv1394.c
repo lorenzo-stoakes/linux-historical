@@ -117,6 +117,7 @@
 #include "hosts.h"
 #include "ieee1394_core.h"
 #include "highlevel.h"	
+#include "ieee1394_hotplug.h"
 #include "dv1394.h"
 #include "dv1394-private.h"
 
@@ -2564,6 +2565,29 @@ void dv1394_devfs_del( char *name)
 }
 #endif /* CONFIG_DEVFS_FS */
 
+
+/*** HOTPLUG STUFF **********************************************************/
+/*
+ * Export information about protocols/devices supported by this driver.
+ */
+static struct ieee1394_device_id dv1394_id_table[] = {
+	{
+		.match_flags =IEEE1394_MATCH_SPECIFIER_ID |
+		              IEEE1394_MATCH_VERSION,
+		.specifier_id = AVC_UNIT_SPEC_ID_ENTRY & 0xffffff,
+		.version =    AVC_SW_VERSION_ENTRY & 0xffffff
+	},
+	{ }
+};
+
+static struct hpsb_protocol_driver dv1394_driver = {
+	.name =		"DV/1394 Driver",
+	.id_table = 	dv1394_id_table,
+};
+
+MODULE_DEVICE_TABLE(ieee1394, dv1394_id_table);
+
+
 /*** IEEE1394 HPSB CALLBACKS ***********************************************/
 
 static int dv1394_init(struct ti_ohci *ohci, enum pal_or_ntsc format, enum modes mode)
@@ -2898,8 +2922,11 @@ MODULE_LICENSE("GPL");
 
 static void __exit dv1394_exit_module(void)
 {
+	hpsb_unregister_protocol(&dv1394_driver);
+
 	hpsb_unregister_highlevel (hl_handle);
 	ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
+
 #ifdef CONFIG_DEVFS_FS
 	dv1394_devfs_del("dv");
 #endif
@@ -2947,6 +2974,8 @@ static int __init dv1394_init_module(void)
 #endif
 		return -ENOMEM;
 	}
+
+	hpsb_register_protocol(&dv1394_driver);
 
 	return 0;
 }

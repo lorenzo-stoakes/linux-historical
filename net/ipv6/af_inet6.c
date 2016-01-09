@@ -76,6 +76,7 @@ MODULE_PARM(unloadable, "i");
 /* IPv6 procfs goodies... */
 
 #ifdef CONFIG_PROC_FS
+extern int anycast6_get_info(char *, char **, off_t, int);
 extern int raw6_get_info(char *, char **, off_t, int);
 extern int tcp6_get_info(char *, char **, off_t, int);
 extern int udp6_get_info(char *, char **, off_t, int);
@@ -337,6 +338,9 @@ static int inet6_release(struct socket *sock)
 
 	/* Free mc lists */
 	ipv6_sock_mc_close(sk);
+
+	/* Free ac lists */
+	ipv6_sock_ac_close(sk);
 
 	return inet_release(sock);
 }
@@ -658,6 +662,8 @@ static int __init inet6_init(void)
 		goto proc_sockstat6_fail;
 	if (!proc_net_create("snmp6", 0, afinet6_get_snmp))
 		goto proc_snmp6_fail;
+	if (!proc_net_create("anycast6", 0, anycast6_get_info))
+		goto proc_anycast6_fail;
 #endif
 	ipv6_netdev_notif_init();
 	ipv6_packet_init();
@@ -676,6 +682,8 @@ static int __init inet6_init(void)
 	return 0;
 
 #ifdef CONFIG_PROC_FS
+proc_anycast6_fail:
+	proc_net_remove("anycast6");
 proc_snmp6_fail:
 	proc_net_remove("sockstat6");
 proc_sockstat6_fail:
@@ -711,6 +719,7 @@ static void inet6_exit(void)
 	proc_net_remove("udp6");
 	proc_net_remove("sockstat6");
 	proc_net_remove("snmp6");
+	proc_net_remove("anycast6");
 #endif
 	/* Cleanup code parts. */
 	sit_cleanup();

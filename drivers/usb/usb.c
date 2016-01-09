@@ -1005,7 +1005,7 @@ struct urb *usb_alloc_urb(int iso_packets)
 	struct urb *urb;
 
 	urb = (struct urb *)kmalloc(sizeof(struct urb) + iso_packets * sizeof(struct iso_packet_descriptor),
-	      in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+			/* pessimize to prevent deadlocks */ GFP_ATOMIC);
 	if (!urb) {
 		err("alloc_urb: kmalloc failed");
 		return NULL;

@@ -411,8 +411,8 @@ extern inline void sync_core(void)
 #define ARCH_HAS_PREFETCHW
 #define ARCH_HAS_SPINLOCK_PREFETCH
 
-#define prefetch(x) __builtin_prefetch((x),0)
-#define prefetchw(x) __builtin_prefetch((x),1)
+#define prefetch(x) __builtin_prefetch((x),0,1)
+#define prefetchw(x) __builtin_prefetch((x),1,1)
 #define spin_lock_prefetch(x)  prefetchw(x)
 #define cpu_relax()   rep_nop()
 

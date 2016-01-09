@@ -1221,7 +1221,7 @@ static int uhci_submit_bulk(struct urb *urb, struct urb *eurb)
 	struct urb_priv *urbp = (struct urb_priv *)urb->hcpriv;
 	dma_addr_t data = urbp->transfer_buffer_dma_handle;
 
-	if (len < 0)
+	if (len < 0 || maxsze <= 0)
 		return -EINVAL;
 
 	/* Can't have low speed bulk transfers */

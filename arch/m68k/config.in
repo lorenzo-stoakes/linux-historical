@@ -519,8 +519,11 @@ else
    if [ "$CONFIG_SUN3" = "y" ]; then
       define_bool CONFIG_GEN_RTC y
    else
-      bool 'Generic /dev/rtc emulation' CONFIG_GEN_RTC
+      tristate 'Generic /dev/rtc emulation' CONFIG_GEN_RTC      
    fi
+fi
+if [ "$CONFIG_GEN_RTC" != "n" ]; then
+   bool '   Extended RTC operation' CONFIG_GEN_RTC_X
 fi
 bool 'Unix98 PTY support' CONFIG_UNIX98_PTYS
 if [ "$CONFIG_UNIX98_PTYS" = "y" ]; then

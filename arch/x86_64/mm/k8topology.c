@@ -6,7 +6,7 @@
  * Instead the northbridge registers are read directly. 
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: k8topology.c,v 1.5 2003/03/10 14:33:40 ak Exp $
+ * $Id: k8topology.c,v 1.7 2003/04/02 21:36:22 ak Exp $
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -66,7 +66,8 @@ static __init int compute_hash_shift(struct node *nodes, int numnodes, u64 maxme
 			for (addr = nodes[i].start; 
 			     addr < nodes[i].end; 
 			     addr += (1UL << shift)) {
-				if (memnodemap[addr >> shift] != 0xff) { 
+				if (memnodemap[addr >> shift] != 0xff && 
+				    memnodemap[addr >> shift] != i) { 
 					printk("node %d shift %d addr %Lx conflict %d\n", 
 					       i, shift, addr, memnodemap[addr>>shift]);
 					goto next; 
@@ -127,6 +128,7 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 
 		limit >>= 16; 
 		limit <<= 24; 
+		limit |= (1<<24)-1;
 
 		if (limit > end_pfn << PAGE_SHIFT) 
 			limit = end_pfn << PAGE_SHIFT; 

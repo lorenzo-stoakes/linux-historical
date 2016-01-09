@@ -151,6 +151,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
 	if (dst->error) {
 		if (net_ratelimit())
 			printk(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
+		dst_release(dst);
 		return -EINVAL;
 	}
 
@@ -545,7 +546,7 @@ int ip6_build_xmit(struct sock *sk, inet_getfrag_t getfrag, const void *data,
 		    || (fl->oif && fl->oif != dst->dev->ifindex)) {
 			dst = NULL;
 		} else
-			dst_clone(dst);
+			dst_hold(dst);
 	}
 
 	if (dst == NULL)

@@ -344,17 +344,14 @@ void ide_setup_ports(	hw_regs_t *hw,
 #include <asm/ide.h>
 
 /* Currently only m68k, apus and m8xx need it */
-#ifdef IDE_ARCH_ACK_INTR
-extern int ide_irq_lock;
-# define ide_ack_intr(hwif) (hwif->hw.ack_intr ? hwif->hw.ack_intr(hwif) : 1)
-#else
+#ifndef IDE_ARCH_ACK_INTR
 # define ide_ack_intr(hwif) (1)
 #endif
 
 /* Currently only Atari needs it */
 #ifndef IDE_ARCH_LOCK
-# define ide_release_lock(lock)			do {} while (0)
-# define ide_get_lock(lock, hdlr, data)		do {} while (0)
+# define ide_release_lock()			do {} while (0)
+# define ide_get_lock(hdlr, data)		do {} while (0)
 #endif /* IDE_ARCH_LOCK */
 
 /*
@@ -1717,6 +1714,7 @@ extern int __ide_dma_retune(ide_drive_t *);
 extern int __ide_dma_lostirq(ide_drive_t *);
 extern int __ide_dma_timeout(ide_drive_t *);
 #else
+static inline void ide_setup_dma(ide_hwif_t *x, unsigned long y, unsigned int z) {;}
 static inline void ide_release_dma(ide_hwif_t *x) {;}
 #endif
 

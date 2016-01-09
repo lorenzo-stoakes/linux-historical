@@ -281,7 +281,7 @@ void buffer_assertion_failure(struct buffer_head *bh);
 	do {								     \
 		if (!(expr)) {						     \
 			printk(KERN_ERR "EXT3-fs unexpected failure: %s;\n", # expr); \
-			printk(KERN_ERR ## why);			     \
+			printk(KERN_ERR why);				     \
 		}							     \
 	} while (0)
 #define J_EXPECT(expr, why...)		__journal_expect(expr, ## why)

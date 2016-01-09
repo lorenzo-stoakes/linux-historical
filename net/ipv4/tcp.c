@@ -2641,5 +2641,6 @@ void __init tcp_init(void)
 	printk(KERN_INFO "TCP: Hash tables configured (established %d bind %d)\n",
 	       tcp_ehash_size<<1, tcp_bhash_size);
 
+	(void) tcp_mib_init();
 	tcpdiag_init();
 }

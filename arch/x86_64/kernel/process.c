@@ -9,7 +9,7 @@
  *  X86-64 port
  *	Andi Kleen.
  * 
- *  $Id: process.c,v 1.63 2003/02/19 13:23:19 ak Exp $
+ *  $Id: process.c,v 1.64 2003/03/31 15:11:26 ak Exp $
  */
 
 /*
@@ -243,8 +243,8 @@ void machine_restart(char * __unused)
 	 * other OSs see a clean IRQ state.
 	 */
 		smp_send_stop();
-	disable_IO_APIC();
 #endif
+	disable_IO_APIC();
 	/* Could do reset through the northbridge of the Hammer here. */
 
 	/* rebooting needs to touch the page at absolute addr 0 */

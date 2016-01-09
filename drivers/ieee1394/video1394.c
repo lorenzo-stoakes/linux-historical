@@ -52,6 +52,7 @@
 #include "highlevel.h"
 #include "video1394.h"
 #include "dma.h"
+#include "ieee1394_hotplug.h"
 
 #include "ohci1394.h"
 
@@ -1241,6 +1242,30 @@ static int video1394_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/*** HOTPLUG STUFF **********************************************************/
+/*
+ * Export information about protocols/devices supported by this driver.
+ */
+static struct ieee1394_device_id video1394_id_table[] = {
+	{
+		.match_flags =IEEE1394_MATCH_SPECIFIER_ID |
+		              IEEE1394_MATCH_VERSION,
+		.specifier_id = CAMERA_UNIT_SPEC_ID_ENTRY & 0xffffff,
+		.version =    CAMERA_SW_VERSION_ENTRY & 0xffffff
+	},
+	{ }
+};
+
+static struct hpsb_protocol_driver video1394_driver = {
+	.name =		"1394 Digital Camera Driver",
+	.id_table = 	video1394_id_table,
+};
+
+MODULE_DEVICE_TABLE(ieee1394, video1394_id_table);
+
+
+/******************************************************************************/
+
 static struct file_operations video1394_fops=
 {
 	.owner =	THIS_MODULE,
@@ -1346,6 +1371,8 @@ MODULE_LICENSE("GPL");
 
 static void __exit video1394_exit_module (void)
 {
+	hpsb_unregister_protocol(&video1394_driver);
+
 	hpsb_unregister_highlevel (hl_handle);
 
 	devfs_unregister(devfs_handle);
@@ -1371,6 +1398,8 @@ static int __init video1394_init_module (void)
 		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_VIDEO1394);
 		return -ENOMEM;
 	}
+
+	hpsb_register_protocol(&video1394_driver);
 
 	PRINT_G(KERN_INFO, "Installed " VIDEO1394_DRIVER_NAME " module");
 	return 0;
