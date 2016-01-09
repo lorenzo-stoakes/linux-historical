@@ -60,6 +60,7 @@ static struct pmu_sleep_notifier serial_sleep_notifier = {
 #endif
 
 #define SUPPORT_SERIAL_DMA
+#define MACSERIAL_VERSION	"2.0"
 
 /*
  * It would be nice to dynamically allocate everything that
@@ -1032,7 +1033,7 @@ static int setup_scc(struct mac_serial * info)
 {
 	unsigned long flags;
 
-	OPNDBG("setting up ttys%d SCC...\n", info->line);
+	OPNDBG("setting up ttyS%d SCC...\n", info->line);
 
 	save_flags(flags); cli(); /* Disable interrupts */
 
@@ -1196,7 +1197,7 @@ static int set_scc_power(struct mac_serial * info, int state)
 	int delay = 0;
 
 	if (state) {
-		PWRDBG("ttyS%02d: powering up hardware\n", info->line);
+		PWRDBG("ttyS%d: powering up hardware\n", info->line);
 		pmac_call_feature(
 			PMAC_FTR_SCC_ENABLE,
 			info->dev_node, info->port_type, 1);
@@ -1213,9 +1214,9 @@ static int set_scc_power(struct mac_serial * info, int state)
 		/* TODO: Make that depend on a timer, don't power down
 		 * immediately
 		 */
-		PWRDBG("ttyS%02d: shutting down hardware\n", info->line);
+		PWRDBG("ttyS%d: shutting down hardware\n", info->line);
 		if (info->is_internal_modem) {
-			PWRDBG("ttyS%02d: shutting down modem\n", info->line);
+			PWRDBG("ttyS%d: shutting down modem\n", info->line);
 			pmac_call_feature(
 				PMAC_FTR_MODEM_ENABLE,
 				info->dev_node, 0, 0);
@@ -1955,7 +1956,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 
-	OPNDBG("rs_close ttys%d, count = %d\n", info->line, info->count);
+	OPNDBG("rs_close ttyS%d, count = %d\n", info->line, info->count);
 	if ((tty->count == 1) && (info->count != 1)) {
 		/*
 		 * Uh, oh.  tty->count is 1, which means that the tty
@@ -1970,7 +1971,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	}
 	if (--info->count < 0) {
 		printk(KERN_ERR "rs_close: bad serial port count for "
-				"ttys%d: %d\n", info->line, info->count);
+				"ttyS%d: %d\n", info->line, info->count);
 		info->count = 0;
 	}
 	if (info->count) {
@@ -2187,7 +2188,7 @@ static int block_til_ready(struct tty_struct *tty, struct file * filp,
 	 */
 	retval = 0;
 	add_wait_queue(&info->open_wait, &wait);
-	OPNDBG("block_til_ready before block: ttys%d, count = %d\n",
+	OPNDBG("block_til_ready before block: ttyS%d, count = %d\n",
 	       info->line, info->count);
 	cli();
 	if (!tty_hung_up_p(filp)) 
@@ -2222,7 +2223,7 @@ static int block_til_ready(struct tty_struct *tty, struct file * filp,
 			retval = -ERESTARTSYS;
 			break;
 		}
-		OPNDBG("block_til_ready blocking: ttys%d, count = %d\n",
+		OPNDBG("block_til_ready blocking: ttyS%d, count = %d\n",
 		       info->line, info->count);
 		schedule();
 	}
@@ -2231,7 +2232,7 @@ static int block_til_ready(struct tty_struct *tty, struct file * filp,
 	if (!tty_hung_up_p(filp))
 		info->count++;
 	info->blocked_open--;
-	OPNDBG("block_til_ready after blocking: ttys%d, count = %d\n",
+	OPNDBG("block_til_ready after blocking: ttyS%d, count = %d\n",
 	       info->line, info->count);
 	if (retval)
 		return retval;
@@ -2332,7 +2333,7 @@ static int rs_open(struct tty_struct *tty, struct file * filp)
 	info->session = current->session;
 	info->pgrp = current->pgrp;
 
-	OPNDBG("rs_open ttys%d successful...\n", info->line);
+	OPNDBG("rs_open ttyS%d successful...\n", info->line);
 	return 0;
 }
 
@@ -2340,7 +2341,7 @@ static int rs_open(struct tty_struct *tty, struct file * filp)
 
 static void show_serial_version(void)
 {
-	printk(KERN_INFO "PowerMac Z8530 serial driver version 2.0\n");
+	printk(KERN_INFO "PowerMac Z8530 serial driver version " MACSERIAL_VERSION "\n");
 }
 
 /*
@@ -2434,6 +2435,62 @@ chan_init(struct mac_serial *zss, struct mac_zschannel *zs_chan,
 	zss->powerup_timer.function = powerup_done;
 	zss->powerup_timer.data = (unsigned long) zss;
 	return 0;
+}
+
+/*
+ * /proc fs routines. TODO: Add status lines & error stats
+ */
+static inline int
+line_info(char *buf, struct mac_serial *info)
+{
+	int		ret=0;
+	unsigned char* connector;
+	int lenp;
+
+	ret += sprintf(buf, "%d: port:0x%X irq:%d", info->line, info->port, info->irq);
+
+	connector = get_property(info->dev_node, "AAPL,connector", &lenp);
+	if (connector)
+		ret+=sprintf(buf+ret," con:%s ", connector);
+	if (info->is_internal_modem) {
+		if (!connector)
+			ret+=sprintf(buf+ret," con:");
+		ret+=sprintf(buf+ret,"%s", " (internal modem)");
+	}
+	if (info->is_irda) {
+		if (!connector)
+			ret+=sprintf(buf+ret," con:");
+		ret+=sprintf(buf+ret,"%s", " (IrDA)");
+	}
+	ret+=sprintf(buf+ret,"\n");
+
+	return ret;
+}
+
+int macserial_read_proc(char *page, char **start, off_t off, int count,
+		 int *eof, void *data)
+{
+	int l, len = 0;
+	off_t	begin = 0;
+	struct mac_serial *info;
+
+	len += sprintf(page, "serinfo:1.0 driver:" MACSERIAL_VERSION "\n");
+	for (info = zs_chain; info && len < 4000; info = info->zs_next) {
+		l = line_info(page + len, info);
+		len += l;
+		if (len+begin > off+count)
+			goto done;
+		if (len+begin < off) {
+			begin += len;
+			len = 0;
+		}
+	}
+	*eof = 1;
+done:
+	if (off >= len+begin)
+		return 0;
+	*start = page + (off-begin);
+	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
 /* Ask the PROM how many Z8530s we have and initialize their zs_channels */
@@ -2578,6 +2635,7 @@ no_dma:
 
 	memset(&serial_driver, 0, sizeof(struct tty_driver));
 	serial_driver.magic = TTY_DRIVER_MAGIC;
+	serial_driver.driver_name = "macserial";
 #ifdef CONFIG_DEVFS_FS
 	serial_driver.name = "tts/%d";
 #else
@@ -2614,6 +2672,7 @@ no_dma:
 	serial_driver.hangup = rs_hangup;
 	serial_driver.break_ctl = rs_break;
 	serial_driver.wait_until_sent = rs_wait_until_sent;
+	serial_driver.read_proc = macserial_read_proc;
 
 	/*
 	 * The callout device is just like normal device except for
@@ -2627,6 +2686,8 @@ no_dma:
 #endif /* CONFIG_DEVFS_FS */
 	callout_driver.major = TTYAUX_MAJOR;
 	callout_driver.subtype = SERIAL_TYPE_CALLOUT;
+	callout_driver.read_proc = 0;
+	callout_driver.proc_entry = 0;
 
 	if (tty_register_driver(&serial_driver))
 		panic("Couldn't register serial driver\n");
@@ -2698,14 +2759,6 @@ no_dma:
 		if (info->is_irda)
 			printk(" (IrDA)");
 		printk("\n");
-
-#ifndef CONFIG_XMON
-#ifdef CONFIG_KGDB
-		if (!info->kgdb_channel)
-#endif /* CONFIG_KGDB */
-			/* By default, disable the port */
-			set_scc_power(info, 0);
-#endif /* CONFIG_XMON */
  	}
 	tmp_buf = 0;
 

@@ -14,6 +14,19 @@
  *   * Enable control over input line 2 (is this connected?)
  *   * Play with the dual six-stage cascading biquad filtering to see how
  *     we can use it to our advantage (currently not implemented)
+ *   * Reorganise driver a bit to make it cleaner and easier to work with
+ *     (read: use the header file more :-P)
+ *   * Implement sleep support
+ *
+ *   Version 0.4:
+ *   ------------
+ *   * Balance control finally works (can someone document OSS better please?)
+ *   * Moved to a struct for common values referenced in the driver
+ *   * Put stubs in for sleep/wake-up support for now.  This will take some
+ *     experimentation to make sure that the timing is right, since the
+ *     TAS hardware requires specific timing while enabling low-power mode.
+ *     I may cheat for now and just reset the chip on wake-up, but I'd rather
+ *     not if I don't have to.
  *
  *   Version 0.3:
  *   ------------
@@ -47,20 +60,15 @@
 
 #define TAS_SETTING_MAX	100
 
-#define VOL_DEFAULT	(((TAS_SETTING_MAX*4)/5)<<0)
+#define VOL_DEFAULT	(((((TAS_SETTING_MAX*4)/5)<<0)<<8) | (((TAS_SETTING_MAX*4)/5)<<0))
 #define INPUT_DEFAULT	(((TAS_SETTING_MAX*4)/5)<<0)
 #define BASS_DEFAULT	((TAS_SETTING_MAX/2)<<0)
 #define TREBLE_DEFAULT	((TAS_SETTING_MAX/2)<<0)
 
-static uint cur_left_vol;
-static uint cur_right_vol;
-static uint cur_pcm_lvl;
-static uint cur_treble;
-static uint cur_bass;
-
 static struct i2c_client * tumbler_client = NULL;
 
-static int tas_attach_adapter(struct i2c_adapter *adapter);
+static int tumbler_enter_sleep(void);
+static int tumbler_leave_sleep(void);
 
 static int tas_attach_adapter(struct i2c_adapter *adapter);
 static int tas_detect_client(struct i2c_adapter *adapter, int address);
@@ -73,9 +81,12 @@ static int tas_initialized;
 static struct device_node* tas_node;
 static u8 tas_i2c_address = 0x34;
 
-
-struct tas_data {
-	int arf; /* place holder for future use */
+struct tas_data_t {
+	uint left_vol;		/* left volume */
+	uint right_vol;		/* right volume */
+	uint treble;		/* treble */
+	uint bass;		/* bass */
+	uint pcm_level;		/* pcm level */
 };
 
 struct i2c_driver tas_driver = {  
@@ -89,11 +100,19 @@ struct i2c_driver tas_driver = {
 	dec_use:	NULL  /* &tas_dev_use  */
 };
 
-void
+int
 tumbler_get_volume(uint * left_vol, uint  *right_vol)
 {
-	*left_vol = cur_left_vol;
-	*right_vol = cur_right_vol;
+	struct tas_data_t *data;
+
+	if (!tumbler_client)
+		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
+	*left_vol = data->left_vol;
+	*right_vol = data->right_vol;
+	
+	return 0;
 }
 
 int
@@ -106,22 +125,46 @@ tumbler_set_register(uint reg, uint size, char *block)
 	return 0;
 }
 
-void
+int
 tumbler_get_pcm_lvl(uint *pcm_lvl)
 {
-	*pcm_lvl = cur_pcm_lvl;
+	struct tas_data_t *data;
+
+	if (!tumbler_client)
+		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
+	*pcm_lvl = data->pcm_level;
+
+	return 0;
 }
 
-void
+int
 tumbler_get_treble(uint *treble)
 {
-	*treble = cur_treble;
+	struct tas_data_t *data;
+
+	if (!tumbler_client)
+		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
+	*treble = data->treble;
+	
+	return 0;
 }
 
-void
+int
 tumbler_get_bass(uint *bass)
 {
-	*bass = cur_bass;
+	struct tas_data_t *data;
+
+	if (!tumbler_client)
+		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
+	*bass = data->bass;
+
+	return 0;
 }
 
 int
@@ -129,9 +172,12 @@ tumbler_set_bass(uint bass)
 {
 	uint cur_bass_pers = bass;
 	char block;
+	struct tas_data_t *data;
 
 	if (!tumbler_client)
 		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
 
 	bass &= 0xff;
 	if (bass > TAS_SETTING_MAX)
@@ -144,18 +190,21 @@ tumbler_set_bass(uint bass)
 		printk("tas3001c: failed to set bass \n");  
 		return -1; 
 	}
-	cur_bass = cur_bass_pers;
+	data->bass = cur_bass_pers;
 	return 0;
 }
-	
+
 int
 tumbler_set_treble(uint treble)
 {
 	uint cur_treble_pers = treble;
 	char block;
+	struct tas_data_t *data;
 
 	if (!tumbler_client)
 		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
 
 	treble &= 0xff;
 	if (treble > TAS_SETTING_MAX)
@@ -168,7 +217,7 @@ tumbler_set_treble(uint treble)
 		printk("tas3001c: failed to set treble \n");  
 		return -1; 
 	}
-	cur_treble = cur_treble_pers;
+	data->treble = cur_treble_pers;
 	return 0;
 }
 
@@ -177,9 +226,12 @@ tumbler_set_pcm_lvl(uint pcm_lvl)
 {
 	uint pcm_lvl_pers = pcm_lvl;
 	unsigned char block[3];
-  
+	struct tas_data_t *data;
+
 	if (!tumbler_client)
 		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
 
 	pcm_lvl &= 0xff;
 	if (pcm_lvl > TAS_SETTING_MAX)
@@ -196,7 +248,7 @@ tumbler_set_pcm_lvl(uint pcm_lvl)
 		printk("tas3001c: failed to set input level \n");  
 		return -1; 
 	}
-	cur_pcm_lvl = pcm_lvl_pers;
+	data->pcm_level = pcm_lvl_pers;
 
 	return 0;
 }
@@ -207,16 +259,21 @@ tumbler_set_volume(uint left_vol, uint right_vol)
 	uint left_vol_pers = left_vol;
 	uint right_vol_pers = right_vol;
 	unsigned char block[6];
-  
+	struct tas_data_t *data;
+
 	if (!tumbler_client)
 		return -1;
+
+	data = (struct tas_data_t *) (tumbler_client->data);
 
 	left_vol &= 0xff;
 	if (left_vol > TAS_SETTING_MAX)
 		left_vol = TAS_SETTING_MAX;
-	right_vol &= 0xff;
+
+	right_vol = (right_vol >> 8) & 0xff;
 	if (right_vol > TAS_SETTING_MAX)
 		right_vol = TAS_SETTING_MAX;
+
 	left_vol = ((left_vol * 176) / TAS_SETTING_MAX) << 0;
 	right_vol = ((right_vol * 176) / TAS_SETTING_MAX) << 0;
 
@@ -235,8 +292,28 @@ tumbler_set_volume(uint left_vol, uint right_vol)
 		printk("tas3001c: failed to set volume \n");  
 		return -1; 
 	}
-	cur_left_vol = left_vol_pers;
-	cur_right_vol = right_vol_pers;
+	data->left_vol = left_vol_pers;
+	data->right_vol = right_vol_pers;
+
+	return 0;
+}
+
+static int
+tumbler_leave_sleep(void)
+{
+	/* Stub for now, but I have the details on low-power mode */
+	if (!tumbler_client)
+		return -1;
+
+	return 0;
+}
+
+static int
+tumbler_enter_sleep(void)
+{
+	/* Stub for now, but I have the details on low-power mode */
+	if (!tumbler_client)
+		return -1;
 
 	return 0;
 }
@@ -254,18 +331,18 @@ static int
 tas_init_client(struct i2c_client * new_client)
 {
 	/* Make sure something answers on the i2c bus
-	 */
+	*/
 
 	if (i2c_smbus_write_byte_data(new_client, 1, (1<<6)+(2<<4)+(2<<2)+0) < 0)
 		return -1;
 
 	tumbler_client = new_client;
-	
+
 	tumbler_set_volume(VOL_DEFAULT, VOL_DEFAULT);
 	tumbler_set_pcm_lvl(INPUT_DEFAULT);
 	tumbler_set_bass(BASS_DEFAULT);
 	tumbler_set_treble(TREBLE_DEFAULT);
-	
+
 	return 0;
 }
 
@@ -274,21 +351,21 @@ tas_detect_client(struct i2c_adapter *adapter, int address)
 {
 	int rc = 0;
 	struct i2c_client *new_client;
-	struct tas_data *data;
+	struct tas_data_t *data;
 	const char *client_name = "tas 3001c Digital Equalizer";
 
 	new_client = kmalloc(
-			sizeof(struct i2c_client) + sizeof(struct tas_data),
-			GFP_KERNEL);
+			     sizeof(struct i2c_client) + sizeof(struct tas_data_t),
+			     GFP_KERNEL);
 	if (!new_client) {
 		rc = -ENOMEM;
 		goto bail;
 	}
-  
+
 	/* This is tricky, but it will set the data to the right value. */
 	new_client->data = new_client + 1;
-	data = (struct tas_data *) (new_client->data);
-  
+	data = (struct tas_data_t *) (new_client->data);
+
 	new_client->addr = address;
 	new_client->data = data;
 	new_client->adapter = adapter;
@@ -323,7 +400,7 @@ tas_detach_client(struct i2c_client *client)
 
 	i2c_detach_client(client);
 	kfree(client);
-	
+
 	return 0;
 }
 
@@ -334,7 +411,7 @@ tas_cleanup(void)
 		return -ENODEV;
 	i2c_del_driver(&tas_driver);
 	tas_initialized = 0;
-	
+
 	return 0;
 }
 
@@ -356,7 +433,7 @@ tas_init(void)
 	if (paddr) {
 		tas_i2c_address = (*paddr) >> 1;
 		printk(KERN_INFO "using i2c address: 0x%x from device-tree\n",
-			tas_i2c_address);
+		       tas_i2c_address);
 	} else    
 		printk(KERN_INFO "using i2c address: 0x%x (default)\n", tas_i2c_address);
 

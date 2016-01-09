@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pci.c 1.38 12/11/01 14:57:05 benh
+ * BK Id: SCCS/s.pci.c 1.40 01/25/02 15:15:24 benh
  */
 /*
  * Common pmac/prep/chrp pci routines. -- Cort
@@ -284,9 +284,17 @@ pcibios_allocate_bus_resources(struct list_head *bus_list)
 			if (bus->parent == NULL)
 				pr = (res->flags & IORESOURCE_IO)?
 					&ioport_resource: &iomem_resource;
-			else
+			else {
 				pr = pci_find_parent_resource(bus->self, res);
-
+				if (pr == res) {
+					/* this happens when the generic PCI
+					 * code (wrongly) decides that this
+					 * bridge is transparent  -- paulus
+					 */
+					continue;
+				}
+			}
+			
 			if (pr && request_resource(pr, res) == 0)
 				continue;
 			printk(KERN_ERR "PCI: Cannot allocate resource region "

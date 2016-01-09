@@ -15226,7 +15226,7 @@ CONFIG_NLS_DEFAULT
   Currently, the valid values are:
   big5, cp437, cp737, cp775, cp850, cp852, cp855, cp857, cp860, cp861,
   cp862, cp863, cp864, cp865, cp866, cp869, cp874, cp932, cp936,
-  cp949, cp950, cp1251, cp1255, euc-jp, euc-kr, gb2312, iso8859-1,
+  cp949, cp950, cp1250, cp1251, cp1255, euc-jp, euc-kr, gb2312, iso8859-1,
   iso8859-2, iso8859-3, iso8859-4, iso8859-5, iso8859-6, iso8859-7,
   iso8859-8, iso8859-9, iso8859-13, iso8859-14, iso8859-15,
   koi8-r, koi8-ru, koi8-u, sjis, tis-620, utf8.
@@ -15465,6 +15465,16 @@ CONFIG_NLS_CODEPAGE_950
   only, not to the file contents. You can include several codepages;
   say Y here if you want to include the DOS codepage for Traditional
   Chinese(Big5).
+
+Central European (Codepage 1250)
+CONFIG_NLS_CODEPAGE_1250
+  If you want to display filenames with native language characters
+  from the Microsoft FAT file system family or from JOLIET CDROMs
+  correctly on the screen, you need to include the appropriate
+  input/output character sets. Say Y here for the Windows CP-1250
+  character set, which works for most Latin-written Slavic and Central
+  European languages: Czech, German, Hungarian, Polish, Rumanian, Croatian,
+  Slovak, Slovene.
 
 NLS ISO 8859-1 (Latin 1; Western European Languages)
 CONFIG_NLS_ISO8859_1

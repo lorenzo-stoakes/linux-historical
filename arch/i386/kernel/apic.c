@@ -88,8 +88,12 @@ void clear_local_APIC(void)
 		apic_write_around(APIC_LVTERR, APIC_LVT_MASKED);
 	if (maxlvt >= 4)
 		apic_write_around(APIC_LVTPC, APIC_LVT_MASKED);
-	apic_write(APIC_ESR, 0);
-	v = apic_read(APIC_ESR);
+	v = GET_APIC_VERSION(apic_read(APIC_LVR));
+	if (APIC_INTEGRATED(v)) {	/* !82489DX */
+		if (maxlvt > 3)
+			apic_write(APIC_ESR, 0);
+		apic_read(APIC_ESR);
+	}
 }
 
 void __init connect_bsp_APIC(void)

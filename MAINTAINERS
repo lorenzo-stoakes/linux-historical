@@ -582,7 +582,7 @@ S:	Maintained
 
 FREEVXFS FILESYSTEM
 P:	Christoph Hellwig
-M:	hch@caldera.de
+M:	hch@infradead.org
 W:	ftp://ftp.openlinux.org/pub/people/hch/vxfs
 S:	Maintained
 
@@ -1177,9 +1177,9 @@ S:	Maintained
 
 PERSONALITY HANDLING
 P:	Christoph Hellwig
-M:	hch@caldera.de
+M:	hch@infradead.org
 L:	linux-abi-devel@lists.sourceforge.net
-S:	Supported
+S:	Maintained
 
 PCI ID DATABASE
 P:	Jens Maurer
@@ -1473,7 +1473,7 @@ S:	Maintained
 
 SYSV FILESYSTEM
 P:	Christoph Hellwig
-M:	hch@caldera.de
+M:	hch@infradead.org
 S:	Maintained
 
 TLAN NETWORK DRIVER

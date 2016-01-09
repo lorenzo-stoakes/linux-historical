@@ -42,10 +42,16 @@
  *		- part way to partitioning the init() stuff
  *		- first pass at 'tumbler' stuff (not support - just an attempt
  *		  to allow the driver to load on new G4s).
+ *      01/02/2002 [0.7] - BenH
+ *	        - all sort of minor bits went in since the latest update, I
+ *	          bumped the version number for that reason
 */
 
 /* GENERAL FIXME/TODO: check that the assumptions about what is written to
    mac-io is valid for DACA & Tumbler.
+
+   This driver is in bad need of a rewrite. The dbdma code has to be split,
+   some proper device-tree parsing code has to be written, etc...
 */
 
 #include <linux/types.h>
@@ -83,8 +89,8 @@
 #include "awacs_defs.h"
 #include "dmasound.h"
 
-#define DMASOUND_AWACS_REVISION 0
-#define DMASOUND_AWACS_EDITION 6
+#define DMASOUND_AWACS_REVISION	0
+#define DMASOUND_AWACS_EDITION	7
 
 #define AWACS_BURGUNDY	100	/* fake revision # for burgundy */
 #define AWACS_TUMBLER    90	/* fake revision # for tumbler */
@@ -297,6 +303,8 @@ extern void tumbler_set_bass(int bass);
 extern void tumbler_get_bass(int *bass);
 extern void tumbler_set_pcm_lvl(int pcm_lvl);
 extern void tumbler_get_pcm_lvl(int *pcm_lvl);
+extern int tumbler_enter_sleep(void);
+extern int tumbler_leave_sleep(void);
 
 #define TRY_LOCK()	\
 	if ((rc = down_interruptible(&dmasound_sem)) != 0)	\
@@ -1285,7 +1293,8 @@ static int awacs_sleep_notify(struct pmu_sleep_notifier *self, int when)
 		/* deny interrupts */
 		switch (awacs_revision) {
 			case AWACS_TUMBLER:
-				break ;		/* dont know how yet */
+				tumbler_enter_sleep(); /* Stub for now */
+				break ;
 			case AWACS_DACA:
 				daca_enter_sleep();
 				break ;
@@ -1328,6 +1337,7 @@ static int awacs_sleep_notify(struct pmu_sleep_notifier *self, int when)
 		switch (awacs_revision) {
 			case AWACS_TUMBLER:
 				headphone_intr(0,0,0);
+				tumbler_leave_sleep(); /* Stub for now */
 				break;
 			case AWACS_DACA:
 				wait_ms(10); /* Check this !!! */
@@ -2024,7 +2034,7 @@ static int tumbler_mixer_ioctl(u_int cmd, u_long arg)
 		rc = IOCTL_OUT(arg, data);
 		break;
 	case SOUND_MIXER_READ_STEREODEVS:
-		data = SOUND_MASK_VOLUME;
+		data = SOUND_MASK_VOLUME | SOUND_MASK_PCM;
 		rc = IOCTL_OUT(arg, data);
 		break;
 	case SOUND_MIXER_READ_CAPS:
@@ -2033,6 +2043,7 @@ static int tumbler_mixer_ioctl(u_int cmd, u_long arg)
 	case SOUND_MIXER_WRITE_BASS:
 		IOCTL_IN(arg, data);
 		tumbler_set_bass(data);
+		/* Fall through */
 	case SOUND_MIXER_READ_BASS:
 		tumbler_get_bass(&data);
 		rc = IOCTL_OUT(arg, data);
@@ -2681,27 +2692,18 @@ static void
 __init set_hw_byteswap(struct device_node *io)
 {
 	struct device_node *mio ;
-	unsigned int *p, rev = 0 ;
+	unsigned int *p, kl = 0 ;
 
-	/* if seems that Keylargo (at least rev2) can't byte-swap  */
+	/* if seems that Keylargo can't byte-swap  */
 
 	for (mio = io->parent; mio ; mio = mio->parent) {
 		if (strcmp(mio->name, "mac-io") == 0) {
-			if (device_is_compatible(mio, "Keylargo")){
-				p = (unsigned int *)
-					get_property(mio, "revision-id", 0);
-				if (p)
-					rev = *p ;
-			}
+			if (device_is_compatible(mio, "Keylargo"))
+				kl = 1;
 			break;
 		}
 	}
-	if (rev >= 2) {
-		hw_can_byteswap = 0;
-#ifdef DEBUG_DMASOUND
-printk("dmasound_pmac: found Keylargo rev 2 or later - H/W byte-swap disabled\n") ;
-#endif
-	}
+	hw_can_byteswap = !kl;
 }
 
 /* Allocate the resources necessary for beep generation.  This cannot be (quite)

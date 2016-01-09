@@ -223,15 +223,6 @@ static mode_t shared_resource_owner = 0 ;
 static int shared_resources_initialised = 0 ;
 
     /*
-     *  Common stuff
-     */
-
-static long long sound_lseek(struct file *file, long long offset, int orig)
-{
-	return -ESPIPE;
-}
-
-    /*
      *  Mid level stuff
      */
 

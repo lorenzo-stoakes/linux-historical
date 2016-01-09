@@ -75,7 +75,13 @@ enum {
 };
 
 /*
- * Timing register definitions
+ * Extra registers, both 32-bit little-endian
+ */
+#define IDE_TIMING_CONFIG	0x200
+#define IDE_INTERRUPT		0x300
+
+/*
+ * Timing configuration register definitions
  */
 
 /* Number of IDE_SYSCLK_NS ticks, argument is in nanoseconds */
@@ -143,6 +149,12 @@ enum {
 #define TR_33_PIO_RECOVERY_SHIFT	5
 #define TR_33_PIO_ACCESS_MASK		0x0000001f
 #define TR_33_PIO_ACCESS_SHIFT		0
+
+/*
+ * Interrupt register definitions
+ */
+#define IDE_INTR_DMA			0x80000000
+#define IDE_INTR_DEVICE			0x40000000
 
 #ifdef CONFIG_BLK_DEV_IDEDMA_PMAC
 
@@ -331,10 +343,12 @@ pmac_ide_selectproc(ide_drive_t *drive)
 		return;
 
 	if (drive->select.b.unit & 0x01)
-		out_le32((unsigned *)(IDE_DATA_REG + 0x200 + _IO_BASE), pmac_ide[i].timings[1]);
+		out_le32((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG + _IO_BASE),
+			pmac_ide[i].timings[1]);
 	else
-		out_le32((unsigned *)(IDE_DATA_REG + 0x200 + _IO_BASE), pmac_ide[i].timings[0]);
-	(void)in_le32((unsigned *)(IDE_DATA_REG + 0x200 + _IO_BASE));
+		out_le32((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG + _IO_BASE),
+			pmac_ide[i].timings[0]);
+	(void)in_le32((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG + _IO_BASE));
 }
 
 
@@ -405,6 +419,28 @@ pmac_ide_do_setfeature(ide_drive_t *drive, byte command)
 		printk(KERN_ERR "pmac_ide_do_setfeature disk not ready after SET_FEATURE !\n");
 out:
 	SELECT_MASK(HWIF(drive), drive, 0);
+	if (result == 0) {
+		drive->id->dma_ultra &= ~0xFF00;
+		drive->id->dma_mword &= ~0x0F00;
+		drive->id->dma_1word &= ~0x0F00;
+		switch(command) {
+			case XFER_UDMA_7:   drive->id->dma_ultra |= 0x8080; break;
+			case XFER_UDMA_6:   drive->id->dma_ultra |= 0x4040; break;
+			case XFER_UDMA_5:   drive->id->dma_ultra |= 0x2020; break;
+			case XFER_UDMA_4:   drive->id->dma_ultra |= 0x1010; break;
+			case XFER_UDMA_3:   drive->id->dma_ultra |= 0x0808; break;
+			case XFER_UDMA_2:   drive->id->dma_ultra |= 0x0404; break;
+			case XFER_UDMA_1:   drive->id->dma_ultra |= 0x0202; break;
+			case XFER_UDMA_0:   drive->id->dma_ultra |= 0x0101; break;
+			case XFER_MW_DMA_2: drive->id->dma_mword |= 0x0404; break;
+			case XFER_MW_DMA_1: drive->id->dma_mword |= 0x0202; break;
+			case XFER_MW_DMA_0: drive->id->dma_mword |= 0x0101; break;
+			case XFER_SW_DMA_2: drive->id->dma_1word |= 0x0404; break;
+			case XFER_SW_DMA_1: drive->id->dma_1word |= 0x0202; break;
+			case XFER_SW_DMA_0: drive->id->dma_1word |= 0x0101; break;
+			default: break;
+		}
+	}
 	enable_irq(hwif->irq);
 	return result;
 }
@@ -830,7 +866,7 @@ pmac_ide_probe(void)
 			continue;
 		}
 
-		base = (unsigned long) ioremap(np->addrs[0].address, 0x200) - _IO_BASE;
+		base = (unsigned long) ioremap(np->addrs[0].address, 0x400) - _IO_BASE;
 
 		/* XXX This is bogus. Should be fixed in the registry by checking
 		   the kind of host interrupt controller, a bit like gatwick
@@ -898,6 +934,7 @@ pmac_ide_probe(void)
 		memcpy(hwif->io_ports, hwif->hw.io_ports, sizeof(hwif->io_ports));
 		hwif->chipset = ide_pmac;
 		hwif->noprobe = !hwif->io_ports[IDE_DATA_OFFSET] || in_bay;
+		hwif->udma_four = (pmhw->kind == controller_kl_ata4_80);
 #ifdef CONFIG_PMAC_PBOOK
 		if (in_bay && check_media_bay_by_base(base, MB_CD) == 0)
 			hwif->noprobe = 0;
@@ -1227,10 +1264,10 @@ pmac_ide_dmaproc(ide_dma_action_t func, ide_drive_t *drive)
 			return 1;
 		/* Apple adds 60ns to wrDataSetup on reads */
 		if (ata4 && (pmac_ide[ix].timings[unit] & TR_66_UDMA_EN)) {
-			out_le32((unsigned *)(IDE_DATA_REG + 0x200 + _IO_BASE),
+			out_le32((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG + _IO_BASE),
 				pmac_ide[ix].timings[unit] + 
 				((func == ide_dma_read) ? 0x00800000UL : 0));
-			(void)in_le32((unsigned *)(IDE_DATA_REG + 0x200 + _IO_BASE));
+			(void)in_le32((unsigned *)(IDE_DATA_REG + IDE_TIMING_CONFIG + _IO_BASE));
 		}
 		drive->waiting_for_dma = 1;
 		if (drive->media != ide_disk)

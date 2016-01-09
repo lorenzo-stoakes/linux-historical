@@ -792,12 +792,12 @@ core99_modem_enable(struct device_node* node, int param, int value)
 	}
     	LOCK(flags);
     	if (value) {
-    		MACIO_BIC(KEYLARGO_FCR2, KL2_MODEM_POWER_N);
+    		MACIO_BIC(KEYLARGO_FCR2, KL2_ALT_DATA_OUT);
 	    	UNLOCK(flags);
 	    	(void)MACIO_IN32(KEYLARGO_FCR2);
 		mdelay(250);
     	} else {
-    		MACIO_BIS(KEYLARGO_FCR2, KL2_MODEM_POWER_N);
+    		MACIO_BIS(KEYLARGO_FCR2, KL2_ALT_DATA_OUT);
 	    	UNLOCK(flags);
     	}
 	if (value) {
@@ -960,7 +960,7 @@ core99_airport_enable(struct device_node* node, int param, int value)
 		mdelay(10);
 
 		LOCK(flags);
-		MACIO_BIC(KEYLARGO_FCR2, KL2_AIRPORT_RESET_N);
+		MACIO_BIC(KEYLARGO_FCR2, KL2_CARDSEL_16);
 		(void)MACIO_IN32(KEYLARGO_FCR2);
 		udelay(10);
 		MACIO_OUT8(KEYLARGO_GPIO_EXTINT_0+0xb, 0);
@@ -985,7 +985,7 @@ core99_airport_enable(struct device_node* node, int param, int value)
 		(void)MACIO_IN8(0x1a3e0);
 		udelay(10);
 		LOCK(flags);
-		MACIO_BIS(KEYLARGO_FCR2, KL2_AIRPORT_RESET_N);
+		MACIO_BIS(KEYLARGO_FCR2, KL2_CARDSEL_16);
 		(void)MACIO_IN32(KEYLARGO_FCR2);
 		UNLOCK(flags);
 		mdelay(100);
@@ -993,7 +993,7 @@ core99_airport_enable(struct device_node* node, int param, int value)
 		macio->flags |= MACIO_FLAG_AIRPORT_ON;
 	} else {
 		LOCK(flags);
-		MACIO_BIC(KEYLARGO_FCR2, KL2_AIRPORT_RESET_N);
+		MACIO_BIC(KEYLARGO_FCR2, KL2_CARDSEL_16);
 		(void)MACIO_IN32(KEYLARGO_FCR2);
 		MACIO_OUT8(KL_GPIO_AIRPORT_0, 0);
 		MACIO_OUT8(KL_GPIO_AIRPORT_1, 0);
@@ -1085,20 +1085,20 @@ core99_usb_enable(struct device_node* node, int param, int value)
 			MACIO_BIS(KEYLARGO_FCR0, KL0_USB1_CELL_ENABLE);
 		}
 		reg = MACIO_IN32(KEYLARGO_FCR4);
-		reg &=	~(KL4_SET_PORT_ENABLE(number) | KL4_SET_PORT_RESUME(number) |
-			KL4_SET_PORT_CONNECT(number) | KL4_SET_PORT_DISCONNECT(number));
-		reg &=	~(KL4_SET_PORT_ENABLE(number+1) | KL4_SET_PORT_RESUME(number+1) |
-			KL4_SET_PORT_CONNECT(number+1) | KL4_SET_PORT_DISCONNECT(number+1));
+		reg &=	~(KL4_PORT_WAKEUP_ENABLE(number) | KL4_PORT_RESUME_WAKE_EN(number) |
+			KL4_PORT_CONNECT_WAKE_EN(number) | KL4_PORT_DISCONNECT_WAKE_EN(number));
+		reg &=	~(KL4_PORT_WAKEUP_ENABLE(number+1) | KL4_PORT_RESUME_WAKE_EN(number+1) |
+			KL4_PORT_CONNECT_WAKE_EN(number+1) | KL4_PORT_DISCONNECT_WAKE_EN(number+1));
 		MACIO_OUT32(KEYLARGO_FCR4, reg);
 		(void)MACIO_IN32(KEYLARGO_FCR4);
 		udelay(10);
 	} else {
 		/* Turn OFF */
 		reg = MACIO_IN32(KEYLARGO_FCR4);
-		reg |=	KL4_SET_PORT_ENABLE(number) | KL4_SET_PORT_RESUME(number) |
-			KL4_SET_PORT_CONNECT(number) | KL4_SET_PORT_DISCONNECT(number);
-		reg |=	KL4_SET_PORT_ENABLE(number+1) | KL4_SET_PORT_RESUME(number+1) |
-			KL4_SET_PORT_CONNECT(number+1) | KL4_SET_PORT_DISCONNECT(number+1);
+		reg |=	KL4_PORT_WAKEUP_ENABLE(number) | KL4_PORT_RESUME_WAKE_EN(number) |
+			KL4_PORT_CONNECT_WAKE_EN(number) | KL4_PORT_DISCONNECT_WAKE_EN(number);
+		reg |=	KL4_PORT_WAKEUP_ENABLE(number+1) | KL4_PORT_RESUME_WAKE_EN(number+1) |
+			KL4_PORT_CONNECT_WAKE_EN(number+1) | KL4_PORT_DISCONNECT_WAKE_EN(number+1);
 		MACIO_OUT32(KEYLARGO_FCR4, reg);
 		(void)MACIO_IN32(KEYLARGO_FCR4);
 		udelay(1);
@@ -1155,9 +1155,7 @@ core99_firewire_cable_power(struct device_node* node, int param, int value)
 	struct macio_chip* macio;
 
 	/* Trick: we allow NULL node */
-	if (pmac_mb.model_id != PMAC_TYPE_FW_IBOOK &&
-	    pmac_mb.model_id != PMAC_TYPE_PISMO &&
-	    pmac_mb.model_id != PMAC_TYPE_IBOOK2)
+	if ((pmac_mb.board_flags & PMAC_MB_HAS_FW_POWER) == 0)
 	    	return -ENODEV;
 	macio = &macio_chips[0];
 	if (macio->type != macio_keylargo && macio->type != macio_pangea)
@@ -1228,7 +1226,7 @@ keylargo_shutdown(struct macio_chip* macio, int restart)
 		KL1_UIDE_ENABLE);
 	(void)MACIO_IN32(KEYLARGO_FCR1); udelay(10);
 
-	MACIO_BIS(KEYLARGO_FCR2, KL2_MODEM_POWER_N);
+	MACIO_BIS(KEYLARGO_FCR2, KL2_ALT_DATA_OUT);
  	udelay(10);
  	MACIO_BIC(KEYLARGO_FCR2, KL2_IOBUS_ENABLE);
  	udelay(10);
@@ -1267,7 +1265,7 @@ pangea_shutdown(struct macio_chip* macio, int restart)
 		KL1_UIDE_ENABLE);
 	(void)MACIO_IN32(KEYLARGO_FCR1); udelay(10);
 
-	MACIO_BIS(KEYLARGO_FCR2, KL2_MODEM_POWER_N);
+	MACIO_BIS(KEYLARGO_FCR2, KL2_ALT_DATA_OUT);
  	udelay(10);
 	temp = MACIO_IN32(KEYLARGO_FCR3);
 	temp |= KL3_SHUTDOWN_PLLKW6 | KL3_SHUTDOWN_PLLKW4 |
@@ -1665,7 +1663,7 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	},
 	{	"PowerBook4,1",			"iBook 2",
 		PMAC_TYPE_IBOOK2,		pangea_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 	{	"PowerMac1,1",			"Blue&White G3",
 		PMAC_TYPE_YOSEMITE,		paddington_features,
@@ -1701,7 +1699,7 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	},
 	{	"PowerBook2,2",			"iBook FireWire",
 		PMAC_TYPE_FW_IBOOK,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 	{	"PowerMac5,1",			"PowerMac G4 Cube",
 		PMAC_TYPE_CUBE,			core99_features,
@@ -1716,15 +1714,15 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	},
 	{	"PowerBook3,1",			"PowerBook Pismo",
 		PMAC_TYPE_PISMO,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 	{	"PowerBook3,2",			"PowerBook Titanium",
 		PMAC_TYPE_TITANIUM,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 	{	"PowerBook3,3",			"PowerBook Titanium II",
 		PMAC_TYPE_TITANIUM2,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 };
 
@@ -1970,6 +1968,35 @@ probe_macios(void)
 }
 
 static void __init
+initial_serial_shutdown(struct device_node* np)
+{
+	int len;
+	struct slot_names_prop {
+		int	count;
+		char	name[1];
+	} *slots;
+	char *conn;
+	int port_type = PMAC_SCC_ASYNC;
+	int modem = 0;
+	
+	slots = (struct slot_names_prop *)get_property(np, "slot-names", &len);
+	conn = get_property(np, "AAPL,connector", &len);
+	if (conn && (strcmp(conn, "infrared") == 0))
+		port_type = PMAC_SCC_IRDA;
+	else if (device_is_compatible(np, "cobalt"))
+		modem = 1;
+	else if (slots && slots->count > 0) {
+		if (strcmp(slots->name, "IrDA") == 0)
+			port_type = PMAC_SCC_IRDA;
+		else if (strcmp(slots->name, "Modem") == 0)
+			modem = 1;
+	}
+	if (modem)
+		pmac_call_feature(PMAC_FTR_MODEM_ENABLE, np, 0, 0);
+	pmac_call_feature(PMAC_FTR_SCC_ENABLE, np, port_type, 0);
+}
+
+static void __init
 set_initial_features(void)
 {
 	struct device_node* np;
@@ -1999,17 +2026,25 @@ set_initial_features(void)
 		 */
 		np = find_devices("ethernet");
 		while(np) {
-			if (np && device_is_compatible(np, "gmac"))
+			if (np->parent
+			    && device_is_compatible(np->parent, "uni-north")
+			    && device_is_compatible(np, "gmac"))
 				core99_gmac_enable(np, 0, 1);
 			np = np->next;
 		}
 
 		/* Enable FW before PCI probe. Will be disabled later on
+		 * Note: We should have a batter way to check that we are
+		 * dealing with uninorth internal cell and not a PCI cell
+		 * on the external PCI. The code below works though.
 		 */
 		np = find_devices("firewire");
 		while(np) {
-			if (device_is_compatible(np, "pci106b,18") || 
-	     		    device_is_compatible(np, "pci106b,30")) {
+			if (np->parent
+			    && device_is_compatible(np->parent, "uni-north")
+			    && (device_is_compatible(np, "pci106b,18") || 
+	     		        device_is_compatible(np, "pci106b,30") ||
+	     		        device_is_compatible(np, "pci11c1,5811"))) {
 				macio_chips[0].flags |= MACIO_FLAG_FW_SUPPORTED;
 				core99_firewire_enable(np, 0, 1);
 			}
@@ -2031,9 +2066,21 @@ set_initial_features(void)
 	if (macio_chips[0].of_node)
 		pmac_do_feature_call(PMAC_FTR_SOUND_CHIP_ENABLE,
 			macio_chips[0].of_node, 0, 0);
-			
+
+	/* On all machines, switch modem & serial ports off */
+	np = find_devices("ch-a");
+	while(np) {
+		initial_serial_shutdown(np);
+		np = np->next;
+	}
+	np = find_devices("ch-b");
+	while(np) {
+		initial_serial_shutdown(np);
+		np = np->next;
+	}
+	
 	/* Let hardware settle down */
-	mdelay(1);
+	mdelay(10);
 }
 
 void __init

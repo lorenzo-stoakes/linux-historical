@@ -27,10 +27,20 @@
     2001/12/15 BenH	Add support for "byte" and "quick"
                         transfers. Add i2c_xfer routine.
 
-    ToDo:
+    My understanding of the various modes supported by keywest are:
 
-    Figure out how to use combined mode on the chip      
+     - Dumb mode : not implemented, probably direct tweaking of lines
+     - Standard mode : simple i2c transaction of type
+         S Addr R/W A Data A Data ... T
+     - Standard sub mode : combined 8 bit subaddr write with data read
+         S Addr R/W A SubAddr A Data A Data ... T
+     - Combined mode : Subaddress and Data sequences appended with no stop
+         S Addr R/W A SubAddr S Addr R/W A Data A Data ... T
 
+    Currently, this driver uses only Standard mode for i2c xfer, and
+    smbus byte & quick transfers ; and uses StandardSub mode for
+    other smbus transfers instead of combined as we need that for the
+    sound driver to be happy
 */
 
 #include <linux/module.h>

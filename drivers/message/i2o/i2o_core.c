@@ -1184,7 +1184,8 @@ void i2o_run_queue(struct i2o_controller *c)
 	{
 		struct i2o_handler *i;
 		/* Map the message from the page frame map to kernel virtual */
-		m=(struct i2o_message *)(mv - (unsigned long)c->page_frame_map + (unsigned long)c->page_frame);
+		/* m=(struct i2o_message *)(mv - (unsigned long)c->page_frame_map + (unsigned long)c->page_frame); */
+		m=(struct i2o_message *)bus_to_virt(mv);
 		msg=(u32*)m;
 
 		/*

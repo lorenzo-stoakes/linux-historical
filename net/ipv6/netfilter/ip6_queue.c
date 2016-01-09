@@ -1,20 +1,26 @@
 /*
- * This is a module which is used for queueing IPv4 packets and
+ * This is a module which is used for queueing IPv6 packets and
  * communicating with userspace via netlink.
  *
- * (C) 2000 James Morris, this code is GPL.
+ * (C) 2001 Fernando Anton, this code is GPL.
+ *     IPv64 Project - Work based in IPv64 draft by Arturo Azcorra.
+ *     Universidad Carlos III de Madrid - Leganes (Madrid) - Spain
+ *     Universidad Politecnica de Alcala de Henares - Alcala de H. (Madrid) - Spain
+ *     email: fanton@it.uc3m.es
  *
- * 2000-03-27: Simplified code (thanks to Andi Kleen for clues).
- * 2000-05-20: Fixed notifier problems (following Miguel Freitas' report).
- * 2000-06-19: Fixed so nfmark is copied to metadata (reported by Sebastian 
- *             Zander).
- * 2000-08-01: Added Nick Williams' MAC support.
+ * 2001-11-06: First try. Working with ip_queue.c for IPv4 and trying
+ *             to adapt it to IPv6
+ *             HEAVILY based in ipqueue.c by James Morris. It's just
+ *             a little modified version of it, so he's nearly the
+ *             real coder of this.
+ *             Few changes needed, mainly the hard_routing code and
+ *             the netlink socket protocol (we're NETLINK_IP6_FW).
  *
  */
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/init.h>
-#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/notifier.h>
 #include <linux/netdevice.h>
 #include <linux/netfilter.h>
@@ -24,49 +30,55 @@
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
 #include <net/sock.h>
-#include <net/route.h>
+#include <net/ipv6.h>
+#include <net/ip6_route.h>
 
+/* We're still usign the following structs. No need to change them: */
+/*   ipq_packet_msg                                                 */
+/*   ipq_mode_msg                                                   */
+/*   ipq_verdict_msg                                                */
+/*   ipq_peer_msg                                                   */
 #include <linux/netfilter_ipv4/ip_queue.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
+#include <linux/netfilter_ipv6/ip6_tables.h>
 
 #define IPQ_QMAX_DEFAULT 1024
-#define IPQ_PROC_FS_NAME "ip_queue"
+#define IPQ_PROC_FS_NAME "ip6_queue"
 #define NET_IPQ_QMAX 2088
-#define NET_IPQ_QMAX_NAME "ip_queue_maxlen"
+#define NET_IPQ_QMAX_NAME "ip6_queue_maxlen"
 
-typedef struct ipq_rt_info {
-	__u8 tos;
-	__u32 daddr;
-	__u32 saddr;
-} ipq_rt_info_t;
+typedef struct ip6q_rt_info {
+	struct in6_addr daddr;
+	struct in6_addr saddr;
+} ip6q_rt_info_t;
 
-typedef struct ipq_queue_element {
+typedef struct ip6q_queue_element {
 	struct list_head list;		/* Links element into queue */
 	int verdict;			/* Current verdict */
 	struct nf_info *info;		/* Extra info from netfilter */
 	struct sk_buff *skb;		/* Packet inside */
-	ipq_rt_info_t rt_info;		/* May need post-mangle routing */
-} ipq_queue_element_t;
+	ip6q_rt_info_t rt_info;		/* May need post-mangle routing */
+} ip6q_queue_element_t;
 
-typedef int (*ipq_send_cb_t)(ipq_queue_element_t *e);
+typedef int (*ip6q_send_cb_t)(ip6q_queue_element_t *e);
 
-typedef struct ipq_peer {
+typedef struct ip6q_peer {
 	pid_t pid;			/* PID of userland peer */
 	unsigned char died;		/* We think the peer died */
 	unsigned char copy_mode;	/* Copy packet as well as metadata? */
 	size_t copy_range;		/* Range past metadata to copy */
-	ipq_send_cb_t send;		/* Callback for sending data to peer */
-} ipq_peer_t;
+	ip6q_send_cb_t send;		/* Callback for sending data to peer */
+} ip6q_peer_t;
 
-typedef struct ipq_queue {
+typedef struct ip6q_queue {
  	int len;			/* Current queue len */
  	int *maxlen;			/* Maximum queue len, via sysctl */
  	unsigned char flushing;		/* If queue is being flushed */
  	unsigned char terminate;	/* If the queue is being terminated */
  	struct list_head list;		/* Head of packet queue */
  	spinlock_t lock;		/* Queue spinlock */
- 	ipq_peer_t peer;		/* Userland peer */
-} ipq_queue_t;
+ 	ip6q_peer_t peer;		/* Userland peer */
+} ip6q_queue_t;
 
 /****************************************************************************
  *
@@ -74,16 +86,16 @@ typedef struct ipq_queue {
  *
  ****************************************************************************/
 /* Dequeue a packet if matched by cmp, or the next available if cmp is NULL */
-static ipq_queue_element_t *
-ipq_dequeue(ipq_queue_t *q,
-            int (*cmp)(ipq_queue_element_t *, unsigned long),
+static ip6q_queue_element_t *
+ip6q_dequeue(ip6q_queue_t *q,
+            int (*cmp)(ip6q_queue_element_t *, unsigned long),
             unsigned long data)
 {
 	struct list_head *i;
 
 	spin_lock_bh(&q->lock);
 	for (i = q->list.prev; i != &q->list; i = i->prev) {
-		ipq_queue_element_t *e = (ipq_queue_element_t *)i;
+		ip6q_queue_element_t *e = (ip6q_queue_element_t *)i;
 		
 		if (!cmp || cmp(e, data)) {
 			list_del(&e->list);
@@ -97,14 +109,14 @@ ipq_dequeue(ipq_queue_t *q,
 }
 
 /* Flush all packets */
-static void ipq_flush(ipq_queue_t *q)
+static void ip6q_flush(ip6q_queue_t *q)
 {
-	ipq_queue_element_t *e;
+	ip6q_queue_element_t *e;
 	
 	spin_lock_bh(&q->lock);
 	q->flushing = 1;
 	spin_unlock_bh(&q->lock);
-	while ((e = ipq_dequeue(q, NULL, 0))) {
+	while ((e = ip6q_dequeue(q, NULL, 0))) {
 		e->verdict = NF_DROP;
 		nf_reinject(e->skb, e->info, e->verdict);
 		kfree(e);
@@ -114,15 +126,15 @@ static void ipq_flush(ipq_queue_t *q)
 	spin_unlock_bh(&q->lock);
 }
 
-static ipq_queue_t *ipq_create_queue(nf_queue_outfn_t outfn,
-                                     ipq_send_cb_t send_cb,
+static ip6q_queue_t *ip6q_create_queue(nf_queue_outfn_t outfn,
+                                     ip6q_send_cb_t send_cb,
                                      int *errp, int *sysctl_qmax)
 {
 	int status;
-	ipq_queue_t *q;
+	ip6q_queue_t *q;
 
 	*errp = 0;
-	q = kmalloc(sizeof(ipq_queue_t), GFP_KERNEL);
+	q = kmalloc(sizeof(ip6q_queue_t), GFP_KERNEL);
 	if (q == NULL) {
 		*errp = -ENOMEM;
 		return NULL;
@@ -138,7 +150,7 @@ static ipq_queue_t *ipq_create_queue(nf_queue_outfn_t outfn,
 	q->terminate = 0;
 	INIT_LIST_HEAD(&q->list);
 	spin_lock_init(&q->lock);
-	status = nf_register_queue_handler(PF_INET, outfn, q);
+	status = nf_register_queue_handler(PF_INET6, outfn, q);
 	if (status < 0) {
 		*errp = -EBUSY;
 		kfree(q);
@@ -147,15 +159,15 @@ static ipq_queue_t *ipq_create_queue(nf_queue_outfn_t outfn,
 	return q;
 }
 
-static int ipq_enqueue(ipq_queue_t *q,
+static int ip6q_enqueue(ip6q_queue_t *q,
                        struct sk_buff *skb, struct nf_info *info)
 {
-	ipq_queue_element_t *e;
+	ip6q_queue_element_t *e;
 	int status;
 	
 	e = kmalloc(sizeof(*e), GFP_ATOMIC);
 	if (e == NULL) {
-		printk(KERN_ERR "ip_queue: OOM in enqueue\n");
+		printk(KERN_ERR "ip6_queue: OOM in enqueue\n");
 		return -ENOMEM;
 	}
 
@@ -164,9 +176,8 @@ static int ipq_enqueue(ipq_queue_t *q,
 	e->skb = skb;
 
 	if (e->info->hook == NF_IP_LOCAL_OUT) {
-		struct iphdr *iph = skb->nh.iph;
+		struct ipv6hdr *iph = skb->nh.ipv6h;
 
-		e->rt_info.tos = iph->tos;
 		e->rt_info.daddr = iph->daddr;
 		e->rt_info.saddr = iph->saddr;
 	}
@@ -175,7 +186,7 @@ static int ipq_enqueue(ipq_queue_t *q,
 	if (q->len >= *q->maxlen) {
 		spin_unlock_bh(&q->lock);
 		if (net_ratelimit()) 
-			printk(KERN_WARNING "ip_queue: full at %d entries, "
+			printk(KERN_WARNING "ip6_queue: full at %d entries, "
 			       "dropping packet(s).\n", q->len);
 		goto free_drop;
 	}
@@ -193,33 +204,70 @@ static int ipq_enqueue(ipq_queue_t *q,
 	}
 	spin_unlock_bh(&q->lock);
 	if (status == -ECONNREFUSED) {
-		printk(KERN_INFO "ip_queue: peer %d died, "
+		printk(KERN_INFO "ip6_queue: peer %d died, "
 		       "resetting state and flushing queue\n", q->peer.pid);
 			q->peer.died = 1;
 			q->peer.pid = 0;
 			q->peer.copy_mode = IPQ_COPY_NONE;
 			q->peer.copy_range = 0;
-			ipq_flush(q);
+			ip6q_flush(q);
 	}
 free_drop:
 	kfree(e);
 	return -EBUSY;
 }
 
-static void ipq_destroy_queue(ipq_queue_t *q)
+static void ip6q_destroy_queue(ip6q_queue_t *q)
 {
-	nf_unregister_queue_handler(PF_INET);
+	nf_unregister_queue_handler(PF_INET6);
 	spin_lock_bh(&q->lock);
 	q->terminate = 1;
 	spin_unlock_bh(&q->lock);
-	ipq_flush(q);
+	ip6q_flush(q);
 	kfree(q);
 }
 
-static int ipq_mangle_ipv4(ipq_verdict_msg_t *v, ipq_queue_element_t *e)
+/*
+ * Taken from net/ipv6/ip6_output.c
+ *
+ * We should use the one there, but is defined static
+ * so we put this just here and let the things as
+ * they are now.
+ *
+ * If that one is modified, this one should be modified too.
+ */
+static int route6_me_harder(struct sk_buff *skb)
+{
+	struct ipv6hdr *iph = skb->nh.ipv6h;
+	struct dst_entry *dst;
+	struct flowi fl;
+
+	fl.proto = iph->nexthdr;
+	fl.fl6_dst = &iph->daddr;
+	fl.fl6_src = &iph->saddr;
+	fl.oif = skb->sk ? skb->sk->bound_dev_if : 0;
+	fl.fl6_flowlabel = 0;
+	fl.uli_u.ports.dport = 0;
+	fl.uli_u.ports.sport = 0;
+
+	dst = ip6_route_output(skb->sk, &fl);
+
+	if (dst->error) {
+		if (net_ratelimit())
+			printk(KERN_DEBUG "route6_me_harder: No more route.\n");
+		return -EINVAL;
+	}
+
+	/* Drop old route. */
+	dst_release(skb->dst);
+
+	skb->dst = dst;
+	return 0;
+}
+static int ip6q_mangle_ipv6(ipq_verdict_msg_t *v, ip6q_queue_element_t *e)
 {
 	int diff;
-	struct iphdr *user_iph = (struct iphdr *)v->payload;
+	struct ipv6hdr *user_iph = (struct ipv6hdr *)v->payload;
 
 	if (v->data_len < sizeof(*user_iph))
 		return 0;
@@ -237,7 +285,7 @@ static int ipq_mangle_ipv4(ipq_verdict_msg_t *v, ipq_queue_element_t *e)
 			                         diff,
 			                         GFP_ATOMIC);
 			if (newskb == NULL) {
-				printk(KERN_WARNING "ip_queue: OOM "
+				printk(KERN_WARNING "ip6_queue: OOM "
 				      "in mangle, dropping packet\n");
 				return -ENOMEM;
 			}
@@ -254,37 +302,42 @@ static int ipq_mangle_ipv4(ipq_verdict_msg_t *v, ipq_queue_element_t *e)
 	/*
 	 * Extra routing may needed on local out, as the QUEUE target never
 	 * returns control to the table.
+         * Not a nice way to cmp, but works
 	 */
 	if (e->info->hook == NF_IP_LOCAL_OUT) {
-		struct iphdr *iph = e->skb->nh.iph;
-
-		if (!(iph->tos == e->rt_info.tos
-		      && iph->daddr == e->rt_info.daddr
-		      && iph->saddr == e->rt_info.saddr))
-			return route_me_harder(&e->skb);
+		struct ipv6hdr *iph = e->skb->nh.ipv6h;
+		if (!(   iph->daddr.in6_u.u6_addr32[0] == e->rt_info.daddr.in6_u.u6_addr32[0]
+                      && iph->daddr.in6_u.u6_addr32[1] == e->rt_info.daddr.in6_u.u6_addr32[1]
+                      && iph->daddr.in6_u.u6_addr32[2] == e->rt_info.daddr.in6_u.u6_addr32[2]
+                      && iph->daddr.in6_u.u6_addr32[3] == e->rt_info.daddr.in6_u.u6_addr32[3]
+		      && iph->saddr.in6_u.u6_addr32[0] == e->rt_info.saddr.in6_u.u6_addr32[0]
+		      && iph->saddr.in6_u.u6_addr32[1] == e->rt_info.saddr.in6_u.u6_addr32[1]
+		      && iph->saddr.in6_u.u6_addr32[2] == e->rt_info.saddr.in6_u.u6_addr32[2]
+		      && iph->saddr.in6_u.u6_addr32[3] == e->rt_info.saddr.in6_u.u6_addr32[3]))
+			return route6_me_harder(e->skb);
 	}
 	return 0;
 }
 
-static inline int id_cmp(ipq_queue_element_t *e, unsigned long id)
+static inline int id_cmp(ip6q_queue_element_t *e, unsigned long id)
 {
 	return (id == (unsigned long )e);
 }
 
-static int ipq_set_verdict(ipq_queue_t *q,
+static int ip6q_set_verdict(ip6q_queue_t *q,
                            ipq_verdict_msg_t *v, unsigned int len)
 {
-	ipq_queue_element_t *e;
+	ip6q_queue_element_t *e;
 
 	if (v->value > NF_MAX_VERDICT)
 		return -EINVAL;
-	e = ipq_dequeue(q, id_cmp, v->id);
+	e = ip6q_dequeue(q, id_cmp, v->id);
 	if (e == NULL)
 		return -ENOENT;
 	else {
 		e->verdict = v->value;
 		if (v->data_len && v->data_len == len)
-			if (ipq_mangle_ipv4(v, e) < 0)
+			if (ip6q_mangle_ipv6(v, e) < 0)
 				e->verdict = NF_DROP;
 		nf_reinject(e->skb, e->info, e->verdict);
 		kfree(e);
@@ -292,7 +345,7 @@ static int ipq_set_verdict(ipq_queue_t *q,
 	}
 }
 
-static int ipq_receive_peer(ipq_queue_t *q, ipq_peer_msg_t *m,
+static int ip6q_receive_peer(ip6q_queue_t* q, ipq_peer_msg_t *m,
                             unsigned char type, unsigned int len)
 {
 
@@ -327,7 +380,7 @@ static int ipq_receive_peer(ipq_queue_t *q, ipq_peer_msg_t *m,
 			if (m->msg.verdict.value > NF_MAX_VERDICT)
 				status = -EINVAL;
 			else
-				status = ipq_set_verdict(q,
+				status = ip6q_set_verdict(q,
 				                         &m->msg.verdict,
 				                         len - sizeof(*m));
 			break;
@@ -337,7 +390,7 @@ static int ipq_receive_peer(ipq_queue_t *q, ipq_peer_msg_t *m,
 	return status;
 }
 
-static inline int dev_cmp(ipq_queue_element_t *e, unsigned long ifindex)
+static inline int dev_cmp(ip6q_queue_element_t *e, unsigned long ifindex)
 {
 	if (e->info->indev)
 		if (e->info->indev->ifindex == ifindex)
@@ -349,11 +402,11 @@ static inline int dev_cmp(ipq_queue_element_t *e, unsigned long ifindex)
 }
 
 /* Drop any queued packets associated with device ifindex */
-static void ipq_dev_drop(ipq_queue_t *q, int ifindex)
+static void ip6q_dev_drop(ip6q_queue_t *q, int ifindex)
 {
-	ipq_queue_element_t *e;
+	ip6q_queue_element_t *e;
 	
-	while ((e = ipq_dequeue(q, dev_cmp, ifindex))) {
+	while ((e = ip6q_dequeue(q, dev_cmp, ifindex))) {
 		e->verdict = NF_DROP;
 		nf_reinject(e->skb, e->info, e->verdict);
 		kfree(e);
@@ -370,10 +423,10 @@ static void ipq_dev_drop(ipq_queue_t *q, int ifindex)
  * Packets arrive here from netfilter for queuing to userspace.
  * All of them must be fed back via nf_reinject() or Alexey will kill Rusty.
  */
-static int netfilter_receive(struct sk_buff *skb,
+static int netfilter6_receive(struct sk_buff *skb,
                              struct nf_info *info, void *data)
 {
-	return ipq_enqueue((ipq_queue_t *)data, skb, info);
+	return ip6q_enqueue((ip6q_queue_t *)data, skb, info);
 }
 
 /****************************************************************************
@@ -383,9 +436,10 @@ static int netfilter_receive(struct sk_buff *skb,
  ****************************************************************************/
 
 static struct sock *nfnl = NULL;
-ipq_queue_t *nlq = NULL;
+/* This is not a static one, so we should not repeat its name */
+ip6q_queue_t *nlq6 = NULL;
 
-static struct sk_buff *netlink_build_message(ipq_queue_element_t *e, int *errp)
+static struct sk_buff *netlink_build_message(ip6q_queue_element_t *e, int *errp)
 {
 	unsigned char *old_tail;
 	size_t size = 0;
@@ -394,7 +448,7 @@ static struct sk_buff *netlink_build_message(ipq_queue_element_t *e, int *errp)
 	ipq_packet_msg_t *pm;
 	struct nlmsghdr *nlh;
 
-	switch (nlq->peer.copy_mode) {
+	switch (nlq6->peer.copy_mode) {
 		size_t copy_range;
 
 		case IPQ_COPY_META:
@@ -402,7 +456,7 @@ static struct sk_buff *netlink_build_message(ipq_queue_element_t *e, int *errp)
 			data_len = 0;
 			break;
 		case IPQ_COPY_PACKET:
-			copy_range = nlq->peer.copy_range;
+			copy_range = nlq6->peer.copy_range;
 			if (copy_range == 0 || copy_range > e->skb->len)
 				data_len = e->skb->len;
 			else
@@ -449,11 +503,11 @@ nlmsg_failure:
 	if (skb)
 		kfree_skb(skb);
 	*errp = 0;
-	printk(KERN_ERR "ip_queue: error creating netlink message\n");
+	printk(KERN_ERR "ip6_queue: error creating netlink message\n");
 	return NULL;
 }
 
-static int netlink_send_peer(ipq_queue_element_t *e)
+static int netlink_send_peer(ip6q_queue_element_t *e)
 {
 	int status = 0;
 	struct sk_buff *skb;
@@ -461,7 +515,7 @@ static int netlink_send_peer(ipq_queue_element_t *e)
 	skb = netlink_build_message(e, &status);
 	if (skb == NULL)
 		return status;
-	return netlink_unicast(nfnl, skb, nlq->peer.pid, MSG_DONTWAIT);
+	return netlink_unicast(nfnl, skb, nlq6->peer.pid, MSG_DONTWAIT);
 }
 
 #define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0);
@@ -492,15 +546,15 @@ static __inline__ void netlink_receive_user_skb(struct sk_buff *skb)
 		return;
 	if(!cap_raised(NETLINK_CB(skb).eff_cap, CAP_NET_ADMIN))
 		RCV_SKB_FAIL(-EPERM);
-	if (nlq->peer.pid && !nlq->peer.died
-	    && (nlq->peer.pid != nlh->nlmsg_pid)) {
-	    	printk(KERN_WARNING "ip_queue: peer pid changed from %d to "
-	    	      "%d, flushing queue\n", nlq->peer.pid, nlh->nlmsg_pid);
-		ipq_flush(nlq);
+	if (nlq6->peer.pid && !nlq6->peer.died
+	    && (nlq6->peer.pid != nlh->nlmsg_pid)) {
+	    	printk(KERN_WARNING "ip6_queue: peer pid changed from %d to "
+	    	      "%d, flushing queue\n", nlq6->peer.pid, nlh->nlmsg_pid);
+		ip6q_flush(nlq6);
 	}	
-	nlq->peer.pid = nlh->nlmsg_pid;
-	nlq->peer.died = 0;
-	status = ipq_receive_peer(nlq, NLMSG_DATA(nlh),
+	nlq6->peer.pid = nlh->nlmsg_pid;
+	nlq6->peer.died = 0;
+	status = ip6q_receive_peer(nlq6, NLMSG_DATA(nlh),
 	                          type, skb->len - NLMSG_LENGTH(0));
 	if (status < 0)
 		RCV_SKB_FAIL(status);
@@ -538,11 +592,11 @@ static int receive_event(struct notifier_block *this,
 
 	/* Drop any packets associated with the downed device */
 	if (event == NETDEV_DOWN)
-		ipq_dev_drop(nlq, dev->ifindex);
+		ip6q_dev_drop(nlq6, dev->ifindex);
 	return NOTIFY_DONE;
 }
 
-struct notifier_block ipq_dev_notifier = {
+struct notifier_block ip6q_dev_notifier = {
 	receive_event,
 	NULL,
 	0
@@ -556,21 +610,21 @@ struct notifier_block ipq_dev_notifier = {
 
 static int sysctl_maxlen = IPQ_QMAX_DEFAULT;
 
-static struct ctl_table_header *ipq_sysctl_header;
+static struct ctl_table_header *ip6q_sysctl_header;
 
-static ctl_table ipq_table[] = {
+static ctl_table ip6q_table[] = {
 	{ NET_IPQ_QMAX, NET_IPQ_QMAX_NAME, &sysctl_maxlen,
 	  sizeof(sysctl_maxlen), 0644,  NULL, proc_dointvec },
  	{ 0 }
 };
 
-static ctl_table ipq_dir_table[] = {
-	{NET_IPV4, "ipv4", NULL, 0, 0555, ipq_table, 0, 0, 0, 0, 0},
+static ctl_table ip6q_dir_table[] = {
+	{NET_IPV6, "ipv6", NULL, 0, 0555, ip6q_table, 0, 0, 0, 0, 0},
 	{ 0 }
 };
 
-static ctl_table ipq_root_table[] = {
-	{CTL_NET, "net", NULL, 0, 0555, ipq_dir_table, 0, 0, 0, 0, 0},
+static ctl_table ip6q_root_table[] = {
+	{CTL_NET, "net", NULL, 0, 0555, ip6q_dir_table, 0, 0, 0, 0, 0},
 	{ 0 }
 };
 
@@ -580,11 +634,11 @@ static ctl_table ipq_root_table[] = {
  *
  ****************************************************************************/
 
-static int ipq_get_info(char *buffer, char **start, off_t offset, int length)
+static int ip6q_get_info(char *buffer, char **start, off_t offset, int length)
 {
 	int len;
 
-	spin_lock_bh(&nlq->lock);
+	spin_lock_bh(&nlq6->lock);
 	len = sprintf(buffer,
 	              "Peer pid            : %d\n"
 	              "Peer died           : %d\n"
@@ -594,15 +648,15 @@ static int ipq_get_info(char *buffer, char **start, off_t offset, int length)
 	              "Queue max. length   : %d\n"
 	              "Queue flushing      : %d\n"
 	              "Queue terminate     : %d\n",
-	              nlq->peer.pid,
-	              nlq->peer.died,
-	              nlq->peer.copy_mode,
-	              nlq->peer.copy_range,
-	              nlq->len,
-	              *nlq->maxlen,
-	              nlq->flushing,
-	              nlq->terminate);
-	spin_unlock_bh(&nlq->lock);
+	              nlq6->peer.pid,
+	              nlq6->peer.died,
+	              nlq6->peer.copy_mode,
+	              nlq6->peer.copy_range,
+	              nlq6->len,
+	              *nlq6->maxlen,
+	              nlq6->flushing,
+	              nlq6->terminate);
+	spin_unlock_bh(&nlq6->lock);
 	*start = buffer + offset;
 	len -= offset;
 	if (len > length)
@@ -623,42 +677,44 @@ static int __init init(void)
 	int status = 0;
 	struct proc_dir_entry *proc;
 	
-	nfnl = netlink_kernel_create(NETLINK_FIREWALL, netlink_receive_user_sk);
+        /* We must create the NETLINK_IP6_FW protocol service */
+	nfnl = netlink_kernel_create(NETLINK_IP6_FW, netlink_receive_user_sk);
 	if (nfnl == NULL) {
-		printk(KERN_ERR "ip_queue: initialisation failed: unable to "
+		printk(KERN_ERR "ip6_queue: initialisation failed: unable to "
 		       "create kernel netlink socket\n");
 		return -ENOMEM;
 	}
-	nlq = ipq_create_queue(netfilter_receive,
+	nlq6 = ip6q_create_queue(netfilter6_receive,
 	                       netlink_send_peer, &status, &sysctl_maxlen);
-	if (nlq == NULL) {
-		printk(KERN_ERR "ip_queue: initialisation failed: unable to "
+	if (nlq6 == NULL) {
+		printk(KERN_ERR "ip6_queue: initialisation failed: unable to "
 		       "create queue\n");
 		sock_release(nfnl->socket);
 		return status;
 	}
-	proc = proc_net_create(IPQ_PROC_FS_NAME, 0, ipq_get_info);
+        /* The file will be /proc/net/ip6_queue */
+	proc = proc_net_create(IPQ_PROC_FS_NAME, 0, ip6q_get_info);
 	if (proc) proc->owner = THIS_MODULE;
 	else {
-		ipq_destroy_queue(nlq);
+		ip6q_destroy_queue(nlq6);
 		sock_release(nfnl->socket);
 		return -ENOMEM;
 	}
-	register_netdevice_notifier(&ipq_dev_notifier);
-	ipq_sysctl_header = register_sysctl_table(ipq_root_table, 0);
+	register_netdevice_notifier(&ip6q_dev_notifier);
+	ip6q_sysctl_header = register_sysctl_table(ip6q_root_table, 0);
 	return status;
 }
 
 static void __exit fini(void)
 {
-	unregister_sysctl_table(ipq_sysctl_header);
+	unregister_sysctl_table(ip6q_sysctl_header);
 	proc_net_remove(IPQ_PROC_FS_NAME);
-	unregister_netdevice_notifier(&ipq_dev_notifier);
-	ipq_destroy_queue(nlq);
+	unregister_netdevice_notifier(&ip6q_dev_notifier);
+	ip6q_destroy_queue(nlq6);
 	sock_release(nfnl->socket);
 }
 
-MODULE_DESCRIPTION("IPv4 packet queue handler");
+MODULE_DESCRIPTION("IPv6 packet queue handler");
 MODULE_LICENSE("GPL");
 
 module_init(init);

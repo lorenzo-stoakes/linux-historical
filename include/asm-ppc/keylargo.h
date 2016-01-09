@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.keylargo.h 1.15 12/01/01 20:09:11 benh
+ * BK Id: SCCS/s.keylargo.h 1.17 01/20/02 23:53:12 benh
  */
 /*
  * keylargo.h: definitions for using the "KeyLargo" I/O controller chip.
@@ -27,6 +27,7 @@
 #define KEYLARGO_GPIO_EXTINT_CNT	18
 #define KEYLARGO_GPIO_0			0x6A
 #define KEYLARGO_GPIO_CNT		17
+#define KEYLARGO_GPIO_EXTINT_DUAL_EDGE	0x80
 #define KEYLARGO_GPIO_OUTPUT_ENABLE	0x04
 #define KEYLARGO_GPIO_OUTOUT_DATA	0x01
 #define KEYLARGO_GPIO_INPUT_DATA	0x02
@@ -87,8 +88,8 @@
 #define KL_MBCR_MB1_DEV_RESET		0x02000000
 #define KL_MBCR_MB1_ENABLE		0x01000000
 
-#define KL0_SCC_B_INTF_ENABLE		0x00000001	/* ??? */
-#define KL0_SCC_A_INTF_ENABLE		0x00000002	/* ??? */
+#define KL0_SCC_B_INTF_ENABLE		0x00000001
+#define KL0_SCC_A_INTF_ENABLE		0x00000002
 #define KL0_SCC_SLOWPCLK		0x00000004
 #define KL0_SCC_RESET			0x00000008
 #define KL0_SCCA_ENABLE			0x00000010
@@ -137,8 +138,9 @@
 #define KL2_IOBUS_ENABLE		0x00000002
 #define KL2_SLEEP_STATE_BIT		0x00000100
 #define KL2_MPIC_ENABLE			0x00020000
-#define KL2_MODEM_POWER_N		0x02000000
-#define KL2_AIRPORT_RESET_N		0x08000000	/* Or power ? */
+#define KL2_ALT_DATA_OUT		0x02000000
+#define KL2_MEM_IS_BIG			0x04000000
+#define KL2_CARDSEL_16			0x08000000
 
 #define KL3_SHUTDOWN_PLL_TOTAL		0x00000001
 #define KL3_SHUTDOWN_PLLKW6		0x00000002
@@ -158,11 +160,11 @@
 #define KL3_STOPPING33_ENABLED		0x00080000
 
 /* Port 0,1 : bus 0, port 2,3 : bus 1 */
-#define KL4_SET_PORT_ENABLE(p)		(0x00000008 << ((p)<<3))
-#define KL4_SET_PORT_RESUME(p)		(0x00000004 << ((p)<<3))
-#define KL4_SET_PORT_CONNECT(p)		(0x00000002 << ((p)<<3))
-#define KL4_SET_PORT_DISCONNECT(p)	(0x00000001 << ((p)<<3))
-#define KL4_GET_PORT_RESUME(p)		(0x00000040 << ((p)<<3))
-#define KL4_GET_PORT_CONNECT(p)		(0x00000020 << ((p)<<3))
-#define KL4_GET_PORT_DISCONNECT(p)	(0x00000010 << ((p)<<3))
+#define KL4_PORT_WAKEUP_ENABLE(p)	(0x00000008 << ((p)<<3))
+#define KL4_PORT_RESUME_WAKE_EN(p)	(0x00000004 << ((p)<<3))
+#define KL4_PORT_CONNECT_WAKE_EN(p)	(0x00000002 << ((p)<<3))
+#define KL4_PORT_DISCONNECT_WAKE_EN(p)	(0x00000001 << ((p)<<3))
+#define KL4_PORT_RESUME_STAT(p)		(0x00000040 << ((p)<<3))
+#define KL4_PORT_CONNECT_STAT(p)	(0x00000020 << ((p)<<3))
+#define KL4_PORT_DISCONNECT_STAT(p)	(0x00000010 << ((p)<<3))
 

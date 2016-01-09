@@ -97,6 +97,7 @@
  */
 
 #define PMAC_MB_CAN_SLEEP		0x00000001
+#define PMAC_MB_HAS_FW_POWER		0x00000002
 
 /*
  * Feature calls supported on pmac

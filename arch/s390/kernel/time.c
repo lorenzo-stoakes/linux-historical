@@ -228,7 +228,4 @@ void __init time_init(void)
 
         /* init CPU timer */
         init_cpu_timer();
-
-	/* Set do_get_fast_time function pointer.  */
-	do_get_fast_time = do_gettimeofday;
 }

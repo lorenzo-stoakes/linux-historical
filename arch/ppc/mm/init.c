@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.init.c 1.38 12/01/01 20:09:07 benh
+ * BK Id: SCCS/s.init.c 1.40 01/25/02 15:15:24 benh
  */
 /*
  *  PowerPC version 
@@ -48,8 +48,6 @@
 
 #include "mem_pieces.h"
 #include "mmu_decl.h"
-
-#define MAX_LOW_MEM	(0xF0000000UL - KERNELBASE)
 
 mmu_gather_t mmu_gathers[NR_CPUS];
 
@@ -100,8 +98,6 @@ int __map_without_bats;
 
 /* max amount of RAM to use */
 unsigned long __max_memory;
-/* max amount of low RAM to map in */
-unsigned long __max_low_memory = MAX_LOW_MEM;
 
 int do_check_pgt_cache(int low, int high)
 {
@@ -316,12 +312,7 @@ void __init MMU_init(void)
 	if (__max_memory && total_memory > __max_memory)
 		total_memory = __max_memory;
 	total_lowmem = total_memory;
-	if (total_lowmem > __max_low_memory) {
-		total_lowmem = __max_low_memory;
-#ifndef CONFIG_HIGHMEM
-		total_memory = total_lowmem;
-#endif /* CONFIG_HIGHMEM */
-	}
+	adjust_total_lowmem();	
 	end_of_DRAM = __va(total_lowmem);
 	set_phys_avail(total_lowmem);
 
