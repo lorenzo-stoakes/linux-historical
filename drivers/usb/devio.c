@@ -138,7 +138,7 @@ err:
 	return ret;
 }
 
-extern inline unsigned int ld2(unsigned int x)
+static inline unsigned int ld2(unsigned int x)
 {
         unsigned int r = 0;
         
@@ -188,7 +188,7 @@ static void free_async(struct async *as)
         kfree(as);
 }
 
-extern __inline__ void async_newpending(struct async *as)
+static inline void async_newpending(struct async *as)
 {
         struct dev_state *ps = as->ps;
         unsigned long flags;
@@ -198,7 +198,7 @@ extern __inline__ void async_newpending(struct async *as)
         spin_unlock_irqrestore(&ps->lock, flags);
 }
 
-extern __inline__ void async_removepending(struct async *as)
+static inline void async_removepending(struct async *as)
 {
         struct dev_state *ps = as->ps;
         unsigned long flags;
@@ -209,7 +209,7 @@ extern __inline__ void async_removepending(struct async *as)
         spin_unlock_irqrestore(&ps->lock, flags);
 }
 
-extern __inline__ struct async *async_getcompleted(struct dev_state *ps)
+static inline struct async *async_getcompleted(struct dev_state *ps)
 {
         unsigned long flags;
         struct async *as = NULL;
@@ -224,7 +224,7 @@ extern __inline__ struct async *async_getcompleted(struct dev_state *ps)
         return as;
 }
 
-extern __inline__ struct async *async_getpending(struct dev_state *ps, void *userurb)
+static inline struct async *async_getpending(struct dev_state *ps, void *userurb)
 {
         unsigned long flags;
         struct async *as;

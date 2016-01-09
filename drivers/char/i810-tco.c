@@ -223,7 +223,10 @@ static ssize_t i810tco_write (struct file *file, const char *data,
 
 		/* scan to see wether or not we got the magic character */
 		for (i = 0; i != len; i++) {
-			if (data[i] == 'V')
+			u8 c;
+			if(get_user(c, data+i))
+				return -EFAULT;
+			if (c == 'V')
 				tco_expect_close = 42;
 		}
 

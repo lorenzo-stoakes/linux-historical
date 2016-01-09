@@ -698,7 +698,8 @@ int ac97_probe_codec(struct ac97_codec *codec)
 
 	if ((audio = codec->codec_read(codec, AC97_RESET)) & 0x8000) {
 		printk(KERN_ERR "ac97_codec: %s ac97 codec not present\n",
-		       codec->id ? "Secondary" : "Primary");
+		       (codec->id & 0x2) ? (codec->id&1 ? "4th" : "Tertiary") 
+		       : (codec->id&1 ? "Secondary":  "Primary"));
 		return 0;
 	}
 

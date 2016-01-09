@@ -110,10 +110,6 @@ static adpt_hba* hbas[DPTI_MAX_HBA];
 static adpt_hba* hba_chain = NULL;
 static int hba_count = 0;
 
-// Debug flags to be put into the HBA flags field when initialized
-// Make sure to enable DEBUG_PRINT for these flags to work
-static unsigned long DebugFlags = HBA_FLAGS_DBG_SCAN_B | HBA_FLAGS_DBG_FLAGS_MASK;
-
 static struct file_operations adpt_fops = {
 	ioctl: adpt_ioctl,
 	open: adpt_open,
@@ -1141,7 +1137,8 @@ static int adpt_i2o_post_wait(adpt_hba* pHba, u32* msg, int len, int timeout)
        // to support async LCT get
 	wait_data->next = adpt_post_wait_queue;
 	adpt_post_wait_queue = wait_data;
-	adpt_post_wait_id = (++adpt_post_wait_id & 0x7fff);
+	adpt_post_wait_id++;
+	adpt_post_wait_id = (adpt_post_wait_id & 0x7fff);
 	wait_data->id =  adpt_post_wait_id;
 	spin_unlock_irqrestore(&adpt_post_wait_lock, flags);
 

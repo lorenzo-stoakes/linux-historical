@@ -313,8 +313,13 @@ static inline unsigned long get_cr2(void)
 static void inline do_trap(int trapnr, int signr, char *str, int vm86,
 			   struct pt_regs * regs, long error_code, siginfo_t *info)
 {
-	if (vm86 && regs->eflags & VM_MASK)
-		goto vm86_trap;
+	if (regs->eflags & VM_MASK) {
+		if (vm86)
+			goto vm86_trap;
+		else
+			goto trap_signal;
+	}
+
 	if (!(regs->xcs & 3))
 		goto kernel_trap;
 
@@ -522,9 +527,14 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 {
 	unsigned int condition;
 	struct task_struct *tsk = current;
+	unsigned long eip = regs->eip;
 	siginfo_t info;
 
 	__asm__ __volatile__("movl %%db6,%0" : "=r" (condition));
+
+	/* If the user set TF, it's simplest to clear it right away. */
+	if ((eip >=PAGE_OFFSET) && (regs->eflags & TF_MASK))
+		goto clear_TF;
 
 	/* Mask out spurious debug traps due to lazy DR7 setting */
 	if (condition & (DR_TRAP0|DR_TRAP1|DR_TRAP2|DR_TRAP3)) {

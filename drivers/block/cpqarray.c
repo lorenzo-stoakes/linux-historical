@@ -1141,8 +1141,12 @@ static inline void complete_command(cmdlist_t *cmd, int timeout)
         }
 
 	complete_buffers(cmd->rq->bh, ok);
+
 	DBGPX(printk("Done with %p\n", cmd->rq););
+	req_finished_io(cmd->rq);
 	end_that_request_last(cmd->rq);
+
+
 }
 
 /*

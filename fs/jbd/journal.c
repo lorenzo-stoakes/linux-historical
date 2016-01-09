@@ -462,8 +462,7 @@ int journal_write_metadata_buffer(transaction_t *transaction,
 			printk (KERN_NOTICE "%s: ENOMEM at "
 				"get_unused_buffer_head, trying again.\n",
 				__FUNCTION__);
-			current->policy |= SCHED_YIELD;
-			schedule();
+			yield();
 		}
 	} while (!new_bh);
 	/* keep subsequent assertions sane */
@@ -1541,8 +1540,7 @@ void * __jbd_kmalloc (char *where, size_t size, int flags, int retry)
 			last_warning = jiffies;
 		}
 		
-		current->policy |= SCHED_YIELD;
-		schedule();
+		yield();
 	}
 }
 
@@ -1600,8 +1598,7 @@ static struct journal_head *journal_alloc_journal_head(void)
 			last_warning = jiffies;
 		}
 		while (ret == 0) {
-			current->policy |= SCHED_YIELD;
-			schedule();
+			yield();
 			ret = kmem_cache_alloc(journal_head_cache, GFP_NOFS);
 		}
 	}

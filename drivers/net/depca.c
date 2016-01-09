@@ -1347,8 +1347,7 @@ static void __init mca_probe(struct net_device *dev, u_long ioaddr)
 				   ** If the MCA configuration says the card should be here,
 				   ** it really should be here.
 				 */
-				printk(KERN_ERR "%s: MCA reports card at 0x%lx but it is not
-responding.\n", dev->name, iobase);
+				printk(KERN_ERR "%s: MCA reports card at 0x%lx but it is not responding.\n", dev->name, iobase);
 			}
 
 			if (check_region(iobase, DEPCA_TOTAL_SIZE) == 0) {
@@ -1970,7 +1969,7 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case DEPCA_SET_MCA:	/* Set a multicast address */
 		if (!capable(CAP_NET_ADMIN))
 			return -EPERM;
-		if (ioc->len >= HASH_TABLE_LEN || ioc->len < 0)
+		if (ioc->len >= HASH_TABLE_LEN)
 			return -EINVAL;
 		if (copy_from_user(tmp.addr, ioc->data, ETH_ALEN * ioc->len))
 			return -EFAULT;

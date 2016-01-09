@@ -696,7 +696,7 @@ void scsi_io_completion(Scsi_Cmnd * SCpnt, int good_sectors,
 
 		switch (SCpnt->sense_buffer[2]) {
 		case ILLEGAL_REQUEST:
-			if (SCpnt->device->ten) {
+			if (SCpnt->device->ten && SCSI_RETRY_10(SCpnt->cmnd[0])) {
 				SCpnt->device->ten = 0;
 				/*
 				 * This will cause a retry with a 6-byte

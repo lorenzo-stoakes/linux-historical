@@ -48,7 +48,7 @@
 #if ((SCSI_DATA_UNKNOWN == PCI_DMA_BIDIRECTIONAL) && (SCSI_DATA_WRITE == PCI_DMA_TODEVICE) && (SCSI_DATA_READ == PCI_DMA_FROMDEVICE) && (SCSI_DATA_NONE == PCI_DMA_NONE))
 #define scsi_to_pci_dma_dir(scsi_dir)	((int)(scsi_dir))
 #else
-extern __inline__ int scsi_to_pci_dma_dir(unsigned char scsi_dir)
+static inline int scsi_to_pci_dma_dir(unsigned char scsi_dir)
 {
         if (scsi_dir == SCSI_DATA_UNKNOWN)
                 return PCI_DMA_BIDIRECTIONAL;
@@ -66,7 +66,7 @@ extern __inline__ int scsi_to_pci_dma_dir(unsigned char scsi_dir)
 #if ((SCSI_DATA_UNKNOWN == SBUS_DMA_BIDIRECTIONAL) && (SCSI_DATA_WRITE == SBUS_DMA_TODEVICE) && (SCSI_DATA_READ == SBUS_DMA_FROMDEVICE) && (SCSI_DATA_NONE == SBUS_DMA_NONE))
 #define scsi_to_sbus_dma_dir(scsi_dir)	((int)(scsi_dir))
 #else
-extern __inline__ int scsi_to_sbus_dma_dir(unsigned char scsi_dir)
+static inline int scsi_to_sbus_dma_dir(unsigned char scsi_dir)
 {
         if (scsi_dir == SCSI_DATA_UNKNOWN)
                 return SBUS_DMA_BIDIRECTIONAL;

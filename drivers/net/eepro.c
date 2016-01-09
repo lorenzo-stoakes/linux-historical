@@ -732,27 +732,27 @@ static int __init eepro_probe1(struct net_device *dev, short ioaddr)
 		goto exit;
 	}
 
-		/* We seem to have the 82595 signature, let's
-		   play with its counter (last 2 bits of
-		   register 2 of bank 0) to be sure. */
+	/* We seem to have the 82595 signature, let's
+	   play with its counter (last 2 bits of
+	   register 2 of bank 0) to be sure. */
 
-		counter = (id & R_ROBIN_BITS);
+	counter = (id & R_ROBIN_BITS);
 
 	if (((id=inb(ioaddr+ID_REG)) & R_ROBIN_BITS)!=(counter + 0x40)) {
 		retval = -ENODEV;
 		goto exit;
 	}
 
-			/* Initialize the device structure */
-			dev->priv = kmalloc(sizeof(struct eepro_local), GFP_KERNEL);
+	/* Initialize the device structure */
+	dev->priv = kmalloc(sizeof(struct eepro_local), GFP_KERNEL);
 	if (!dev->priv) {
 		retval = -ENOMEM;
 		goto exit;
 	}
 
-			memset(dev->priv, 0, sizeof(struct eepro_local));
+	memset(dev->priv, 0, sizeof(struct eepro_local));
 
-			lp = (struct eepro_local *)dev->priv;
+	lp = (struct eepro_local *)dev->priv;
 
 	/* default values */
 	lp->eepro = 0;
@@ -761,37 +761,37 @@ static int __init eepro_probe1(struct net_device *dev, short ioaddr)
 	lp->xmt_upper_limit_reg = XMT_UPPER_LIMIT_REG_PRO;
 	lp->eeprom_reg = EEPROM_REG_PRO;
 
-			/* Now, get the ethernet hardware address from
-			   the EEPROM */
-			station_addr[0] = read_eeprom(ioaddr, 2, dev);
+	/* Now, get the ethernet hardware address from
+	   the EEPROM */
+	station_addr[0] = read_eeprom(ioaddr, 2, dev);
 
-			/* FIXME - find another way to know that we've found
-			 * an Etherexpress 10
-			 */
-			if (station_addr[0] == 0x0000 ||
-			    station_addr[0] == 0xffff) {
-				lp->eepro = LAN595FX_10ISA;
+	/* FIXME - find another way to know that we've found
+	 * an Etherexpress 10
+	 */
+	if (station_addr[0] == 0x0000 ||
+	    station_addr[0] == 0xffff) {
+		lp->eepro = LAN595FX_10ISA;
 		lp->eeprom_reg = EEPROM_REG_10;
 		lp->xmt_lower_limit_reg = XMT_LOWER_LIMIT_REG_10;
 		lp->xmt_upper_limit_reg = XMT_UPPER_LIMIT_REG_10;
 		lp->xmt_bar = XMT_BAR_10;
 				station_addr[0] = read_eeprom(ioaddr, 2, dev);
-			}
-			station_addr[1] = read_eeprom(ioaddr, 3, dev);
-			station_addr[2] = read_eeprom(ioaddr, 4, dev);
+	}
+	station_addr[1] = read_eeprom(ioaddr, 3, dev);
+	station_addr[2] = read_eeprom(ioaddr, 4, dev);
 
 	if (!lp->eepro) {
 		if (read_eeprom(ioaddr,7,dev)== ee_FX_INT2IRQ)
 			lp->eepro = 2;
 		else if (station_addr[2] == SA_ADDR1)
 			lp->eepro = 1;
-			}
+	}
 
-			/* Fill in the 'dev' fields. */
-			dev->base_addr = ioaddr;
+	/* Fill in the 'dev' fields. */
+	dev->base_addr = ioaddr;
 
 	for (i=0; i < 6; i++)
-				dev->dev_addr[i] = ((unsigned char *) station_addr)[5-i];
+		dev->dev_addr[i] = ((unsigned char *) station_addr)[5-i];
 
 	/* RX buffer must be more than 3K and less than 29K */
 	if (dev->mem_end < 3072 || dev->mem_end > 29696)
@@ -800,59 +800,58 @@ static int __init eepro_probe1(struct net_device *dev, short ioaddr)
 	/* calculate {xmt,rcv}_{lower,upper}_limit */
 	eepro_recalc(dev);
 
-
-			if (GetBit( read_eeprom(ioaddr, 5, dev),ee_BNC_TPE))
-				dev->if_port = BNC;
+	if (GetBit( read_eeprom(ioaddr, 5, dev),ee_BNC_TPE))
+		dev->if_port = BNC;
 	else
 		dev->if_port = TPE;
 
 	if ((dev->irq < 2) && (lp->eepro!=0)) {
-				i = read_eeprom(ioaddr, 1, dev);
-				irqMask = read_eeprom(ioaddr, 7, dev);
-				i &= 0x07; /* Mask off INT number */
+		i = read_eeprom(ioaddr, 1, dev);
+		irqMask = read_eeprom(ioaddr, 7, dev);
+		i &= 0x07; /* Mask off INT number */
 
-				for (j=0; ((j<16) && (i>=0)); j++) {
-					if ((irqMask & (1<<j))!=0) {
-						if (i==0) {
-							dev->irq = j;
-							break; /* found bit corresponding to irq */
-						}
-						i--; /* count bits set in irqMask */
-					}
+		for (j=0; ((j<16) && (i>=0)); j++) {
+			if ((irqMask & (1<<j))!=0) {
+				if (i==0) {
+					dev->irq = j;
+					break; /* found bit corresponding to irq */
 				}
-				if (dev->irq < 2) {
+				i--; /* count bits set in irqMask */
+			}
+		}
+		if (dev->irq < 2) {
 			printk(KERN_ERR " Duh! illegal interrupt vector stored in EEPROM.\n");
-					kfree(dev->priv);
+			kfree(dev->priv);
 			retval = -ENODEV;
 			goto freeall;
-				} else
-			if (dev->irq==2) dev->irq = 9;
-			}
+		} 
+		else if (dev->irq==2) dev->irq = 9;
+	}
 
-			/* Grab the region so we can find another board if autoIRQ fails. */
-			if (!request_region(ioaddr, EEPRO_IO_EXTENT, dev->name)) { 
-				printk(KERN_WARNING "EEPRO: io-port 0x%04x in use \n", ioaddr);
-				goto freeall;
-			}
-			((struct eepro_local *)dev->priv)->lock = SPIN_LOCK_UNLOCKED;
+	/* Grab the region so we can find another board if autoIRQ fails. */
+	if (!request_region(ioaddr, EEPRO_IO_EXTENT, dev->name)) { 
+		printk(KERN_WARNING "EEPRO: io-port 0x%04x in use \n", ioaddr);
+		goto freeall;
+	}
+	((struct eepro_local *)dev->priv)->lock = SPIN_LOCK_UNLOCKED;
 
-			dev->open               = eepro_open;
-			dev->stop               = eepro_close;
-			dev->hard_start_xmit    = eepro_send_packet;
-			dev->get_stats          = eepro_get_stats;
-			dev->set_multicast_list = &set_multicast_list;
-			dev->tx_timeout		= eepro_tx_timeout;
-			dev->watchdog_timeo	= TX_TIMEOUT;
+	dev->open               = eepro_open;
+	dev->stop               = eepro_close;
+	dev->hard_start_xmit    = eepro_send_packet;
+	dev->get_stats          = eepro_get_stats;
+	dev->set_multicast_list = &set_multicast_list;
+	dev->tx_timeout		= eepro_tx_timeout;
+	dev->watchdog_timeo	= TX_TIMEOUT;
 
-			/* Fill in the fields of the device structure with
-			   ethernet generic values */
-			ether_setup(dev);
+	/* Fill in the fields of the device structure with
+	ethernet generic values */
+	ether_setup(dev);
 
 	/* print boot time info */
 	eepro_print_info(dev);
 
 	/* reset 82595 */
-			eepro_reset(ioaddr);
+	eepro_reset(ioaddr);
 
 exit:
 	return retval;

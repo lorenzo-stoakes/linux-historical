@@ -13,7 +13,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptbase.h,v 1.127 2002/07/09 13:30:36 pdelaney Exp $
+ *  $Id: mptbase.h,v 1.131 2002/07/31 18:55:11 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -80,8 +80,8 @@
 #define COPYRIGHT	"Copyright (c) 1999-2002 " MODULEAUTHOR
 #endif
 
-#define MPT_LINUX_VERSION_COMMON	"2.01.07"
-#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.01.07"
+#define MPT_LINUX_VERSION_COMMON	"2.01.10"
+#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.01.10"
 #define WHAT_MAGIC_STRING		"@" "(" "#" ")"
 
 #define show_mptmod_ver(s,ver)  \
@@ -515,7 +515,7 @@ typedef struct _mpt_ioctl_events {
 #define MPT_SCSICFG_NEGOTIATE		0x01	/* Negotiate on next IO */
 #define MPT_SCSICFG_NEED_DV		0x02	/* Schedule DV */
 #define MPT_SCSICFG_DV_PENDING		0x04	/* DV on this physical id pending */
-#define MPT_SCSICFG_DV_DONE		0x08	/* DV on this physical id complete */
+#define MPT_SCSICFG_DV_NOT_DONE		0x08	/* DV has not been performed */
 #define MPT_SCSICFG_BLK_NEGO		0x10	/* WriteSDP1 with WDTR and SDTR disabled */
 
 						/* Args passed to writeSDP1: */
@@ -527,6 +527,7 @@ typedef	struct _ScsiCfgData {
 	int		*nvram;			/* table of device NVRAM values */
 	IOCPage3_t	*pIocPg3;		/* table of physical disks */
 	u8		 dvStatus[MPT_MAX_SCSI_DEVICES];
+	u8		 iocntr[MPT_MAX_SCSI_DEVICES];
 	int		 isRaid;		/* bit field, 1 if RAID */
 	u8		 minSyncFactor;		/* 0xFF if async */
 	u8		 maxSyncOffset;		/* 0 if async */

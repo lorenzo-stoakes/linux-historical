@@ -740,7 +740,7 @@ add_gpt_partitions(struct gendisk *hd, struct block_device *bdev, int nextminor)
                                  PARTITION_LINUX_RAID_GUID)) {
                         md_autodetect_dev(MKDEV
                                           (MAJOR(to_kdev_t(bdev->bd_dev)),
-                                           nextminor));
+                                           nextminor+i));
 		}
 #endif
 	}

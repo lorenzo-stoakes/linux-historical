@@ -6,6 +6,7 @@
 
 # Prompt user for primary drivers.
 
+dep_tristate '  ALi5455 audio support' CONFIG_SOUND_ALI5455 $CONFIG_SOUND $CONFIG_PCI
 dep_tristate '  BT878 audio dma' CONFIG_SOUND_BT878 $CONFIG_SOUND $CONFIG_PCI
 dep_tristate '  C-Media PCI (CMI8338/8738)' CONFIG_SOUND_CMPCI $CONFIG_SOUND $CONFIG_PCI
 if [ "$CONFIG_SOUND_CMPCI" = "y" -o "$CONFIG_SOUND_CMPCI" = "m" ]; then
@@ -207,7 +208,7 @@ if [ "$CONFIG_SOUND_OSS" = "y" -o "$CONFIG_SOUND_OSS" = "m" ]; then
          bool '      Audio Excel DSP 16 (MPU401 emulation)' CONFIG_AEDSP16_MPU401
       fi
    fi
-	 
+
    if [ "$CONFIG_ARM" = "y" ]; then
       if [ "$CONFIG_ARCH_ACORN" = "y" -o "$CONFIG_ARCH_CLPS7500" = "y" ]; then
          dep_tristate '    VIDC 16-bit sound' CONFIG_SOUND_VIDC $CONFIG_SOUND_OSS

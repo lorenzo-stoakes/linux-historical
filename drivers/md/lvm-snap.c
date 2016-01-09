@@ -130,7 +130,8 @@ lvm_find_exception_table(kdev_t org_dev, unsigned long org_start, lv_t * lv)
 				list_move(next, hash_table);
 #else
 				list_del(next);
-#endif				list_add(next, hash_table);
+				list_add(next, hash_table);
+#endif
 			}
 			ret = exception;
 			break;

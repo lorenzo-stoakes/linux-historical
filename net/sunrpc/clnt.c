@@ -461,6 +461,8 @@ call_encode(struct rpc_task *task)
 {
 	struct rpc_clnt	*clnt = task->tk_client;
 	struct rpc_rqst	*req = task->tk_rqstp;
+	struct xdr_buf *sndbuf = &req->rq_snd_buf;
+	struct xdr_buf *rcvbuf = &req->rq_rcv_buf;
 	unsigned int	bufsiz;
 	kxdrproc_t	encode;
 	int		status;
@@ -473,14 +475,16 @@ call_encode(struct rpc_task *task)
 
 	/* Default buffer setup */
 	bufsiz = rpcproc_bufsiz(clnt, task->tk_msg.rpc_proc)+RPC_SLACK_SPACE;
-	req->rq_svec[0].iov_base = (void *)task->tk_buffer;
-	req->rq_svec[0].iov_len  = bufsiz;
-	req->rq_slen		 = 0;
-	req->rq_snr		 = 1;
-	req->rq_rvec[0].iov_base = (void *)((char *)task->tk_buffer + bufsiz);
-	req->rq_rvec[0].iov_len  = bufsiz;
-	req->rq_rlen		 = bufsiz;
-	req->rq_rnr		 = 1;
+	sndbuf->head[0].iov_base = (void *)task->tk_buffer;
+	sndbuf->head[0].iov_len  = bufsiz;
+	sndbuf->tail[0].iov_len  = 0;
+	sndbuf->page_len	 = 0;
+	sndbuf->len		 = 0;
+	rcvbuf->head[0].iov_base = (void *)((char *)task->tk_buffer + bufsiz);
+	rcvbuf->head[0].iov_len  = bufsiz;
+	rcvbuf->tail[0].iov_len  = 0;
+	rcvbuf->page_len	 = 0;
+	rcvbuf->len		 = bufsiz;
 
 	/* Zero buffer so we have automatic zero-padding of opaque & string */
 	memset(task->tk_buffer, 0, bufsiz);
@@ -571,7 +575,7 @@ call_transmit(struct rpc_task *task)
 	if (task->tk_status < 0)
 		return;
 	xprt_transmit(task);
-	if (!rpcproc_decode(clnt, task->tk_msg.rpc_proc)) {
+	if (!rpcproc_decode(clnt, task->tk_msg.rpc_proc) && task->tk_status >= 0) {
 		task->tk_action = NULL;
 		rpc_wake_up_task(task);
 	}
@@ -585,19 +589,22 @@ call_status(struct rpc_task *task)
 {
 	struct rpc_clnt	*clnt = task->tk_client;
 	struct rpc_xprt *xprt = clnt->cl_xprt;
-	struct rpc_rqst	*req;
-	int		status = task->tk_status;
+	struct rpc_rqst	*req = task->tk_rqstp;
+	int		status;
+
+	if (req->rq_received != 0)
+		task->tk_status = req->rq_received;
 
 	dprintk("RPC: %4d call_status (status %d)\n", 
 				task->tk_pid, task->tk_status);
 
+	status = task->tk_status;
 	if (status >= 0) {
 		task->tk_action = call_decode;
 		return;
 	}
 
 	task->tk_status = 0;
-	req = task->tk_rqstp;
 	switch(status) {
 	case -ETIMEDOUT:
 		task->tk_action = call_timeout;

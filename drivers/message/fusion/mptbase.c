@@ -49,7 +49,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptbase.c,v 1.120 2002/06/27 13:53:27 pdelaney Exp $
+ *  $Id: mptbase.c,v 1.121 2002/07/23 18:56:59 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -437,8 +437,9 @@ mpt_interrupt(int irq, void *bus_id, struct pt_regs *r)
 			pa = 0;					/* No reply flush! */
 		}
 
+#ifdef MPT_DEBUG_IRQ
 		if ((int)ioc->chip_type > (int)FC929) {
-			/* Verify mf, mf are reasonable.
+			/* Verify mf, mr are reasonable.
 			 */
 			if ((mf) && ((mf >= MPT_INDEX_2_MFPTR(ioc, ioc->req_depth))
 				|| (mf < ioc->req_frames)) ) {
@@ -464,6 +465,7 @@ mpt_interrupt(int irq, void *bus_id, struct pt_regs *r)
 				freeme = 0;
 			}
 		}
+#endif
 
 		/*  Check for (valid) IO callback!  */
 		if (cb_idx) {

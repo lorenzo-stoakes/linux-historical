@@ -358,6 +358,27 @@ pci_restore_state(struct pci_dev *dev, u32 *buffer)
 }
 
 /**
+ * pci_enable_device_bars - Initialize some of a device for use
+ * @dev: PCI device to be initialized
+ * @bars: bitmask of BAR's that must be configured
+ *
+ *  Initialize device before it's used by a driver. Ask low-level code
+ *  to enable selected I/O and memory resources. Wake up the device if it 
+ *  was suspended. Beware, this function can fail.
+ */
+ 
+int
+pci_enable_device_bars(struct pci_dev *dev, int bars)
+{
+	int err;
+
+	pci_set_power_state(dev, 0);
+	if ((err = pcibios_enable_device(dev, bars)) < 0)
+		return err;
+	return 0;
+}
+
+/**
  * pci_enable_device - Initialize device before it's used by a driver.
  * @dev: PCI device to be initialized
  *
@@ -368,12 +389,7 @@ pci_restore_state(struct pci_dev *dev, u32 *buffer)
 int
 pci_enable_device(struct pci_dev *dev)
 {
-	int err;
-
-	pci_set_power_state(dev, 0);
-	if ((err = pcibios_enable_device(dev)) < 0)
-		return err;
-	return 0;
+	return pci_enable_device_bars(dev, 0x3F);
 }
 
 /**
@@ -2066,6 +2082,7 @@ EXPORT_SYMBOL(pci_write_config_word);
 EXPORT_SYMBOL(pci_write_config_dword);
 EXPORT_SYMBOL(pci_devices);
 EXPORT_SYMBOL(pci_root_buses);
+EXPORT_SYMBOL(pci_enable_device_bars);
 EXPORT_SYMBOL(pci_enable_device);
 EXPORT_SYMBOL(pci_disable_device);
 EXPORT_SYMBOL(pci_find_capability);

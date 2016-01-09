@@ -595,6 +595,7 @@ struct file_lock {
 	void (*fl_remove)(struct file_lock *);	/* lock removal callback */
 
 	struct fasync_struct *	fl_fasync; /* for lease break notifications */
+	unsigned long fl_break_time;	/* for nonblocking lease breaks */
 
 	union {
 		struct nfs_lock_info	nfs_fl;
@@ -1051,7 +1052,7 @@ static inline int locks_verify_truncate(struct inode *inode,
 
 static inline int get_lease(struct inode *inode, unsigned int mode)
 {
-	if (inode->i_flock && (inode->i_flock->fl_flags & FL_LEASE))
+	if (inode->i_flock)
 		return __get_lease(inode, mode);
 	return 0;
 }

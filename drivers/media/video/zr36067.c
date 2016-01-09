@@ -1417,7 +1417,7 @@ static int zr36060_reset(struct zoran *zr)
 		zr36060_sleep(zr, 0);
 		post_office_write(zr, 3, 0, 0);
 		udelay(2);
-	default:
+	default:;
 	}
 	return 0;
 }
@@ -4208,6 +4208,7 @@ static int do_zoran_ioctl(struct zoran *zr, unsigned int cmd,
 
 			/* sleep 1 second */
 
+			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout(HZ);
 
 			/* Get status of video decoder */

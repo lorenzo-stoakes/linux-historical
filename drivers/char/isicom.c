@@ -1255,11 +1255,7 @@ static int isicom_write(struct tty_struct * tty, int from_user,
 			   created more space in xmit_buf when the ctrl 
 			   gets back here  */
 			sti(); 
-			if (copy_from_user(tmp_buf, buf, cnt)) {
-				up(&tmp_buf_sem);
-				restore_flags(flags);
-				return -EFAULT;
-			}
+			copy_from_user(tmp_buf, buf, cnt);
 			cli();
 			cnt = MIN(cnt, MIN(SERIAL_XMIT_SIZE - port->xmit_cnt - 1,
 			SERIAL_XMIT_SIZE - port->xmit_head));

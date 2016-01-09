@@ -406,7 +406,7 @@ struct sgi_serial {
 /* Read Register 15 (value of WR 15) */
 
 /* Misc inlines */
-extern inline void ZS_CLEARERR(struct sgi_zschannel *channel)
+static inline void ZS_CLEARERR(struct sgi_zschannel *channel)
 {
 	volatile unsigned char junk;
 
@@ -416,7 +416,7 @@ extern inline void ZS_CLEARERR(struct sgi_zschannel *channel)
 		junk = ioc_icontrol->istat0;
 }
 
-extern inline void ZS_CLEARFIFO(struct sgi_zschannel *channel)
+static inline void ZS_CLEARFIFO(struct sgi_zschannel *channel)
 {
 	volatile unsigned char junk;
 

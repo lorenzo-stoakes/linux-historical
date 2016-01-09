@@ -82,54 +82,55 @@ int elevator_linus_merge(request_queue_t *q, struct request **req,
 {
 	struct list_head *entry = &q->queue_head;
 	unsigned int count = bh->b_size >> 9, ret = ELEVATOR_NO_MERGE;
+	struct request *__rq;
+	int merge_only = 0;
 
 	while ((entry = entry->prev) != head) {
-		struct request *__rq = blkdev_entry_to_request(entry);
+		__rq = blkdev_entry_to_request(entry);
 
 		/*
-		 * simply "aging" of requests in queue
+		 * we can't insert beyond a zero sequence point
 		 */
-		if (__rq->elevator_sequence-- <= 0)
-			break;
+		if (__rq->elevator_sequence <= 0)
+			merge_only = 1;
 
 		if (__rq->waiting)
 			continue;
 		if (__rq->rq_dev != bh->b_rdev)
 			continue;
-		if (!*req && bh_rq_in_between(bh, __rq, &q->queue_head))
+		if (!*req && !merge_only && bh_rq_in_between(bh, __rq, &q->queue_head))
 			*req = __rq;
 		if (__rq->cmd != rw)
 			continue;
 		if (__rq->nr_sectors + count > max_sectors)
 			continue;
-		if (__rq->elevator_sequence < count)
-			break;
 		if (__rq->sector + __rq->nr_sectors == bh->b_rsector) {
 			ret = ELEVATOR_BACK_MERGE;
 			*req = __rq;
 			break;
 		} else if (__rq->sector - count == bh->b_rsector) {
 			ret = ELEVATOR_FRONT_MERGE;
-			__rq->elevator_sequence -= count;
+			__rq->elevator_sequence--;
 			*req = __rq;
 			break;
 		}
 	}
 
-	return ret;
-}
-
-void elevator_linus_merge_cleanup(request_queue_t *q, struct request *req, int count)
-{
-	struct list_head *entry = &req->queue, *head = &q->queue_head;
-
 	/*
-	 * second pass scan of requests that got passed over, if any
+	 * account merge (ret != 0, cost is 1) or seeky insert (*req is set,
+	 * cost is ELV_LINUS_SEEK_COST
 	 */
-	while ((entry = entry->next) != head) {
-		struct request *tmp = blkdev_entry_to_request(entry);
-		tmp->elevator_sequence -= count;
+	if (*req) {
+		int scan_cost = ret ? 1 : ELV_LINUS_SEEK_COST;
+		struct list_head *entry = &(*req)->queue;
+
+		while ((entry = entry->next) != &q->queue_head) {
+			__rq = blkdev_entry_to_request(entry);
+			__rq->elevator_sequence -= scan_cost;
+		}
 	}
+
+	return ret;
 }
 
 void elevator_linus_merge_req(struct request *req, struct request *next)
@@ -176,8 +177,6 @@ int elevator_noop_merge(request_queue_t *q, struct request **req,
 	*req = blkdev_entry_to_request(q->queue_head.prev);
 	return ELEVATOR_NO_MERGE;
 }
-
-void elevator_noop_merge_cleanup(request_queue_t *q, struct request *req, int count) {}
 
 void elevator_noop_merge_req(struct request *req, struct request *next) {}
 

@@ -355,9 +355,7 @@ repeat_alloc:
 	/* we need to wait I/O completion */
 	run_task_queue(&tq_disk);
 
-	current->policy |= SCHED_YIELD;
-	__set_current_state(TASK_RUNNING);
-	schedule();
+	yield();
 	goto repeat_alloc;
 }
 
@@ -393,9 +391,7 @@ repeat_alloc:
 	/* we need to wait I/O completion */
 	run_task_queue(&tq_disk);
 
-	current->policy |= SCHED_YIELD;
-	__set_current_state(TASK_RUNNING);
-	schedule();
+	yield();
 	goto repeat_alloc;
 }
 

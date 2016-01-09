@@ -900,6 +900,7 @@ static int strn_len(const char *buffer, unsigned int maxlen)
 		case ' ':
 			goto done_str;
 		default:
+			break;
 		};
 	}
 done_str:

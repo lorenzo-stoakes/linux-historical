@@ -541,7 +541,7 @@ Per partition statistics in /proc/partitions
 CONFIG_BLK_STATS
   If you say yes here, your kernel will keep statistical information
   for every partition. The information includes things as numbers of
-  read and write accesses, thenumber of merged requests etc.
+  read and write accesses, the number of merged requests etc.
 
   This is required for the full functionality of sar(8) and interesting
   if you want to do performance tuning, by tweaking the elevator, e.g.
@@ -15031,13 +15031,10 @@ CONFIG_NFSD_V3
   If you would like to include the NFSv3 server as well as the NFSv2
   server, say Y here.  If unsure, say Y.
 
-Provide NFS over TCP server support DEVELOPER ONLY
+Provide NFS over TCP server support EXPERIMENTAL
 CONFIG_NFSD_TCP
-  If you are a developer and want to work on fixing problems with
-  NFS server over TCP support, say Y here.  If unsure, say N.
-
-  Some problems can be found by looking for FIXME in
-  <file:net/sunrpc/svcsock.c>.
+  Enable NFS service over TCP connections.  This the officially
+  still experimental, but seems to work well.
 
 OS/2 HPFS file system support
 CONFIG_HPFS_FS
@@ -25237,14 +25234,6 @@ CONFIG_BLK_DEV_IT8172
   <http://www.ite.com.tw/ia/brief_it8172bsp.htm>; picture of the
   board at <http://www.mvista.com/allies/semiconductor/ite.html>.
 
-Use chscs for Common I/O
-CONFIG_CHSC
-  Select this option if you want the s390 common I/O layer to use information
-  obtained by channel subsystem calls. This will enable Linux to process link
-  failures and resource accessibility events. Moreover, if you have procfs
-  enabled, you'll be able to toggle chpids logically offline and online. Even
-  if you don't understand what this means, you should say "Y".
-
 Support ARM926T processor
 CONFIG_CPU_ARM926T
   This is a variant of the ARM920.  It has slightly different
@@ -25263,21 +25252,6 @@ CONFIG_CPU_FREQ
   clock speed, you need some userland tools (which still have to be
   written) to implement the policy. If you don't understand what this
   is all about, it's safe to say 'N'.
-
-Automatic activation of DIAG module
-CONFIG_DASD_AUTO_DIAG
-  Enable this option if you want your DIAG discipline module loaded
-  on DASD driver startup.
-
-Automatic activation of ECKD module
-CONFIG_DASD_AUTO_ECKD
-  Enable this option if you want your ECKD discipline module loaded
-  on DASD driver startup.
-
-Automatic activation of FBA  module
-CONFIG_DASD_AUTO_FBA
-  Enable this option if you want your FBA discipline module loaded
-  on DASD driver startup.
 
 SiS
 CONFIG_DRM_SIS
@@ -25372,16 +25346,6 @@ CONFIG_HOTPLUG_PCI_IBM
 
   When in doubt, say N.
 
-Control-Program Identification
-CONFIG_HWC_CPI
-  This option enables the hardware console interface for system
-  identification This is commonly used for workload management and
-  gives you a nice name for the system on the service element.
-  Please select this option as a module since built-in operation is
-  completely untested.
-  You should only select this option if you know what you are doing,
-  need this feature and intend to run your kernel in LPAR.
-
 Enable autotest (llsc). Option to run cache test instead of booting
 CONFIG_IA64_SGI_AUTOTEST
   Build a kernel used for hardware validation. If you include the
@@ -25457,36 +25421,11 @@ CONFIG_IT8172_TUNING
   Say Y here to support tuning the ITE8172's IDE interface.  This makes
   it possible to set DMA channel or PIO opration and the transfer rate.
 
-Process warning machine checks
-CONFIG_MACHCHK_WARNING
-  Select this option if you want the machine check handler on IBM S/390 or
-  zSeries to process warning machine checks (e.g. on power failures).
-  If unsure, say "Y".
-
-Pseudo page fault support
-CONFIG_PFAULT
-  Select this option, if you want to use PFAULT pseudo page fault
-  handling under VM. If running native or in LPAR, this option
-  has no effect. If your VM does not support PFAULT, PAGEEX
-  pseudo page fault handling will be used.
-  Note that VM 4.2 supports PFAULT but has a bug in its
-  implementation that causes some problems.
-  Everybody who wants to run Linux under VM != VM4.2 should select
-  this option.
-
 Enable protocol mode for the L1 console
 CONFIG_SERIAL_SGI_L1_PROTOCOL
   Uses protocol mode instead of raw mode for the level 1 console on the
   SGI SN (Scalable NUMA) platform for IA64.  If you are compiling for
   an SGI SN box then Y is the recommended value, otherwise say N.
-
-VM shared kernel support
-CONFIG_SHARED_KERNEL
-  Select this option, if you want to share the text segment of the
-  Linux kernel between different VM guests. This reduces memory
-  usage with lots of guests but greatly increases kernel size.
-  You should only select this option if you know what you are
-  doing and want to exploit this feature.
 
 New bus configuration (EXPERIMENTAL)  
 CONFIG_TULIP_MWI

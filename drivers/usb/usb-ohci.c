@@ -2144,6 +2144,8 @@ static int hc_reset (ohci_t * ohci)
 	int timeout = 30;
 	int smm_timeout = 50; /* 0,5 sec */
 	 	
+#ifndef __hppa__
+	/* PA-RISC doesn't have SMM, but PDC might leave IR set */
 	if (readl (&ohci->regs->control) & OHCI_CTRL_IR) { /* SMM owns the HC */
 		writel (OHCI_OCR, &ohci->regs->cmdstatus); /* request ownership */
 		dbg("USB HC TakeOver from SMM");
@@ -2154,7 +2156,8 @@ static int hc_reset (ohci_t * ohci)
 				return -1;
 			}
 		}
-	}	
+	}
+#endif	
 		
 	/* Disable HC interrupts */
 	writel (OHCI_INTR_MIE, &ohci->regs->intrdisable);
@@ -2218,9 +2221,19 @@ static int hc_start (ohci_t * ohci)
 	writel (mask, &ohci->regs->intrstatus);
 
 #ifdef	OHCI_USE_NPS
-	/* required for AMD-756 and some Mac platforms */
-	writel ((roothub_a (ohci) | RH_A_NPS) & ~RH_A_PSM,
-		&ohci->regs->roothub.a);
+	if(ohci->flags & OHCI_QUIRK_SUCKYIO)
+	{
+		/* NSC 87560 at least requires different setup .. */
+		writel ((roothub_a (ohci) | RH_A_NOCP) &
+			~(RH_A_OCPM | RH_A_POTPGT | RH_A_PSM | RH_A_NPS),
+			&ohci->regs->roothub.a);
+	}
+	else
+	{
+		/* required for AMD-756 and some Mac platforms */
+		writel ((roothub_a (ohci) | RH_A_NPS) & ~RH_A_PSM,
+			&ohci->regs->roothub.a);
+	}
 	writel (RH_HS_LPSC, &ohci->regs->roothub.status);
 #endif	/* OHCI_USE_NPS */
 
@@ -2470,6 +2483,21 @@ hc_found_ohci (struct pci_dev *dev, int irq,
 		return ret;
 	}
 	ohci->flags = id->driver_data;
+	
+	/* Check for NSC87560. We have to look at the bridge (fn1) to identify
+	   the USB (fn2). This quirk might apply to more or even all NSC stuff
+	   I don't know.. */
+	   
+	if(dev->vendor == PCI_VENDOR_ID_NS)
+	{
+		struct pci_dev *fn1  = pci_find_slot(dev->bus->number, PCI_DEVFN(PCI_SLOT(dev->devfn), 1));
+		if(fn1 && fn1->vendor == PCI_VENDOR_ID_NS && fn1->device == PCI_DEVICE_ID_NS_87560_LIO)
+			ohci->flags |= OHCI_QUIRK_SUCKYIO;
+		
+	}
+	
+	if (ohci->flags & OHCI_QUIRK_SUCKYIO)
+		printk (KERN_INFO __FILE__ ": Using NSC SuperIO setup\n");
 	if (ohci->flags & OHCI_QUIRK_AMD756)
 		printk (KERN_INFO __FILE__ ": AMD756 erratum 4 workaround\n");
 

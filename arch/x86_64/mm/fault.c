@@ -270,8 +270,7 @@ no_context:
 out_of_memory:
 	up_read(&mm->mmap_sem);
 	if (current->pid == 1) { 
-		tsk->policy |= SCHED_YIELD;
-		schedule();
+		yield();
 		goto again;
 	}
 	printk("VM: killing process %s\n", tsk->comm);

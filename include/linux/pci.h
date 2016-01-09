@@ -493,7 +493,7 @@ struct pci_driver {
 
 void pcibios_init(void);
 void pcibios_fixup_bus(struct pci_bus *);
-int pcibios_enable_device(struct pci_dev *);
+int pcibios_enable_device(struct pci_dev *, int mask);
 char *pcibios_setup (char *str);
 
 /* Used only when drivers/pci/setup.c is used */
@@ -559,6 +559,7 @@ int pci_write_config_word(struct pci_dev *dev, int where, u16 val);
 int pci_write_config_dword(struct pci_dev *dev, int where, u32 val);
 
 int pci_enable_device(struct pci_dev *dev);
+int pci_enable_device_bars(struct pci_dev *dev, int mask);
 void pci_disable_device(struct pci_dev *dev);
 void pci_set_master(struct pci_dev *dev);
 #define HAVE_PCI_SET_MWI
@@ -648,6 +649,7 @@ unsigned int ss_vendor, unsigned int ss_device, const struct pci_dev *from)
 { return NULL; }
 
 static inline void pci_set_master(struct pci_dev *dev) { }
+static inline int pci_enable_device_bars(struct pci_dev *dev, int mask) { return -EBUSY; }
 static inline int pci_enable_device(struct pci_dev *dev) { return -EIO; }
 static inline void pci_disable_device(struct pci_dev *dev) { }
 static inline int pci_module_init(struct pci_driver *drv) { return -ENODEV; }

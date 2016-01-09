@@ -1,3 +1,4 @@
+	
 	List of maintainers and how to submit kernel changes
 
 Please try to follow the guidelines below.  This will make things
@@ -239,6 +240,12 @@ P:	Thomas Sailer
 M:	sailer@ife.ee.ethz.ch
 L:	linux-hams@vger.kernel.org
 W:	http://www.ife.ee.ethz.ch/~sailer/ham/ham.html
+S:	Maintained
+
+BEFS FILE SYSTEM
+P:	Will Dyson
+M:	will@cs.earlham.edu
+W:	http://cs.earlham.edu/~will/software/linux/kernel/BeFS.html
 S:	Maintained
 
 BERKSHIRE PRODUCTS PC WATCHDOG DRIVER
@@ -632,8 +639,8 @@ W:	http://www.nyx.net/~arobinso
 S:	Maintained
 
 HFS FILESYSTEM
-P:      Adrian Sun
-M:      asun@cobaltnet.com
+P:      Oliver Neukum
+M:      oliver@neukum.org
 L:      linux-kernel@vger.kernel.org
 S:      Maintained
 
@@ -710,8 +717,10 @@ W:	http://www.uni-mainz.de/~langm000/linux.html
 S:	Maintained
 
 IBM ServeRAID RAID DRIVER
-P:      Keith Mitchell
-M:      ipslinux@us.ibm.com
+P:      Jack Hammer
+M:      ipslinux@adaptec.com
+P:      David Jeffery
+M:      ipslinux@adaptec.com
 W:      http://www.developer.ibm.com/welcome/netfinity/serveraid.html
 S:      Supported 
 
@@ -1101,7 +1110,6 @@ NETWORKING [GENERAL]
 P:	Networking Team
 M:	netdev@oss.sgi.com
 L:	linux-net@vger.kernel.org
-W:	http://www.uk.linux.org/NetNews.html (2.0 only)
 S:	Maintained
 
 NETWORKING [IPv4/IPv6]
@@ -1357,10 +1365,10 @@ L:	linux-kernel@vger.kernel.org
 S:	Maintained
 
 RME96XX MULTICHANNEL SOUND DRIVER
-P:      Guenter Geiger
-M:      geiger@epy.co.at  
-L:      linux-kernel@vger.kernel.org
-S:      Maintained
+P:	Guenter Geiger
+M:	geiger@epy.co.at  
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
 
 RTLINUX  REALTIME  LINUX
 P:	Victor Yodaiken

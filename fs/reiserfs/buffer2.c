@@ -33,8 +33,7 @@ void wait_buffer_until_released (const struct buffer_head * bh)
 			buffer_journal_dirty(bh) ? ' ' : '!');
     }
     run_task_queue(&tq_disk);
-    current->policy |= SCHED_YIELD;
-    schedule();
+    yield();
   }
   if (repeat_counter > 30000000) {
     reiserfs_warning("vs-3051: done waiting, ignore vs-3050 messages for (%b)\n", bh) ;

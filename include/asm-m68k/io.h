@@ -286,6 +286,11 @@ static inline void isa_delay(void)
 #define IOMAP_NOCACHE_NONSER		2
 #define IOMAP_WRITETHROUGH		3
 
+/*
+ * Change "struct page" to physical address.
+ */
+#define page_to_phys(page)	((page - mem_map) << PAGE_SHIFT)
+
 extern void iounmap(void *addr);
 
 extern void *__ioremap(unsigned long physaddr, unsigned long size,

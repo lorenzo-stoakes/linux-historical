@@ -170,4 +170,9 @@ static inline void up(struct semaphore * sem)
 		__up(sem);
 }
 
+static inline int sem_getcount(struct semaphore *sem)
+{
+	return atomic_read(&sem->count);
+}
+
 #endif /* _ASM_SEMAPHORE_H */

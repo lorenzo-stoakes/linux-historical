@@ -972,7 +972,6 @@ again:
 				insert_here = &req->queue;
 				break;
 			}
-			elevator->elevator_merge_cleanup_fn(q, req, count);
 			req->bhtail->b_reqnext = bh;
 			req->bhtail = bh;
 			req->nr_sectors = req->hard_nr_sectors += count;
@@ -987,7 +986,6 @@ again:
 				insert_here = req->queue.prev;
 				break;
 			}
-			elevator->elevator_merge_cleanup_fn(q, req, count);
 			bh->b_reqnext = req->bh;
 			req->bh = bh;
 			/*

@@ -86,7 +86,7 @@ static unsigned int debug = 0;
 #define PDEBUG(level, fmt, args...) \
 	do { \
 	if (debug >= level)	\
-		info("[" __PRETTY_FUNCTION__ ":%d] " fmt, __LINE__ , ## args);	\
+		info("[%s:%d] " fmt, __PRETTY_FUNCTION__, __LINE__ , ## args);	\
 	} while (0)
 
 
@@ -111,67 +111,27 @@ EXPORT_NO_SYMBOLS;
  *
  * Memory management
  *
- * This is a shameless copy from the USB-cpia driver (linux kernel
- * version 2.3.29 or so, I have no idea what this code actually does ;).
- * Actually it seems to be a copy of a shameless copy of the bttv-driver.
- * Or that is a copy of a shameless copy of ... (To the powers: is there
- * no generic kernel-function to do this sort of stuff?)
- *
- * Yes, it was a shameless copy from the bttv-driver. IIRC, Alan says
- * there will be one, but apparentely not yet -jerdfelt
- *
- * So I copied it again for the ov511 driver -claudio
- *
- * Same for the se401 driver -Jeroen
- *
- * And the STV0680 driver - Kevin
  ********************************************************************/
 
-/* Given PGD from the address space's page table, return the kernel
- * virtual mapping of the physical memory mapped at ADR.
- */
-static inline unsigned long uvirt_to_kva (pgd_t * pgd, unsigned long adr)
-{
-	unsigned long ret = 0UL;
-	pmd_t *pmd;
-	pte_t *ptep, pte;
-
-	if (!pgd_none (*pgd)) {
-		pmd = pmd_offset (pgd, adr);
-		if (!pmd_none (*pmd)) {
-			ptep = pte_offset (pmd, adr);
-			pte = *ptep;
-			if (pte_present (pte)) {
-				ret = (unsigned long) page_address (pte_page (pte));
-				ret |= (adr & (PAGE_SIZE - 1));
-			}
-		}
-	}
-	return ret;
-}
-
-/* Here we want the physical address of the memory. This is used when 
- * initializing the contents of the area and marking the pages as reserved.
+/* Here we want the physical address of the memory.
+ * This is used when initializing the contents of the area.
  */
 static inline unsigned long kvirt_to_pa (unsigned long adr)
 {
-	unsigned long va, kva, ret;
+	unsigned long kva, ret;
 
-	va = VMALLOC_VMADDR (adr);
-	kva = uvirt_to_kva (pgd_offset_k (va), va);
-	ret = __pa (kva);
+	kva = (unsigned long) page_address(vmalloc_to_page((void *)adr));
+	kva |= adr & (PAGE_SIZE-1); /* restore the offset */
+	ret = __pa(kva);
 	return ret;
 }
 
 static void *rvmalloc (unsigned long size)
 {
 	void *mem;
-	unsigned long adr, page;
+	unsigned long adr;
 
-	/* Round it off to PAGE_SIZE */
-	size += (PAGE_SIZE - 1);
-	size &= ~(PAGE_SIZE - 1);
-
+	size = PAGE_ALIGN(size);
 	mem = vmalloc_32 (size);
 	if (!mem)
 		return NULL;
@@ -179,36 +139,25 @@ static void *rvmalloc (unsigned long size)
 	memset (mem, 0, size);	/* Clear the ram out, no junk to the user */
 	adr = (unsigned long) mem;
 	while (size > 0) {
-		page = kvirt_to_pa (adr);
-		mem_map_reserve (virt_to_page (__va (page)));
+		mem_map_reserve(vmalloc_to_page((void *)adr));
 		adr += PAGE_SIZE;
-		if (size > PAGE_SIZE)
-			size -= PAGE_SIZE;
-		else
-			size = 0;
+		size -= PAGE_SIZE;
 	}
 	return mem;
 }
 
 static void rvfree (void *mem, unsigned long size)
 {
-	unsigned long adr, page;
+	unsigned long adr;
 
 	if (!mem)
 		return;
 
-	size += (PAGE_SIZE - 1);
-	size &= ~(PAGE_SIZE - 1);
-
 	adr = (unsigned long) mem;
-	while (size > 0) {
-		page = kvirt_to_pa (adr);
-		mem_map_unreserve (virt_to_page (__va (page)));
+	while ((long) size > 0) {
+		mem_map_unreserve(vmalloc_to_page((void *)adr));
 		adr += PAGE_SIZE;
-		if (size > PAGE_SIZE)
-			size -= PAGE_SIZE;
-		else
-			size = 0;
+		size -= PAGE_SIZE;
 	}
 	vfree (mem);
 }

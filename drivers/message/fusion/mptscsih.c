@@ -26,7 +26,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptscsih.c,v 1.97 2002/07/03 13:11:01 pdelaney Exp $
+ *  $Id: mptscsih.c,v 1.100 2002/07/31 18:55:12 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -183,7 +183,7 @@ static int	mptscsih_event_process(MPT_ADAPTER *ioc, EventNotificationReply_t *pE
 static VirtDevice	*mptscsih_initTarget(MPT_SCSI_HOST *hd, int bus_id, int target_id, u8 lun, char *data, int dlen);
 void		mptscsih_setTargetNegoParms(MPT_SCSI_HOST *hd, VirtDevice *target, char byte56);
 static void	clear_sense_flag(MPT_SCSI_HOST *hd, SCSIIORequest_t *pReq);
-static void	mptscsih_set_dvflags(MPT_SCSI_HOST *hd, SCSIIORequest_t *pReq, char *data);
+static void	mptscsih_set_dvflags(MPT_SCSI_HOST *hd, SCSIIORequest_t *pReq);
 static void	mptscsih_setDevicePage1Flags (u8 width, u8 factor, u8 offset, int *requestedPtr, int *configurationPtr, u8 flags);
 static void	mptscsih_no_negotiate(MPT_SCSI_HOST *hd, int target_id);
 static int	mptscsih_writeSDP1(MPT_SCSI_HOST *hd, int portnum, int target, int flags);
@@ -226,11 +226,11 @@ static int	ScsiScanDvCtx = -1; /* Used only for bus scan and dv */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,28)
 static struct proc_dir_entry proc_mpt_scsihost =
 {
-	low_ino:	PROC_SCSI_MPT,
-	namelen:	8,
-	name:		"mptscsih",
-	mode:		S_IFDIR | S_IRUGO | S_IXUGO,
-	nlink:		2,
+	.low_ino =	PROC_SCSI_MPT,
+	.namelen =	8,
+	.name =		"mptscsih",
+	.mode =		S_IFDIR | S_IRUGO | S_IXUGO,
+	.nlink =	2,
 };
 #endif
 
@@ -323,14 +323,22 @@ mptscsih_io_done(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 		return 1;
 	}
 
-	dmfprintk((MYIOC_s_INFO_FMT "ScsiDone (mf=%p,mr=%p,sc=%p)\n",
-			ioc->name, mf, mr, sc));
+	dmfprintk((MYIOC_s_INFO_FMT "ScsiDone (mf=%p,mr=%p,sc=%p,idx=%d)\n",
+			ioc->name, mf, mr, sc, req_idx));
 
 	atomic_dec(&queue_depth);
 
 	sc->result = DID_OK << 16;		/* Set default reply as OK */
 	pScsiReq = (SCSIIORequest_t *) mf;
 	pScsiReply = (SCSIIOReply_t *) mr;
+
+#ifndef MPTSCSIH_DISABLE_DOMAIN_VALIDATION
+	if (hd->is_spi) {
+		u32 qtag = le32_to_cpu(pScsiReq->Control);
+		if (qtag & MPI_SCSIIO_CONTROL_UNTAGGED)
+			hd->ioc->spi_data.iocntr[sc->target]--;
+	}
+#endif
 
 	if (pScsiReply == NULL) {
 		/* special context reply handling */
@@ -351,9 +359,6 @@ mptscsih_io_done(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 			}
 		}
 		clear_sense_flag(hd, pScsiReq);
-
-		if (hd->is_spi)
-			mptscsih_set_dvflags(hd, pScsiReq, sc->buffer);
 	} else {
 		u32	 xfer_cnt;
 		u16	 status;
@@ -484,9 +489,6 @@ mptscsih_io_done(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 						sc->buffer,
 						xfer_cnt);
 			}
-
-			if (hd->is_spi)
-				mptscsih_set_dvflags(hd, pScsiReq, sc->buffer);
 			break;
 
 		case MPI_IOCSTATUS_SCSI_RECOVERED_ERROR:	/* 0x0040 */
@@ -568,9 +570,6 @@ mptscsih_io_done(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 						sc->buffer,
 						xfer_cnt);
 			}
-
-			if (hd->is_spi)
-				mptscsih_set_dvflags(hd, pScsiReq, sc->buffer);
 			break;
 
 		case MPI_IOCSTATUS_SCSI_PROTOCOL_ERROR:		/* 0x0047 */
@@ -947,6 +946,12 @@ mptscsih_flush_running_cmds(MPT_SCSI_HOST *hd)
 			mpt_free_msg_frame(ScsiDoneCtx, hd->ioc->id, mf);
 		}
 	}
+#ifndef MPTSCSIH_DISABLE_DOMAIN_VALIDATION
+	/* Clear untagged counting array */
+	for (ii= 0; ii < MPT_MAX_SCSI_DEVICES; ii++)
+		hd->ioc->spi_data.iocntr[ii] = 0;
+#endif
+
 	return;
 }
 
@@ -1435,7 +1440,11 @@ mptscsih_detect(Scsi_Host_Template *tpnt)
 					hd->ioc->spi_data.forceDv = 0;
 					for (ii=0; ii < MPT_MAX_SCSI_DEVICES; ii++)
 						hd->ioc->spi_data.dvStatus[ii] = MPT_SCSICFG_NEGOTIATE;
-
+	
+					if (hd->negoNvram == 0) {
+						for (ii=0; ii < MPT_MAX_SCSI_DEVICES; ii++)
+							hd->ioc->spi_data.dvStatus[ii] |= MPT_SCSICFG_DV_NOT_DONE;
+					}
 
 					ddvprintk((MYIOC_s_INFO_FMT
 						"dv %x width %x factor %x \n",
@@ -2041,17 +2050,25 @@ mptscsih_qcmd(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
 					mod_timer(&SCpnt->eh_timeout, jiffies + 40 * HZ);
 					issueCmd = 0;
 				}
+
+				if (qtag == MPI_SCSIIO_CONTROL_UNTAGGED)
+					hd->ioc->spi_data.iocntr[target]++;
+
+				/* Set the DV flags.
+				 */
+				if (dvStatus & MPT_SCSICFG_DV_NOT_DONE)
+					mptscsih_set_dvflags(hd, pScsiReq);
 #endif
 			}
 		}
 
 		if (issueCmd) {
 			mptscsih_put_msgframe(ScsiDoneCtx, hd->ioc->id, mf);
-			dmfprintk((MYIOC_s_INFO_FMT "Issued SCSI cmd (%p)\n",
-					hd->ioc->name, SCpnt));
+			dmfprintk((MYIOC_s_INFO_FMT "Issued SCSI cmd (%p) mf=%p idx=%d\n",
+					hd->ioc->name, SCpnt, mf, my_idx));
 		} else {
-			ddvtprintk((MYIOC_s_INFO_FMT "Pending SCSI cmd (%p)\n",
-					hd->ioc->name, SCpnt));
+			ddvtprintk((MYIOC_s_INFO_FMT "Pending cmd=%p idx %d\n",
+					hd->ioc->name, SCpnt, my_idx));
 			/* Place this command on the pendingQ if possible */
 			spin_lock_irqsave(&hd->freedoneQlock, flags);
 			if (!Q_IS_EMPTY(&hd->freeQ)) {
@@ -3683,10 +3700,25 @@ mptscsih_select_queue_depths(struct Scsi_Host *sh, Scsi_Device *sdList)
  *     0 = _DIR_NONE	changed to SCSI_DATA_NONE (3)
  *    -1 = _DATA_IN	changed to SCSI_DATA_READ (2)
  * If the direction is unknown, fall through to original code.
+ *
+ * Mid-layer bug fix(): sg interface generates the wrong data 
+ * direction in some cases. Set the direction the hard way for 
+ * the most common commands.
  */
 static int
 mptscsih_io_direction(Scsi_Cmnd *cmd)
 {
+	switch (cmd->cmnd[0]) {
+	case WRITE_6:		
+	case WRITE_10:		
+		return SCSI_DATA_WRITE;
+		break;
+	case READ_6:		
+	case READ_10:		
+		return SCSI_DATA_READ;
+		break;
+	}
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 	if (cmd->sc_data_direction != SCSI_DATA_UNKNOWN)
 		return cmd->sc_data_direction;
@@ -3898,7 +3930,7 @@ mptscsih_search_pendingQ(MPT_SCSI_HOST *hd, int scpnt_idx)
 	MPT_FRAME_HDR	*mf = NULL;
 	MPT_FRAME_HDR	*cmdMfPtr = NULL;
 
-	ddvtprintk((MYIOC_s_INFO_FMT ": search_pendingQ called...", hd->ioc->name));
+	ddvtprintk((MYIOC_s_INFO_FMT ": search_pendingQ ...", hd->ioc->name));
 	cmdMfPtr = MPT_INDEX_2_MFPTR(hd->ioc, scpnt_idx);
 	spin_lock_irqsave(&hd->freedoneQlock, flags);
 	if (!Q_IS_EMPTY(&hd->pendingQ)) {
@@ -3938,7 +3970,7 @@ post_pendingQ_commands(MPT_SCSI_HOST *hd)
 
 	/* Flush the pendingQ.
 	 */
-	ddvtprintk((MYIOC_s_INFO_FMT ": post_pendingQ_commands called\n", hd->ioc->name));
+	ddvtprintk((MYIOC_s_INFO_FMT ": post_pendingQ_commands\n", hd->ioc->name));
 	while (1) {
 		spin_lock_irqsave(&hd->freedoneQlock, flags);
 		if (Q_IS_EMPTY(&hd->pendingQ)) {
@@ -3966,8 +3998,15 @@ post_pendingQ_commands(MPT_SCSI_HOST *hd)
 		}
 
 		mptscsih_put_msgframe(ScsiDoneCtx, hd->ioc->id, mf);
-		ddvtprintk((MYIOC_s_INFO_FMT "Issued SCSI cmd (mf=%p)\n",
-				hd->ioc->name, mf));
+
+#if defined(MPT_DEBUG_DV) || defined(MPT_DEBUG_DV_TINY)
+		{
+			u16		 req_idx = le16_to_cpu(mf->u.frame.hwhdr.msgctxu.fld.req_idx);
+			Scsi_Cmnd	*sc = hd->ScsiLookup[req_idx];
+			printk(MYIOC_s_INFO_FMT "Issued SCSI cmd (sc=%p) idx=%d (mf=%p)\n",
+					hd->ioc->name, sc, req_idx, mf);
+		}
+#endif
 	}
 
 	return;
@@ -4177,7 +4216,7 @@ mptscsih_event_process(MPT_ADAPTER *ioc, EventNotificationReply_t *pEvReply)
 
 					while (numPDisk) {
 						if (physDiskNum == pPDisk->PhysDiskNum) {
-							pSpi->dvStatus[pPDisk->PhysDiskID] = MPT_SCSICFG_NEED_DV;
+							pSpi->dvStatus[pPDisk->PhysDiskID] = (MPT_SCSICFG_NEED_DV | MPT_SCSICFG_DV_NOT_DONE);
 							pSpi->forceDv = MPT_SCSICFG_NEED_DV;
 							ddvtprintk(("NEED_DV set for phys disk id %d\n", pPDisk->PhysDiskID));
 							break;
@@ -4612,6 +4651,20 @@ int mpt_ScsiHost_ErrorReport(IO_Info_t *ioop)
 		return 0;
 	}
 
+	/* Prevent the system from continually writing to the log
+	 * if a medium is not found: 02 3A 00
+	 * Changer issues: TUR, Read Capacity, Table of Contents continually
+	 */
+	if (sk==SK_NOT_READY && asc==0x3A) {
+		if (ioop->cdbPtr == NULL) {
+			return 0;
+		} else if ((ioop->cdbPtr[0] == CMD_TestUnitReady) ||
+			(ioop->cdbPtr[0] == CMD_ReadCapacity) || 
+			(ioop->cdbPtr[0] == 0x43)) {
+			return 0;
+		}
+	}
+
 	/*
 	 *  Protect ourselves...
 	 */
@@ -4746,6 +4799,14 @@ mptscsih_initTarget(MPT_SCSI_HOST *hd, int bus_id, int target_id, u8 lun, char *
 				mptscsih_setTargetNegoParms(hd, vdev, data[56]);
 			else
 				mptscsih_setTargetNegoParms(hd, vdev, 0);
+
+			/* If LUN 0, tape and have not done DV, set the DV flag.
+			 */
+			if ((lun == 0) && ((data[0] & 0x1F) == 0x01)) {
+				ScsiCfgData *pSpi = &hd->ioc->spi_data;
+				if (pSpi->dvStatus[target_id] & MPT_SCSICFG_DV_NOT_DONE)
+					pSpi->dvStatus[target_id] |= MPT_SCSICFG_NEED_DV;
+			}
 		}
 
 		/* Is LUN supported? If so, upper 3 bits will be 0
@@ -4915,43 +4976,39 @@ static void clear_sense_flag(MPT_SCSI_HOST *hd, SCSIIORequest_t *pReq)
 	return;
 }
 
-/* 
- * If DV disabled (negoNvram set to USE_NVARM) or if not LUN 0, return.
+/* If DV disabled (negoNvram set to USE_NVARM) or if not LUN 0, return.
  * Else set the NEED_DV flag after Read Capacity Issued (disks) 
- * or Mode Sense (cdroms). Tapes, key off of Inquiry command.
+ * or Mode Sense (cdroms). 
+ *
+ * Tapes, initTarget will set this flag on completion of Inquiry command.
+ * Called only if DV_NOT_DONE flag is set
  */
-static void mptscsih_set_dvflags(MPT_SCSI_HOST *hd, SCSIIORequest_t *pReq, char *data)
+static void mptscsih_set_dvflags(MPT_SCSI_HOST *hd, SCSIIORequest_t *pReq)
 {
-	u8 cmd = pReq->CDB[0];
+	u8 cmd;
 	
-	if (pReq->LUN[1] != 0)
+	if ((pReq->LUN[1] != 0) || (hd->negoNvram != 0))
 		return;
 
-	if (hd->negoNvram != 0)
-		return;
+	cmd = pReq->CDB[0];
 
-	if ((cmd == READ_CAPACITY) || (cmd == MODE_SENSE) || 
-		((cmd == INQUIRY) && ((data[0] & 0x1F) == 0x01))) {
-		u8 dvStatus = hd->ioc->spi_data.dvStatus[pReq->TargetID];
-		if (!(dvStatus & MPT_SCSICFG_DV_DONE)) {
-			ScsiCfgData *pSpi = &hd->ioc->spi_data;
-			if ((pSpi->isRaid & (1 << pReq->TargetID)) && pSpi->pIocPg3) {
-				/* Set NEED_DV for all hidden disks
-				 */
-				Ioc3PhysDisk_t *pPDisk =  pSpi->pIocPg3->PhysDisk;
-				int		numPDisk = pSpi->pIocPg3->NumPhysDisks;
-				
-				while (numPDisk) {
-					pSpi->dvStatus[pPDisk->PhysDiskID] |= MPT_SCSICFG_NEED_DV;
-					ddvtprintk(("NEED_DV set for phys disk id %d\n", pPDisk->PhysDiskID));
-					pPDisk++;
-					numPDisk--;
-				}
+	if ((cmd == READ_CAPACITY) || (cmd == MODE_SENSE)) {
+		ScsiCfgData *pSpi = &hd->ioc->spi_data;
+		if ((pSpi->isRaid & (1 << pReq->TargetID)) && pSpi->pIocPg3) {
+			/* Set NEED_DV for all hidden disks
+			 */
+			Ioc3PhysDisk_t *pPDisk =  pSpi->pIocPg3->PhysDisk;
+			int		numPDisk = pSpi->pIocPg3->NumPhysDisks;
+
+			while (numPDisk) {
+				pSpi->dvStatus[pPDisk->PhysDiskID] |= MPT_SCSICFG_NEED_DV;
+				ddvtprintk(("NEED_DV set for phys disk id %d\n", pPDisk->PhysDiskID));
+				pPDisk++;
+				numPDisk--;
 			}
-			pSpi->dvStatus[pReq->TargetID] |= MPT_SCSICFG_NEED_DV;
-			ddvtprintk(("NEED_DV set for visible disk id %d\n", 
-					pReq->TargetID));
-		};
+		}
+		pSpi->dvStatus[pReq->TargetID] |= MPT_SCSICFG_NEED_DV;
+		ddvtprintk(("NEED_DV set for visible disk id %d\n", pReq->TargetID));
 	}
 }
 
@@ -5052,6 +5109,7 @@ mptscsih_writeSDP1(MPT_SCSI_HOST *hd, int portnum, int target_id, int flags)
 	u8			 offset;
 	u8			 bus = 0;
 	u8			 negoFlags;
+	u8			 maxwidth, maxoffset, maxfactor;
 
 	if (ioc->spi_data.sdp1length == 0)
 		return 0;
@@ -5065,48 +5123,53 @@ mptscsih_writeSDP1(MPT_SCSI_HOST *hd, int portnum, int target_id, int flags)
 	}
 
 	for (; id <= maxid; id++) {
+
 		if (id == ioc->pfacts[portnum].PortSCSIID)
 			continue;
 
+		/* Use NVRAM to get adapter and target maximums
+		 * Data over-riden by target structure information, if present
+		 */
+		maxwidth = ioc->spi_data.maxBusWidth;
+		maxoffset = ioc->spi_data.maxSyncOffset;
+		maxfactor = ioc->spi_data.minSyncFactor;
+		if (ioc->spi_data.nvram && (ioc->spi_data.nvram[id] != MPT_HOST_NVRAM_INVALID)) {
+			nvram = ioc->spi_data.nvram[id];
+
+			if (maxwidth)
+				maxwidth = nvram & MPT_NVRAM_WIDE_DISABLE ? 0 : 1;
+
+			if (maxoffset > 0) {
+				maxfactor = (nvram & MPT_NVRAM_SYNC_MASK) >> 8;
+				if (maxfactor == 0) {
+					/* Key for async */
+					maxfactor = MPT_ASYNC;
+					maxoffset = 0;
+				} else if (maxfactor < ioc->spi_data.minSyncFactor) {
+					maxfactor = ioc->spi_data.minSyncFactor;
+				}
+			} else
+				maxfactor = MPT_ASYNC;
+		}
+
+		/* Set the negotiation flags.
+		 */
+		negoFlags = ioc->spi_data.noQas;
+		if (!maxwidth)
+			negoFlags |= MPT_TARGET_NO_NEGO_WIDE;
+
+		if (!maxoffset)
+			negoFlags |= MPT_TARGET_NO_NEGO_SYNC;
+
 		if (flags & MPT_SCSICFG_USE_NVRAM) {
-			/* Use NVRAM, adapter maximums and target settings.
-			 * Data over-riden by target structure information, if present
-			 */
-			width = ioc->spi_data.maxBusWidth;
-			offset = ioc->spi_data.maxSyncOffset;
-			factor = ioc->spi_data.minSyncFactor;
-			if (ioc->spi_data.nvram && (ioc->spi_data.nvram[id] != MPT_HOST_NVRAM_INVALID)) {
-				nvram = ioc->spi_data.nvram[id];
-
-				if (width)
-					width = nvram & MPT_NVRAM_WIDE_DISABLE ? 0 : 1;
-
-				if (offset > 0) {
-					factor = (nvram & MPT_NVRAM_SYNC_MASK) >> 8;
-					if (factor == 0) {
-						/* Key for async */
-						factor = MPT_ASYNC;
-						offset = 0;
-					} else if (factor < ioc->spi_data.minSyncFactor) {
-						factor = ioc->spi_data.minSyncFactor;
-					}
-				} else
-					factor = MPT_ASYNC;
-			}
-
-			/* Set the negotiation flags.
-			 */
-			negoFlags = ioc->spi_data.noQas;
-			if (!width)
-				negoFlags |= MPT_TARGET_NO_NEGO_WIDE;
-	
-			if (!offset)
-				negoFlags |= MPT_TARGET_NO_NEGO_SYNC;
+			width = maxwidth;
+			factor = maxfactor;
+			offset = maxoffset;
 		} else {
 			width = 0;
 			factor = MPT_ASYNC;
 			offset = 0;
-			negoFlags = 0;
+			//negoFlags = 0;
 			//negoFlags = MPT_TARGET_NO_NEGO_SYNC;
 		}
 
@@ -5134,6 +5197,10 @@ mptscsih_writeSDP1(MPT_SCSI_HOST *hd, int portnum, int target_id, int flags)
 						ioc->name));
 			return -EAGAIN;
 		}
+
+		ddvprintk((MYIOC_s_INFO_FMT "WriteSDP1 (mf=%p, id=%d, req=0x%x, cfg=0x%x)\n",
+			hd->ioc->name, mf, id, requested, configuration));
+
 
 		/* Set the request and the data pointers.
 		 * Request takes: 36 bytes (32 bit SGE)
@@ -5291,13 +5358,13 @@ mptscsih_scandv_complete(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 	pReq = (SCSIIORequest_t *) mf;
 
 	if (mf != hd->cmdPtr) {
-		printk(MYIOC_s_WARN_FMT "ScanDvComplete (mf=%p, cmdPtr=%p)\n",
-				hd->ioc->name, (void *)mf, (void *) hd->cmdPtr);
+		printk(MYIOC_s_WARN_FMT "ScanDvComplete (mf=%p, cmdPtr=%p, idx=%d)\n",
+				hd->ioc->name, (void *)mf, (void *) hd->cmdPtr, req_idx);
 	}
 	hd->cmdPtr = NULL;
 
-	ddvprintk((MYIOC_s_INFO_FMT "ScanDvComplete (mf=%p,mr=%p)\n",
-			hd->ioc->name, mf, mr));
+	ddvprintk((MYIOC_s_INFO_FMT "ScanDvComplete (mf=%p,mr=%p,idx=%d)\n",
+			hd->ioc->name, mf, mr, req_idx));
 
 	atomic_dec(&queue_depth);
 
@@ -5965,7 +6032,6 @@ mptscsih_domainValidation(void *arg)
 	unsigned long		 flags;
 	int 			 id, maxid, dvStatus, did;
 	int			 ii, isPhysDisk;
-	u8			 oldQas;
 
 	spin_lock_irqsave(&dvtaskQ_lock, flags);
 	dvtaskQ_active = 1;
@@ -6011,7 +6077,6 @@ mptscsih_domainValidation(void *arg)
 			maxid = MIN (ioc->sh->max_id, MPT_MAX_SCSI_DEVICES);
 
 			for (id = 0; id < maxid; id++) {
-				oldQas = hd->ioc->spi_data.noQas;
 				spin_lock_irqsave(&dvtaskQ_lock, flags);
 				if (dvtaskQ_release) {
 					dvtaskQ_active = 0;
@@ -6022,8 +6087,25 @@ mptscsih_domainValidation(void *arg)
 				dvStatus = hd->ioc->spi_data.dvStatus[id];
 
 				if (dvStatus & MPT_SCSICFG_NEED_DV) {
+					VirtDevice *pTarget = hd->Targets[id];
+					did++;
+					if (pTarget && ((pTarget->tflags & MPT_TARGET_FLAGS_Q_YES) == 0)){
+						if (hd->ioc->spi_data.iocntr[id] == 0) {
+							hd->ioc->spi_data.dvStatus[id] |= MPT_SCSICFG_DV_PENDING;
+						} else {
+							/* Wait until not busy
+							 */
+							ddvtprintk((MYIOC_s_NOTE_FMT 
+							" DV Wait: %d untagged and busy. cntr %d\n",
+							ioc->name, id, 
+							hd->ioc->spi_data.iocntr[id]));
+							continue;
+						}
+					} else {
+						hd->ioc->spi_data.dvStatus[id] |= MPT_SCSICFG_DV_PENDING;
+					}
 
-					hd->ioc->spi_data.dvStatus[id] |= MPT_SCSICFG_DV_PENDING;
+
 					hd->ioc->spi_data.dvStatus[id] &= ~MPT_SCSICFG_NEED_DV;
 
 					set_current_state(TASK_INTERRUPTIBLE);
@@ -6043,9 +6125,8 @@ mptscsih_domainValidation(void *arg)
 					}
 
 					mptscsih_doDv(hd, 0, id);
-					did++;
-					hd->ioc->spi_data.dvStatus[id] |= MPT_SCSICFG_DV_DONE;
-					hd->ioc->spi_data.dvStatus[id] &= ~MPT_SCSICFG_DV_PENDING;
+
+					hd->ioc->spi_data.dvStatus[id] &= ~(MPT_SCSICFG_DV_NOT_DONE | MPT_SCSICFG_DV_PENDING);
 
 					if (isPhysDisk) {
 						for (ii=0; ii < MPT_MAX_SCSI_DEVICES; ii++) {
@@ -6060,7 +6141,7 @@ mptscsih_domainValidation(void *arg)
 					 */
 					post_pendingQ_commands(hd);
 
-					if ((!oldQas) && (hd->ioc->spi_data.noQas))
+					if (hd->ioc->spi_data.noQas)
 						mptscsih_qas_check(hd);
 				}
 			}
@@ -6099,27 +6180,25 @@ static void mptscsih_qas_check(MPT_SCSI_HOST *hd)
 {
 	VirtDevice *pTarget = NULL;
 	int ii;
-	int change = 0;
 
 	if (hd->Targets == NULL)
 		return;
 
 	for (ii=0; ii < MPT_MAX_SCSI_DEVICES; ii++) {
-		change = 0;
+		if ((hd->ioc->spi_data.dvStatus[ii] & MPT_SCSICFG_DV_NOT_DONE) != 0)
+			continue;
+
 		pTarget = hd->Targets[ii];
 
 		if ((pTarget != NULL) && (!pTarget->raidVolume)) {
 			if ((pTarget->negoFlags & hd->ioc->spi_data.noQas) == 0) {
-				change = 1;
 				pTarget->negoFlags |= hd->ioc->spi_data.noQas;
+				mptscsih_writeSDP1(hd, 0, ii, 0);
 			}
 		} else {
 			if (mptscsih_is_phys_disk(hd->ioc, ii) == 1)
-				change = 1;
+				mptscsih_writeSDP1(hd, 0, ii, MPT_SCSICFG_USE_NVRAM);
 		}
-
-		if ((change) && (hd->ioc->spi_data.dvStatus[ii] & MPT_SCSICFG_DV_DONE))
-			mptscsih_writeSDP1(hd, 0, ii, 0);
 	}
 	return;
 }
@@ -6407,6 +6486,7 @@ mptscsih_doDv(MPT_SCSI_HOST *hd, int portnum, int id)
 					cfg.physAddr = cfg0_dma_addr;
 					cfg.action = MPI_CONFIG_ACTION_PAGE_READ_CURRENT;
 					cfg.dir = 0;
+
 					if (mpt_config(hd->ioc, &cfg) != 0)
 						goto target_done;
 
