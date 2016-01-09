@@ -1192,11 +1192,21 @@ acpi_system_remove_fs (
 
 #if defined(CONFIG_MAGIC_SYSRQ) && defined(CONFIG_PM)
 
+static int po_cb_active; 
+
+static void acpi_po_tramp(void *x)
+{ 
+	acpi_power_off();	
+} 
+
 /* Simple wrapper calling power down function. */
 static void acpi_sysrq_power_off(int key, struct pt_regs *pt_regs,
 	struct kbd_struct *kbd, struct tty_struct *tty)
-{
-	acpi_power_off();
+{	
+	static struct tq_struct tq = { .routine = acpi_po_tramp };
+	if (po_cb_active++)
+		return;
+	schedule_task(&tq); 
 }
 
 struct sysrq_key_op sysrq_acpi_poweroff_op = {

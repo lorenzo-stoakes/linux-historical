@@ -88,6 +88,13 @@ static int grow_buffers(kdev_t dev, unsigned long block, int size);
 static int osync_buffers_list(struct list_head *);
 static void __refile_buffer(struct buffer_head *);
 
+/*
+ * A global sysctl-controlled flag which puts the machine into "laptop mode"
+ */
+int laptop_mode;
+
+static DECLARE_WAIT_QUEUE_HEAD(kupdate_wait);
+
 /* This is used by some architectures to estimate available memory. */
 atomic_t buffermem_pages = ATOMIC_INIT(0);
 
@@ -1016,7 +1023,7 @@ static int bdflush_stop(void)
 	dirty *= 100;
 	dirty_limit = tot * bdf_prm.b_un.nfract_stop_bdflush;
 
-	if (dirty > dirty_limit)
+	if (!laptop_mode && dirty > dirty_limit)
 		return 0;
 	return 1;
 }
@@ -1066,6 +1073,8 @@ void __mark_buffer_dirty(struct buffer_head *bh)
 void mark_buffer_dirty(struct buffer_head *bh)
 {
 	if (!atomic_set_buffer_dirty(bh)) {
+		if (block_dump)
+			printk("%s: dirtied buffer\n", current->comm);
 		__mark_dirty(bh);
 		balance_dirty();
 	}
@@ -1076,6 +1085,12 @@ void set_buffer_flushtime(struct buffer_head *bh)
 	bh->b_flushtime = jiffies + bdf_prm.b_un.age_buffer;
 }
 EXPORT_SYMBOL(set_buffer_flushtime);
+
+inline int get_buffer_flushtime(void)
+{
+	return bdf_prm.b_un.interval;
+}
+EXPORT_SYMBOL(get_buffer_flushtime);
 
 /*
  * A buffer may need to be moved from one buffer list to another
@@ -2860,6 +2875,12 @@ void wakeup_bdflush(void)
 	wake_up_interruptible(&bdflush_wait);
 }
 
+void wakeup_kupdate(void)
+{
+	if (waitqueue_active(&kupdate_wait))
+		wake_up(&kupdate_wait);
+}
+
 /* 
  * Here we attempt to write back old buffers.  We also try to flush inodes 
  * and supers as well, since this function is essentially "update", and 
@@ -2880,7 +2901,9 @@ static int sync_old_buffers(void)
 
 		spin_lock(&lru_list_lock);
 		bh = lru_list[BUF_DIRTY];
-		if (!bh || time_before(jiffies, bh->b_flushtime))
+		if (!bh)
+			break;
+		if (time_before(jiffies, bh->b_flushtime) && !laptop_mode)
 			break;
 		if (write_some_buffers(NODEV))
 			continue;
@@ -3028,33 +3051,41 @@ int kupdate(void *startup)
 	complete((struct completion *)startup);
 
 	for (;;) {
+		DECLARE_WAITQUEUE(wait, tsk);
+
+		add_wait_queue(&kupdate_wait, &wait);
+
 		/* update interval */
 		interval = bdf_prm.b_un.interval;
 		if (interval) {
 			tsk->state = TASK_INTERRUPTIBLE;
 			schedule_timeout(interval);
 		} else {
-		stop_kupdate:
 			tsk->state = TASK_STOPPED;
 			schedule(); /* wait for SIGCONT */
 		}
+		remove_wait_queue(&kupdate_wait, &wait);
 		/* check for sigstop */
 		if (signal_pending(tsk)) {
-			int stopped = 0;
+			int sig, stopped = 0;
+			struct siginfo info;
+
 			spin_lock_irq(&tsk->sigmask_lock);
-			if (sigismember(&tsk->pending.signal, SIGSTOP)) {
-				sigdelset(&tsk->pending.signal, SIGSTOP);
+			sig = dequeue_signal(&current->blocked, &info);
+			if (sig == SIGSTOP)
 				stopped = 1;
-			}
-			recalc_sigpending(tsk);
 			spin_unlock_irq(&tsk->sigmask_lock);
-			if (stopped)
-				goto stop_kupdate;
+			if (stopped) {
+				tsk->state = TASK_STOPPED;
+				schedule(); /* wait for SIGCONT */
+			}
 		}
 #ifdef DEBUG
 		printk(KERN_DEBUG "kupdate() activated...\n");
 #endif
 		sync_old_buffers();
+		if (laptop_mode)
+			fsync_dev(NODEV);
 		run_task_queue(&tq_disk);
 	}
 }

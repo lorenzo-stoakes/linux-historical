@@ -165,6 +165,8 @@ void set_page_dirty(struct page *page)
 
 			if (mapping && mapping->host)
 				mark_inode_dirty_pages(mapping->host);
+			if (block_dump)
+				printk(KERN_DEBUG "%s: dirtied page\n", current->comm);
 		}
 	}
 }
@@ -654,10 +656,19 @@ static inline void __add_to_page_cache(struct page * page,
 	struct address_space *mapping, unsigned long offset,
 	struct page **hash)
 {
-	unsigned long flags;
-
-	flags = page->flags & ~(1 << PG_uptodate | 1 << PG_error | 1 << PG_dirty | 1 << PG_referenced | 1 << PG_arch_1 | 1 << PG_checked);
-	page->flags = flags | (1 << PG_locked);
+	/*
+	 * Yes this is inefficient, however it is needed.  The problem
+	 * is that we could be adding a page to the swap cache while
+	 * another CPU is also modifying page->flags, so the updates
+	 * really do need to be atomic.  -- Rik
+	 */
+	ClearPageUptodate(page);
+	ClearPageError(page);
+	ClearPageDirty(page);
+	ClearPageReferenced(page);
+	ClearPageArch1(page);
+	ClearPageChecked(page);
+	LockPage(page);
 	page_cache_get(page);
 	page->index = offset;
 	add_page_to_inode_queue(mapping, page);

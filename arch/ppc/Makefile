@@ -85,7 +85,7 @@ endif
 checks:
 	@$(MAKE) -C arch/$(ARCH)/kernel checks
 
-BOOT_TARGETS = zImage zImage.initrd znetboot znetboot.initrd
+BOOT_TARGETS = zImage zImage.initrd znetboot znetboot.initrd uImage
 
 # All the instructions talk about "make bzImage".
 bzImage: zImage

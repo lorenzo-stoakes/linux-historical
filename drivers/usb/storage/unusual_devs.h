@@ -289,7 +289,7 @@ UNUSUAL_DEV(  0x054c, 0x006d, 0x0000, 0x9999,
 UNUSUAL_DEV(  0x057b, 0x0000, 0x0000, 0x0299, 
 		"Y-E Data",
 		"Flashbuster-U",
-		US_SC_UFI,  US_PR_CB, NULL,
+		US_SC_DEVICE,  US_PR_CB, NULL,
 		US_FL_SINGLE_LUN),
 
 UNUSUAL_DEV(  0x057b, 0x0000, 0x0300, 0x9999, 
@@ -393,6 +393,12 @@ UNUSUAL_DEV( 0x0686, 0x4011, 0x0001, 0x0001,
 		"Minolta",
 		"Dimage F300",
 		US_SC_SCSI, US_PR_BULK, NULL, 0 ),
+
+/* Reported by Miguel A. Fosas <amn3s1a@ono.com> */
+UNUSUAL_DEV(  0x0686, 0x4017, 0x0001, 0x0001,
+                "Minolta",
+                "DIMAGE E223",
+                US_SC_SCSI, US_PR_DEVICE, NULL, 0 ),
 
 UNUSUAL_DEV(  0x0693, 0x0002, 0x0100, 0x0100, 
 		"Hagiwara",
@@ -542,7 +548,7 @@ UNUSUAL_DEV(  0x07c4, 0xa400, 0x0000, 0xffff,
  * - They don't like the INQUIRY command. So we must handle this command
  *   of the SCSI layer ourselves.
  */
-UNUSUAL_DEV( 0x07cf, 0x1001, 0x1000, 0x9009,
+UNUSUAL_DEV( 0x07cf, 0x1001, 0x1000, 0x5009,
 		"Casio",
 		"QV DigitalCamera",
 		US_SC_8070, US_PR_CB, NULL,

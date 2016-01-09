@@ -1584,8 +1584,10 @@ static int lvm_do_vg_create(void *arg, int minor)
 		minor = vg_ptr->vg_number;
 
 	/* check limits */
-	if (minor >= ABS_MAX_VG)
+	if (minor >= ABS_MAX_VG) {
+		kfree(vg_ptr);
 		return -EFAULT;
+	}
 
 	/* Validate it */
 	if (vg[VG_CHR(minor)] != NULL) {
@@ -1653,8 +1655,7 @@ static int lvm_do_vg_create(void *arg, int minor)
 				P_IOCTL
 				    ("ERROR: copying LV ptr %p (%d bytes)\n",
 				     lvp, sizeof(lv_t));
-				lvm_do_vg_remove(minor);
-				return -EFAULT;
+				goto copy_fault;
 			}
 			if (lv.lv_access & LV_SNAPSHOT) {
 				snap_lv_ptr[ls] = lvp;
@@ -1665,8 +1666,7 @@ static int lvm_do_vg_create(void *arg, int minor)
 			vg_ptr->lv[l] = NULL;
 			/* only create original logical volumes for now */
 			if (lvm_do_lv_create(minor, lv.lv_name, &lv) != 0) {
-				lvm_do_vg_remove(minor);
-				return -EFAULT;
+				goto copy_fault;
 			}
 		}
 	}
@@ -1676,12 +1676,10 @@ static int lvm_do_vg_create(void *arg, int minor)
 	for (l = 0; l < ls; l++) {
 		lv_t *lvp = snap_lv_ptr[l];
 		if (copy_from_user(&lv, lvp, sizeof(lv_t)) != 0) {
-			lvm_do_vg_remove(minor);
-			return -EFAULT;
+			goto copy_fault;
 		}
 		if (lvm_do_lv_create(minor, lv.lv_name, &lv) != 0) {
-			lvm_do_vg_remove(minor);
-			return -EFAULT;
+			goto copy_fault;
 		}
 	}
 
@@ -1696,6 +1694,10 @@ static int lvm_do_vg_create(void *arg, int minor)
 	vg_ptr->vg_status |= VG_ACTIVE;
 
 	return 0;
+copy_fault:
+	lvm_do_vg_remove(minor);
+	vfree(snap_lv_ptr);
+	return -EFAULT;
 }				/* lvm_do_vg_create() */
 
 

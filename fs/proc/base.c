@@ -476,7 +476,24 @@ static ssize_t mem_write(struct file * file, const char * buf,
 }
 #endif
 
+static loff_t mem_lseek(struct file * file, loff_t offset, int orig)
+{
+	switch (orig) {
+	case 0:
+		file->f_pos = offset;
+		break;
+	case 1:
+		file->f_pos += offset;
+		break;
+	default:
+		return -EINVAL;
+	}
+	force_successful_syscall_return();
+	return file->f_pos;
+}
+
 static struct file_operations proc_mem_operations = {
+	llseek:		mem_lseek,
 	read:		mem_read,
 	write:		mem_write,
 	open:		mem_open,
@@ -518,8 +535,10 @@ static int do_proc_readlink(struct dentry *dentry, struct vfsmount *mnt,
 		
 	inode = dentry->d_inode;
 	path = d_path(dentry, mnt, tmp, PAGE_SIZE);
-	if (IS_ERR(path))
+	if (IS_ERR(path)) {
+		free_page((unsigned long)tmp);
 		return PTR_ERR(path);
+	}
 	len = tmp + PAGE_SIZE - 1 - path;
 
 	if (len < buflen)

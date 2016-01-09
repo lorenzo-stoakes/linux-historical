@@ -104,11 +104,14 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
        fi
      fi
   fi
-fi
-if [ "$CONFIG_IA64_GENERIC" = "y" -o "$CONFIG_IA64_SGI_SN2" = "y" ] ; then
-  bool 'SGI SN2 l1 serial port support' CONFIG_SGI_L1_SERIAL
-  if [ "$CONFIG_SGI_L1_SERIAL" = "y" ]; then
-    bool '  SGI SN2 l1 Console support' CONFIG_SGI_L1_SERIAL_CONSOLE
+  if [ "$CONFIG_IA64" = "y" ]; then
+    bool '  SGI SN2 l1 serial port support' CONFIG_SGI_L1_SERIAL
+    if [ "$CONFIG_SGI_L1_SERIAL" = "y" ]; then
+      bool '    SGI SN2 l1 Console support' CONFIG_SGI_L1_SERIAL_CONSOLE
+    fi
+    if [ "$CONFIG_IA64_GENERIC" = "y" -o "$CONFIG_IA64_SGI_SN2" = "y" ]; then
+      bool '  SGI SN2 IOC4 serial port support' CONFIG_SGI_IOC4_SERIAL
+    fi
   fi
 fi
 if [ "$CONFIG_EXPERIMENTAL" = "y" -a "$CONFIG_ZORRO" = "y" ]; then

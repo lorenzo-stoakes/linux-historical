@@ -13,6 +13,7 @@
 #include <asm/e820.h>
 #include <asm/proto.h>
 #include <asm/acpi.h>
+#include <asm/apic.h>
 #include <asm/bootsetup.h>
 
 extern unsigned long table_start, table_end;

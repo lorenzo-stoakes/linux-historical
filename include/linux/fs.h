@@ -1255,6 +1255,7 @@ static inline void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode 
 }
 
 extern void set_buffer_flushtime(struct buffer_head *);
+extern inline int get_buffer_flushtime(void);
 extern void balance_dirty(void);
 extern int check_disk_change(kdev_t);
 extern int invalidate_inodes(struct super_block *);
@@ -1445,8 +1446,10 @@ static inline struct buffer_head * sb_get_hash_table(struct super_block *sb, int
 	return get_hash_table(sb->s_dev, block, sb->s_blocksize);
 }
 extern void wakeup_bdflush(void);
+extern void wakeup_kupdate(void);
 extern void put_unused_buffer_head(struct buffer_head * bh);
 extern struct buffer_head * get_unused_buffer_head(int async);
+extern int block_dump;
 
 extern int brw_page(int, struct page *, kdev_t, int [], int);
 

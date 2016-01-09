@@ -146,7 +146,9 @@ static int tcp_v6_get_port(struct sock *sk, unsigned short snum)
 			/* We must walk the whole port owner list in this case. -DaveM */
 			for( ; sk2 != NULL; sk2 = sk2->bind_next) {
 				if (sk != sk2 &&
-				    sk->bound_dev_if == sk2->bound_dev_if) {
+				    (!sk->bound_dev_if ||
+				     !sk2->bound_dev_if ||
+				     sk->bound_dev_if == sk2->bound_dev_if)) {
 					if (!sk_reuse	||
 					    !sk2->reuse	||
 					    sk2->state == TCP_LISTEN) {

@@ -903,9 +903,8 @@ static int ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp)
 			skb_realloc_headroom(skb, max_headroom);
 		if (!new_skb) {
 			ip_rt_put(rt);
-			kfree_skb(skb);
 			IP_VS_ERR_RL("ip_vs_tunnel_xmit(): no memory\n");
-			return -EINVAL;
+			return NF_DROP;
 		}
 		kfree_skb(skb);
 		skb = new_skb;

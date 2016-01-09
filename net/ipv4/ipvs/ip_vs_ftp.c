@@ -88,39 +88,46 @@ static int ip_vs_ftp_get_addrport(char *data, char *data_limit,
 				  __u32 *addr, __u16 *port,
 				  char **start, char **end)
 {
-	unsigned char p1,p2,p3,p4,p5,p6;
+	unsigned char p[6];
+	int i = 0;
 
-	while (data < data_limit) {
-		if (strnicmp(data, pattern, plen) != 0) {
-			data++;
-			continue;
-		}
-		*start = data+plen;
-		p1 = simple_strtoul(data+plen, &data, 10);
-		if (*data != ',')
-			continue;
-		p2 = simple_strtoul(data+1, &data, 10);
-		if (*data != ',')
-			continue;
-		p3 = simple_strtoul(data+1, &data, 10);
-		if (*data != ',')
-			continue;
-		p4 = simple_strtoul(data+1, &data, 10);
-		if (*data != ',')
-			continue;
-		p5 = simple_strtoul(data+1, &data, 10);
-		if (*data != ',')
-			continue;
-		p6 = simple_strtoul(data+1, &data, 10);
-		if (*data != term)
-			continue;
-
-		*end = data;
-		*addr = (p4<<24) | (p3<<16) | (p2<<8) | p1;
-		*port = (p6<<8) | p5;
-		return 1;
+	if (data_limit - data < plen) {
+		/* check if there is partial match */
+		if (strnicmp(data, pattern, data_limit - data) == 0)
+			return -1;
+		else
+			return 0;
 	}
-	return 0;
+
+	if (strnicmp(data, pattern, plen) != 0) {
+		return 0;
+	}
+	*start = data + plen;
+
+	for (data = *start; *data != term; data++) {
+		if (data == data_limit)
+			return -1;
+	}
+	*end = data;
+
+	memset(p, 0, sizeof(p));
+	for (data = *start; data != *end; data++) {
+		if (*data >= '0' && *data <= '9') {
+			p[i] = p[i]*10 + *data - '0';
+		} else if (*data == ',' && i < 5) {
+			i++;
+		} else {
+			/* unexpected character */
+			return -1;
+		}
+	}
+
+	if (i != 5)
+		return -1;
+
+	*addr = (p[3]<<24) | (p[2]<<16) | (p[1]<<8) | p[0];
+	*port = (p[5]<<8) | p[4];
+	return 1;
 }
 
 
@@ -165,7 +172,7 @@ static int ip_vs_ftp_out(struct ip_vs_app *vapp,
 					   SERVER_STRING,
 					   sizeof(SERVER_STRING)-1, ')',
 					   &from, &port,
-					   &start, &end) == 0)
+					   &start, &end) != 1)
 			return 0;
 
 		IP_VS_DBG(1-debug, "PASV response (%u.%u.%u.%u:%d) -> "
@@ -265,7 +272,7 @@ static int ip_vs_ftp_in(struct ip_vs_app *vapp,
 	data = data_start = (char *)th + (th->doff << 2);
 	data_limit = skb->tail;
 
-	while (data < data_limit) {
+	while (data <= data_limit - 6) {
 		if (strnicmp(data, "PASV\r\n", 6) == 0) {
 			IP_VS_DBG(1-debug, "got PASV at %d of %d\n",
 				  data - data_start,
@@ -283,13 +290,10 @@ static int ip_vs_ftp_in(struct ip_vs_app *vapp,
 	 * then create a new connection entry for the coming data
 	 * connection.
 	 */
-	data = data_start;
-	data_limit = skb->h.raw + skb->len - 18;
-
-	if (ip_vs_ftp_get_addrport(data, data_limit,
+	if (ip_vs_ftp_get_addrport(data_start, data_limit,
 				   CLIENT_STRING, sizeof(CLIENT_STRING)-1,
 				   '\r', &to, &port,
-				   &start, &end) == 0)
+				   &start, &end) != 1)
 		return 0;
 
 	IP_VS_DBG(1-debug, "PORT %u.%u.%u.%u:%d detected\n",

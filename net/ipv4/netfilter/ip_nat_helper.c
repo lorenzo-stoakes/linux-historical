@@ -195,16 +195,11 @@ ip_nat_mangle_tcp_packet(struct sk_buff **skb,
 		skb_trim(*skb, newlen);
 	}
 
-	/* fix checksum information */
-
 	iph->tot_len = htons(newlen);
-	(*skb)->csum = csum_partial((char *)tcph + tcph->doff*4,
-				    newtcplen - tcph->doff*4, 0);
-
+	/* fix checksum information */
 	tcph->check = 0;
 	tcph->check = tcp_v4_check(tcph, newtcplen, iph->saddr, iph->daddr,
-				   csum_partial((char *)tcph, tcph->doff*4,
-					   (*skb)->csum));
+				   csum_partial((char *)tcph, newtcplen, 0));
 	ip_send_check(iph);
 
 	return 1;
@@ -299,18 +294,12 @@ ip_nat_mangle_udp_packet(struct sk_buff **skb,
 	iph->tot_len = htons(newlen);
 
 	/* fix udp checksum if udp checksum was previously calculated */
-	if ((*skb)->csum != 0) {
-		(*skb)->csum = csum_partial((char *)udph +
-					    sizeof(struct udphdr),
-					    newudplen - sizeof(struct udphdr),
-					    0);
-
+	if (udph->check != 0) {
 		udph->check = 0;
 		udph->check = csum_tcpudp_magic(iph->saddr, iph->daddr,
 						newudplen, IPPROTO_UDP,
 						csum_partial((char *)udph,
-							 sizeof(struct udphdr),
-							(*skb)->csum));
+						             newudplen, 0));
 	}
 
 	ip_send_check(iph);

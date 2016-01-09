@@ -109,7 +109,8 @@ static void __free_pages_ok (struct page *page, unsigned int order)
 		BUG();
 	if (PageActive(page))
 		BUG();
-	page->flags &= ~((1<<PG_referenced) | (1<<PG_dirty));
+	ClearPageReferenced(page);
+	ClearPageDirty(page);
 
 	if (current->flags & PF_FREE_PAGES)
 		goto local_freelist;

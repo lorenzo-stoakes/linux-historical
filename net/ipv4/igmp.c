@@ -1374,8 +1374,9 @@ int ip_mc_del_src(struct in_device *in_dev, __u32 *pmca, int sfmode,
 	sf_markstate(pmc);
 #endif
 	if (!delta) {
+		err = -EINVAL;
 		if (!pmc->sfcount[sfmode])
-			return -EINVAL;
+			goto out_unlock;
 		pmc->sfcount[sfmode]--;
 	}
 	err = 0;
@@ -1406,6 +1407,7 @@ int ip_mc_del_src(struct in_device *in_dev, __u32 *pmca, int sfmode,
 		igmp_ifc_event(pmc->interface);
 #endif
 	}
+out_unlock:
 	spin_unlock_bh(&pmc->lock);
 	return err;
 }

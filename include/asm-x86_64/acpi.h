@@ -115,18 +115,6 @@ extern int acpi_lapic;
 #endif
 #ifdef CONFIG_X86_IO_APIC
 extern int acpi_ioapic;
-extern int skip_ioapic_setup;
-
-static inline void disable_ioapic_setup(void)
-{
-	
-	skip_ioapic_setup = 1;
-}
-
-static inline int ioapic_setup_disabled(void)
-{
-	return skip_ioapic_setup;
-}
 #else
 static inline void disable_ioapic_setup(void)
 { }

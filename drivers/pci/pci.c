@@ -921,7 +921,7 @@ u8 pci_cache_line_size = L1_CACHE_BYTES >> 2;
  *
  * RETURNS: An appriopriate -ERRNO error value on eror, or zero for success.
  */
-int
+static int
 pci_generic_prep_mwi(struct pci_dev *dev)
 {
 	u8 cacheline_size;
@@ -2164,7 +2164,6 @@ EXPORT_SYMBOL(pci_find_subsys);
 EXPORT_SYMBOL(pci_set_master);
 EXPORT_SYMBOL(pci_set_mwi);
 EXPORT_SYMBOL(pci_clear_mwi);
-EXPORT_SYMBOL(pci_generic_prep_mwi);
 EXPORT_SYMBOL(pci_set_dma_mask);
 EXPORT_SYMBOL(pci_dac_set_dma_mask);
 EXPORT_SYMBOL(pci_assign_resource);

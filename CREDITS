@@ -2719,7 +2719,7 @@ E: gt8134b@prism.gatech.edu
 D: Dosemu
 
 N: Duncan Sands
-E: duncan.sands@wanadoo.fr
+E: duncan.sands@free.fr
 W: http://topo.math.u-psud.fr/~sands
 D: Alcatel SpeedTouch USB driver
 S: 69 rue Dunois
@@ -2976,7 +2976,7 @@ S: USA
 
 N: Marcelo W. Tosatti
 E: marcelo@parcelfarce.linux.theplanet.co.uk
-E: marcelo.tosatti@cyclades.com.br
+E: marcelo.tosatti@cyclades.com
 D: Miscellaneous kernel hacker (mostly VM/MM work)
 D: 2.4 maintainer
 S: Av Cristovao Colombo, 462. Floresta.

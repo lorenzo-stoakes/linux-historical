@@ -100,6 +100,15 @@ CONFIG_OBSOLETE
   like MGA monitors that you are very unlikely to see on today's
   systems.
 
+Prompt for advanced kernel configuration options
+CONFIG_ADVANCED_OPTIONS
+  This option will enable prompting for a variety of advanced kernel
+  configuration options.  These options can cause the kernel to not
+  work if they are set incorrectly, but can be used to optimize certain
+  aspects of kernel memory management.
+
+  Unless you know what you are doing you *should not* enable this option.
+
 Symmetric Multi-Processing support
 CONFIG_SMP
   This enables support for systems with more than one CPU. If you have
@@ -9049,15 +9058,30 @@ CONFIG_SCSI_AM53C974
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called AM53C974.o.
 
-AMI MegaRAID support
+AMI MegaRAID support (old driver)
 CONFIG_SCSI_MEGARAID
-  This driver supports the AMI MegaRAID 418, 428, 438, 466, 762, 490
-  and 467 SCSI host adapters.
+  This driver supports the AMI MegaRAID 418, 428, 438, 466, 762, 490,
+  467, 471 and 493 SCSI host adapters. 
+
+  This is the old and very heavily tested driver but lacks features
+  like clustering.
 
   If you want to compile this driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called megaraid.o.
+
+AMI MegaRAID support (new driver)
+CONFIG_SCSI_MEGARAID2
+  This driver supports the AMI MegaRAID 418, 428, 438, 466, 762, 490,
+  467, 471, 493 and new Ultra320(518, 520, 531, 532) SCSI host adapters.
+
+  This is the newer less tested but more featureful driver.
+
+  If you want to compile this driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called megaraid2.o.
 
 Intel/ICP (former GDT SCSI Disk Array) RAID Controller support
 CONFIG_SCSI_GDTH
@@ -10880,6 +10904,26 @@ CONFIG_DSCC4
   inserted in and removed from the running kernel whenever you want).
   The module will be called dscc4.o. For general information about
   modules read <file:Documentation/modules.txt>.
+
+PCISYNC feature
+CONFIG_DSCC4_PCISYNC
+  Due to Etinc's design choice for its PCISYNC cards, some operations
+  are only allowed on specific ports of the DSCC4. This option is the
+  only way for the driver to know that it shouldn't return a success
+  code for these operations.
+
+  Please say Y if your card is an Etinc's PCISYNC.
+
+Hard reset support
+CONFIG_DSCC4_PCI_RST
+  Various DSCC4 bug forbid any reliable software reset of the asic.
+  As a replacement, some vendors provide a way to assert the PCI #RST
+  pin of DSCC4 through the GPIO port of the card. If you choose Y, the
+  driver will make use of this feature before module removal (i.e. rmmod).
+  This feature is known to exist on Commtech's cards.
+  Contact your manufacturer for details.
+
+  Say Y if yout card supports this feature.
 
 LanMedia Corp. serial boards (SSI/V.35, T1/E1, HSSI, T3)
 CONFIG_LANMEDIA
@@ -14676,8 +14720,8 @@ CONFIG_USB_KBD
 USB HIDBP Mouse (basic) support
 CONFIG_USB_MOUSE
   Say Y here only if you are absolutely sure that you don't want
-  to use the generic HID driver for your USB keyboard and prefer
-  to use the keyboard in its limited Boot Protocol mode instead.
+  to use the generic HID driver for your USB mouse and prefer
+  to use the mouse in its limited Boot Protocol mode instead.
 
   This is almost certainly not what you want.
 
@@ -15036,6 +15080,9 @@ CONFIG_USB_SERIAL_KEYSPAN_USA19QI
 USB Keyspan USA-49W Firmware
 CONFIG_USB_SERIAL_KEYSPAN_USA49W
   Say Y here to include firmware for the USA-49W converter.
+
+CONFIG_USB_SERIAL_KEYSPAN_USA49WLC
+  Say Y here to include firmware for the USA-49WLC converter.
 
 USB ZyXEL omni.net LCD Plus Driver
 CONFIG_USB_SERIAL_OMNINET
@@ -20134,6 +20181,15 @@ CONFIG_X86_CPUID
   <file:Documentation/modules.txt>. The module will be called
   cpuid.o
 
+x86 BIOS Enhanced Disk Drive support
+CONFIG_EDD
+  Say Y or M here if you want to enable BIOS Enhanced Disk Drive
+  Services real mode BIOS calls to determine which disk
+  BIOS tries boot from.  This information is then exported via /proc.
+
+  This option is experimental, but believed to be safe,
+  and most disk controller BIOS vendors do not yet implement this feature.
+
 SBC-60XX Watchdog Timer
 CONFIG_60XX_WDT
  This driver can be used with the watchdog timer found on some
@@ -24047,6 +24103,38 @@ CONFIG_MAC_EMUMOUSEBTN
       /proc/sys/dev/mac_hid/mouse_button2_keycode
       /proc/sys/dev/mac_hid/mouse_button3_keycode
 
+Set high memory pool address
+CONFIG_HIGHMEM_START_BOOL
+  Unless you know what you are doing you *should not* set this option.
+
+  It can be used to override the default PKMAP_BASE address which
+  is the location of the high memory pool.  This can be useful in
+  optimizing virtual memory usage in a system.
+
+Set maximum low memory
+CONFIG_LOWMEM_SIZE_BOOL
+  Unless you know what you are doing you *should not* set this option.
+
+  It can be used to override the standard calculated value of
+  MAX_LOW_MEM. This can be useful in optimizing virtual memory usage
+  in a system.
+
+Set custom kernel base address
+CONFIG_KERNEL_START_BOOL
+  Unless you know what you are doing you *should not* set this option.
+
+  It can be used to override the standard PAGE_OFFSET/KERNELBASE
+  value used by the kernel.  This can be useful in controlling
+  amount of virtual address space available to the kernel.
+
+Set custom user task size
+CONFIG_TASK_SIZE_BOOL
+  Unless you know what you are doing you *should not* set this option.
+
+  It can be used to override the standard TASK_SIZE value used
+  by the kernel.  This can be useful in controlling amount of
+  virtual address space available to user tasks.
+
 Enhanced Real Time Clock Support (/dev/rtc)
 CONFIG_PPC_RTC
   If you say Y here and create a character special file /dev/rtc with
@@ -27103,6 +27191,58 @@ CONFIG_IA64_PALINFO
 
   To use this option, you have to check that the "/proc file system
   support" (CONFIG_PROC_FS) is enabled, too.
+
+PPC4xx DMA controller support
+CONFIG_PPC4xx_DMA
+  Select this to enable support for the PPC4xx general purpose DMA
+  controller.
+
+ttyS0 device
+CONFIG_UART0_TTYS0
+  This option reverses the mapping between the hardware UART and software
+  device.  Selecting UART0 gives the normal mapping of UART0=ttyS0 and
+  UART1=ttyS1.  Selecting UART1 gives the reverse mapping of UART0=ttyS1
+  and UART1=ttyS0.  Most people will use UART0.
+
+PowerPC 405 on-chip ethernet
+CONFIG_IBM_OCP_ENET
+  If you want to use the 405 built-in ethernet select this.
+
+CONFIG_IBM_OCP_ENET_ERROR_MSG
+  Enable this option to print verbose debug messages for troubleshooting.
+
+PowerPC 405 on-chip ethernet -- Number of receive buffers
+CONFIG_IBM_OCP_ENET_RX_BUFF
+  Number of ethernet receive (read) buffers.  Unless you know what you
+  are doing the default should be fine.
+
+PowerPC 405 on-chip ethernet -- Number of transmit buffers
+CONFIG_IBM_OCP_ENET_TX_BUFF
+  Number of ethernet transmit (write) buffers.  Unless you know what
+  you are doing the default should be fine.
+
+PowerPC 405 on-chip ethernet -- Amount of bytes to Reserve on a skb
+CONFIG_IBM_OCP_ENET_SKB_RES
+  Many standard ethernet drivers need to reserve 2 bytes of data
+  on the skb before giving the data ptr to the hardware. This is
+  so the IP data will be 16-byte aligned when it goes up the stack.
+  This is a requirement for some processors and it can cause major
+  slow downs on others. The 405GP dose not have problems with the 
+  misaligned data so the default is 0. If you need to route the
+  incoming ethernet packets to another device that has alignment
+  requirements this can help remove a data copy. A value of 2 can
+  help at getting 16-byte aligned IP data for another device. A
+  larger value can be used when routing to a IP tunnel device.
+  Make sure XXX_DESC_SIZE - XXX_SKB_RES >= 1514, or larger if VLANS
+  are used.
+
+PPC 405 I2C Algorithm
+CONFIG_PPC405_I2C_ALGO
+  Enable this option to use the built-in I2C on your 405.
+
+PPC 405 I2C Adapter
+CONFIG_PPC405_I2C_ADAP
+  Enable this option to use the built-in I2C on your 405.
 
 /proc/efi/vars support
 CONFIG_EFI_VARS

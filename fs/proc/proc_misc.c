@@ -430,6 +430,9 @@ static struct file_operations proc_interrupts_operations = {
 };
 #endif /* !CONFIG_X86 */
 
+extern struct file_operations proc_ioports_operations;
+extern struct file_operations proc_iomem_operations;
+
 static int filesystems_read_proc(char *page, char **start, off_t off,
 				 int count, int *eof, void *data)
 {
@@ -441,13 +444,6 @@ static int dma_read_proc(char *page, char **start, off_t off,
 				 int count, int *eof, void *data)
 {
 	int len = get_dma_list(page);
-	return proc_calc_metrics(page, start, off, count, eof, len);
-}
-
-static int ioports_read_proc(char *page, char **start, off_t off,
-				 int count, int *eof, void *data)
-{
-	int len = get_ioport_list(page);
 	return proc_calc_metrics(page, start, off, count, eof, len);
 }
 
@@ -492,13 +488,6 @@ static int swaps_read_proc(char *page, char **start, off_t off,
 				 int count, int *eof, void *data)
 {
 	int len = get_swaparea_info(page);
-	return proc_calc_metrics(page, start, off, count, eof, len);
-}
-
-static int memory_read_proc(char *page, char **start, off_t off,
-				 int count, int *eof, void *data)
-{
-	int len = get_mem_list(page);
 	return proc_calc_metrics(page, start, off, count, eof, len);
 }
 
@@ -625,14 +614,12 @@ void __init proc_misc_init(void)
 #endif
 		{"filesystems",	filesystems_read_proc},
 		{"dma",		dma_read_proc},
-		{"ioports",	ioports_read_proc},
 		{"cmdline",	cmdline_read_proc},
 #ifdef CONFIG_SGI_DS1286
 		{"rtc",		ds1286_read_proc},
 #endif
 		{"locks",	locks_read_proc},
 		{"swaps",	swaps_read_proc},
-		{"iomem",	memory_read_proc},
 		{"execdomains",	execdomains_read_proc},
 		{NULL,}
 	};
@@ -649,6 +636,8 @@ void __init proc_misc_init(void)
 #if defined(CONFIG_X86)
 	create_seq_entry("interrupts", 0, &proc_interrupts_operations);
 #endif
+	create_seq_entry("ioports", 0, &proc_ioports_operations);
+	create_seq_entry("iomem", 0, &proc_iomem_operations);
 	create_seq_entry("partitions", 0, &proc_partitions_operations);
 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
 #ifdef CONFIG_MODULES

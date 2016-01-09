@@ -1114,7 +1114,7 @@ static int proc_ioctl (struct dev_state *ps, void *arg)
                        usb_driver_release_interface (driver, ifp);
                        up (&driver->serialize);
                } else
-                       return -ENODATA;
+                       retval = -ENODATA;
                break;
 
        /* let kernel drivers try to (re)bind to the interface */

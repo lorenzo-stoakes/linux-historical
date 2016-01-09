@@ -204,7 +204,7 @@ struct hh_cache
 	(HH_DATA_MOD - ((__len) & (HH_DATA_MOD - 1)))
 #define HH_DATA_ALIGN(__len) \
 	(((__len)+(HH_DATA_MOD-1))&~(HH_DATA_MOD - 1))
-	unsigned long	hh_data[HH_DATA_ALIGN(LL_MAX_HEADER)];
+	unsigned long	hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
 };
 
 /* These flag bits are private to the generic network queueing

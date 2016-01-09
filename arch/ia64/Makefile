@@ -62,9 +62,11 @@ else # !GENERIC
 
 ifdef CONFIG_IA64_HP_SIM
         SUBDIRS         :=      arch/$(ARCH)/hp		\
+                                arch/$(ARCH)/drivers	\
                                 $(SUBDIRS)
         CORE_FILES      :=      arch/$(ARCH)/hp/hp.o	\
                                 $(CORE_FILES)
+        DRIVERS         +=      arch/$(ARCH)/drivers/drivers.o
 endif
 
 ifdef CONFIG_IA64_HP_ZX1
