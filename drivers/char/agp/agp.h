@@ -265,6 +265,9 @@ struct agp_bridge_data {
 #ifndef PCI_DEVICE_ID_AL_M1651_0
 #define PCI_DEVICE_ID_AL_M1651_0	0x1651
 #endif
+#ifndef PCI_DEVICE_ID_AL_M1671_0
+#define PCI_DEVICE_ID_AL_M1671_0	0x1671
+#endif
 
 /* intel register */
 #define INTEL_APBASE    0x10

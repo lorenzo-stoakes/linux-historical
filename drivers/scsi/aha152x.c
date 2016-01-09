@@ -1368,7 +1368,13 @@ int aha152x_detect(Scsi_Host_Template * tpnt)
 
 		printk(KERN_INFO "aha152x%d: trying software interrupt, ", HOSTNO);
 		SETPORT(DMACNTRL0, SWINT|INTEN);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
+		spin_unlock_irq(&io_request_lock);
+#endif
 		mdelay(1000);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
+		spin_lock_irq(&io_request_lock);
+#endif
 		free_irq(shpnt->irq, shpnt);
 
 		if (!HOSTDATA(shpnt)->swint) {

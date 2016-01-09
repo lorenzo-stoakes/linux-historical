@@ -84,7 +84,7 @@ MODULE_DEVICE_TABLE (usb, rtl8150_table);
 
 
 struct rtl8150 {
-	unsigned int		flags;
+	unsigned long		flags;
 	struct usb_device	*udev;
 	struct usb_interface	*interface;
 	struct semaphore	sem;

@@ -1198,12 +1198,12 @@ static int suspend(int vetoable)
 		printk(KERN_CRIT "apm: suspend was vetoed, but suspending anyway.\n");
 	}
 	get_time_diff();
-	cli();
+	__cli();
 	err = set_system_power_state(APM_STATE_SUSPEND);
 	reinit_timer();
 	set_time();
 	ignore_normal_resume = 1;
-	sti();
+	__sti();
 	if (err == APM_NO_ERROR)
 		err = APM_SUCCESS;
 	if (err != APM_SUCCESS)

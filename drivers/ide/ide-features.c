@@ -240,13 +240,16 @@ int set_transfer (ide_drive_t *drive, ide_task_t *args)
 	return 0;
 }
 
+#ifdef CONFIG_BLK_DEV_IDEDMA
 /*
  *  All hosts that use the 80c ribbon mus use!
  */
 byte eighty_ninty_three (ide_drive_t *drive)
 {
+#ifdef CONFIG_BLK_DEV_IDEPCI
 	if (HWIF(drive)->pci_devid.vid==0x105a)
 	    return(HWIF(drive)->udma_four);
+#endif
 	/* PDC202XX: that's because some HDD will return wrong info */
 	return ((byte) ((HWIF(drive)->udma_four) &&
 #ifndef CONFIG_IDEDMA_IVB
@@ -254,6 +257,7 @@ byte eighty_ninty_three (ide_drive_t *drive)
 #endif /* CONFIG_IDEDMA_IVB */
 			(drive->id->hw_config & 0x6000)) ? 1 : 0);
 }
+#endif // CONFIG_BLK_DEV_IDEDMA
 
 /*
  * Similar to ide_wait_stat(), except it never calls ide_error internally.
@@ -374,6 +378,8 @@ EXPORT_SYMBOL(ide_auto_reduce_xfer);
 EXPORT_SYMBOL(ide_driveid_update);
 EXPORT_SYMBOL(ide_ata66_check);
 EXPORT_SYMBOL(set_transfer);
+#ifdef CONFIG_BLK_DEV_IDEDMA
 EXPORT_SYMBOL(eighty_ninty_three);
+#endif // CONFIG_BLK_DEV_IDEDMA
 EXPORT_SYMBOL(ide_config_drive_speed);
 

@@ -669,7 +669,7 @@ check_if_enabled:
 	 */
 	pciirq = dev->irq;
 	
-#ifdef CONFIG_PDC202XX_FORCE
+#ifndef CONFIG_PDC202XX_FORCE
 	if (dev->class >> 8 == PCI_CLASS_STORAGE_RAID) {
 		/*
 		 * By rights we want to ignore Promise FastTrak and SuperTrak
