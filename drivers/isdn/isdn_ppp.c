@@ -1147,7 +1147,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		printk(KERN_ERR "isdn_ppp_xmit: lp->ppp_slot(%d)\n",
 			mlp->ppp_slot);
 		kfree_skb(skb);
-		goto unlock;
+		goto out;
 	}
 	ipts = ippp_table[slot];
 
@@ -1155,7 +1155,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		if (ipts->debug & 0x1)
 			printk(KERN_INFO "%s: IP frame delayed.\n", netdev->name);
 		retval = 1;
-		goto unlock;
+		goto out;
 	}
 
 	switch (ntohs(skb->protocol)) {
@@ -1169,7 +1169,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 			printk(KERN_ERR "isdn_ppp: skipped unsupported protocol: %#x.\n", 
 			       skb->protocol);
 			dev_kfree_skb(skb);
-			goto unlock;
+			goto out;
 	}
 
 	lp = isdn_net_get_locked_lp(nd);
@@ -1336,6 +1336,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 
  unlock:
 	spin_unlock_bh(&lp->xmit_lock);
+ out:
 	return retval;
 }
 

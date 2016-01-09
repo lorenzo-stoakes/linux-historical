@@ -863,6 +863,12 @@ static int read_super_block (struct super_block * s, int size, int offset)
 	s->s_blocksize_bits ++;
 
     brelse (bh);
+
+    if (s->s_blocksize != 4096) {
+	printk("Unsupported reiserfs blocksize: %d on %s, only 4096 bytes "
+	       "blocksize is supported.\n", s->s_blocksize, kdevname (s->s_dev));
+	return 1;
+    }
     
     if (s->s_blocksize != size)
 	set_blocksize (s->s_dev, s->s_blocksize);
