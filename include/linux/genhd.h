@@ -108,6 +108,7 @@ extern struct gendisk *gendisk_head;
 extern void add_gendisk(struct gendisk *gp);
 extern void del_gendisk(struct gendisk *gp);
 extern struct gendisk *get_gendisk(kdev_t dev);
+extern int walk_gendisk(int (*walk)(struct gendisk *, void *), void *);
 
 #endif  /*  __KERNEL__  */
 

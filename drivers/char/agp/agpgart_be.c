@@ -3948,6 +3948,12 @@ static struct {
 		"Intel",
 		"i830M",
 		intel_830mp_setup },
+    { PCI_DEVICE_ID_INTEL_845_G_0,
+		 PCI_VENDOR_ID_INTEL,
+		 INTEL_I845_G,
+		 "Intel",
+		 "i845G",
+		 intel_830mp_setup },
 	{ PCI_DEVICE_ID_INTEL_840_0,
 		PCI_VENDOR_ID_INTEL,
 		INTEL_I840,
@@ -4274,6 +4280,28 @@ static int __init agp_find_supported_device(void)
 			agp_bridge.type = INTEL_I810;
 			return intel_i810_setup(i810_dev);
 
+		case PCI_DEVICE_ID_INTEL_845_G_0:
+			i810_dev = pci_find_device(PCI_VENDOR_ID_INTEL,
+					PCI_DEVICE_ID_INTEL_845_G_1, NULL);
+			if(i810_dev && PCI_FUNC(i810_dev->devfn) != 0) {
+				i810_dev = pci_find_device(PCI_VENDOR_ID_INTEL,
+					PCI_DEVICE_ID_INTEL_845_G_1, i810_dev);
+			}
+
+			if (i810_dev == NULL) {
+                                /* 
+                                 * We probably have a I845 G chipset
+                                 * with an external graphics
+                                 * card. It will be initialized later 
+                                 */
+				agp_bridge.type = INTEL_I845_G;
+				break;
+			}
+			printk(KERN_INFO PFX "Detected an Intel "
+				   "845G Chipset.\n");
+			agp_bridge.type = INTEL_I810;
+			return intel_i830_setup(i810_dev);
+		   
 		case PCI_DEVICE_ID_INTEL_830_M_0:
 			i810_dev = pci_find_device(PCI_VENDOR_ID_INTEL,
 					PCI_DEVICE_ID_INTEL_830_M_1, NULL);

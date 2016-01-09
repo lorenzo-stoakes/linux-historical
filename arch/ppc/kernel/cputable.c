@@ -28,6 +28,8 @@ extern void __setup_cpu_750(int cpu_nr);
 extern void __setup_cpu_7400(int cpu_nr);
 extern void __setup_cpu_7410(int cpu_nr);
 extern void __setup_cpu_7450(int cpu_nr);
+extern void __setup_cpu_7450_23(int cpu_nr);
+extern void __setup_cpu_7455(int cpu_nr);
 extern void __setup_cpu_power3(int cpu_nr);
 extern void __setup_cpu_power4(int cpu_nr);
 extern void __setup_cpu_8xx(int cpu_nr);
@@ -185,14 +187,23 @@ struct cpu_spec	cpu_specs[] = {
 	32, 32,
 	__setup_cpu_7450
     },
-    {	/* 7450 others */
-    	0xffff0000, 0x80000000, "7450",
+    {	/* 7450 2.1 */
+    	0xffffffff, 0x80000201, "7450",
     	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB | CPU_FTR_CAN_NAP |
 	CPU_FTR_L2CR | CPU_FTR_TAU | CPU_FTR_ALTIVEC_COMP | CPU_FTR_L3CR |
 	CPU_FTR_HPTE_TABLE | CPU_FTR_SPEC7450,
 	COMMON_PPC | PPC_FEATURE_HAS_ALTIVEC,
 	32, 32,
 	__setup_cpu_7450
+    },
+    {	/* 7450 2.3 and newer */
+    	0xffff0000, 0x80000000, "7450",
+    	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB | CPU_FTR_CAN_NAP |
+	CPU_FTR_L2CR | CPU_FTR_TAU | CPU_FTR_ALTIVEC_COMP | CPU_FTR_L3CR |
+	CPU_FTR_HPTE_TABLE | CPU_FTR_SPEC7450,
+	COMMON_PPC | PPC_FEATURE_HAS_ALTIVEC,
+	32, 32,
+	__setup_cpu_7450_23
     },
     {	/* 7455 */
     	0xffff0000, 0x80010000, "7455",
@@ -201,7 +212,7 @@ struct cpu_spec	cpu_specs[] = {
 	CPU_FTR_HPTE_TABLE | CPU_FTR_SPEC7450,
 	COMMON_PPC | PPC_FEATURE_HAS_ALTIVEC,
 	32, 32,
-	__setup_cpu_7450
+	__setup_cpu_7455
     },
     {	/* 82xx (8240, 8245, 8260 are all 603e cores) */
 	0x7fff0000, 0x00810000, "82xx",

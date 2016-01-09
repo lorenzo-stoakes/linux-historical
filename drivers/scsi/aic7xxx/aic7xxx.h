@@ -37,9 +37,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id$
+ * $Id: //depot/aic7xxx/aic7xxx/aic7xxx.h#45 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx.h,v 1.30 2000/11/10 20:13:40 gibbs Exp $
+ * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx.h,v 1.16.2.13 2002/04/29 19:36:29 gibbs Exp $
  */
 
 #ifndef _AIC7XXX_H_
@@ -351,9 +351,11 @@ typedef enum {
 					   */
 	AHC_BIOS_ENABLED      = 0x80000,
 	AHC_ALL_INTERRUPTS    = 0x100000,
-	AHC_PAGESCBS	      = 0x400000, /* Enable SCB paging */
-	AHC_EDGE_INTERRUPT    = 0x800000, /* Device uses edge triggered ints */
-	AHC_39BIT_ADDRESSING  = 0x1000000 /* Use 39 bit addressing scheme. */
+	AHC_PAGESCBS	      = 0x400000,  /* Enable SCB paging */
+	AHC_EDGE_INTERRUPT    = 0x800000,  /* Device uses edge triggered ints */
+	AHC_39BIT_ADDRESSING  = 0x1000000, /* Use 39 bit addressing scheme. */
+	AHC_LSCBS_ENABLED     = 0x2000000, /* 64Byte SCBs enabled */
+	AHC_SCB_CONFIG_USED   = 0x4000000  /* No SEEPROM but SCB2 had info. */
 } ahc_flag;
 
 /************************* Hardware  SCB Definition ***************************/
@@ -942,6 +944,7 @@ struct ahc_softc {
 	ahc_feature		  features;
 	ahc_bug			  bugs;
 	ahc_flag		  flags;
+	struct seeprom_config	 *seep_config;
 
 	/* Values to store in the SEQCTL register for pause and unpause */
 	uint8_t			  unpause;
@@ -1149,6 +1152,11 @@ int			ahc_search_qinfifo(struct ahc_softc *ahc, int target,
 					   char channel, int lun, u_int tag,
 					   role_t role, uint32_t status,
 					   ahc_search_action action);
+int			ahc_search_untagged_queues(struct ahc_softc *ahc,
+						   ahc_io_ctx_t ctx,
+						   int target, char channel,
+						   int lun, uint32_t status,
+						   ahc_search_action action);
 int			ahc_search_disc_list(struct ahc_softc *ahc, int target,
 					     char channel, int lun, u_int tag,
 					     int stop_on_first, int remove,

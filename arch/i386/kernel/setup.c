@@ -166,6 +166,7 @@ extern char _text, _etext, _edata, _end;
 
 static int disable_x86_serial_nr __initdata = 1;
 static int disable_x86_fxsr __initdata = 0;
+static int disable_x86_ht __initdata = 0;
 
 int enable_acpi_smp_table;
 
@@ -416,14 +417,14 @@ static void __init probe_roms(void)
 
 static void __init limit_regions (unsigned long long size)
 {
+	unsigned long long current_addr = 0;
 	int i;
-	unsigned long long current_size = 0;
 
 	for (i = 0; i < e820.nr_map; i++) {
 		if (e820.map[i].type == E820_RAM) {
-			current_size += e820.map[i].size;
-			if (current_size >= size) {
-				e820.map[i].size -= current_size-size;
+			current_addr = e820.map[i].addr + e820.map[i].size;
+			if (current_addr >= size) {
+				e820.map[i].size -= current_addr-size;
 				e820.nr_map = i + 1;
 				return;
 			}
@@ -727,7 +728,7 @@ static void __init setup_memory_region(void)
 } /* setup_memory_region */
 
 
-static void __init parse_mem_cmdline (char ** cmdline_p)
+static void __init parse_cmdline_early (char ** cmdline_p)
 {
 	char c = ' ', *to = command_line, *from = COMMAND_LINE;
 	int len = 0;
@@ -738,6 +739,8 @@ static void __init parse_mem_cmdline (char ** cmdline_p)
 	saved_command_line[COMMAND_LINE_SIZE-1] = '\0';
 
 	for (;;) {
+		if (c != ' ')
+			goto nextchar;
 		/*
 		 * "mem=nopentium" disables the 4MB page tables.
 		 * "mem=XXX[kKmM]" defines a memory region from HIGH_MEM
@@ -745,7 +748,7 @@ static void __init parse_mem_cmdline (char ** cmdline_p)
 		 * "mem=XXX[KkmM]@XXX[KkmM]" defines a memory region from
 		 * <start> to <start>+<mem>, overriding the bios size.
 		 */
-		if (c == ' ' && !memcmp(from, "mem=", 4)) {
+		if (!memcmp(from, "mem=", 4)) {
 			if (to != command_line)
 				to--;
 			if (!memcmp(from+4, "nopentium", 9)) {
@@ -774,17 +777,23 @@ static void __init parse_mem_cmdline (char ** cmdline_p)
 				}
 			}
 		}
-		/* acpismp=force forces parsing and use of the ACPI SMP table */
-		if (c == ' ' && !memcmp(from, "acpismp=force", 13))
-			 enable_acpi_smp_table = 1;
+
+		/* "noht" disables HyperThreading (2 logical cpus per Xeon) */
+		else if (!memcmp(from, "noht", 4))
+			disable_x86_ht = 1;
+
+		/* "acpismp=force" forces parsing and use of the ACPI SMP table */
+		else if (!memcmp(from, "acpismp=force", 13))
+			enable_acpi_smp_table = 1;
+
 		/*
 		 * highmem=size forces highmem to be exactly 'size' bytes.
 		 * This works even on boxes that have no highmem otherwise.
 		 * This also works to reduce highmem size on bigger boxes.
 		 */
-		if (c == ' ' && !memcmp(from, "highmem=", 8))
+		else if (!memcmp(from, "highmem=", 8))
 			highmem_pages = memparse(from+8, &from) >> PAGE_SHIFT;
-	
+nextchar:
 		c = *(from++);
 		if (!c)
 			break;
@@ -841,7 +850,7 @@ void __init setup_arch(char **cmdline_p)
 	data_resource.start = virt_to_bus(&_etext);
 	data_resource.end = virt_to_bus(&_edata)-1;
 
-	parse_mem_cmdline(cmdline_p);
+	parse_cmdline_early(cmdline_p);
 
 #define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 #define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
@@ -1025,6 +1034,17 @@ void __init setup_arch(char **cmdline_p)
 	}
 #endif
 
+	/*
+	 * If enable_acpi_smp_table and HT feature present, acpitable.c
+	 * will find all logical cpus despite disable_x86_ht: so if both
+	 * "noht" and "acpismp=force" are specified, let "noht" override
+	 * "acpismp=force" cleanly.  Why retain "acpismp=force"? because
+	 * parsing ACPI SMP table might prove useful on some non-HT cpu.
+	 */
+	if (disable_x86_ht) {
+		clear_bit(X86_FEATURE_HT, &boot_cpu_data.x86_capability[0]);
+		enable_acpi_smp_table = 0;
+	}
 	if (test_bit(X86_FEATURE_HT, &boot_cpu_data.x86_capability[0]))
 		enable_acpi_smp_table = 1;
 	
@@ -2267,7 +2287,7 @@ static void __init init_intel(struct cpuinfo_x86 *c)
 		strcpy(c->x86_model_id, p);
 	
 #ifdef CONFIG_SMP
-	if (test_bit(X86_FEATURE_HT, &c->x86_capability)) {
+	if (test_bit(X86_FEATURE_HT, &c->x86_capability) && !disable_x86_ht) {
 		extern	int phys_proc_id[NR_CPUS];
 		
 		u32 	eax, ebx, ecx, edx;
@@ -2717,6 +2737,10 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 	if ( tsc_disable )
 		clear_bit(X86_FEATURE_TSC, &c->x86_capability);
 #endif
+
+	/* HT disabled? */
+	if (disable_x86_ht)
+		clear_bit(X86_FEATURE_HT, &c->x86_capability);
 
 	/* FXSR disabled? */
 	if (disable_x86_fxsr) {

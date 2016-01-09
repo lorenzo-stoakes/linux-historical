@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: gc.c,v 1.52.2.2 2002/02/23 14:25:36 dwmw2 Exp $
+ * $Id: gc.c,v 1.52.2.3 2002/05/12 17:27:08 dwmw2 Exp $
  *
  */
 
@@ -497,9 +497,21 @@ static int jffs2_garbage_collect_hole(struct jffs2_sb_info *c, struct jffs2_eras
 			jffs2_mark_node_obsolete(c, f->metadata->raw);
 			jffs2_free_full_dnode(f->metadata);
 			f->metadata = NULL;
-			return 0;
 		}
+		return 0;
 	}
+
+	/* 
+	 * We should only get here in the case where the node we are
+	 * replacing had more than one frag, so we kept the same version
+	 * number as before. (Except in case of error -- see 'goto fill;' 
+	 * above.)
+	 */
+	D1(if(unlikely(fn->frags <= 1)) {
+		printk(KERN_WARNING "jffs2_garbage_collect_hole: Replacing fn with %d frag(s) but new ver %d != highest_version %d of ino #%d\n",
+		       fn->frags, ri.version, f->highest_version, ri.ino);
+	});
+
 	for (frag = f->fraglist; frag; frag = frag->next) {
 		if (frag->ofs > fn->size + fn->ofs)
 			break;

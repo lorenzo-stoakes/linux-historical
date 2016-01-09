@@ -418,7 +418,7 @@ static __init int broken_pirq(struct dmi_blacklist *d)
 	printk(KERN_INFO " *** If you see IRQ problems, in paticular SCSI resets and hangs at boot\n");
 	printk(KERN_INFO " *** contact your hardware vendor and ask about updates.\n");
 	printk(KERN_INFO " *** Building an SMP kernel may evade the bug some of the time.\n");
-#ifdef CONFIG_X86_UP_APIC
+#ifdef CONFIG_X86_IO_APIC
 	skip_ioapic_setup = 0;
 #endif
 	return 0;

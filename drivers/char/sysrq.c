@@ -186,7 +186,7 @@ static void go_sync(struct super_block *sb, int remount_flag)
  * block devices and malfunctional network filesystems.
  */
 
-int emergency_sync_scheduled;
+volatile int emergency_sync_scheduled;
 
 void do_emergency_sync(void) {
 	struct super_block *sb;

@@ -7,6 +7,9 @@
  *  Authors:  Bjorn Wesen (bjornw@axis.com)
  *
  *  $Log: init.c,v $
+ *  Revision 1.35  2002/05/17 05:33:59  starvik
+ *  Limit cache flush range to the size of the cache
+ *
  *  Revision 1.34  2002/04/22 11:48:51  johana
  *  Added KERN_INFO (2.4.19-pre7)
  *
@@ -474,6 +477,8 @@ flush_etrax_cacherange(void *startadr, int length)
 
 	volatile short *flushadr = (volatile short *)(((unsigned long)startadr & ~PAGE_MASK) |
 						      CACHED_BOOTROM);
+
+	length = length > 8192 ? 8192 : length;  /* No need to flush more than cache size */
 
 	while(length > 0) {
 		short tmp = *flushadr;           /* dummy read to flush */

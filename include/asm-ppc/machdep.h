@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.machdep.h 1.29 02/14/02 17:27:01 trini
+ * BK Id: SCCS/s.machdep.h 1.31 03/19/02 14:19:28 benh
  */
 #ifdef __KERNEL__
 #ifndef _PPC_MACHDEP_H
@@ -55,6 +55,9 @@ struct machdep_calls {
 
 	unsigned char 	(*nvram_read_val)(int addr);
 	void		(*nvram_write_val)(int addr, unsigned char val);
+
+	/* Called from prepare_namespace() */
+	void		(*discover_root)(void);
 
 	/* Tons of keyboard stuff. */
 	int		(*kbd_setkeycode)(unsigned int scancode,

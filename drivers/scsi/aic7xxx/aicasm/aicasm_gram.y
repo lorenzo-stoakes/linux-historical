@@ -38,7 +38,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id$
+ * $Id: //depot/aic7xxx/aic7xxx/aicasm/aicasm_gram.y#14 $
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aicasm/aicasm_gram.y,v 1.12 2000/10/31 18:44:32 gibbs Exp $
  */

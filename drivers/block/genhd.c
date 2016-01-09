@@ -130,6 +130,32 @@ out:
 EXPORT_SYMBOL(get_gendisk);
 
 
+/**
+ * walk_gendisk - issue a command for every registered gendisk
+ * @walk: user-specified callback
+ * @data: opaque data for the callback
+ *
+ * This function walks through the gendisk chain and calls back
+ * into @walk for every element.
+ */
+int
+walk_gendisk(int (*walk)(struct gendisk *, void *), void *data)
+{
+	struct gendisk *gp;
+	int error = 0;
+
+	read_lock(&gendisk_lock);
+	for (gp = gendisk_head; gp; gp = gp->next)
+		if ((error = walk(gp, data)))
+			break;
+	read_unlock(&gendisk_lock);
+
+	return error;
+}
+
+EXPORT_SYMBOL(walk_gendisk);
+
+
 #ifdef CONFIG_PROC_FS
 int
 get_partition_list(char *page, char **start, off_t offset, int count)
@@ -187,26 +213,16 @@ out:
 
 
 extern int blk_dev_init(void);
-#ifdef CONFIG_FUSION_BOOT
-extern int fusion_init(void);
-#endif
 extern int net_dev_init(void);
 extern void console_map_init(void);
 extern int soc_probe(void);
 extern int atmdev_init(void);
-extern int i2o_init(void);
 
 int __init device_init(void)
 {
 	rwlock_init(&gendisk_lock);
 	blk_dev_init();
 	sti();
-#ifdef CONFIG_I2O
-	i2o_init();
-#endif
-#ifdef CONFIG_FUSION_BOOT
-	fusion_init();
-#endif
 #ifdef CONFIG_FC4_SOC
 	/* This has to be done before scsi_dev_init */
 	soc_probe();

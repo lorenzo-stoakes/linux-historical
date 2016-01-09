@@ -41,7 +41,6 @@
 #include <asm/pgtable.h>
 #include <asm/io.h>
 
-
 #define LOAD_INT(x) ((x) >> FSHIFT)
 #define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 /*
@@ -66,6 +65,27 @@ extern int get_swaparea_info (char *);
 #ifdef CONFIG_SGI_DS1286
 extern int get_ds1286_status(char *);
 #endif
+
+void proc_sprintf(char *page, off_t *off, int *lenp, const char *format, ...)
+{
+	int len = *lenp;
+	va_list args;
+
+	/* try to only print whole lines */
+	if (len > PAGE_SIZE-512)
+		return;
+
+	va_start(args, format);
+	len += vsnprintf(page + len, PAGE_SIZE-len, format, args);
+	va_end(args);
+
+	if (len <= *off) {
+		*off -= len;
+		len = 0;
+	}
+
+	*lenp = len;
+}
 
 static int proc_calc_metrics(char *page, char **start, off_t off,
 				 int count, int *eof, int len)
@@ -258,7 +278,7 @@ static struct file_operations proc_ksyms_operations = {
 static int kstat_read_proc(char *page, char **start, off_t off,
 				 int count, int *eof, void *data)
 {
-	int i, len;
+	int i, len = 0;
 	extern unsigned long total_forks;
 	unsigned long jif = jiffies;
 	unsigned int sum = 0, user = 0, nice = 0, system = 0;
@@ -276,10 +296,12 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 #endif
 	}
 
-	len = sprintf(page, "cpu  %u %u %u %lu\n", user, nice, system,
+	proc_sprintf(page, &off, &len,
+		      "cpu  %u %u %u %lu\n", user, nice, system,
 		      jif * smp_num_cpus - (user + nice + system));
 	for (i = 0 ; i < smp_num_cpus; i++)
-		len += sprintf(page + len, "cpu%d %u %u %u %lu\n",
+		proc_sprintf(page, &off, &len,
+			"cpu%d %u %u %u %lu\n",
 			i,
 			kstat.per_cpu_user[cpu_logical_map(i)],
 			kstat.per_cpu_nice[cpu_logical_map(i)],
@@ -287,7 +309,7 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 			jif - (  kstat.per_cpu_user[cpu_logical_map(i)] \
 				   + kstat.per_cpu_nice[cpu_logical_map(i)] \
 				   + kstat.per_cpu_system[cpu_logical_map(i)]));
-	len += sprintf(page + len,
+	proc_sprintf(page, &off, &len,
 		"page %u %u\n"
 		"swap %u %u\n"
 		"intr %u",
@@ -299,10 +321,11 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 	);
 #if !defined(CONFIG_ARCH_S390)
 	for (i = 0 ; i < NR_IRQS ; i++)
-		len += sprintf(page + len, " %u", kstat_irqs(i));
+		proc_sprintf(page, &off, &len,
+			     " %u", kstat_irqs(i) + 1000000000);
 #endif
 
-	len += sprintf(page + len, "\ndisk_io: ");
+	proc_sprintf(page, &off, &len, "\ndisk_io: ");
 
 	for (major = 0; major < DK_MAX_MAJOR; major++) {
 		for (disk = 0; disk < DK_MAX_DISK; disk++) {
@@ -310,7 +333,7 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 				kstat.dk_drive_rblk[major][disk] +
 				kstat.dk_drive_wblk[major][disk];
 			if (active)
-				len += sprintf(page + len,
+				proc_sprintf(page, &off, &len,
 					"(%u,%u):(%u,%u,%u,%u,%u) ",
 					major, disk,
 					kstat.dk_drive[major][disk],
@@ -322,7 +345,7 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 		}
 	}
 
-	len += sprintf(page + len,
+	proc_sprintf(page, &off, &len,
 		"\nctxt %u\n"
 		"btime %lu\n"
 		"processes %lu\n",
@@ -384,8 +407,7 @@ static int cmdline_read_proc(char *page, char **start, off_t off,
 	extern char saved_command_line[];
 	int len;
 
-	len = sprintf(page, "%s\n", saved_command_line);
-	len = strlen(page);
+	len = snprintf(page, count, "%s\n", saved_command_line);
 	return proc_calc_metrics(page, start, off, count, eof, len);
 }
 

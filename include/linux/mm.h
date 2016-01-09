@@ -313,6 +313,7 @@ typedef struct page {
 #define SetPageChecked(page)	set_bit(PG_checked, &(page)->flags)
 #define PageLaunder(page)	test_bit(PG_launder, &(page)->flags)
 #define SetPageLaunder(page)	set_bit(PG_launder, &(page)->flags)
+#define ClearPageLaunder(page)	clear_bit(PG_launder, &(page)->flags)
 
 /*
  * The zone field is never updated after free_area_init_core()

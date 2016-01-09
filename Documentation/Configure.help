@@ -1106,7 +1106,7 @@ CONFIG_HPT34X_AUTODMA
 
   If unsure, say N.
 
-HPT366 chipset support
+HPT366/368/370 chipset support
 CONFIG_BLK_DEV_HPT366
   HPT366 is an Ultra DMA chipset for ATA-66.
   HPT368 is an Ultra DMA chipset for ATA-66 RAID Based.
@@ -13296,8 +13296,8 @@ CONFIG_USB_SERIAL_VISOR
 
 USB Compaq iPAQ Driver
 CONFIG_USB_SERIAL_IPAQ
-  Say Y here if you want to connect to your Compaq iPAQ or HP Jornada
-  548/568 running Windows CE 3.0 or PocketPC 2002 using a USB
+  Say Y here if you want to connect to your Compaq iPAQ, HP Jornada 548/568
+  or Casio EM500 running Windows CE 3.0 or PocketPC 2002 using a USB
   cradle/cable. For information on using the driver,
   read <file:Documentation/usb/usb-serial.txt>.
 
@@ -13953,6 +13953,17 @@ CONFIG_USB_AUERSWALD
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called auerswald.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
+
+Tieman Voyager USB Braille display support
+CONFIG_USB_BRLVOYAGER
+  Say Y here if you want to use the Voyager USB Braille display from
+  Tieman. See <file:Documentation/usb/brlvger.txt> for more
+  information.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called brlvger.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
 D-Link DSB-R100 FM radio support
@@ -19244,15 +19255,17 @@ CONFIG_SOUND_EMU10K1
   Say Y or M if you have a PCI sound card using the EMU10K1 chipset,
   such as the Creative SBLive!, SB PCI512 or Emu-APS.
 
-  For more information on this driver and the degree of support for the
-  different card models please check <http://opensource.creative.com/>.
+  For more information on this driver and the degree of support for
+  the different card models please check:
+
+	<http://sourceforge.net/projects/emu10k1/>
 
   It is now possible to load dsp microcode patches into the EMU10K1
   chip.  These patches are used to implement real time sound
   processing effects which include for example: signal routing,
   bass/treble control, AC3 passthrough, ...
   Userspace tools to create new patches and load/unload them can be
-  found at <http://opensource.creative.com/dist.html>.
+  found in the emu-tools package at the above URL.
 
 Creative SBLive! (EMU10K1) MIDI
 CONFIG_MIDI_EMU10K1

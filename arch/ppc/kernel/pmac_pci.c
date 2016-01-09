@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pmac_pci.c 1.33 03/19/02 15:53:55 benh
+ * BK Id: SCCS/s.pmac_pci.c 1.35 05/06/02 01:37:30 benh
  */
 /*
  * Support for PCI bridges found on Power Macintoshes.
@@ -482,26 +482,16 @@ pcibios_fixup_OF_interrupts(void)
 {	
 	struct pci_dev* dev;
 	
-	pci_for_each_dev(dev)
-	{
-		/*
-		 * Open Firmware often doesn't initialize the,
-		 * PCI_INTERRUPT_LINE config register properly, so we
-		 * should find the device node and se if it has an
-		 * AAPL,interrupts property.
-		 */
-		unsigned char pin;
-		struct device_node* node;
-			
-		if (pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &pin) || !pin)
-			continue; /* No interrupt generated -> no fixup */
-		node = pci_device_to_OF_node(dev);
-		if (!node) {
-			printk("No OF node for device %x:%x\n", dev->bus->number, dev->devfn >> 3);
-			continue;
-		}
+	/*
+	 * Open Firmware often doesn't initialize the
+	 * PCI_INTERRUPT_LINE config register properly, so we
+	 * should find the device node and apply the interrupt
+	 * obtained from the OF device-tree
+	 */
+	pci_for_each_dev(dev) {
+		struct device_node* node = pci_device_to_OF_node(dev);
 		/* this is the node, see if it has interrupts */
-		if (node->n_intrs > 0) 
+		if (node && node->n_intrs > 0)
 			dev->irq = node->intrs[0].line;
 		pci_write_config_byte(dev, PCI_INTERRUPT_LINE, dev->irq);
 	}

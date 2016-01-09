@@ -491,6 +491,7 @@ int coda_readdir(struct file *coda_file, void *dirent, filldir_t filldir)
 	struct dentry *coda_dentry = coda_file->f_dentry;
 	struct coda_file_info *cfi;
 	struct file *host_file;
+	int ret;
 
 	cfi = CODA_FTOC(coda_file);
 	if (!cfi || cfi->cfi_magic != CODA_MAGIC) BUG();
@@ -498,12 +499,21 @@ int coda_readdir(struct file *coda_file, void *dirent, filldir_t filldir)
 
 	coda_vfs_stat.readdir++;
 
-	if ( host_file->f_op->readdir )
-		/* potemkin case: we were handed a directory inode */
-		return vfs_readdir(host_file, filldir, dirent);
+	down(&host_file->f_dentry->d_inode->i_sem);
+	host_file->f_pos = coda_file->f_pos;
 
-	/* Venus: we must read Venus dirents from the file */
-	return coda_venus_readdir(host_file, filldir, dirent, coda_dentry);
+	if ( !host_file->f_op->readdir ) {
+		/* Venus: we must read Venus dirents from the file */
+		ret = coda_venus_readdir(host_file, filldir, dirent, coda_dentry);
+	} else {
+		/* potemkin case: we were handed a directory inode */
+		ret = vfs_readdir(host_file, filldir, dirent);
+	}
+
+	coda_file->f_pos = host_file->f_pos;
+	up(&host_file->f_dentry->d_inode->i_sem);
+
+	return ret;
 }
 
 static inline unsigned int CDT2DT(unsigned char cdt)
@@ -736,7 +746,6 @@ ok:
 	return 0;
 
 return_bad_inode:
-	make_bad_inode(inode);
 	unlock_kernel();
 	return -EIO;
 }

@@ -37,7 +37,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id$
+ * $Id: //depot/aic7xxx/aic7xxx/aicasm/aicasm.c#15 $
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aicasm/aicasm.c,v 1.29 2000/10/05 04:25:42 gibbs Exp $
  */
@@ -397,9 +397,9 @@ static struct patch {
 			skip_patch :12;
 } patches[] = {\n", patch_arg_list);
 
-	for(cur_patch = STAILQ_FIRST(&patches);
-	    cur_patch != NULL;
-	    cur_patch = STAILQ_NEXT(cur_patch,links)) {
+	for (cur_patch = STAILQ_FIRST(&patches);
+	     cur_patch != NULL;
+	     cur_patch = STAILQ_NEXT(cur_patch,links)) {
 		fprintf(ofile, "%s\t{ aic_patch%d_func, %d, %d, %d }",
 			cur_patch == STAILQ_FIRST(&patches) ? "" : ",\n",
 			cur_patch->patch_func, cur_patch->begin,
@@ -414,9 +414,9 @@ static struct patch {
 	u_int16_t	end;
 } critical_sections[] = {\n");
 
-	for(cs = TAILQ_FIRST(&cs_tailq);
-	    cs != NULL;
-	    cs = TAILQ_NEXT(cs, links)) {
+	for (cs = TAILQ_FIRST(&cs_tailq);
+	     cs != NULL;
+	     cs = TAILQ_NEXT(cs, links)) {
 		fprintf(ofile, "%s\t{ %d, %d }",
 			cs == TAILQ_FIRST(&cs_tailq) ? "" : ",\n",
 			cs->begin_addr, cs->end_addr);
@@ -569,9 +569,9 @@ output_listing(char *ifilename)
 
 	/* Now output the listing */
 	cur_patch = STAILQ_FIRST(&patches);
-	for(cur_instr = STAILQ_FIRST(&seq_program);
-	    cur_instr != NULL;
-	    cur_instr = STAILQ_NEXT(cur_instr, links), instrcount++) {
+	for (cur_instr = STAILQ_FIRST(&seq_program);
+	     cur_instr != NULL;
+	     cur_instr = STAILQ_NEXT(cur_instr, links), instrcount++) {
 
 		if (check_patch(&cur_patch, instrcount,
 				&skip_addr, func_values) == 0) {

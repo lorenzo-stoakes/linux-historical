@@ -39,6 +39,7 @@
 #include <linux/ioctl.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/smp_lock.h>
 #include <linux/timer.h>
 #include <linux/pci.h>
@@ -945,26 +946,6 @@ static void mm_end_buffer_io_sync(struct buffer_head *bh, int uptodate)
 {
 	mark_buffer_uptodate(bh, uptodate);
 	unlock_buffer(bh);
-}
-
-/* following copied from buffer.c
- * when it gets exported, as it should be, this
- * can be removed.
- */
-/* #define avoids compiler complaints */
-#define set_bh_page mm_set_bh_page
-static void set_bh_page (struct buffer_head *bh, struct page *page, unsigned long offset)
-{
-	bh->b_page = page;
-	if (offset >= PAGE_SIZE)
-		BUG();
-	if (PageHighMem(page))
-		/*
-		 * This catches illegal uses and preserves the offset:
-		 */
-		bh->b_data = (char *)(0 + offset);
-	else
-		bh->b_data = page_address(page) + offset;
 }
 
  

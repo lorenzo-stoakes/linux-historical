@@ -191,11 +191,7 @@ static void clear_IO_APIC (void)
 #define MAX_PIRQS 8
 int pirq_entries [MAX_PIRQS];
 int pirqs_enabled;
-#ifdef CONFIG_X86_UP_APIC
-int skip_ioapic_setup=1;
-#else
-int skip_ioapic_setup=0;
-#endif
+int skip_ioapic_setup;
 
 static int __init noioapic_setup(char *str)
 {
@@ -654,7 +650,14 @@ void __init setup_IO_APIC_irqs(void)
 		}
 
 		irq = pin_2_irq(idx, apic, pin);
-		add_pin_to_irq(irq, apic, pin);
+		/*
+		 * skip adding the timer int on secondary nodes, which causes
+		 * a small but painful rift in the time-space continuum
+		 */
+		if (clustered_apic_mode && (apic != 0) && (irq == 0))
+			continue;
+		else
+			add_pin_to_irq(irq, apic, pin);
 
 		if (!apic && !IO_APIC_IRQ(irq))
 			continue;

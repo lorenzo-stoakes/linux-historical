@@ -81,9 +81,6 @@ struct inode * coda_iget(struct super_block * sb, ViceFid * fid,
 		/* new, empty inode found... initializing */
 		cii->c_fid = *fid;
 
-	/* we shouldnt see inode collisions anymore */
-	if (!coda_fideq(fid, &cii->c_fid)) BUG();
-
 	/* always replace the attributes, type might have changed */
 	coda_fill_inode(inode, attr);
 	return inode;
@@ -171,9 +168,6 @@ struct inode *coda_fid_to_inode(ViceFid *fid, struct super_block *sb)
 		iput(inode);
 		return NULL;
 	}
-
-	/* we shouldn't see inode collisions anymore */
-	if ( !coda_fideq(fid, &cii->c_fid) ) BUG();
 
         CDEBUG(D_INODE, "found %ld\n", inode->i_ino);
 	return inode;

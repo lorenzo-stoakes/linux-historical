@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pmac_setup.c 1.53 04/09/02 21:01:58 paulus
+ * BK Id: SCCS/s.pmac_setup.c 1.54 04/16/02 20:08:22 paulus
  */
 /*
  *  linux/arch/ppc/kernel/setup.c
@@ -50,6 +50,8 @@
 #include <linux/cuda.h>
 #include <linux/pmu.h>
 #include <linux/seq_file.h>
+#include <linux/blkdev.h>
+#include <linux/genhd.h>
 
 #include <asm/processor.h>
 #include <asm/sections.h>
@@ -67,14 +69,14 @@
 #include <asm/bootx.h>
 #include <asm/cputable.h>
 #include <asm/btext.h>
-
 #include <asm/pmac_feature.h>
 #include <asm/time.h>
+
 #include "local_irq.h"
 #include "pmac_pic.h"
-#include "../mm/mem_pieces.h"
-
-#undef SHOW_GATWICK_IRQS
+#include "mem_pieces.h"
+#include "scsi.h" /* sd_find_target */
+#include "sd.h"
 
 extern long pmac_time_init(void);
 extern unsigned long pmac_get_rtc_time(void);
@@ -267,16 +269,6 @@ pmac_show_cpuinfo(struct seq_file *m)
 	return 0;
 }
 
-#ifdef CONFIG_SCSI
-/* Find the device number for the disk (if any) at target tgt
-   on host adaptor host.  We just need to get the prototype from
-   sd.h */
-#include <linux/blkdev.h>
-#include "../../../drivers/scsi/scsi.h"
-#include "../../../drivers/scsi/sd.h"
-
-#endif
-
 #ifdef CONFIG_VT
 /*
  * Dummy mksound function that does nothing.
@@ -431,6 +423,34 @@ pmac_init2(void)
 	pmac_feature_late_init();
 }
 
+/* That include would have to be in include/linux/ ideally */
+#include "../../../fs/partitions/mac.h"
+
+/* Borrowed from fs/partition/check.c */
+static unsigned char* __init
+read_one_block(struct block_device *bdev, unsigned long n, struct page **v)
+{
+	struct address_space *mapping = bdev->bd_inode->i_mapping;
+	int sect = PAGE_CACHE_SIZE / 512;
+	struct page *page;
+
+	page = read_cache_page(mapping, n/sect,
+			(filler_t *)mapping->a_ops->readpage, NULL);
+	if (!IS_ERR(page)) {
+		wait_on_page(page);
+		if (!Page_Uptodate(page))
+			goto fail;
+		if (PageError(page))
+			goto fail;
+		*v = page;
+		return (unsigned char *)page_address(page) + 512 * (n % sect);
+fail:
+		page_cache_release(page);
+	}
+	*v = NULL;
+	return NULL;
+}
+
 #ifdef CONFIG_SCSI
 void __init
 note_scsi_host(struct device_node *node, void *host)
@@ -496,32 +516,132 @@ find_boot_device(void)
 #endif
 }
 
-/* can't be __init - can be called whenever a disk is first accessed */
-void __pmac
-note_bootable_part(kdev_t dev, int part, int goodness)
+static void __init
+check_bootable_part(kdev_t dev, int blk, struct mac_partition *part)
 {
-	static int found_boot = 0;
-	char *p;
+	int goodness = 0;
 
-	/* Do nothing if the root has been mounted already. */
-	if (init_task.fs->rootmnt != NULL)
+	macpart_fix_string(part->processor, 16);
+	macpart_fix_string(part->name, 32);
+	macpart_fix_string(part->type, 32);					
+    
+	if ((be32_to_cpu(part->status) & MAC_STATUS_BOOTABLE)
+	    && strcasecmp(part->processor, "powerpc") == 0)
+		goodness++;
+
+	if (strcasecmp(part->type, "Apple_UNIX_SVR2") == 0
+	    || (strnicmp(part->type, "Linux", 5) == 0
+	    && strcasecmp(part->type, "Linux_swap") != 0)) {
+		int i, l;
+
+		goodness++;
+		l = strlen(part->name);
+		if (strcmp(part->name, "/") == 0)
+			goodness++;
+		for (i = 0; i <= l - 4; ++i) {
+			if (strnicmp(part->name + i, "root",
+				     4) == 0) {
+				goodness += 2;
+				break;
+			}
+		}
+		if (strnicmp(part->name, "swap", 4) == 0)
+			goodness--;
+	}
+
+	if (goodness > current_root_goodness) {
+		ROOT_DEV = MKDEV(MAJOR(dev), MINOR(dev) + blk);
+		current_root_goodness = goodness;
+	}
+}
+
+static void __init
+check_bootable_disk(kdev_t dev, struct block_device *bdev)
+{
+	struct mac_partition *part;
+	struct mac_driver_desc *md;
+	struct page* pg;
+	unsigned secsize, blocks_in_map, blk;
+	unsigned char* data;
+	
+	/* Check driver descriptor */
+	md = (struct mac_driver_desc *) read_one_block(bdev, 0, &pg);
+	if (!md)
 		return;
-	if ((goodness <= current_root_goodness) &&
-	    (ROOT_DEV != to_kdev_t(DEFAULT_ROOT_DEVICE)))
+	if (be16_to_cpu(md->signature) != MAC_DRIVER_MAGIC)
+		goto fail;
+	secsize = be16_to_cpu(md->block_size);
+	page_cache_release(pg);
+	
+	/* Check if it looks like a mac partition map */
+	data = read_one_block(bdev, secsize/512, &pg);
+	if (!data)
+		goto fail;
+	part = (struct mac_partition *) (data + secsize%512);
+	if (be16_to_cpu(part->signature) != MAC_PARTITION_MAGIC)
+		goto fail;
+
+	/* Iterate the partition map */
+	blocks_in_map = be32_to_cpu(part->map_count);
+	for (blk = 1; blk <= blocks_in_map; ++blk) {
+		int pos = blk * secsize;
+		page_cache_release(pg);
+		data = read_one_block(bdev, pos/512, &pg);
+		if (!data)
+			break;
+		part = (struct mac_partition *) (data + pos%512);
+		if (be16_to_cpu(part->signature) != MAC_PARTITION_MAGIC)
+			break;
+		check_bootable_part(dev, blk, part);
+	}
+fail:
+	if (pg)	
+		page_cache_release(pg);
+}
+
+static int __init
+walk_bootable(struct gendisk *hd, void *data)
+{
+	int drive;
+	
+	for (drive=0; drive<hd->nr_real; drive++) {
+		kdev_t dev;
+		struct block_device *bdev;
+		int rc;
+
+		dev = MKDEV(hd->major, drive << hd->minor_shift);
+		if (boot_dev && boot_dev != dev)
+			continue;
+		bdev = bdget(kdev_t_to_nr(dev));
+		if (bdev == NULL)
+			continue;
+		rc = blkdev_get(bdev, FMODE_READ, 0, BDEV_RAW);
+		if (rc == 0) {
+			check_bootable_disk(dev, bdev);
+			blkdev_put(bdev, BDEV_RAW);
+		}
+	}
+
+	return 0;
+}
+
+void __init
+pmac_discover_root(void)
+{
+	char* p;
+
+	/* Check if root devices already got selected by other ways */
+	if (ROOT_DEV != to_kdev_t(DEFAULT_ROOT_DEVICE))
 		return;
 	p = strstr(saved_command_line, "root=");
 	if (p != NULL && (p == saved_command_line || p[-1] == ' '))
 		return;
 
-	if (!found_boot) {
-		find_boot_device();
-		found_boot = 1;
-	}
-	if (boot_dev == 0 || dev == boot_dev) {
-		ROOT_DEV = MKDEV(MAJOR(dev), MINOR(dev) + part);
-		boot_dev = NODEV;
-		current_root_goodness = goodness;
-	}
+	/* Find the device used for booting if we can */
+	find_boot_device();
+
+	/* Try to locate a partition */
+	walk_gendisk(walk_bootable, NULL);
 }
 
 void __pmac
@@ -787,6 +907,8 @@ pmac_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.pcibios_fixup  = pmac_pcibios_fixup;
 	ppc_md.pcibios_enable_device_hook = pmac_pci_enable_device_hook;
 	ppc_md.pcibios_after_init = pmac_pcibios_after_init;
+
+	ppc_md.discover_root  = pmac_discover_root;
 
 	ppc_md.restart        = pmac_restart;
 	ppc_md.power_off      = pmac_power_off;

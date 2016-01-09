@@ -347,16 +347,16 @@ out:
 		(current->fs->pwdmnt->mnt_sb->s_flags & MS_RDONLY) ? " readonly" : "");
 }
  
+#ifdef CONFIG_ROOT_NFS
 static int __init mount_nfs_root(void)
 {
-#ifdef CONFIG_ROOT_NFS
 	void *data = nfs_root_data();
 
 	if (data && sys_mount("/dev/root","/root","nfs",root_mountflags,data) == 0)
 		return 1;
-#endif
 	return 0;
 }
+#endif
 
 static int __init create_dev(char *name, kdev_t dev, char *devfs_name)
 {
@@ -388,7 +388,7 @@ static void __init change_floppy(char *fmt, ...)
 	va_start(args, fmt);
 	vsprintf(buf, fmt, args);
 	va_end(args);
-	fd = open("/dev/root", O_RDWR, 0);
+	fd = open("/dev/root", O_RDWR | O_NDELAY, 0);
 	if (fd >= 0) {
 		sys_ioctl(fd, FDEJECT, 0);
 		close(fd);
@@ -807,7 +807,7 @@ static void __init handle_initrd(void)
 			error = sys_ioctl(fd, BLKFLSBUF, 0);
 			close(fd);
 		}
-		printk(error ? "okay\n" : "failed\n");
+		printk(!error ? "okay\n" : "failed\n");
 	}
 #endif
 }
@@ -827,6 +827,10 @@ static int __init initrd_load(void)
 void prepare_namespace(void)
 {
 	int is_floppy = MAJOR(ROOT_DEV) == FLOPPY_MAJOR;
+#ifdef CONFIG_ALL_PPC
+	extern void arch_discover_root(void);
+	arch_discover_root();
+#endif /* CONFIG_ALL_PPC */
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (!initrd_start)
 		mount_initrd = 0;

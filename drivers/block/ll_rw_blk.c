@@ -666,7 +666,6 @@ static void account_io_start(struct hd_struct *hd, struct request *req,
 			hd->wr_merges++;
 		hd->wr_sectors += sectors;
 		break;
-	default:
 	}
 	if (!merge)
 		up_ios(hd);
@@ -684,7 +683,6 @@ static void account_io_end(struct hd_struct *hd, struct request *req)
 		hd->wr_ticks += duration;
 		hd->wr_ios++;
 		break;
-	default:
 	}
 	down_ios(hd);
 }

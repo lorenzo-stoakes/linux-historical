@@ -1,4 +1,4 @@
-# BK Id: SCCS/s.Makefile 1.40 04/09/02 21:01:57 paulus
+# BK Id: SCCS/s.Makefile 1.41 04/16/02 20:08:22 paulus
 #
 #
 # Makefile for the linux kernel.
@@ -14,6 +14,9 @@ USE_STANDARD_AS_RULE	:= true
 ifdef CONFIG_PPC64BRIDGE
 EXTRA_AFLAGS		:= -Wa,-mppc64bridge
 endif
+
+# Extra CFLAGS so we don't have to do relative includes
+CFLAGS_pmac_setup.o	+= -I$(TOPDIR)/arch/$(ARCH)/mm -I$(TOPDIR)/drivers/scsi
 
 # Code in these files is used before the kernel is moved to its final position
 CFLAGS_prom_init.o	+= -mrelocatable-lib

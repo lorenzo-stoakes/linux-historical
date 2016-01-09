@@ -18,11 +18,14 @@
  *	20020221 Zwane Mwaikambo	Cleanups as suggested by Jeff Garzik and Alan Cox.
  *	20020222 Zwane Mwaikambo	Added probing.
  *	20020225 Zwane Mwaikambo	Added ISAPNP support.
+ *	20020412 Rob Radez		Broke out start/stop functions
+ *		 <rob@osinvestor.com>	Return proper status instead of temperature warning
+ *					Add WDIOC_GETBOOTSTATUS and WDIOC_SETOPTIONS ioctls
+ *					Fix CONFIG_WATCHDOG_NOWAYOUT
  */
 
 #include <linux/config.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
 #include <linux/watchdog.h>
@@ -55,10 +58,6 @@
 #define	WDCF		0x06	/* Watchdog config register */
 #define WDST		0x07	/* Watchdog status register */
 
-/* WDO Status */
-#define WDO_ENABLED	0x00	
-#define WDO_DISABLED	0x01	
-
 /* WDCF bitfields - which devices assert WDO */
 #define KBC_IRQ		0x01	/* Keyboard Controller */
 #define MSE_IRQ		0x02	/* Mouse */
@@ -71,12 +70,15 @@ static int timeout = 1;
 static int io = -1;
 static int io_len = 2;		/* for non plug and play */
 struct semaphore open_sem;
-static int expect_close = 0;
+static char expect_close;
 spinlock_t sc1200wdt_lock;	/* io port access serialisation */
 
 #if defined CONFIG_ISAPNP || defined CONFIG_ISAPNP_MODULE
 static int isapnp = 1;
 static struct pci_dev *wdt_dev;
+
+MODULE_PARM(isapnp, "i");
+MODULE_PARM_DESC(isapnp, "When set to 0 driver ISA PnP support will be disabled");
 #endif
 
 MODULE_PARM(io, "i");
@@ -84,10 +86,6 @@ MODULE_PARM_DESC(io, "io port");
 MODULE_PARM(timeout, "i");
 MODULE_PARM_DESC(timeout, "range is 0-255 minutes, default is 1");
 
-#if defined CONFIG_ISAPNP || defined CONFIG_ISAPNP_MODULE
-MODULE_PARM(isapnp, "i");
-MODULE_PARM_DESC(isapnp, "When set to 0 driver ISA PnP support will be disabled");
-#endif
 
 
 /* Read from Data Register */
@@ -110,32 +108,9 @@ static inline void sc1200wdt_write_data(unsigned char index, unsigned char data)
 }
 
 
-/* This returns the status of the WDO signal, inactive high.
- * returns WDO_ENABLED or WDO_DISABLED
- */
-static inline int sc1200wdt_status(void)
-{
-	unsigned char ret;
-
-	sc1200wdt_read_data(WDST, &ret);
-	return (ret & 0x01);		/* bits 1 - 7 are undefined */
-}
-
-
-static int sc1200wdt_open(struct inode *inode, struct file *file)
+static void sc1200wdt_start(void)
 {
 	unsigned char reg;
-
-	/* allow one at a time */
-	if (down_trylock(&open_sem))
-		return -EBUSY;
-
-#ifdef CONFIG_WATCHDOG_NOWAYOUT	
-	MOD_INC_USE_COUNT;
-#endif
-
-	if (timeout > MAX_TIMEOUT)
-		timeout = MAX_TIMEOUT;
 
 	sc1200wdt_read_data(WDCF, &reg);
 	/* assert WDO when any of the following interrupts are triggered too */
@@ -143,8 +118,41 @@ static int sc1200wdt_open(struct inode *inode, struct file *file)
 	sc1200wdt_write_data(WDCF, reg);
 	/* set the timeout and get the ball rolling */
 	sc1200wdt_write_data(WDTO, timeout);
+}
+
+
+static void sc1200wdt_stop(void)
+{
+	sc1200wdt_write_data(WDTO, 0);
+}
+
+
+/* This returns the status of the WDO signal, inactive high. */
+static inline int sc1200wdt_status(void)
+{
+	unsigned char ret;
+
+	sc1200wdt_read_data(WDST, &ret);
+	/* If the bit is inactive, the watchdog is enabled, so return
+	 * KEEPALIVEPING which is a bit of a kludge because there's nothing
+	 * else for enabled/disabled status
+	 */
+	return (ret & 0x01) ? 0 : WDIOF_KEEPALIVEPING;	/* bits 1 - 7 are undefined */
+}
+
+
+static int sc1200wdt_open(struct inode *inode, struct file *file)
+{
+	/* allow one at a time */
+	if (down_trylock(&open_sem))
+		return -EBUSY;
+
+	if (timeout > MAX_TIMEOUT)
+		timeout = MAX_TIMEOUT;
+
+	sc1200wdt_start();
 	printk(KERN_INFO PFX "Watchdog enabled, timeout = %d min(s)", timeout);
-	
+
 	return 0;
 }
 
@@ -153,7 +161,8 @@ static int sc1200wdt_ioctl(struct inode *inode, struct file *file, unsigned int 
 {
 	int new_timeout;
 	static struct watchdog_info ident = {
-		options:		WDIOF_SETTIMEOUT,
+		options:		WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT,
+		firmware_version:	0,
 		identity:		"PC87307/PC97307"
 	};
 
@@ -168,7 +177,10 @@ static int sc1200wdt_ioctl(struct inode *inode, struct file *file, unsigned int 
 
 		case WDIOC_GETSTATUS:
 			return put_user(sc1200wdt_status(), (int *)arg);
-	
+
+		case WDIOC_GETBOOTSTATUS:
+			return put_user(0, (int *)arg);
+
 		case WDIOC_KEEPALIVE:
 			sc1200wdt_write_data(WDTO, timeout);
 			return 0;
@@ -188,22 +200,41 @@ static int sc1200wdt_ioctl(struct inode *inode, struct file *file, unsigned int 
 
 		case WDIOC_GETTIMEOUT:
 			return put_user(timeout * 60, (int *)arg);
+
+		case WDIOC_SETOPTIONS:
+		{
+			int options, retval = -EINVAL;
+
+			if (get_user(options, (int *)arg))
+				return -EFAULT;
+
+			if (options & WDIOS_DISABLECARD) {
+				sc1200wdt_stop();
+				retval = 0;
+			}
+
+			if (options & WDIOS_ENABLECARD) {
+				sc1200wdt_start();
+				retval = 0;
+			}
+
+			return retval;
+		}
 	}
 }
 
 
 static int sc1200wdt_release(struct inode *inode, struct file *file)
 {
-#ifndef CONFIG_WATCHDOG_NOWAYOUT
-	if (expect_close) {
-		sc1200wdt_write_data(WDTO, 0);
+	if (expect_close == 42) {
+		sc1200wdt_stop();
 		printk(KERN_INFO PFX "Watchdog disabled\n");
 	} else {
 		sc1200wdt_write_data(WDTO, timeout);
 		printk(KERN_CRIT PFX "Unexpected close!, timeout = %d min(s)\n", timeout);
-	}	
-#endif
+	}
 	up(&open_sem);
+	expect_close = 0;
 
 	return 0;
 }
@@ -223,7 +254,7 @@ static ssize_t sc1200wdt_write(struct file *file, const char *data, size_t len, 
 		for (i = 0; i != len; i++)
 		{
 			if (data[i] == 'V')
-				expect_close = 1;
+				expect_close = 42;
 		}
 #endif
 		sc1200wdt_write_data(WDTO, timeout);
@@ -237,7 +268,7 @@ static ssize_t sc1200wdt_write(struct file *file, const char *data, size_t len, 
 static int sc1200wdt_notify_sys(struct notifier_block *this, unsigned long code, void *unused)
 {
 	if (code == SYS_DOWN || code == SYS_HALT)
-		sc1200wdt_write_data(WDTO, 0);
+		sc1200wdt_stop();
 
 	return NOTIFY_DONE;
 }
@@ -261,7 +292,7 @@ static struct miscdevice sc1200wdt_miscdev =
 {
 	minor:		WATCHDOG_MINOR,
 	name:		"watchdog",
-	fops:		&sc1200wdt_fops
+	fops:		&sc1200wdt_fops,
 };
 
 

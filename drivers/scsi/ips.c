@@ -543,6 +543,7 @@ ips_setup(char *ips_str, int *dummy) {
    }
 
    return (1);
+}
 
 __setup("ips=", ips_setup);
 
@@ -579,10 +580,10 @@ __setup("ips=", ips_setup);
          }
       }
    }
+}
 
 #endif
 
-}
 
 /****************************************************************************/
 /*                                                                          */

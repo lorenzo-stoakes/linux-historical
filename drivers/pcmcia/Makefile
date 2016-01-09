@@ -60,7 +60,7 @@ else
 endif
 
 obj-$(CONFIG_PCMCIA_SA1100)	+= sa1100_cs.o
-obj-$)CONFIG_PCMCIA_M8XX)	+= m8xx_pcmcia.o
+obj-$(CONFIG_PCMCIA_M8XX)	+= m8xx_pcmcia.o
 
 sa1100_cs-objs-y				:= sa1100_generic.o
 sa1100_cs-objs-$(CONFIG_SA1100_ADSBITSY)	+= sa1100_adsbitsy.o sa1111_generic.o

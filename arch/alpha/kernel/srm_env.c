@@ -1,5 +1,5 @@
 /*
- * srm_env.c - Access to SRC environment
+ * srm_env.c - Access to SRM environment
  *             variables through linux' procfs
  *
  * Copyright (C) 2001-2002 Jan-Benedict Glaw <jbglaw@lug-owl.de>
@@ -31,6 +31,11 @@
 
 /*
  * Changelog
+ * ~~~~~~~~~
+ *
+ * Wed, 22 May 2002 00:11:21 +0200
+ * 	- Fix typo on comment (SRC -> SRM)
+ * 	- Call this "Version 0.0.4"
  *
  * Tue,  9 Apr 2002 18:44:40 +0200
  * 	- Implement access by variable name and additionally
@@ -54,7 +59,7 @@
 #define BASE_DIR	"srm_environment"	/* Subdir in /proc/		*/
 #define NAMED_DIR	"named_variables"	/* Subdir for known variables	*/
 #define NUMBERED_DIR	"numbered_variables"	/* Subdir for all variables	*/
-#define VERSION		"0.0.3"			/* Module version		*/
+#define VERSION		"0.0.4"			/* Module version		*/
 #define NAME		"srm_env"		/* Module name			*/
 
 MODULE_AUTHOR("Jan-Benedict Glaw <jbglaw@lug-owl.de>");

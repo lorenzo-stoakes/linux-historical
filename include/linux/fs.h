@@ -225,6 +225,8 @@ enum bh_state_bits {
 			 */
 };
 
+#define MAX_BUF_PER_PAGE (PAGE_CACHE_SIZE / 512)
+
 /*
  * Try to keep the most commonly used fields in single cache lines (16
  * bytes) to improve performance.  This ordering should be

@@ -92,6 +92,7 @@ obj-$(CONFIG_USB_HPUSBSCSI)	+= hpusbscsi.o
 obj-$(CONFIG_USB_BLUETOOTH)	+= bluetooth.o
 obj-$(CONFIG_USB_USBNET)	+= usbnet.o
 obj-$(CONFIG_USB_AUERSWALD)	+= auerswald.o
+obj-$(CONFIG_USB_BRLVGER)	+= brlvger.o
 
 # Object files in subdirectories
 mod-subdirs	:= serial hcd

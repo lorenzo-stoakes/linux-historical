@@ -1,7 +1,7 @@
 /*
  * Adaptec AIC7xxx device driver for Linux.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_osm.c#4 $
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_osm.c#103 $
  *
  * Copyright (c) 1994 John Aycock
  *   The University of Calgary Department of Computer Science.
@@ -136,6 +136,13 @@
 
 #include <linux/mm.h>		/* For fetching system memory size */
 #include <linux/blk.h>		/* For block_size() */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,0)
+/*
+ * Lock protecting manipulation of the ahc softc list.
+ */
+spinlock_t ahc_list_spinlock;
+#endif
 
 /*
  * To generate the correct addresses for the controller to issue
@@ -440,6 +447,7 @@ static void ahc_linux_filter_command(struct ahc_softc*, Scsi_Cmnd*,
 static void ahc_linux_sem_timeout(u_long arg);
 static void ahc_linux_freeze_sim_queue(struct ahc_softc *ahc);
 static void ahc_linux_release_sim_queue(u_long arg);
+static void ahc_linux_dev_timed_unfreeze(u_long arg);
 static int  ahc_linux_queue_recovery_cmd(Scsi_Cmnd *cmd, scb_flag flag);
 static void ahc_linux_initialize_scsi_bus(struct ahc_softc *ahc);
 static void ahc_linux_select_queue_depth(struct Scsi_Host *host,
@@ -1085,7 +1093,6 @@ aic7xxx_setup(char *s)
 			break;
 		}
 	}
-	register_reboot_notifier(&ahc_linux_notifier);
 	return 1;
 }
 
@@ -1103,6 +1110,12 @@ ahc_linux_detect(Scsi_Host_Template *template)
 {
 	struct	ahc_softc *ahc;
 	int     found;
+
+	/*
+	 * It is a bug that the upper layer takes
+	 * this lock just prior to calling us.
+	 */
+	spin_unlock_irq(&io_request_lock);
 
 	/*
 	 * Sanity checking of Linux SCSI data structures so
@@ -1144,6 +1157,12 @@ ahc_linux_detect(Scsi_Host_Template *template)
 	template->max_sectors = 8192;
 #endif
 
+	/*
+	 * Initialize our softc list lock prior to
+	 * probing for any adapters.
+	 */
+	ahc_list_lockinit();
+
 #ifdef CONFIG_PCI
 	ahc_linux_pci_probe(template);
 #endif
@@ -1155,6 +1174,7 @@ ahc_linux_detect(Scsi_Host_Template *template)
 	 * Register with the SCSI layer all
 	 * controllers we've found.
 	 */
+	spin_lock_irq(&io_request_lock);
 	found = 0;
 	TAILQ_FOREACH(ahc, &ahc_tailq, links) {
 
@@ -1342,6 +1362,8 @@ ahc_platform_alloc(struct ahc_softc *ahc, void *platform_arg)
 #endif
 	ahc->seltime = (aic7xxx_seltime & 0x3) << 4;
 	ahc->seltime_b = (aic7xxx_seltime & 0x3) << 4;
+	if (TAILQ_EMPTY(&ahc_tailq))
+		register_reboot_notifier(&ahc_linux_notifier);
 	return (0);
 }
 
@@ -1894,6 +1916,7 @@ ahc_linux_alloc_target(struct ahc_softc *ahc, u_int channel, u_int target)
 	memset(targ, 0, sizeof(*targ));
 	targ->channel = channel;
 	targ->target = target;
+	targ->ahc = ahc;
 	target_offset = target;
 	if (channel != 0)
 		target_offset += 8;
@@ -1923,6 +1946,7 @@ ahc_linux_alloc_device(struct ahc_softc *ahc,
 	if (dev == NULL)
 		return (NULL);
 	memset(dev, 0, sizeof(*dev));
+	init_timer(&dev->timer);
 	TAILQ_INIT(&dev->busyq);
 	dev->flags = AHC_DEV_UNCONFIGURED;
 	dev->lun = lun;
@@ -1951,6 +1975,7 @@ ahc_linux_free_device(struct ahc_softc *ahc, struct ahc_linux_device *dev)
 {
 	struct ahc_linux_target *targ;
 
+	del_timer(&dev->timer);
 	targ = dev->target;
 	targ->devices[dev->lun] = NULL;
 	free(dev, M_DEVBUF);
@@ -2252,13 +2277,26 @@ ahc_linux_handle_scsi_status(struct ahc_softc *ahc,
 		/* FALLTHROUGH */
 	}
 	case SCSI_STATUS_BUSY:
+	{
 		/*
-		 * XXX Set a timer and handle ourselves????
-		 * For now we pray that the mid-layer does something
-		 * sane for devices that are busy.
+		 * Set a short timer to defer sending commands for
+		 * a bit since Linux will not delay in this case.
 		 */
-		ahc_set_scsi_status(scb, SCSI_STATUS_BUSY);
+		if ((dev->flags & AHC_DEV_TIMER_ACTIVE) != 0) {
+			printf("%s:%c:%d: Device Timer still active during "
+			       "busy processing\n", ahc_name(ahc),
+				dev->target->channel, dev->target->target);
+			break;
+		}
+		dev->flags |= AHC_DEV_TIMER_ACTIVE;
+		dev->qfrozen++;
+		init_timer(&dev->timer);
+		dev->timer.data = (u_long)dev;
+		dev->timer.expires = jiffies + (HZ/2);
+		dev->timer.function = ahc_linux_dev_timed_unfreeze;
+		add_timer(&dev->timer);
 		break;
+	}
 	}
 }
 
@@ -2480,6 +2518,25 @@ ahc_linux_release_sim_queue(u_long arg)
 	}
 }
 
+static void
+ahc_linux_dev_timed_unfreeze(u_long arg)
+{
+	struct ahc_linux_device *dev;
+	struct ahc_softc *ahc;
+	u_long s;
+
+	dev = (struct ahc_linux_device *)arg;
+	ahc = dev->target->ahc;
+	ahc_lock(ahc, &s);
+	dev->flags &= ~AHC_DEV_TIMER_ACTIVE;
+	if (dev->qfrozen > 0)
+		dev->qfrozen--;
+	if (dev->qfrozen == 0
+	 && (dev->flags & AHC_DEV_ON_RUN_LIST) == 0)
+		ahc_linux_run_device_queue(ahc, dev);
+	ahc_unlock(ahc, &s);
+}
+
 static int
 ahc_linux_queue_recovery_cmd(Scsi_Cmnd *cmd, scb_flag flag)
 {
@@ -2552,6 +2609,16 @@ ahc_linux_queue_recovery_cmd(Scsi_Cmnd *cmd, scb_flag flag)
 		}
 	}
 
+	if ((dev->flags & (AHC_DEV_Q_BASIC|AHC_DEV_Q_TAGGED)) == 0
+	 && ahc_search_untagged_queues(ahc, cmd, cmd->target,
+				       cmd->channel + 'A', cmd->lun,
+				       CAM_REQ_ABORTED, SEARCH_COMPLETE) != 0) {
+		printf("%s:%d:%d:%d: Command found on untagged queue\n",
+		       ahc_name(ahc), cmd->channel, cmd->target, cmd->lun);
+		retval = SUCCESS;
+		goto done;
+	}
+
 	/*
 	 * See if we can find a matching cmd in the pending list.
 	 */
@@ -2565,7 +2632,7 @@ ahc_linux_queue_recovery_cmd(Scsi_Cmnd *cmd, scb_flag flag)
 		/* Any SCB for this device will do for a target reset */
 		LIST_FOREACH(pending_scb, &ahc->pending_scbs, pending_links) {
 		  	if (ahc_match_scb(ahc, pending_scb, cmd->target,
-					  cmd->channel, CAM_LUN_WILDCARD,
+					  cmd->channel + 'A', CAM_LUN_WILDCARD,
 					  SCB_LIST_NULL, ROLE_INITIATOR) == 0)
 				break;
 		}
@@ -2587,18 +2654,23 @@ ahc_linux_queue_recovery_cmd(Scsi_Cmnd *cmd, scb_flag flag)
 
 	/*
 	 * Ensure that the card doesn't do anything
-	 * behind our back.  Also make sure that we
+	 * behind our back and that no selections have occurred
+	 * that have not been serviced.  Also make sure that we
 	 * didn't "just" miss an interrupt that would
 	 * affect this cmd.
 	 */
 	ahc->flags |= AHC_ALL_INTERRUPTS;
 	do {
+		if (paused)
+			ahc_unpause(ahc);
 		ahc_intr(ahc);
 		ahc_pause(ahc);
+		paused = TRUE;
+		ahc_outb(ahc, SCSISEQ, ahc_inb(ahc, SCSISEQ) & ~ENSELO);
 		ahc_clear_critical_section(ahc);
-	} while (ahc_inb(ahc, INTSTAT) & INT_PEND);
+	} while ((ahc_inb(ahc, INTSTAT) & INT_PEND) != 0
+	      || (ahc_inb(ahc, SSTAT0) & (SELDO|SELINGO)));
 	ahc->flags &= ~AHC_ALL_INTERRUPTS;
-	paused = TRUE;
 
 	ahc_dump_card_state(ahc);
 
@@ -2625,6 +2697,18 @@ ahc_linux_queue_recovery_cmd(Scsi_Cmnd *cmd, scb_flag flag)
 				      ROLE_INITIATOR, /*status*/0,
 				      SEARCH_COUNT) > 0) {
 		disconnected = FALSE;
+	}
+
+	if (disconnected && (ahc_inb(ahc, SEQ_FLAGS) & IDENTIFY_SEEN) != 0) {
+		struct scb *bus_scb;
+
+		bus_scb = ahc_lookup_scb(ahc, ahc_inb(ahc, SCB_TAG));
+		if (bus_scb == pending_scb)
+			disconnected = FALSE;
+		else if (flag != SCB_ABORT
+		      && ahc_inb(ahc, SAVED_SCSIID) == pending_scb->hscb->scsiid
+		      && ahc_inb(ahc, SAVED_LUN) == pending_scb->hscb->lun)
+			disconnected = FALSE;
 	}
 
 	/*
@@ -2884,7 +2968,9 @@ int
 ahc_linux_release(struct Scsi_Host * host)
 {
 	struct ahc_softc *ahc;
+	u_long l;
 
+	ahc_list_lock(&l);
 	if (host != NULL) {
 
 		/*
@@ -2893,9 +2979,16 @@ ahc_linux_release(struct Scsi_Host * host)
 		 * list for extra sanity.
 		 */
 		ahc = ahc_find_softc(*(struct ahc_softc **)host->hostdata);
-		if (ahc != NULL)
+		if (ahc != NULL) {
+			u_long s;
+
+			ahc_lock(ahc, &s);
+			ahc_intr_enable(ahc, FALSE);
+			ahc_unlock(ahc, &s);
 			ahc_free(ahc);
+		}
 	}
+	ahc_list_unlock(&l);
 	return (0);
 }
 

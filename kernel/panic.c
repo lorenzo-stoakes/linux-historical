@@ -101,6 +101,7 @@ NORET_TYPE void panic(const char * fmt, ...)
 		panic_blink(); 
 #endif
 		CHECK_EMERGENCY_SYNC
+		barrier();
 	}
 }
 

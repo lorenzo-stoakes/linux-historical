@@ -188,14 +188,6 @@ static stlport_t	stl_dummyport;
  */
 static char		stl_unwanted[SC26198_RXFIFOSIZE];
 
-/*
- *	Keep track of what interrupts we have requested for us.
- *	We don't need to request an interrupt twice if it is being
- *	shared with another Stallion board.
- */
-static int	stl_gotintrs[STL_MAXBRDS];
-static int	stl_numintrs;
-
 /*****************************************************************************/
 
 static stlbrd_t		*stl_brds[STL_MAXBRDS];
@@ -520,7 +512,6 @@ static int	stl_readproc(char *page, char **start, off_t off, int count, int *eof
 
 static int	stl_brdinit(stlbrd_t *brdp);
 static int	stl_initports(stlbrd_t *brdp, stlpanel_t *panelp);
-static int	stl_mapirq(int irq, char *name);
 static void	stl_getserial(stlport_t *portp, struct serial_struct *sp);
 static int	stl_setserial(stlport_t *portp, struct serial_struct *sp);
 static int	stl_getbrdstats(combrd_t *bp);
@@ -836,6 +827,7 @@ void cleanup_module()
 			}
 			kfree(panelp);
 		}
+		free_irq(brdp->irq, brdp);
 
 		release_region(brdp->ioaddr1, brdp->iosize1);
 		if (brdp->iosize2 > 0)
@@ -844,10 +836,6 @@ void cleanup_module()
 		kfree(brdp);
 		stl_brds[i] = (stlbrd_t *) NULL;
 	}
-
-	for (i = 0; (i < stl_numintrs); i++)
-		free_irq(stl_gotintrs[i], NULL);
-
 	restore_flags(flags);
 }
 
@@ -2083,19 +2071,12 @@ stl_readdone:
 static void stl_intr(int irq, void *dev_id, struct pt_regs *regs)
 {
 	stlbrd_t	*brdp;
-	int		i;
 
 #if DEBUG
 	printk("stl_intr(irq=%d,regs=%x)\n", irq, (int) regs);
 #endif
-
-	for (i = 0; (i < stl_nrbrds); i++) {
-		if ((brdp = stl_brds[i]) == (stlbrd_t *) NULL)
-			continue;
-		if (brdp->state == 0)
-			continue;
-		(* brdp->isr)(brdp);
-	}
+	brdp = (stlbrd_t *) dev_id;
+	(* brdp->isr)(brdp);
 }
 
 /*****************************************************************************/
@@ -2265,39 +2246,6 @@ static void stl_offintr(void *private)
 	unlock_kernel();
 out:
 	MOD_DEC_USE_COUNT;
-}
-
-/*****************************************************************************/
-
-/*
- *	Map in interrupt vector to this driver. Check that we don't
- *	already have this vector mapped, we might be sharing this
- *	interrupt across multiple boards.
- */
-
-static int __init stl_mapirq(int irq, char *name)
-{
-	int	rc, i;
-
-#if DEBUG
-	printk("stl_mapirq(irq=%d,name=%s)\n", irq, name);
-#endif
-
-	rc = 0;
-	for (i = 0; (i < stl_numintrs); i++) {
-		if (stl_gotintrs[i] == irq)
-			break;
-	}
-	if (i >= stl_numintrs) {
-		if (request_irq(irq, stl_intr, SA_SHIRQ, name, NULL) != 0) {
-			printk("STALLION: failed to register interrupt "
-				"routine for %s irq=%d\n", name, irq);
-			rc = -ENODEV;
-		} else {
-			stl_gotintrs[stl_numintrs++] = irq;
-		}
-	}
-	return(rc);
 }
 
 /*****************************************************************************/
@@ -2484,7 +2432,12 @@ static inline int stl_initeio(stlbrd_t *brdp)
 	brdp->nrpanels = 1;
 	brdp->state |= BRD_FOUND;
 	brdp->hwid = status;
-	rc = stl_mapirq(brdp->irq, name);
+	if (request_irq(brdp->irq, stl_intr, SA_SHIRQ, name, brdp) != 0) {
+		printk("STALLION: failed to register interrupt "
+		       "routine for %s irq=%d\n", name, brdp->irq);
+		rc = -ENODEV;
+	}
+
 	return(rc);
 }
 
@@ -2684,7 +2637,12 @@ static int inline stl_initech(stlbrd_t *brdp)
 		outb((brdp->ioctrlval | ECH_BRDDISABLE), brdp->ioctrl);
 
 	brdp->state |= BRD_FOUND;
-	i = stl_mapirq(brdp->irq, name);
+	if (request_irq(brdp->irq, stl_intr, SA_SHIRQ, name, brdp) != 0) {
+		printk("STALLION: failed to register interrupt "
+		       "routine for %s irq=%d\n", name, brdp->irq);
+		i = -ENODEV;
+	}
+
 	return(i);
 }
 

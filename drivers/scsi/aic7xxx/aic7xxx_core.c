@@ -37,9 +37,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_core.c#2 $
+ * $Id: //depot/aic7xxx/aic7xxx/aic7xxx.c#69 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx.c,v 1.61 2000/11/13 03:35:43 gibbs Exp $
+ * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx.c,v 1.41.2.22 2002/04/29 19:36:26 gibbs Exp $
  */
 
 #ifdef __linux__
@@ -1301,6 +1301,13 @@ ahc_handle_scsiint(struct ahc_softc *ahc, u_int intstat)
 				if (lastphase == ahc_phase_table[i].phase)
 					break;
 			}
+			/*
+			 * Renegotiate with this device at the
+			 * next oportunity just in case this busfree
+			 * is due to a negotiation mismatch with the
+			 * device.
+			 */
+			ahc_force_renegotiation(ahc);
 			printf("Unexpected busfree %s\n"
 			       "SEQADDR == 0x%x\n",
 			       ahc_phase_table[i].phasemsg,
@@ -1423,8 +1430,11 @@ ahc_clear_intstat(struct ahc_softc *ahc)
 	ahc_outb(ahc, CLRSINT1, CLRSELTIMEO|CLRATNO|CLRSCSIRSTI
 				|CLRBUSFREE|CLRSCSIPERR|CLRPHASECHG|
 				CLRREQINIT);
+	ahc_flush_device_writes(ahc);
 	ahc_outb(ahc, CLRSINT0, CLRSELDO|CLRSELDI|CLRSELINGO);
+ 	ahc_flush_device_writes(ahc);
 	ahc_outb(ahc, CLRINT, CLRSCSIINT);
+	ahc_flush_device_writes(ahc);
 }
 
 /**************************** Debugging Routines ******************************/
@@ -2532,9 +2542,13 @@ reswitch:
 		} else 
 			ahc->msgin_index++;
 
-		/* Ack the byte */
-		ahc_outb(ahc, CLRSINT1, CLRREQINIT);
-		ahc_inb(ahc, SCSIDATL);
+		if (message_done == MSGLOOP_TERMINATED) {
+			end_session = TRUE;
+		} else {
+			/* Ack the byte */
+			ahc_outb(ahc, CLRSINT1, CLRREQINIT);
+			ahc_inb(ahc, SCSIDATL);
+		}
 		break;
 	}
 	case MSG_TYPE_TARGET_MSGIN:
@@ -2745,6 +2759,17 @@ ahc_parse_msg(struct ahc_softc *ahc, struct ahc_devinfo *devinfo)
 	 * extended message type.
 	 */
 	switch (ahc->msgin_buf[0]) {
+	case MSG_DISCONNECT:
+	case MSG_SAVEDATAPOINTER:
+	case MSG_CMDCOMPLETE:
+	case MSG_RESTOREPOINTERS:
+	case MSG_IGN_WIDE_RESIDUE:
+		/*
+		 * End our message loop as these are messages
+		 * the sequencer handles on its own.
+		 */
+		done = MSGLOOP_TERMINATED;
+		break;
 	case MSG_MESSAGE_REJECT:
 		response = ahc_handle_msg_reject(ahc, devinfo);
 		/* FALLTHROUGH */
@@ -3534,6 +3559,15 @@ ahc_alloc(void *platform_arg, char *name)
 	ahc = device_get_softc((device_t)platform_arg);
 #endif
 	memset(ahc, 0, sizeof(*ahc));
+	ahc->seep_config = malloc(sizeof(*ahc->seep_config),
+				  M_DEVBUF, M_NOWAIT);
+	if (ahc->seep_config == NULL) {
+#ifndef	__FreeBSD__
+		free(ahc, M_DEVBUF);
+#endif
+		free(name, M_DEVBUF);
+		return (NULL);
+	}
 	LIST_INIT(&ahc->pending_scbs);
 	/* We don't know our unit number until the OSM sets it */
 	ahc->name = name;
@@ -3729,6 +3763,8 @@ ahc_free(struct ahc_softc *ahc)
 #endif
 	if (ahc->name != NULL)
 		free(ahc->name, M_DEVBUF);
+	if (ahc->seep_config != NULL)
+		free(ahc->seep_config, M_DEVBUF);
 #ifndef __FreeBSD__
 	free(ahc, M_DEVBUF);
 #endif
@@ -3788,11 +3824,15 @@ ahc_reset(struct ahc_softc *ahc)
 	ahc_outb(ahc, HCNTRL, CHIPRST | ahc->pause);
 
 	/*
-	 * Ensure that the reset has finished
+	 * Ensure that the reset has finished.  We delay 1000us
+	 * prior to reading the register to make sure the chip
+	 * has sufficiently completed its reset to handle register
+	 * accesses.
 	 */
 	wait = 1000;
-	while (--wait && !(ahc_inb(ahc, HCNTRL) & CHIPRSTACK))
+	do {
 		ahc_delay(1000);
+	} while (--wait && !(ahc_inb(ahc, HCNTRL) & CHIPRSTACK));
 
 	if (wait == 0) {
 		printf("%s: WARNING - Failed chip reset!  "
@@ -3880,10 +3920,25 @@ ahc_dmamap_cb(void *arg, bus_dma_segment_t *segs, int nseg, int error)
 static void
 ahc_build_free_scb_list(struct ahc_softc *ahc)
 {
+	int scbsize;
 	int i;
 
+	scbsize = 32;
+	if ((ahc->flags & AHC_LSCBS_ENABLED) != 0)
+		scbsize = 64;
+
 	for (i = 0; i < ahc->scb_data->maxhscbs; i++) {
+		int j;
+
 		ahc_outb(ahc, SCBPTR, i);
+
+		/*
+		 * Touch all SCB bytes to avoid parity errors
+		 * should one of our debugging routines read
+		 * an otherwise uninitiatlized byte.
+		 */
+		for (j = 0; j < scbsize; j++)
+			ahc_outb(ahc, SCB_BASE+j, 0xFF);
 
 		/* Clear the control byte. */
 		ahc_outb(ahc, SCB_CONTROL, 0);
@@ -3894,8 +3949,10 @@ ahc_build_free_scb_list(struct ahc_softc *ahc)
 		else 
 			ahc_outb(ahc, SCB_NEXT, SCB_LIST_NULL);
 
-		/* Make the tag number invalid */
+		/* Make the tag number, SCSIID, and lun invalid */
 		ahc_outb(ahc, SCB_TAG, SCB_LIST_NULL);
+		ahc_outb(ahc, SCB_SCSIID, 0xFF);
+		ahc_outb(ahc, SCB_LUN, 0xFF);
 	}
 
 	/* Make sure that the last SCB terminates the free list */
@@ -5108,8 +5165,6 @@ ahc_search_qinfifo(struct ahc_softc *ahc, int target, char channel,
 	uint8_t prev;
 	uint8_t curscbptr;
 	int	found;
-	int	maxtarget;
-	int	i;
 	int	have_qregs;
 
 	qintail = ahc->qinfifonext;
@@ -5159,8 +5214,7 @@ ahc_search_qinfifo(struct ahc_softc *ahc, int target, char channel,
 
 				ostat = ahc_get_transaction_status(scb);
 				if (ostat == CAM_REQ_INPROG)
-					ahc_set_transaction_status(scb,
-								   status);
+					ahc_set_transaction_status(scb, status);
 				cstat = ahc_get_transaction_status(scb);
 				if (cstat != CAM_REQ_CMP)
 					ahc_freeze_scb(scb);
@@ -5298,9 +5352,33 @@ ahc_search_qinfifo(struct ahc_softc *ahc, int target, char channel,
 	}
 	ahc_outb(ahc, SCBPTR, curscbptr);
 
-	/*
-	 * And lastly, the untagged holding queues.
-	 */
+	found += ahc_search_untagged_queues(ahc, /*ahc_io_ctx_t*/NULL, target,
+					    channel, lun, status, action);
+
+	if (action == SEARCH_COMPLETE)
+		ahc_release_untagged_queues(ahc);
+	return (found);
+}
+
+int
+ahc_search_untagged_queues(struct ahc_softc *ahc, ahc_io_ctx_t ctx,
+			   int target, char channel, int lun, uint32_t status,
+			   ahc_search_action action)
+{
+	struct	scb *scb;
+	int	maxtarget;
+	int	found;
+	int	i;
+
+	if (action == SEARCH_COMPLETE) {
+		/*
+		 * Don't attempt to run any queued untagged transactions
+		 * until we are done with the abort process.
+		 */
+		ahc_freeze_untagged_queues(ahc);
+	}
+
+	found = 0;
 	i = 0;
 	if ((ahc->flags & AHC_SCB_BTT) == 0) {
 
@@ -5339,37 +5417,37 @@ ahc_search_qinfifo(struct ahc_softc *ahc, int target, char channel,
 			if ((scb->flags & SCB_ACTIVE) != 0)
 				continue;
 
-			if (ahc_match_scb(ahc, scb, target, channel,
-					  lun, SCB_LIST_NULL, role)) {
-				/*
-				 * We found an scb that needs to be acted on.
-				 */
-				found++;
-				switch (action) {
-				case SEARCH_COMPLETE:
-				{
-					cam_status ostat;
-					cam_status cstat;
+			if (ahc_match_scb(ahc, scb, target, channel, lun,
+					  SCB_LIST_NULL, ROLE_INITIATOR) == 0
+			 || (ctx != NULL && ctx != scb->io_ctx))
+				continue;
 
-					ostat = ahc_get_transaction_status(scb);
-					if (ostat == CAM_REQ_INPROG)
-						ahc_set_transaction_status(scb,
-								   status);
-					cstat = ahc_get_transaction_status(scb);
-					if (cstat != CAM_REQ_CMP)
-						ahc_freeze_scb(scb);
-					if ((scb->flags & SCB_ACTIVE) == 0)
-						printf("Inactive SCB in untaggedQ\n");
-					ahc_done(ahc, scb);
-					break;
-				}
-				case SEARCH_REMOVE:
-					TAILQ_REMOVE(untagged_q, scb,
-						     links.tqe);
-					break;
-				case SEARCH_COUNT:
-					break;
-				}
+			/*
+			 * We found an scb that needs to be acted on.
+			 */
+			found++;
+			switch (action) {
+			case SEARCH_COMPLETE:
+			{
+				cam_status ostat;
+				cam_status cstat;
+
+				ostat = ahc_get_transaction_status(scb);
+				if (ostat == CAM_REQ_INPROG)
+					ahc_set_transaction_status(scb, status);
+				cstat = ahc_get_transaction_status(scb);
+				if (cstat != CAM_REQ_CMP)
+					ahc_freeze_scb(scb);
+				if ((scb->flags & SCB_ACTIVE) == 0)
+					printf("Inactive SCB in untaggedQ\n");
+				ahc_done(ahc, scb);
+				break;
+			}
+			case SEARCH_REMOVE:
+				TAILQ_REMOVE(untagged_q, scb, links.tqe);
+				break;
+			case SEARCH_COUNT:
+				break;
 			}
 		}
 	}
@@ -5724,6 +5802,16 @@ ahc_reset_channel(struct ahc_softc *ahc, char channel, int initiate_reset)
 	 */
 	ahc_run_qoutfifo(ahc);
 #if AHC_TARGET_MODE
+	/*
+	 * XXX - In Twin mode, the tqinfifo may have commands
+	 *	 for an unaffected channel in it.  However, if
+	 *	 we have run out of ATIO resources to drain that
+	 *	 queue, we may not get them all out here.  Further,
+	 *	 the blocked transactions for the reset channel
+	 *	 should just be killed off, irrespecitve of whether
+	 *	 we are blocked on ATIO resources.  Write a routine
+	 *	 to compact the tqinfifo appropriately.
+	 */
 	if ((ahc->flags & AHC_TARGETROLE) != 0) {
 		ahc_run_tqinfifo(ahc, /*paused*/TRUE);
 	}
@@ -5745,10 +5833,6 @@ ahc_reset_channel(struct ahc_softc *ahc, char channel, int initiate_reset)
 		 */
 		ahc_outb(ahc, SBLKCTL, sblkctl ^ SELBUSB);
 		simode1 = ahc_inb(ahc, SIMODE1) & ~(ENBUSFREE|ENSCSIRST);
-		ahc_outb(ahc, SIMODE1, simode1);
-		if (initiate_reset)
-			ahc_reset_current_bus(ahc);
-		ahc_clear_intstat(ahc);
 #if AHC_TARGET_MODE
 		/*
 		 * Bus resets clear ENSELI, so we cannot
@@ -5756,18 +5840,18 @@ ahc_reset_channel(struct ahc_softc *ahc, char channel, int initiate_reset)
 		 * if we are in target mode.
 		 */
 		if ((ahc->flags & AHC_TARGETROLE) != 0)
-			ahc_outb(ahc, SIMODE1, simode1 | ENSCSIRST);
+			simode1 |= ENSCSIRST;
 #endif
+		ahc_outb(ahc, SIMODE1, simode1);
+		if (initiate_reset)
+			ahc_reset_current_bus(ahc);
+		ahc_clear_intstat(ahc);
 		ahc_outb(ahc, SCSISEQ, scsiseq & (ENSELI|ENRSELI|ENAUTOATNP));
 		ahc_outb(ahc, SBLKCTL, sblkctl);
 		restart_needed = FALSE;
 	} else {
 		/* Case 2: A command from this bus is active or we're idle */
 		simode1 = ahc_inb(ahc, SIMODE1) & ~(ENBUSFREE|ENSCSIRST);
-		ahc_outb(ahc, SIMODE1, simode1);
-		if (initiate_reset)
-			ahc_reset_current_bus(ahc);
-		ahc_clear_intstat(ahc);
 #if AHC_TARGET_MODE
 		/*
 		 * Bus resets clear ENSELI, so we cannot
@@ -5775,8 +5859,12 @@ ahc_reset_channel(struct ahc_softc *ahc, char channel, int initiate_reset)
 		 * if we are in target mode.
 		 */
 		if ((ahc->flags & AHC_TARGETROLE) != 0)
-			ahc_outb(ahc, SIMODE1, simode1 | ENSCSIRST);
+			simode1 |= ENSCSIRST;
 #endif
+		ahc_outb(ahc, SIMODE1, simode1);
+		if (initiate_reset)
+			ahc_reset_current_bus(ahc);
+		ahc_clear_intstat(ahc);
 		ahc_outb(ahc, SCSISEQ, scsiseq & (ENSELI|ENRSELI|ENAUTOATNP));
 		restart_needed = TRUE;
 	}
@@ -6956,6 +7044,8 @@ ahc_handle_target_cmd(struct ahc_softc *ahc, struct target_cmd *cmd)
 		/*
 		 * Wait for more ATIOs from the peripheral driver for this lun.
 		 */
+		if (bootverbose)
+			printf("%s: ATIOs exhausted\n", ahc_name(ahc));
 		return (1);
 	} else
 		ahc->flags &= ~AHC_TQINFIFO_BLOCKED;

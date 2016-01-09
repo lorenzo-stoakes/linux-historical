@@ -801,6 +801,7 @@ static void *usblp_probe(struct usb_device *dev, unsigned int ifnum,
 	usblp_check_status(usblp, 0);
 #endif
 
+	usblp_table[usblp->minor] = usblp;
 	/* If we have devfs, create with perms=660. */
 	sprintf(name, "lp%d", usblp->minor);
 	usblp->devfs = devfs_register(usb_devfs_handle, name,
@@ -816,7 +817,7 @@ static void *usblp_probe(struct usb_device *dev, unsigned int ifnum,
 		usblp->current_protocol, usblp->dev->descriptor.idVendor,
 		usblp->dev->descriptor.idProduct);
 
-	return usblp_table[usblp->minor] = usblp;
+	return usblp;
 
 abort:
 	if (usblp) {

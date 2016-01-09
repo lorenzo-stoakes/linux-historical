@@ -22,8 +22,6 @@
 
 #include <asm/uaccess.h>
 
-#define MAX_BUF_PER_PAGE (PAGE_CACHE_SIZE / 512)
-
 static unsigned long max_block(kdev_t dev)
 {
 	unsigned int retval = ~0U;
@@ -534,9 +532,6 @@ int check_disk_change(kdev_t dev)
 		return 0;
 	if (!bdops->check_media_change(dev))
 		return 0;
-
-	printk(KERN_DEBUG "VFS: Disk change detected on device %s\n",
-		bdevname(dev));
 
 	if (invalidate_device(dev, 0))
 		printk("VFS: busy inodes on changed media.\n");

@@ -55,7 +55,7 @@ sys_call_table:
 /*170*/	.long sys_nis_syscall, sys_nis_syscall, sys_nis_syscall, sys_nis_syscall, sys_getdents
 /*175*/	.long sys_setsid, sys_fchdir, sys_nis_syscall, sys_nis_syscall, sys_nis_syscall
 /*180*/	.long sys_nis_syscall, sys_nis_syscall, sys_nis_syscall, sys_sigpending, sys_query_module
-/*185*/	.long sys_setpgid, sys_nis_syscall, sys_nis_syscall, sys_nis_syscall, sys_newuname
+/*185*/	.long sys_setpgid, sys_nis_syscall, sys_tkill, sys_nis_syscall, sys_newuname
 /*190*/	.long sys_init_module, sys_personality, sys_nis_syscall, sys_nis_syscall, sys_nis_syscall
 /*195*/	.long sys_nis_syscall, sys_nis_syscall, sys_getppid, sparc_sigaction, sys_sgetmask
 /*200*/	.long sys_ssetmask, sys_sigsuspend, sys_newlstat, sys_uselib, old_readdir
@@ -70,7 +70,7 @@ sys_call_table:
 /*240*/	.long sys_munlockall, sys_sched_setparam, sys_sched_getparam, sys_sched_setscheduler, sys_sched_getscheduler
 /*245*/	.long sys_sched_yield, sys_sched_get_priority_max, sys_sched_get_priority_min, sys_sched_rr_get_interval, sys_nanosleep
 /*250*/	.long sparc_mremap, sys_sysctl, sys_getsid, sys_fdatasync, sys_nfsservctl
-/*255*/	.long sys_nis_syscall, sys_nis_syscall, sys_tkill
+/*255*/	.long sys_nis_syscall, sys_nis_syscall
 
 #ifdef CONFIG_SUNOS_EMUL
 	/* Now the SunOS syscall table. */

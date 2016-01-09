@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/linux-aic7xxx-2.4.18_rc4/drivers/scsi/aic7xxx/aic7xxx_host.h#3 $
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_host.h#9 $
  */
 
 #ifndef _AIC7XXX_HOST_H_

@@ -80,7 +80,9 @@ extern int last_pid;
 #include <linux/time.h>
 #include <linux/param.h>
 #include <linux/resource.h>
+#ifdef __KERNEL__
 #include <linux/timer.h>
+#endif
 
 #include <asm/processor.h>
 

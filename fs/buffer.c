@@ -54,7 +54,6 @@
 #include <asm/bitops.h>
 #include <asm/mmu_context.h>
 
-#define MAX_BUF_PER_PAGE (PAGE_CACHE_SIZE / 512)
 #define NR_RESERVED (10*MAX_BUF_PER_PAGE)
 #define MAX_UNUSED_BUFFERS NR_RESERVED+20 /* don't ever have more than this 
 					     number of unused buffer heads */

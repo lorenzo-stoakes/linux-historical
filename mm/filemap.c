@@ -836,7 +836,7 @@ void ___wait_on_page(struct page *page)
 void unlock_page(struct page *page)
 {
 	wait_queue_head_t *waitqueue = page_waitqueue(page);
-	clear_bit(PG_launder, &(page)->flags);
+	ClearPageLaunder(page);
 	smp_mb__before_clear_bit();
 	if (!test_and_clear_bit(PG_locked, &(page)->flags))
 		BUG();

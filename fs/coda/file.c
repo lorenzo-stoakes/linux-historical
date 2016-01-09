@@ -48,7 +48,7 @@ coda_file_read(struct file *coda_file, char *buf, size_t count, loff_t *ppos)
 static ssize_t
 coda_file_write(struct file *coda_file, const char *buf, size_t count, loff_t *ppos)
 {
-	struct inode *host_inode, *coda_inode = coda_file->f_dentry->d_inode;
+	struct inode *coda_inode = coda_file->f_dentry->d_inode;
 	struct coda_file_info *cfi;
 	struct file *host_file;
 	ssize_t ret;
@@ -60,12 +60,11 @@ coda_file_write(struct file *coda_file, const char *buf, size_t count, loff_t *p
 	if (!host_file->f_op || !host_file->f_op->write)
 		return -EINVAL;
 
-	host_inode = host_file->f_dentry->d_inode;
 	down(&coda_inode->i_sem);
 
 	ret = host_file->f_op->write(host_file, buf, count, ppos);
 
-	coda_inode->i_size = host_inode->i_size;
+	coda_inode->i_size = host_file->f_dentry->d_inode->i_size;
 	coda_inode->i_blocks = (coda_inode->i_size + 511) >> 9;
 	coda_inode->i_mtime = coda_inode->i_ctime = CURRENT_TIME;
 	up(&coda_inode->i_sem);
@@ -96,8 +95,8 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	unsigned short flags = coda_file->f_flags & (~O_EXCL);
 	unsigned short coda_flags = coda_flags_to_cflags(flags);
 	struct coda_file_info *cfi;
+	struct inode *host_inode;
 
-	lock_kernel();
 	coda_vfs_stat.open++;
 
 	cfi = kmalloc(sizeof(struct coda_file_info), GFP_KERNEL);
@@ -105,6 +104,8 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 		unlock_kernel();
 		return -ENOMEM;
 	}
+
+	lock_kernel();
 
 	error = venus_open(coda_inode->i_sb, coda_i2f(coda_inode), coda_flags,
 			   &host_file); 
@@ -119,6 +120,18 @@ int coda_open(struct inode *coda_inode, struct file *coda_file)
 	cfi->cfi_magic = CODA_MAGIC;
 	cfi->cfi_container = host_file;
 	coda_load_creds(&cfi->cfi_cred);
+
+	host_inode = host_file->f_dentry->d_inode;
+	if (coda_inode->i_mapping == &coda_inode->i_data)
+		coda_inode->i_mapping = host_inode->i_mapping;
+
+	else if (coda_inode->i_mapping != host_inode->i_mapping) {
+		/* This is not a good thing, it doesn't happen with 'venus'
+		 * Coda's own userspace daemon, but others might not provide
+		 * the same guarantees. Still looking for the real fix. */
+		printk("coda_open: changed mapping\n");
+		coda_inode->i_mapping = host_inode->i_mapping;
+	}
 
 	if (coda_file->private_data != NULL) BUG();
 	coda_file->private_data = cfi;
@@ -190,7 +203,9 @@ int coda_release(struct inode *coda_inode, struct file *coda_file)
 		err = venus_close(coda_inode->i_sb, coda_i2f(coda_inode),
 				  coda_flags, &cfi->cfi_cred);
 
+	coda_inode->i_mapping = &coda_inode->i_data;
 	fput(cfi->cfi_container);
+
 	kfree(coda_file->private_data);
 	coda_file->private_data = NULL;
 

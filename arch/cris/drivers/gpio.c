@@ -1,4 +1,4 @@
-/* $Id: gpio.c,v 1.14 2002/04/12 12:01:53 johana Exp $
+/* $Id: gpio.c,v 1.15 2002/05/06 13:19:13 johana Exp $
  *
  * Etrax general port I/O device
  *
@@ -9,6 +9,9 @@
  *             Johan Adolfsson  (read/set directions, write, port G)
  *
  * $Log: gpio.c,v $
+ * Revision 1.15  2002/05/06 13:19:13  johana
+ * IO_SETINPUT returns mask with bit set = inputs for PA and PB as well.
+ *
  * Revision 1.14  2002/04/12 12:01:53  johana
  * Use global r_port_g_data_shadow.
  * Moved gpio_init_port_g() closer to gpio_init() and marked it __init.
@@ -395,13 +398,15 @@ gpio_ioctl(struct inode *inode, struct file *file,
 			return dir_g_shadow | dir_g_out_bits;
 		}
 	case IO_SETINPUT:
-		/* Set direction 0=unchanged 1=input */
+		/* Set direction 0=unchanged 1=input, 
+		 * return mask with 1=input 
+		 */
 		if (USE_PORTS(priv)) {
 			save_flags(flags); cli();
 			*priv->dir = *priv->dir_shadow &= 
 			~((unsigned char)arg & priv->changeable_dir);
 			restore_flags(flags);
-			return *priv->dir_shadow;
+			return ~(*priv->dir_shadow);
 		} else if (priv->minor == GPIO_MINOR_G) {
 			/* We must fiddle with R_GEN_CONFIG to change dir */
 			if (((arg & dir_g_in_bits) != arg) && 
@@ -443,7 +448,9 @@ gpio_ioctl(struct inode *inode, struct file *file,
 		return 0;
 
 	case IO_SETOUTPUT:
-		/* Set direction 0=unchanged 1=output, returns */
+		/* Set direction 0=unchanged 1=output, 
+		 * return mask with 1=output 
+		 */
 		if (USE_PORTS(priv)) {
 			save_flags(flags); cli();
 			*priv->dir = *priv->dir_shadow |= 

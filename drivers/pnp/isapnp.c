@@ -2138,8 +2138,6 @@ static void isapnp_free_card(struct pci_bus *card)
 	kfree(card);
 }
 
-#endif /* MODULE */
-
 static void isapnp_free_all_resources(void)
 {
 #ifdef ISAPNP_REGION_OK
@@ -2147,7 +2145,6 @@ static void isapnp_free_all_resources(void)
 #endif
 	release_region(_PNPWRP, 1);
 	release_region(isapnp_rdp, 1);
-#ifdef MODULE
 #ifdef CONFIG_PROC_FS
 	isapnp_proc_done();
 #endif
@@ -2156,8 +2153,9 @@ static void isapnp_free_all_resources(void)
 		list_del(list);
 		isapnp_free_card(pci_bus_b(list));
 	}
-#endif
 }
+
+#endif /* MODULE */
 
 static int isapnp_announce_device(struct isapnp_driver *drv, 
 				  struct pci_dev *dev)

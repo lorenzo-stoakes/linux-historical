@@ -18,7 +18,7 @@
  * along with this program; see the file COPYING.  If not, write to
  * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
  * 
- * $Id$
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_osm.h#82 $
  *
  * Copyright (c) 2000-2001 Adaptec Inc.
  * All rights reserved.
@@ -55,7 +55,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id$
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_osm.h#82 $
  *
  */
 #ifndef _AIC7XXX_LINUX_H_
@@ -409,7 +409,7 @@ struct scsi_inquiry_data
 #include <linux/smp.h>
 #endif
 
-#define AIC7XXX_DRIVER_VERSION  "6.2.6"
+#define AIC7XXX_DRIVER_VERSION  "6.2.8"
 
 /**************************** Front End Queues ********************************/
 /*
@@ -468,7 +468,7 @@ struct ahc_linux_device {
 	 * The number of transactions currently
 	 * queued to the device.
 	 */
-	int		active;
+	int			active;
 
 	/*
 	 * The currently allowed number of 
@@ -478,18 +478,18 @@ struct ahc_linux_device {
 	 * mode where the device may have more
 	 * than one outstanding active transaction.
 	 */
-	int		openings;
+	int			openings;
 
 	/*
 	 * A positive count indicates that this
 	 * device's queue is halted.
 	 */
-	u_int		qfrozen;
+	u_int			qfrozen;
 	
 	/*
 	 * Cumulative command counter.
 	 */
-	u_long		commands_issued;
+	u_long			commands_issued;
 
 	/*
 	 * The number of tagged transactions when
@@ -497,21 +497,26 @@ struct ahc_linux_device {
 	 * that have been successfully received by
 	 * this device since the last QUEUE FULL.
 	 */
-	u_int		tag_success_count;
+	u_int			tag_success_count;
 #define AHC_TAG_SUCCESS_INTERVAL 50
 
-	ahc_dev_flags	flags;
+	ahc_dev_flags		flags;
+
+	/*
+	 * Per device timer.
+	 */
+	struct timer_list	timer;
 
 	/*
 	 * The high limit for the tags variable.
 	 */
-	u_int		maxtags;
+	u_int			maxtags;
 
 	/*
 	 * The computed number of tags outstanding
 	 * at the time of the last QUEUE FULL event.
 	 */
-	u_int		tags_on_last_queuefull;
+	u_int			tags_on_last_queuefull;
 
 	/*
 	 * How many times we have seen a queue full
@@ -519,7 +524,7 @@ struct ahc_linux_device {
 	 * to stop our adaptive queue depth algorithm
 	 * on devices with a fixed number of tags.
 	 */
-	u_int		last_queuefull_same_count;
+	u_int			last_queuefull_same_count;
 #define AHC_LOCK_TAGS_COUNT 50
 
 	/*
@@ -531,11 +536,11 @@ struct ahc_linux_device {
 	 * if the AHC_DEV_PERIODIC_OTAG flag is set
 	 * on this device.
 	 */
-	u_int		commands_since_idle_or_otag;
+	u_int			commands_since_idle_or_otag;
 #define AHC_OTAG_THRESH	500
 
-	int		lun;
-	struct		ahc_linux_target *target;
+	int			lun;
+	struct			ahc_linux_target *target;
 };
 
 struct ahc_linux_target {
@@ -544,6 +549,7 @@ struct ahc_linux_target {
 	int	target;
 	int	refcount;
 	struct	ahc_transinfo last_tinfo;
+	struct	ahc_softc *ahc;
 };
 
 /********************* Definitions Required by the Core ***********************/
@@ -723,6 +729,12 @@ static __inline void ahc_done_lockinit(struct ahc_softc *);
 static __inline void ahc_done_lock(struct ahc_softc *, unsigned long *flags);
 static __inline void ahc_done_unlock(struct ahc_softc *, unsigned long *flags);
 
+/* Lock held during ahc_list manipulation and ahc softc frees */
+extern spinlock_t ahc_list_spinlock;
+static __inline void ahc_list_lockinit(void);
+static __inline void ahc_list_lock(unsigned long *flags);
+static __inline void ahc_list_unlock(unsigned long *flags);
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,93)
 static __inline void
 ahc_lockinit(struct ahc_softc *ahc)
@@ -762,6 +774,25 @@ ahc_done_unlock(struct ahc_softc *ahc, unsigned long *flags)
 	spin_unlock_irqrestore(&io_request_lock, *flags);
 }
 
+static __inline void
+ahc_list_lockinit()
+{
+	spin_lock_init(&ahc_list_spinlock);
+}
+
+static __inline void
+ahc_list_lock(unsigned long *flags)
+{
+	*flags = 0;
+	spin_lock_irqsave(&ahc_list_spinlock, *flags);
+}
+
+static __inline void
+ahc_list_unlock(unsigned long *flags)
+{
+	spin_unlock_irqrestore(&ahc_list_spinlock, *flags);
+}
+
 #else /* LINUX_VERSION_CODE < KERNEL_VERSION(2,1,0) */
 
 ahc_lockinit(struct ahc_softc *ahc)
@@ -782,6 +813,7 @@ ahc_unlock(struct ahc_softc *ahc, unsigned long *flags)
 	restore_flags(*flags);
 }
 
+static __inline void
 ahc_done_lockinit(struct ahc_softc *ahc)
 {
 }
@@ -799,6 +831,25 @@ ahc_done_lock(struct ahc_softc *ahc, unsigned long *flags)
 static __inline void
 ahc_done_unlock(struct ahc_softc *ahc, unsigned long *flags)
 {
+}
+
+static __inline void
+ahc_list_lockinit()
+{
+}
+
+static __inline void
+ahc_list_lock(unsigned long *flags)
+{
+	*flags = 0;
+	save_flags(*flags);
+	cli();
+}
+
+static __inline void
+ahc_list_unlock(unsigned long *flags)
+{
+	restore_flags(*flags);
 }
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2,1,0) */
 

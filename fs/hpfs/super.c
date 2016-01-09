@@ -584,3 +584,4 @@ EXPORT_NO_SYMBOLS;
 
 module_init(init_hpfs_fs)
 module_exit(exit_hpfs_fs)
+MODULE_LICENSE("GPL");

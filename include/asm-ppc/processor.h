@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.processor.h 1.35 03/19/02 15:04:39 benh
+ * BK Id: SCCS/s.processor.h 1.37 05/06/02 01:37:30 benh
  */
 #ifdef __KERNEL__
 #ifndef __ASM_PPC_PROCESSOR_H
@@ -191,8 +191,11 @@
 #define	  HID0_EBD	(1<<28)		/* Enable Bus Data Parity */
 #define	  HID0_SBCLK	(1<<27)
 #define	  HID0_EICE	(1<<26)
+#define	  HID0_TBEN	(1<<26)		/* Timebase enable - 745x */
 #define	  HID0_ECLK	(1<<25)
 #define	  HID0_PAR	(1<<24)
+#define	  HID0_STEN	(1<<24)		/* Software table search enable - 745x */
+#define	  HID0_HIGH_BAT	(1<<23)		/* Enable high BATs - 7455 */
 #define	  HID0_DOZE	(1<<23)
 #define	  HID0_NAP	(1<<22)
 #define	  HID0_SLEEP	(1<<21)
@@ -208,8 +211,9 @@
 #define	  HID0_SIED	(1<<7)		/* Serial Instr. Execution [Disable] */
 #define	  HID0_DFCA	(1<<6)		/* Data Cache Flush Assist */
 #define   HID0_BTIC	(1<<5)		/* Branch Target Instruction Cache Enable */
+#define   HID0_LRSTK	(1<<4)		/* Link register stack - 745x */
 #define   HID0_ABE	(1<<3)		/* Address Broadcast Enable */
-#define   HID0_FOLD	(1<<3)		/* Branch Folding enable - 7450 */
+#define   HID0_FOLD	(1<<3)		/* Branch Folding enable - 745x */
 #define	  HID0_BHTE	(1<<2)		/* Branch History Table Enable */
 #define	  HID0_BTCD	(1<<1)		/* Branch target cache disable */
 #define	  HID0_NOPDST	(1<<1)		/* No-op dst, dstt, etc. instr. */

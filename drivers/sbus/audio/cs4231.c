@@ -35,7 +35,7 @@
 #include <asm/io.h>
 #include <asm/pgtable.h>
 #include <asm/sbus.h>
-#ifdef CONFIG_PCI
+#if defined(CONFIG_PCI) && defined(CONFIG_SPARC64)
 #define EB4231_SUPPORT
 #include <asm/ebus.h>
 #include <asm/pbm.h>

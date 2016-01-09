@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.head.S 1.37 04/09/02 21:43:09 paulus
+ * BK Id: SCCS/s.head.S 1.39 05/06/02 01:37:30 benh
  */
 /*
  *  PowerPC version 
@@ -1373,6 +1373,18 @@ _GLOBAL(__setup_cpu_7450)
 	bl	setup_7450_hid0
 	mtlr	r4
 	blr
+_GLOBAL(__setup_cpu_7450_23)
+	mflr	r4
+	bl	setup_common_caches
+	bl	setup_7450_23_hid0
+	mtlr	r4
+	blr
+_GLOBAL(__setup_cpu_7455)
+	mflr	r4
+	bl	setup_common_caches
+	bl	setup_7455_hid0
+	mtlr	r4
+	blr
 _GLOBAL(__setup_cpu_power3)
 	blr
 _GLOBAL(__setup_cpu_power4)
@@ -1442,21 +1454,53 @@ setup_750_7400_hid0:
  */
 setup_7450_hid0:
 	/* We check for the presence of an L3 cache setup by
-	 * the firmware. If any, we disable DOZE capability
+	 * the firmware. If any, we disable NAP capability as
+	 * it's known to be bogus on rev 2.1 and earlier
 	 */
 	mfspr	r11,SPRN_L3CR
 	andis.	r11,r11,L3CR_L3E@h
 	beq	1f
-	li	r7,CPU_FTR_CAN_DOZE
+	li	r7,CPU_FTR_CAN_NAP
 	lwz	r6,CPU_SPEC_FEATURES(r5)
 	andc	r6,r6,r7
 	stw	r6,CPU_SPEC_FEATURES(r5)
 1:	
+setup_7450_23_hid0:
 	mfspr	r11,HID0
 
 	/* All of the bits we have to set.....
 	*/
-	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE | HID0_BTIC
+	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE | HID0_BTIC | HID0_LRSTK
+	oris	r11,r11,HID0_DPM@h	/* enable dynamic power mgmt */
+
+	/* All of the bits we have to clear....
+	*/
+	li	r3,HID0_SPD | HID0_NOPDST | HID0_NOPTI
+	andc	r11,r11,r3		/* clear SPD: enable speculative */
+ 	li	r3,0
+
+ 	mtspr	ICTC,r3			/* Instruction Cache Throttling off */
+	isync
+	mtspr	HID0,r11
+	sync
+	isync
+	blr
+
+/* 7450
+ * Enable Store Gathering (SGE), Branch Folding (FOLD)
+ * Branch History Table (BHTE), Branch Target ICache (BTIC)
+ * Dynamic Power Management (DPM), Speculative (SPD)
+ * Ensure our data cache instructions really operate.
+ * Timebase has to be running or we wouldn't have made it here,
+ * just ensure we don't disable it.
+ * Clear Instruction cache throttling (ICTC)
+ */
+setup_7455_hid0:
+	mfspr	r11,HID0
+
+	/* All of the bits we have to set.....
+	*/
+	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE | HID0_BTIC | HID0_LRSTK
 	oris	r11,r11,HID0_DPM@h	/* enable dynamic power mgmt */
 
 	/* All of the bits we have to clear....

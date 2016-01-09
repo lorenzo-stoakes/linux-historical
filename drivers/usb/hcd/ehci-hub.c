@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 by David Brownell
+ * Copyright (c) 2001-2002 by David Brownell
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -68,8 +68,7 @@ ehci_hub_status_data (struct usb_hcd *hcd, char *buf)
 
 	/* init status to no-changes */
 	buf [0] = 0;
-	temp = readl (&ehci->caps->hcs_params);
-	ports = HCS_N_PORTS (temp);
+	ports = HCS_N_PORTS (ehci->hcs_params);
 	if (ports > 7) {
 		buf [1] = 0;
 		retval++;
@@ -92,7 +91,10 @@ ehci_hub_status_data (struct usb_hcd *hcd, char *buf)
 		if (!(temp & PORT_CONNECT))
 			ehci->reset_done [i] = 0;
 		if ((temp & (PORT_CSC | PORT_PEC | PORT_OCC)) != 0) {
-			set_bit (i, buf);
+			if (i < 7)
+			    buf [0] |= 1 << (i + 1);
+			else
+			    buf [1] |= 1 << (i - 7);
 			status = STS_PCD;
 		}
 	}
@@ -107,8 +109,7 @@ ehci_hub_descriptor (
 	struct ehci_hcd			*ehci,
 	struct usb_hub_descriptor	*desc
 ) {
-	u32		params = readl (&ehci->caps->hcs_params);
-	int		ports = HCS_N_PORTS (params);
+	int		ports = HCS_N_PORTS (ehci->hcs_params);
 	u16		temp;
 
 	desc->bDescriptorType = 0x29;
@@ -124,10 +125,10 @@ ehci_hub_descriptor (
 	memset (&desc->bitmap [temp], 0xff, temp);
 
 	temp = 0x0008;			/* per-port overcurrent reporting */
-	if (HCS_PPC (params))		/* per-port power control */
-	    temp |= 0x0001;
-	if (HCS_INDICATOR (params))	/* per-port indicators (LEDs) */
-	    temp |= 0x0080;
+	if (HCS_PPC (ehci->hcs_params))
+		temp |= 0x0001;		/* per-port power control */
+	if (HCS_INDICATOR (ehci->hcs_params))
+		temp |= 0x0080;		/* per-port indicators (LEDs) */
 	desc->wHubCharacteristics = cpu_to_le16 (temp);
 }
 
@@ -142,9 +143,8 @@ static int ehci_hub_control (
 	u16		wLength
 ) {
 	struct ehci_hcd	*ehci = hcd_to_ehci (hcd);
-	u32		params = readl (&ehci->caps->hcs_params);
-	int		ports = HCS_N_PORTS (params);
-	u32		temp;
+	int		ports = HCS_N_PORTS (ehci->hcs_params);
+	u32		temp, status;
 	unsigned long	flags;
 	int		retval = 0;
 
@@ -189,7 +189,7 @@ static int ehci_hub_control (
 			/* ? */
 			break;
 		case USB_PORT_FEAT_POWER:
-			if (HCS_PPC (params))
+			if (HCS_PPC (ehci->hcs_params))
 				writel (temp & ~PORT_POWER,
 					&ehci->regs->port_status [wIndex]);
 			break;
@@ -222,22 +222,22 @@ static int ehci_hub_control (
 		if (!wIndex || wIndex > ports)
 			goto error;
 		wIndex--;
-		memset (buf, 0, 4);
+		status = 0;
 		temp = readl (&ehci->regs->port_status [wIndex]);
 
 		// wPortChange bits
 		if (temp & PORT_CSC)
-			set_bit (USB_PORT_FEAT_C_CONNECTION, buf);
+			status |= 1 << USB_PORT_FEAT_C_CONNECTION;
 		if (temp & PORT_PEC)
-			set_bit (USB_PORT_FEAT_C_ENABLE, buf);
+			status |= 1 << USB_PORT_FEAT_C_ENABLE;
 		// USB_PORT_FEAT_C_SUSPEND
 		if (temp & PORT_OCC)
-			set_bit (USB_PORT_FEAT_C_OVER_CURRENT, buf);
+			status |= 1 << USB_PORT_FEAT_C_OVER_CURRENT;
 
 		/* whoever resets must GetPortStatus to complete it!! */
 		if ((temp & PORT_RESET)
 				&& jiffies > ehci->reset_done [wIndex]) {
-			set_bit (USB_PORT_FEAT_C_RESET, buf);
+			status |= 1 << USB_PORT_FEAT_C_RESET;
 
 			/* force reset to complete */
 			writel (temp & ~PORT_RESET,
@@ -255,26 +255,27 @@ static int ehci_hub_control (
 		// don't show wPortStatus if it's owned by a companion hc
 		if (!(temp & PORT_OWNER)) {
 			if (temp & PORT_CONNECT) {
-				set_bit (USB_PORT_FEAT_CONNECTION, buf);
-				set_bit (USB_PORT_FEAT_HIGHSPEED, buf);
+				status |= 1 << USB_PORT_FEAT_CONNECTION;
+				status |= 1 << USB_PORT_FEAT_HIGHSPEED;
 			}
 			if (temp & PORT_PE)
-				set_bit (USB_PORT_FEAT_ENABLE, buf);
+				status |= 1 << USB_PORT_FEAT_ENABLE;
 			if (temp & PORT_SUSPEND)
-				set_bit (USB_PORT_FEAT_SUSPEND, buf);
+				status |= 1 << USB_PORT_FEAT_SUSPEND;
 			if (temp & PORT_OC)
-				set_bit (USB_PORT_FEAT_OVER_CURRENT, buf);
+				status |= 1 << USB_PORT_FEAT_OVER_CURRENT;
 			if (temp & PORT_RESET)
-				set_bit (USB_PORT_FEAT_RESET, buf);
+				status |= 1 << USB_PORT_FEAT_RESET;
 			if (temp & PORT_POWER)
-				set_bit (USB_PORT_FEAT_POWER, buf);
+				status |= 1 << USB_PORT_FEAT_POWER;
 		}
 
 #ifndef	EHCI_VERBOSE_DEBUG
-	if (*(u16*)(buf+2))	/* only if wPortChange is interesting */
+	if (status & ~0xffff)	/* only if wPortChange is interesting */
 #endif
 		dbg_port (hcd, "GetStatus", wIndex + 1, temp);
-		cpu_to_le32s ((u32 *) buf);
+		// we "know" this alignment is good, caller used kmalloc()...
+		*((u32 *) buf) = cpu_to_le32 (status);
 		break;
 	case SetHubFeature:
 		switch (wValue) {
@@ -300,7 +301,7 @@ static int ehci_hub_control (
 				&ehci->regs->port_status [wIndex]);
 			break;
 		case USB_PORT_FEAT_POWER:
-			if (HCS_PPC (params))
+			if (HCS_PPC (ehci->hcs_params))
 				writel (temp | PORT_POWER,
 					&ehci->regs->port_status [wIndex]);
 			break;

@@ -673,7 +673,7 @@ S:	Maintained
 
 i386 BOOT CODE
 P:	Riley H. Williams
-M:	rhw@memalpha.cx
+M:	Riley@Williams.Name
 L:	Linux-Kernel@vger.kernel.org
 S:	Maintained
 
@@ -1528,6 +1528,13 @@ S:	Maintained
 SYSV FILESYSTEM
 P:	Christoph Hellwig
 M:	hch@infradead.org
+S:	Maintained
+
+TIEMAN VOYAGER USB BRAILLE DISPLAY DRIVER
+P:	Stephane Dalton
+M:	sdalton@videotron.ca
+P:	Stéphane Doyon
+M:	s.doyon@videotron.ca
 S:	Maintained
 
 TLAN NETWORK DRIVER

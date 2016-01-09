@@ -120,6 +120,7 @@ static const struct {
 	{0x414B4D01, "Asahi Kasei AK4542",	&null_ops},
 	{0x414B4D02, "Asahi Kasei AK4543",	&null_ops},
 	{0x414C4710, "ALC200/200P",		&null_ops},
+	{0x414C4720, "ALC650",			&null_ops},
 	{0x43525900, "Cirrus Logic CS4297",	&default_ops},
 	{0x43525903, "Cirrus Logic CS4297",	&default_ops},
 	{0x43525913, "Cirrus Logic CS4297A rev A", &default_ops},
@@ -151,6 +152,7 @@ static const struct {
 	{0x83847609, "SigmaTel STAC9721/23",	&sigmatel_9721_ops},
 	{0x83847644, "SigmaTel STAC9744/45",	&sigmatel_9744_ops},
 	{0x83847656, "SigmaTel STAC9756/57",	&sigmatel_9744_ops},
+	{0x83847666, "SigmaTel STAC9750T",	&sigmatel_9744_ops},
 	{0x83847684, "SigmaTel STAC9783/84?",	&null_ops},
 	{0x57454301, "Winbond 83971D",		&null_ops},
 };

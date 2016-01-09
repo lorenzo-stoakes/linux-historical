@@ -38,7 +38,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id$
+ * $Id: //depot/aic7xxx/aic7xxx/aicasm/aicasm_scan.l#10 $
  *
  * $FreeBSD: src/sys/dev/aic7xxx/aicasm/aicasm_scan.l,v 1.13.2.3 2001/07/28 18:46:44 gibbs Exp $
  */

@@ -448,3 +448,21 @@ void fbgen_blank(int blank, struct fb_info *info)
 	fbgen_install_cmap(currcon, info2);
 }
 MODULE_LICENSE("GPL");
+
+
+    /*
+     *  Visible symbols for modules
+     */
+
+EXPORT_SYMBOL(fbgen_get_var);
+EXPORT_SYMBOL(fbgen_get_cmap);
+EXPORT_SYMBOL(fbgen_get_fix);
+EXPORT_SYMBOL(fbgen_set_var);
+EXPORT_SYMBOL(fbgen_set_cmap);
+EXPORT_SYMBOL(fbgen_set_disp);
+EXPORT_SYMBOL(fbgen_install_cmap);
+EXPORT_SYMBOL(fbgen_pan_display);
+EXPORT_SYMBOL(fbgen_update_var);
+EXPORT_SYMBOL(fbgen_do_set_var);
+EXPORT_SYMBOL(fbgen_switch);
+EXPORT_SYMBOL(fbgen_blank);

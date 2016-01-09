@@ -21,6 +21,7 @@
 #include <linux/completion.h>
 #include <linux/namespace.h>
 #include <linux/personality.h>
+#include <linux/compiler.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -86,12 +87,13 @@ static int get_pid(unsigned long flags)
 {
 	static int next_safe = PID_MAX;
 	struct task_struct *p;
-	int pid;
+	int pid, beginpid;
 
 	if (flags & CLONE_PID)
 		return current->pid;
 
 	spin_lock(&lastpid_lock);
+	beginpid = last_pid;
 	if((++last_pid) & 0xffff8000) {
 		last_pid = 300;		/* Skip daemons etc. */
 		goto inside;
@@ -111,12 +113,16 @@ inside:
 						last_pid = 300;
 					next_safe = PID_MAX;
 				}
+				if(unlikely(last_pid == beginpid))
+					goto nomorepids;
 				goto repeat;
 			}
 			if(p->pid > last_pid && next_safe > p->pid)
 				next_safe = p->pid;
 			if(p->pgrp > last_pid && next_safe > p->pgrp)
 				next_safe = p->pgrp;
+			if(p->tgid > last_pid && next_safe > p->tgid)
+				next_safe = p->tgid;
 			if(p->session > last_pid && next_safe > p->session)
 				next_safe = p->session;
 		}
@@ -126,6 +132,11 @@ inside:
 	spin_unlock(&lastpid_lock);
 
 	return pid;
+
+nomorepids:
+	read_unlock(&tasklist_lock);
+	spin_unlock(&lastpid_lock);
+	return 0;
 }
 
 static inline int dup_mmap(struct mm_struct * mm)
@@ -337,6 +348,9 @@ static int copy_mm(unsigned long clone_flags, struct task_struct * tsk)
 	if (!mm_init(mm))
 		goto fail_nomem;
 
+	if (init_new_context(tsk,mm))
+		goto free_pt;
+
 	down_write(&oldmm->mmap_sem);
 	retval = dup_mmap(mm);
 	up_write(&oldmm->mmap_sem);
@@ -348,9 +362,6 @@ static int copy_mm(unsigned long clone_flags, struct task_struct * tsk)
 	 * child gets a private LDT (if there was an LDT in the parent)
 	 */
 	copy_segments(tsk, mm);
-
-	if (init_new_context(tsk,mm))
-		goto free_pt;
 
 good_mm:
 	tsk->mm = mm;
@@ -624,6 +635,8 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 
 	copy_flags(clone_flags, p);
 	p->pid = get_pid(clone_flags);
+	if (p->pid == 0 && current->pid != 0)
+		goto bad_fork_cleanup;
 
 	p->run_list.next = NULL;
 	p->run_list.prev = NULL;

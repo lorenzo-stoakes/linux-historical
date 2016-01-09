@@ -66,7 +66,6 @@
 #define	PEGASUS_REQ_GET_REGS	0xf0
 #define	PEGASUS_REQ_SET_REGS	0xf1
 #define	PEGASUS_REQ_SET_REG	PEGASUS_REQ_SET_REGS
-#define	ALIGN(x)		x __attribute__((aligned(L1_CACHE_BYTES)))
 
 enum pegasus_registers {
 	EthCtrl0 = 0,
@@ -103,9 +102,9 @@ typedef struct pegasus {
 	devrequest		dr;
 	wait_queue_head_t	ctrl_wait;
 	struct semaphore	sem;
-	unsigned char		ALIGN(rx_buff[PEGASUS_MAX_MTU]);
-	unsigned char		ALIGN(tx_buff[PEGASUS_MAX_MTU]);
-	unsigned char		ALIGN(intr_buff[8]);
+	unsigned char		rx_buff[PEGASUS_MAX_MTU];
+	unsigned char		tx_buff[PEGASUS_MAX_MTU];
+	unsigned char		intr_buff[8];
 	__u8			eth_regs[4];
 	__u8			phy;
 	__u8			gpio_res;
@@ -254,6 +253,8 @@ PEGASUS_DEV( "SMC 2206 USB Ethernet", VENDOR_SMC, 0x0201,
 		DEFAULT_GPIO_RESET | PEGASUS_II )
 PEGASUS_DEV( "SOHOware NUB100 Ethernet", VENDOR_SOHOWARE, 0x9100,
 		DEFAULT_GPIO_RESET )
+PEGASUS_DEV( "SOHOware NUB110 Ethernet", VENDOR_SOHOWARE, 0x9110,
+		DEFAULT_GPIO_RESET | PEGASUS_II )
 PEGASUS_DEV( "SpeedStream USB 10/100 Ethernet", VENDOR_SIEMENS, 0x1001,
 		DEFAULT_GPIO_RESET )
 

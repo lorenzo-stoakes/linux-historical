@@ -1336,6 +1336,7 @@ td_fill (ohci_t * ohci, unsigned int info,
 	td->hwPSW [0] = cpu_to_le16 ((data & 0x0FFF) | 0xE000);
 
 	/* append to queue */
+	wmb();
 	td->ed->hwTailP = td->hwNextTD;
 }
 
@@ -1399,8 +1400,10 @@ static void td_submit_urb (urb_t * urb)
 				cnt++;
 			}
 
-			if (!ohci->sleeping)
+			if (!ohci->sleeping) {
+				wmb();
 				writel (OHCI_BLF, &ohci->regs->cmdstatus); /* start bulk list */
+			}
 			break;
 
 		case PIPE_INTERRUPT:
@@ -1425,8 +1428,10 @@ static void td_submit_urb (urb_t * urb)
 			info = usb_pipeout (urb->pipe)? 
  				TD_CC | TD_DP_IN | TD_T_DATA1: TD_CC | TD_DP_OUT | TD_T_DATA1;
 			td_fill (ohci, info, data, 0, urb, cnt++);
-			if (!ohci->sleeping)
+			if (!ohci->sleeping) {
+				wmb();
 				writel (OHCI_CLF, &ohci->regs->cmdstatus); /* start Control list */
+			}
 			break;
 
 		case PIPE_ISOCHRONOUS:

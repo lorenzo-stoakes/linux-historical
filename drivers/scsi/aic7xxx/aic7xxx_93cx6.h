@@ -38,9 +38,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id$
+ * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_93cx6.h#10 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_93cx6.h,v 1.8 2000/11/10 20:13:41 gibbs Exp $
+ * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_93cx6.h,v 1.7.2.3 2002/04/29 19:36:31 gibbs Exp $
  */
 #ifndef _AIC7XXX_93CX6_H_
 #define _AIC7XXX_93CX6_H_

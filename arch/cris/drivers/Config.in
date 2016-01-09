@@ -179,7 +179,7 @@ fi
 bool 'ARTPEC-1 support' CONFIG_JULIETTE
 
 if [ "$CONFIG_JULIETTE" = "y" ]; then
-   source arch/cris/drivers/juliette/Config.in
+
 fi
 
 bool 'USB host' CONFIG_ETRAX_USB_HOST

@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: nodelist.c,v 1.30.2.3 2002/02/23 14:04:44 dwmw2 Exp $
+ * $Id: nodelist.c,v 1.30.2.4 2002/05/10 18:30:33 dwmw2 Exp $
  *
  */
 
@@ -69,7 +69,7 @@ void jffs2_add_fd_to_list(struct jffs2_sb_info *c, struct jffs2_full_dirent *new
 	*prev = new;
 
  out:
-	D1(while(*list) {
+	D2(while(*list) {
 		printk(KERN_DEBUG "Dirent \"%s\" (hash 0x%08x, ino #%u\n", (*list)->name, (*list)->nhash, (*list)->ino);
 		list = &(*list)->next;
 	});

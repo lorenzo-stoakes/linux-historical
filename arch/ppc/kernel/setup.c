@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.setup.c 1.74 04/09/02 21:01:58 paulus
+ * BK Id: SCCS/s.setup.c 1.75 04/16/02 20:08:22 paulus
  */
 /*
  * Common prep/pmac/chrp boot and setup code.
@@ -522,6 +522,12 @@ int __init ppc_setup_l2cr(char *str)
 	return 1;
 }
 __setup("l2cr=", ppc_setup_l2cr);
+
+void __init arch_discover_root(void)
+{
+	if (ppc_md.discover_root != NULL)
+		ppc_md.discover_root();
+}
 
 void __init ppc_init(void)
 {

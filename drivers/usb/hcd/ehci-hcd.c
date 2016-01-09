@@ -53,7 +53,7 @@
 
 /*
  * EHCI hc_driver implementation ... experimental, incomplete.
- * Based on the 0.96 register interface specification.
+ * Based on the final 1.0 register interface specification.
  *
  * There are lots of things to help out with here ... notably
  * everything "periodic", and of course testing with all sorts
@@ -70,6 +70,13 @@
  *
  * HISTORY:
  *
+ * 2002-05-07	Some error path cleanups to report better errors; wmb();
+ *	use non-CVS version id; better iso bandwidth claim.
+ * 2002-04-19	Control/bulk/interrupt submit no longer uses giveback() on
+ *	errors in submit path.  Bugfixes to interrupt scheduling/processing.
+ * 2002-03-05	Initial high-speed ISO support; reduce ITD memory; shift
+ *	more checking to generic hcd framework (db).  Make it work with
+ *	Philips EHCI; reduce PCI traffic; shorten IRQ path (Rory Bolt).
  * 2002-01-14	Minor cleanup; version synch.
  * 2002-01-08	Fix roothub handoff of FS/LS to companion controllers.
  * 2002-01-04	Control/Bulk queuing behaves.
@@ -78,13 +85,13 @@
  * 2001-June	Works with usb-storage and NEC EHCI on 2.4
  */
 
-#define DRIVER_VERSION "$Revision: 0.24+ $"
+#define DRIVER_VERSION "2002-May-07"
 #define DRIVER_AUTHOR "David Brownell"
 #define DRIVER_DESC "USB 2.0 'Enhanced' Host Controller (EHCI) Driver"
 
 
 // #define EHCI_VERBOSE_DEBUG
-// #define have_iso
+// #define have_split_iso
 
 /* magic numbers that can affect system performance */
 #define	EHCI_TUNE_CERR		3	/* 0-3 qtd retries; 0 == don't stop */
@@ -180,6 +187,9 @@ static int ehci_start (struct usb_hcd *hcd)
 	dbg_hcs_params (ehci, "ehci_start");
 	dbg_hcc_params (ehci, "ehci_start");
 
+	/* cache this readonly data; minimize PCI reads */
+	ehci->hcs_params = readl (&ehci->caps->hcs_params);
+
 	/*
 	 * hw default: 1K periodic list heads, one per frame.
 	 * periodic_size can shrink by USBCMD update if hcc_params allows.
@@ -197,11 +207,12 @@ static int ehci_start (struct usb_hcd *hcd)
 
 	ehci->async = 0;
 	ehci->reclaim = 0;
-	ehci->next_frame = -1;
+	ehci->next_uframe = -1;
 
 	/* controller state:  unknown --> reset */
 
 	/* EHCI spec section 4.1 */
+	// FIXME require STS_HALT before reset...
 	ehci_reset (ehci);
 	writel (INTR_MASK, &ehci->regs->intr_enable);
 	writel (ehci->periodic_dma, &ehci->regs->frame_list);
@@ -307,7 +318,7 @@ static void ehci_stop (struct usb_hcd *hcd)
 
 	// root hub is shut down separately (first, when possible)
 	scan_async (ehci);
-	if (ehci->next_frame != -1)
+	if (ehci->next_uframe != -1)
 		scan_periodic (ehci);
 	ehci_mem_cleanup (ehci);
 
@@ -329,14 +340,12 @@ static int ehci_get_frame (struct usb_hcd *hcd)
 static int ehci_suspend (struct usb_hcd *hcd, u32 state)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
-	u32			params;
 	int			ports;
 	int			i;
 
 	dbg ("%s: suspend to %d", hcd->bus_name, state);
 
-	params = readl (&ehci->caps->hcs_params);
-	ports = HCS_N_PORTS (params);
+	ports = HCS_N_PORTS (ehci->hcs_params);
 
 	// FIXME:  This assumes what's probably a D3 level suspend...
 
@@ -372,14 +381,12 @@ dbg ("%s: suspend port %d", hcd->bus_name, i);
 static int ehci_resume (struct usb_hcd *hcd)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
-	u32			params;
 	int			ports;
 	int			i;
 
 	dbg ("%s: resume", hcd->bus_name);
 
-	params = readl (&ehci->caps->hcs_params);
-	ports = HCS_N_PORTS (params);
+	ports = HCS_N_PORTS (ehci->hcs_params);
 
 	// FIXME:  if controller didn't retain state,
 	// return and let generic code clean it up
@@ -425,7 +432,7 @@ static void ehci_tasklet (unsigned long param)
 	if (ehci->reclaim_ready)
 		end_unlink_async (ehci);
 	scan_async (ehci);
-	if (ehci->next_frame != -1)
+	if (ehci->next_uframe != -1)
 		scan_periodic (ehci);
 
 	// FIXME:  when nothing is connected to the root hub,
@@ -510,8 +517,7 @@ static int ehci_urb_enqueue (
 	case PIPE_BULK:
 		if (!qh_urb_transaction (ehci, urb, &qtd_list, mem_flags))
 			return -ENOMEM;
-		submit_async (ehci, urb, &qtd_list, mem_flags);
-		break;
+		return submit_async (ehci, urb, &qtd_list, mem_flags);
 
 	case PIPE_INTERRUPT:
 		if (!qh_urb_transaction (ehci, urb, &qtd_list, mem_flags))
@@ -519,20 +525,19 @@ static int ehci_urb_enqueue (
 		return intr_submit (ehci, urb, &qtd_list, mem_flags);
 
 	case PIPE_ISOCHRONOUS:
-#ifdef have_iso
 		if (urb->dev->speed == USB_SPEED_HIGH)
-			return itd_submit (ehci, urb);
+			return itd_submit (ehci, urb, mem_flags);
+#ifdef have_split_iso
 		else
-			return sitd_submit (ehci, urb);
+			return sitd_submit (ehci, urb, mem_flags);
 #else
-		// FIXME highspeed iso stuff is written but never run/tested.
-		// and the split iso support isn't even written yet.
-		dbg ("no iso support yet");
+		dbg ("no split iso support yet");
 		return -ENOSYS;
-#endif /* have_iso */
+#endif /* have_split_iso */
 
+	default:	/* can't happen */
+		return -ENOSYS;
 	}
-	return 0;
 }
 
 /* remove from hardware lists
@@ -580,14 +585,14 @@ dbg ("wait for dequeue: state %d, reclaim %p, hcd state %d",
 		intr_deschedule (ehci, urb->start_frame, qh, urb->interval);
 		if (ehci->hcd.state == USB_STATE_HALT)
 			urb->status = -ESHUTDOWN;
-		qh_completions (ehci, &qh->qtd_list, 1);
+		qh_completions (ehci, qh, 1);
 		return 0;
 
 	case PIPE_ISOCHRONOUS:
 		// itd or sitd ...
 
 		// wait till next completion, do it then.
-		// completion irqs can wait up to 128 msec,
+		// completion irqs can wait up to 1024 msec,
 		urb->transfer_flags |= EHCI_STATE_UNLINK;
 		return 0;
 	}
@@ -614,10 +619,7 @@ static void ehci_free_config (struct usb_hcd *hcd, struct usb_device *udev)
 		if (dev->ep [i]) {
 			struct ehci_qh		*qh;
 
-			// FIXME:  this might be an itd/sitd too ...
-			// or an interrupt urb (not on async list)
-			// can use "union ehci_shadow"
-
+			/* dev->ep never has ITDs or SITDs */
 			qh = (struct ehci_qh *) dev->ep [i];
 			vdbg ("free_config, ep 0x%02x qh %p", i, qh);
 			if (!list_empty (&qh->qtd_list)) {
@@ -644,7 +646,7 @@ static void ehci_free_config (struct usb_hcd *hcd, struct usb_device *udev)
 					spin_lock_irqsave (&ehci->lock, flags);
 				}
 			}
-			qh_unput (ehci, qh);
+			qh_put (ehci, qh);
 		}
 	}
 
