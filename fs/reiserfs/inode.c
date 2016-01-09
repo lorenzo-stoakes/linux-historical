@@ -1138,6 +1138,30 @@ void reiserfs_read_inode2 (struct inode * inode, void *p)
     }
 
     init_inode (inode, &path_to_sd);
+   
+    /* It is possible that knfsd is trying to access inode of a file
+       that is being removed from the disk by some other thread. As we
+       update sd on unlink all that is required is to check for nlink
+       here. This bug was first found by Sizif when debugging
+       SquidNG/Butterfly, forgotten, and found again after Philippe
+       Gramoulle <philippe.gramoulle@mmania.com> reproduced it. 
+
+       More logical fix would require changes in fs/inode.c:iput() to
+       remove inode from hash-table _after_ fs cleaned disk stuff up and
+       in iget() to return NULL if I_FREEING inode is found in
+       hash-table. */
+    /* Currently there is one place where it's ok to meet inode with
+       nlink==0: processing of open-unlinked and half-truncated files
+       during mount (fs/reiserfs/super.c:finish_unfinished()). */
+    if( ( inode -> i_nlink == 0 ) && 
+	! inode -> i_sb -> u.reiserfs_sb.s_is_unlinked_ok ) {
+	    reiserfs_warning( "vs-13075: reiserfs_read_inode2: "
+			      "dead inode read from disk %K. "
+			      "This is likely to be race with knfsd. Ignore\n", 
+			      &key );
+	    make_bad_inode( inode );
+    }
+
     reiserfs_check_path(&path_to_sd) ; /* init inode should be relsing */
 
 }

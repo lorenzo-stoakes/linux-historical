@@ -221,7 +221,7 @@ void buffer_assertion_failure(struct buffer_head *bh);
 #endif
 
 #else
-#define J_ASSERT(assert)
+#define J_ASSERT(assert)	do { } while (0)
 #endif		/* JBD_ASSERTIONS */
 
 enum jbd_state_bits {

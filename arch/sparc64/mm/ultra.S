@@ -1,4 +1,4 @@
-/* $Id: ultra.S,v 1.68 2001/11/09 14:59:19 davem Exp $
+/* $Id: ultra.S,v 1.69 2001/11/15 10:37:14 davem Exp $
  * ultra.S: Don't expand these all over the place...
  *
  * Copyright (C) 1997, 2000 David S. Miller (davem@redhat.com)
@@ -679,20 +679,15 @@ __cheetah_xcall_flush_cache_all:
 
 	.globl		xcall_call_function
 xcall_call_function:
-	mov		TLB_TAG_ACCESS, %g5		! wheee...
-	stxa		%g1, [%g5] ASI_IMMU		! save call_data here for a bit
-	membar		#Sync
 	rdpr		%pstate, %g2
 	wrpr		%g2, PSTATE_IG | PSTATE_AG, %pstate
-	mov		TLB_TAG_ACCESS, %g2
-	ldxa		[%g2] ASI_IMMU, %g5
 	rdpr		%pil, %g2
 	wrpr		%g0, 15, %pil
 	sethi		%hi(109f), %g7
 	b,pt		%xcc, etrap_irq
 109:	 or		%g7, %lo(109b), %g7
 	call		smp_call_function_client
-	 mov		%l5, %o0
+	 nop
 	b,pt		%xcc, rtrap
 	 clr		%l6
 

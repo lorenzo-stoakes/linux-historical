@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.137 2001/10/18 09:06:36 davem Exp $
+/* $Id: entry.S,v 1.138 2001/11/14 17:24:36 davem Exp $
  * arch/sparc64/kernel/entry.S:  Sparc64 trap low-level entry points.
  *
  * Copyright (C) 1995,1997 David S. Miller (davem@caip.rutgers.edu)
@@ -657,15 +657,15 @@ floppy_tdone:
 	stx		%g5, [%g1 + %lo(pdma_size)]
 	sethi		%hi(auxio_register), %g1
 	ldx		[%g1 + %lo(auxio_register)], %g7
-	ldub		[%g7], %g5
+	lduba		[%g7] ASI_PHYS_BYPASS_EC_E, %g5
 	or		%g5, 0xc2, %g5
-	stb		%g5, [%g7]
+	stba		%g5, [%g7] ASI_PHYS_BYPASS_EC_E
 	andn		%g5, 0x02, %g5
 
 	nop; nop;  nop; nop;  nop; nop;
 	nop; nop;  nop; nop;  nop; nop;
 
-	stb		%g5, [%g7]
+	stba		%g5, [%g7] ASI_PHYS_BYPASS_EC_E
 	sethi		%hi(doing_pdma), %g1
 	b,pt		%xcc, floppy_dosoftint
 	 st		%g0, [%g1 + %lo(doing_pdma)]
@@ -678,7 +678,12 @@ floppy_fifo_emptied:
 	sethi		%hi(irq_action), %g1
 	or		%g1, %lo(irq_action), %g1
 	ldx		[%g1 + (11 << 3)], %g3		! irqaction[floppy_irq]
-	ldx		[%g3 + 0x10], %g4		! action->mask == ino_bucket ptr
+	ldx		[%g3 + 0x08], %g4		! action->flags>>48==ino
+	sethi		%hi(ivector_table), %g3
+	srlx		%g4, 48, %g4
+	or		%g3, %lo(ivector_table), %g3
+	sllx		%g4, 5, %g4
+	ldx		[%g3 + %g4], %g4		! &ivector_table[ino]
 	ldx		[%g4 + 0x10], %g4		! bucket->iclr
 	stwa		%g0, [%g4] ASI_PHYS_BYPASS_EC_E	! ICLR_IDLE
 	membar		#Sync				! probably not needed...

@@ -103,6 +103,13 @@ void reiserfs_free_block (struct reiserfs_transaction_handle *th, unsigned long 
 
   get_bit_address (s, block, &nr, &offset);
 
+  if (nr >= sb_bmap_nr (rs)) {
+	  reiserfs_warning ("vs-4075: reiserfs_free_block: "
+			    "block %lu is out of range on %s\n", 
+			    block, bdevname(s->s_dev));
+	  return;
+  }
+
   /* mark it before we clear it, just in case */
   journal_mark_freed(th, s, block) ;
 

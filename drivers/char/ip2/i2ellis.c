@@ -102,6 +102,7 @@ iiEllisInit(void)
 // This routine performs any required cleanup of the iiEllis subsystem.
 //
 //******************************************************************************
+#if 0 /* Unused */
 static void
 iiEllisCleanup(void)
 {
@@ -109,6 +110,7 @@ iiEllisCleanup(void)
 		kfree ( pDelayTimer );
 	}
 }
+#endif
 
 //******************************************************************************
 // Function:   iiSetAddress(pB, address, delay)

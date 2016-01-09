@@ -420,6 +420,10 @@ struct reiserfs_sb_info
     int s_bmaps_without_search;
     int s_direct2indirect;
     int s_indirect2direct;
+	/* set up when it's ok for reiserfs_read_inode2() to read from
+	   disk inode with nlink==0. Currently this is only used during
+	   finish_unfinished() processing at mount time */
+    int s_is_unlinked_ok;
     reiserfs_proc_info_data_t s_proc_info_data;
     struct proc_dir_entry *procdir;
 };

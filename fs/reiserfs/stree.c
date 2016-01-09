@@ -992,10 +992,6 @@ static char  prepare_for_delete_or_cut(
     struct item_head    * p_le_ih = PATH_PITEM_HEAD(p_s_path);
     struct buffer_head  * p_s_bh = PATH_PLAST_BUFFER(p_s_path);
 
-#ifdef CONFIG_REISERFS_CHECK
-    int n_repeat_counter = 0;
-#endif
-
     /* Stat_data item. */
     if ( is_statdata_le_ih (p_le_ih) ) {
 
@@ -1020,13 +1016,11 @@ static char  prepare_for_delete_or_cut(
     {
 	int                   n_unfm_number,    /* Number of the item unformatted nodes. */
 	    n_counter,
-	    n_retry,        /* Set to one if there is unformatted node buffer in use. */
 	    n_blk_size;
 	__u32               * p_n_unfm_pointer; /* Pointer to the unformatted node number. */
 	__u32 tmp;
 	struct item_head      s_ih;           /* Item header. */
 	char                  c_mode;           /* Returned mode of the balance. */
-	struct buffer_head  * p_s_un_bh;
 	int need_research;
 
 
@@ -1099,8 +1093,8 @@ static char  prepare_for_delete_or_cut(
 	    // note: path could be changed, first line in for loop takes care
 	    // of it
 
-	    for ( n_retry = 0, n_counter = *p_n_removed;
-		  n_counter < n_unfm_number; n_counter++, p_n_unfm_pointer-- )  {
+	    for (n_counter = *p_n_removed;
+		 n_counter < n_unfm_number; n_counter++, p_n_unfm_pointer-- ) {
 
 		if (item_moved (&s_ih, p_s_path)) {
 		    need_research = 1 ;
@@ -1110,69 +1104,23 @@ static char  prepare_for_delete_or_cut(
 			p_n_unfm_pointer > (__u32 *)B_I_PITEM(p_s_bh, &s_ih) + I_UNFM_NUM(&s_ih) - 1,
 			"vs-5265: pointer out of range");
 
-		if ( ! get_block_num(p_n_unfm_pointer,0) )  { /* Hole, nothing to remove. */
-		    if ( ! n_retry )
+		/* Hole, nothing to remove. */
+		if ( ! get_block_num(p_n_unfm_pointer,0) )  { 
 			(*p_n_removed)++;
-		    continue;
+			continue;
 		}
-		/* Search for the buffer in cache. */
-		p_s_un_bh = get_hash_table(p_s_sb->s_dev, get_block_num(p_n_unfm_pointer,0), n_blk_size);
 
-		if (p_s_un_bh) {
-		    mark_buffer_clean(p_s_un_bh) ;
-		    if (buffer_locked(p_s_un_bh)) {
-		  __wait_on_buffer(p_s_un_bh) ;
-		    }
-		    /* even if the item moves, the block number of the
-		    ** unformatted node we want to cut won't.  So, it was
-		    ** safe to clean the buffer here, this block _will_
-		    ** get freed during this call to prepare_for_delete_or_cut
-		    */
-		  if ( item_moved (&s_ih, p_s_path) )  {
-		      need_research = 1;
-		      brelse(p_s_un_bh) ;
-		      break ;
-		  }
-		}
-		if ( p_s_un_bh && block_in_use (p_s_un_bh)) {
-		    /* Block is locked or held more than by one holder and by
-                       journal. */
-
-#ifdef CONFIG_REISERFS_CHECK
-		    if (n_repeat_counter && (n_repeat_counter % 100000) == 0) {
-		      printk("prepare_for_delete, waiting on buffer %lu, b_count %d, %s%cJDIRTY %cJDIRTY_WAIT\n", 
-			     p_s_un_bh->b_blocknr, atomic_read (&p_s_un_bh->b_count),
-			     buffer_locked (p_s_un_bh) ? "locked, " : "",
-			     buffer_journaled(p_s_un_bh) ? ' ' : '!', 
-			     buffer_journal_dirty(p_s_un_bh) ? ' ' : '!') ;
-
-		    }
-#endif
-		    n_retry = 1;
-		    brelse (p_s_un_bh);
-		    continue;
-		}
-      
-		if ( ! n_retry )
-		    (*p_n_removed)++;
-      
-		RFALSE( p_s_un_bh &&
-                     get_block_num(p_n_unfm_pointer, 0) != p_s_un_bh->b_blocknr,
-		    // note: minix_truncate allows that. As truncate is
-		    // protected by down (inode->i_sem), two truncates can not
-		    // co-exist
-		    "PAP-5280: blocks numbers are different");	
+		(*p_n_removed)++;
 
 		tmp = get_block_num(p_n_unfm_pointer,0);
 		put_block_num(p_n_unfm_pointer, 0, 0);
 		journal_mark_dirty (th, p_s_sb, p_s_bh);
-		bforget (p_s_un_bh);
 		inode->i_blocks -= p_s_sb->s_blocksize / 512;
 		reiserfs_free_block(th, tmp);
 		if ( item_moved (&s_ih, p_s_path) )  {
-		    need_research = 1;
-		    break ;
-		    }
+			need_research = 1;
+			break ;
+		}
 	    }
 
 	    /* a trick.  If the buffer has been logged, this
@@ -1182,28 +1130,6 @@ static char  prepare_for_delete_or_cut(
 	    */
 	    reiserfs_restore_prepared_buffer(p_s_sb, p_s_bh);
 
-	    if ( n_retry ) {
-		/* There is block in use. Wait, they should release it soon */
-
-		RFALSE( *p_n_removed >= n_unfm_number, "PAP-5290: illegal case");
-#ifdef CONFIG_REISERFS_CHECK
-		if ( !(++n_repeat_counter % 500000) ) {
-		    reiserfs_warning("PAP-5300: prepare_for_delete_or_cut: (pid %u): "
-				     "could not delete item %k in (%d) iterations. New file length %Lu. (inode %Ld), Still trying\n",
-				     current->pid, p_s_item_key, n_repeat_counter, n_new_file_length, inode->i_size);
-		    if (n_repeat_counter == 5000000) {
-			print_block (PATH_PLAST_BUFFER(p_s_path), 3, 
-				     PATH_LAST_POSITION (p_s_path) - 2, PATH_LAST_POSITION (p_s_path) + 2);
-			reiserfs_panic(p_s_sb, "PAP-5305: prepare_for_delete_or_cut: key %k, new_file_length %Ld",
-				       p_s_item_key, n_new_file_length);
-		    }
-		}
-#endif
-
-		run_task_queue(&tq_disk);
-		current->policy |= SCHED_YIELD;
-		schedule();
-	    }
 	    /* This loop can be optimized. */
 	} while ( (*p_n_removed < n_unfm_number || need_research) &&
 		  search_for_position_by_key(p_s_sb, p_s_item_key, p_s_path) == POSITION_FOUND );
