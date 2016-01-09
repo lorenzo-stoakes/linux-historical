@@ -34,6 +34,7 @@
 #include <linux/smp.h>
 
 #include <asm/cachectl.h>
+#include <asm/cpu.h>
 #include <asm/mipsregs.h>
 #include <asm/reg.h>
 #include <asm/system.h>
@@ -321,10 +322,12 @@ unsigned long get_wchan(struct task_struct *p);
 /*
  * NOTE! The task struct and the stack go together
  */
-#define THREAD_SIZE (2*PAGE_SIZE)
+#define THREAD_ORDER		(PAGE_SHIFT >= 14 ? 0 : 2)
+#define THREAD_SIZE		(PAGE_SIZE << THREAD_ORDER)
+#define THREAD_MASK		(THREAD_SIZE - 1UL)
 #define alloc_task_struct() \
-	((struct task_struct *) __get_free_pages(GFP_KERNEL, 2))
-#define free_task_struct(p)	free_pages((unsigned long)(p), 2)
+	((struct task_struct *) __get_free_pages(GFP_KERNEL, THREAD_ORDER))
+#define free_task_struct(p)	free_pages((unsigned long)(p), THREAD_ORDER)
 #define get_task_struct(tsk)	atomic_inc(&virt_to_page(tsk)->count)
 
 #define init_task	(init_task_union.task)

@@ -62,9 +62,6 @@ void core_send_ipi(int cpu, unsigned int action)
 
 void sb1250_smp_finish(void)
 {
-	extern void sb1_sanitize_tlb(void);
-
-	sb1_sanitize_tlb();
 	sb1250_time_init();
 }
 

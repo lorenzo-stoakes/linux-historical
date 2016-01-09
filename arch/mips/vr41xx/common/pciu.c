@@ -74,7 +74,7 @@ static inline int vr41xx_pci_config_access(struct pci_dev *dev, int where)
 		/*
 		 * Type 1 configuration
 		 */
-		if (bus > 255 || PCI_SLOT(dev_fn) > 31 || where > 255)
+		if (PCI_SLOT(dev_fn) > 31 || where > 255)
 			return -1;
 
 		writel((bus << 16)	|

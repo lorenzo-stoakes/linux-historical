@@ -533,6 +533,8 @@ static inline int simulate_llsc(struct pt_regs *regs)
 		simulate_sc(regs, opcode);
 		return 0;
 	}
+
+	return -EFAULT;			/* Strange things going on ... */
 }
 
 asmlinkage void do_ov(struct pt_regs *regs)
@@ -593,6 +595,8 @@ asmlinkage void do_bp(struct pt_regs *regs)
 {
 	unsigned int opcode, bcode;
 	siginfo_t info;
+
+	die_if_kernel("Break instruction in kernel code", regs);
 
 	if (get_insn_opcode(regs, &opcode))
 		return;
