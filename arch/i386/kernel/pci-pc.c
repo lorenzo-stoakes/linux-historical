@@ -1129,7 +1129,7 @@ static void __init pci_fixup_via_northbridge_bug(struct pci_dev *d)
 
 	pci_read_config_byte(d, where, &v);
 	if (v & 0xe0) {
-		printk("Trying to stomp on VIA Northbridge bug...\n");
+		printk("Disabling VIA memory write queue: [%02x] %02x->%02x\n", where, v, v & 0x1f);
 		v &= 0x1f; /* clear bits 5, 6, 7 */
 		pci_write_config_byte(d, where, v);
 	}

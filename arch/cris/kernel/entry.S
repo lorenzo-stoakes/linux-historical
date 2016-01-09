@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.37 2001/12/07 17:03:55 bjornw Exp $
+/* $Id: entry.S,v 1.38 2002/01/16 15:15:30 bjornw Exp $
  *
  *  linux/arch/cris/entry.S
  *
@@ -7,6 +7,9 @@
  *  Authors:	Bjorn Wesen (bjornw@axis.com)
  *
  *  $Log: entry.S,v $
+ *  Revision 1.38  2002/01/16 15:15:30  bjornw
+ *  Use a C-code compatible watchdog reset when NICE_DOGGY is enabled
+ *
  *  Revision 1.37  2001/12/07 17:03:55  bjornw
  *  Call a c-hook called watchdog_bite_hook instead of show_registers directly
  *
@@ -571,6 +574,16 @@ _killed_by_death:
 ;; We'll see this in ksymoops dumps.
 Watchdog_bite:
 
+#ifdef CONFIG_ETRAX_WATCHDOG_NICE_DOGGY
+	;; We just restart the watchdog here to be sure we dont get
+	;; hit while printing the watchdogmsg below
+	;; This restart is compatible with the rest of the C-code, so
+	;; the C-code can keep restarting the watchdog after this point.
+	;; The non-NICE_DOGGY code below though, disables the possibility
+	;; to restart since it changes the watchdog key, to avoid any
+	;; buggy loops etc. keeping the watchdog alive after this.
+	jsr	reset_watchdog
+#else
 ;; We need to extend the 3.3ms after the NMI at watchdog bite, so we have
 ;; time for an oops-dump over a 115k2 serial wire.  Another 100ms should do.
 
@@ -587,7 +600,8 @@ Watchdog_bite:
 			    ^ WD_INIT)					\
 		| IO_STATE (R_WATCHDOG, enable, start), $r10
 	move.d	$r10, [$r11]
-
+#endif
+	
 ;; Note that we don't do "setf m" here (or after two necessary NOPs),
 ;; since *not* doing that saves us from re-entrancy checks.  We don't want
 ;; to get here again due to possible subsequent NMIs; we want the watchdog

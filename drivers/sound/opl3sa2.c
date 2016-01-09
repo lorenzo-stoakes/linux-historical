@@ -64,6 +64,7 @@
 #include <linux/module.h>
 #include <linux/isapnp.h>
 #include <linux/pm.h>
+#include <linux/delay.h>
 #include "sound_config.h"
 
 #include "ad1848.h"

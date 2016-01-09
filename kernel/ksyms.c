@@ -257,6 +257,7 @@ EXPORT_SYMBOL(__find_lock_page);
 EXPORT_SYMBOL(grab_cache_page);
 EXPORT_SYMBOL(grab_cache_page_nowait);
 EXPORT_SYMBOL(read_cache_page);
+EXPORT_SYMBOL(set_page_dirty);
 EXPORT_SYMBOL(vfs_readlink);
 EXPORT_SYMBOL(vfs_follow_link);
 EXPORT_SYMBOL(page_readlink);
@@ -460,6 +461,7 @@ EXPORT_SYMBOL(vsscanf);
 EXPORT_SYMBOL(kdevname);
 EXPORT_SYMBOL(bdevname);
 EXPORT_SYMBOL(cdevname);
+EXPORT_SYMBOL(simple_strtol);
 EXPORT_SYMBOL(simple_strtoul);
 EXPORT_SYMBOL(simple_strtoull);
 EXPORT_SYMBOL(system_utsname);	/* UTS data */

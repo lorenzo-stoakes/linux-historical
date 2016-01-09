@@ -95,7 +95,6 @@ EXPORT_SYMBOL_NOVERS(__get_user_4);
 
 EXPORT_SYMBOL(strtok);
 EXPORT_SYMBOL(strpbrk);
-EXPORT_SYMBOL(simple_strtol);
 EXPORT_SYMBOL(strstr);
 
 EXPORT_SYMBOL(strncpy_from_user);

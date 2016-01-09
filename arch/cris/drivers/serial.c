@@ -1,4 +1,4 @@
-/* $Id: serial.c,v 1.28 2001/12/18 15:04:53 johana Exp $
+/* $Id: serial.c,v 1.29 2002/01/14 16:10:01 pkj Exp $
  *
  * Serial port driver for the ETRAX 100LX chip
  *
@@ -7,6 +7,14 @@
  *      Many, many authors. Based once upon a time on serial.c for 16x50.
  *
  * $Log: serial.c,v $
+ * Revision 1.29  2002/01/14 16:10:01  pkj
+ * Allocate the receive buffers dynamically. The static 4kB buffer was
+ * too small for the peaks. This means that we can get rid of the extra
+ * buffer and the copying to it. It also means we require less memory
+ * under normal operations, but can use more when needed (there is a
+ * cap at 64kB for safety reasons). If there is no memory available
+ * we panic(), and die a horrible death...
+ *
  * Revision 1.28  2001/12/18 15:04:53  johana
  * Cleaned up write_rs485() - now it works correctly without padding extra
  * char.
@@ -283,7 +291,7 @@
  *
  */
 
-static char *serial_version = "$Revision: 1.28 $";
+static char *serial_version = "$Revision: 1.29 $";
 
 #include <linux/config.h>
 #include <linux/version.h>
@@ -363,8 +371,7 @@ static int serial_refcount;
 
 #define TTY_THROTTLE_LIMIT (TTY_FLIPBUF_SIZE/10)
 
-#define SERIAL_RECV_SIZE      4096
-#define SERIAL_DESCR_BUF_SIZE 512
+#define SERIAL_DESCR_BUF_SIZE 256
 
 /* Add an x here to log a lot of timer stuff */
 #define TIMERD(x)
@@ -1260,15 +1267,56 @@ static void flush_timeout_function(unsigned long data);
 #define START_FLUSH_FAST_TIMER(info, string)
 #endif
 
+static struct etrax_recv_buffer *
+alloc_recv_buffer(unsigned int size)
+{
+	struct etrax_recv_buffer *buffer;
+
+	if (!(buffer = kmalloc(sizeof *buffer + size, GFP_ATOMIC)))
+		return NULL;
+
+	buffer->next = NULL;
+	buffer->length = 0;
+	buffer->error = TTY_NORMAL;
+
+	return buffer;
+}
+
+static void
+append_recv_buffer(struct e100_serial *info, struct etrax_recv_buffer *buffer)
+{
+	unsigned long flags;
+
+	save_flags(flags);
+	cli();
+
+	if (!info->first_recv_buffer)
+		info->first_recv_buffer = buffer;
+	else
+		info->last_recv_buffer->next = buffer;
+
+	info->last_recv_buffer = buffer;
+
+	info->recv_cnt += buffer->length;
+	if (info->recv_cnt > info->max_recv_cnt)
+		info->max_recv_cnt = info->recv_cnt;
+
+	restore_flags(flags);
+}
+
 static int
 add_char_and_flag(struct e100_serial *info, unsigned char data, unsigned char flag)
 {
-	if (!CIRC_SPACE(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE))
+	struct etrax_recv_buffer *buffer;
+
+	if (!(buffer = alloc_recv_buffer(4)))
 		return 0;
 
-	info->recv.buf[info->recv.head] = data;
-	info->flag_buf[info->recv.head] = flag;
-	info->recv.head = (info->recv.head + 1) & (SERIAL_RECV_SIZE - 1);
+	buffer->length = 1;
+	buffer->error = flag;
+	buffer->buffer[0] = data;
+	
+	append_recv_buffer(info, buffer);
 
 	info->icount.rx++;
 
@@ -1276,33 +1324,33 @@ add_char_and_flag(struct e100_serial *info, unsigned char data, unsigned char fl
 }
 
 static _INLINE_ unsigned int
-copy_descr_data(struct e100_serial *info, unsigned int recvl, unsigned char *buf)
+handle_descr_data(struct e100_serial *info, struct etrax_dma_descr *descr, unsigned int recvl)
 {
-	unsigned int count = CIRC_SPACE_TO_END(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE);
-	unsigned int length = 0;
+	struct etrax_recv_buffer *buffer = phys_to_virt(descr->buf) - sizeof *buffer;
 
-	 while (length < recvl && count) {
-		if (length + count > recvl)
-			count = recvl - length;
-
-		memcpy(info->recv.buf + info->recv.head, buf + length, count);
-		memset(info->flag_buf + info->recv.head, '\0', count);
-		info->recv.head = (info->recv.head + count) & (SERIAL_RECV_SIZE - 1);
-		length += count;
-
-		count = CIRC_SPACE_TO_END(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE);
+	if (info->recv_cnt + recvl > 65536) {
+		printk(__FUNCTION__ ": Too much pending incoming serial data! Dropping %u bytes.\n", recvl);
+		return 0;
 	}
 
-	if (length != recvl) { 
-		printk(__FUNCTION__ ": Buffer overflow! %d byte(s) did not fit.\n", recvl - length);
-		PROCSTAT(ser_stat[info->line].overrun_cnt += recvl - length);
-	}
+	buffer->length = recvl;
 
-	return length;
+	if (info->errorcode == ERRCODE_SET_BREAK)
+		buffer->error = TTY_BREAK;
+	info->errorcode = 0;
+
+	append_recv_buffer(info, buffer);
+
+	if (!(buffer = alloc_recv_buffer(SERIAL_DESCR_BUF_SIZE)))
+		panic(__FUNCTION__ ": Failed to allocate memory for receive buffer!\n");
+
+	descr->buf = virt_to_phys(buffer->buffer);
+	
+	return recvl;
 }
 
 static _INLINE_ unsigned int
-copy_all_descr_data(struct e100_serial *info)
+handle_all_descr_data(struct e100_serial *info)
 {
 	struct etrax_dma_descr *descr;
 	unsigned int recvl;
@@ -1336,7 +1384,7 @@ copy_all_descr_data(struct e100_serial *info)
 		/* update stats */
 		info->icount.rx += recvl;
 
-		ret += copy_descr_data(info, recvl, phys_to_virt(descr->buf));
+		ret += handle_descr_data(info, descr, recvl);
 	}
 
 	return ret;
@@ -1347,7 +1395,6 @@ receive_chars(struct e100_serial *info)
 {
 	struct tty_struct *tty;
 	unsigned char rstat;
-	unsigned int old_head;
 
 #ifdef CONFIG_SVINTO_SIM
 	/* No receive in the simulator.  Will probably be when the rest of
@@ -1372,12 +1419,7 @@ receive_chars(struct e100_serial *info)
 	if (info->errorcode == ERRCODE_INSERT_BREAK)
 		add_char_and_flag(info, '\0', TTY_BREAK);
 
-	old_head = info->recv.head;
-	
-	if (copy_all_descr_data(info) && info->errorcode == ERRCODE_SET_BREAK)
-		info->flag_buf[old_head] = TTY_BREAK;
-
-	info->errorcode = 0;
+	handle_all_descr_data(info);
 
 	/* Read the status register to detect errors */
 	rstat = info->port[REG_STATUS];
@@ -1400,10 +1442,6 @@ receive_chars(struct e100_serial *info)
 			add_char_and_flag(info, data, TTY_FRAME);
 	}
 
-	if (!E100_RTS_GET(info) &&
-	    CIRC_SPACE(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE) < TTY_THROTTLE_LIMIT)
-		info->tty->driver.throttle(info->tty);
-	
 	START_FLUSH_FAST_TIMER(info, "receive_chars");
 
 	/* Restart the receiving DMA */
@@ -1414,19 +1452,20 @@ static _INLINE_ int
 start_recv_dma(struct e100_serial *info)
 {
 	struct etrax_dma_descr *descr = info->rec_descr;
-	unsigned char *buf = info->recv.buf + 2*SERIAL_RECV_SIZE;
+	struct etrax_recv_buffer *buffer;
         int i;
 
 	/* Set up the receiving descriptors */
 	for (i = 0; i < SERIAL_RECV_DESCRIPTORS; i++) {
+		if (!(buffer = alloc_recv_buffer(SERIAL_DESCR_BUF_SIZE)))
+			panic(__FUNCTION__ ": Failed to allocate memory for receive buffer!\n");
+
 		descr[i].ctrl = d_int;
-		descr[i].buf = virt_to_phys(buf);
+		descr[i].buf = virt_to_phys(buffer->buffer);
 		descr[i].sw_len = SERIAL_DESCR_BUF_SIZE;
 		descr[i].hw_len = 0;
 		descr[i].status = 0;
 		descr[i].next = virt_to_phys(&descr[i+1]);
-
-		buf += SERIAL_DESCR_BUF_SIZE;
 	}
 
 	/* Link the last descriptor to the first */
@@ -1618,11 +1657,11 @@ static _INLINE_ void
 flush_to_flip_buffer(struct e100_serial *info)
 {
 	struct tty_struct *tty = info->tty;
-	unsigned int count = CIRC_CNT_TO_END(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE);
+	struct etrax_recv_buffer *buffer;
 	unsigned int length;
 	unsigned long flags;
 
-	if (!count)
+	if (!info->first_recv_buffer)
 		return;
 
 	save_flags(flags);
@@ -1630,19 +1669,31 @@ flush_to_flip_buffer(struct e100_serial *info)
 
 	length = tty->flip.count;
 	
-	do {
+	while ((buffer = info->first_recv_buffer) && length < TTY_FLIPBUF_SIZE) {
+		unsigned int count = buffer->length;
+
 		if (length + count > TTY_FLIPBUF_SIZE)
 			count = TTY_FLIPBUF_SIZE - length;
 
-		memcpy(tty->flip.char_buf_ptr + length, info->recv.buf + info->recv.tail, count);
-		memcpy(tty->flip.flag_buf_ptr + length, info->flag_buf + info->recv.tail, count);
-		info->recv.tail = ((info->recv.tail + count) & (SERIAL_RECV_SIZE-1));
+		memcpy(tty->flip.char_buf_ptr + length, buffer->buffer, count);
+		memset(tty->flip.flag_buf_ptr + length, TTY_NORMAL, count);
+		tty->flip.flag_buf_ptr[length] = buffer->error;
+
 		length += count;
-		
-		count = CIRC_CNT_TO_END(info->recv.head,
-					info->recv.tail,
-					SERIAL_RECV_SIZE);
-	} while (length < TTY_FLIPBUF_SIZE && count);
+		info->recv_cnt -= count;
+
+		if (count == buffer->length) {
+			info->first_recv_buffer = buffer->next;
+			kfree(buffer);
+		} else {
+			buffer->length -= count;
+			memmove(buffer->buffer, buffer->buffer + count, buffer->length);
+			buffer->error = TTY_NORMAL;
+		}
+	}
+
+	if (!info->first_recv_buffer)
+		info->last_recv_buffer = NULL;
 
 	tty->flip.count = length;
 
@@ -1654,11 +1705,6 @@ flush_to_flip_buffer(struct e100_serial *info)
 #else
 	queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
 #endif
-
-	/* unthrottle if we have throttled */
-	if (E100_RTS_GET(info) &&
-	    CIRC_SPACE(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE) > TTY_THROTTLE_LIMIT)
-		tty->driver.unthrottle(info->tty);
 }
 
 static _INLINE_ void
@@ -1668,7 +1714,7 @@ check_flush_timeout(struct e100_serial *info)
 
 	flush_to_flip_buffer(info);
 
-	if (CIRC_CNT(info->recv.head, info->recv.tail, SERIAL_RECV_SIZE))
+	if (info->first_recv_buffer)
 		START_FLUSH_FAST_TIMER(info, "flip");
 }
 
@@ -2005,17 +2051,11 @@ startup(struct e100_serial * info)
 {
 	unsigned long flags;
 	unsigned long xmit_page;
-	unsigned char *recv_page;
+	int i;
 
 	xmit_page = get_zeroed_page(GFP_KERNEL);
 	if (!xmit_page)
 		return -ENOMEM;
-
-	recv_page = kmalloc(2 * SERIAL_RECV_SIZE + SERIAL_RECV_DESCRIPTORS * SERIAL_DESCR_BUF_SIZE, GFP_KERNEL);
-	if (!recv_page) {
-		free_page(xmit_page);
-		return -ENOMEM;
-	}
 
 	save_flags(flags); cli();
 
@@ -2024,7 +2064,6 @@ startup(struct e100_serial * info)
 	if (info->flags & ASYNC_INITIALIZED) {
 		restore_flags(flags);
 		free_page(xmit_page);
-		kfree(recv_page);
 		return 0;
 	}
 
@@ -2032,13 +2071,6 @@ startup(struct e100_serial * info)
 		free_page(xmit_page);
 	else
 		info->xmit.buf = (unsigned char *) xmit_page;
-
-	if (info->recv.buf)
-		kfree(recv_page);
-	else {
-		info->recv.buf = (unsigned char *) recv_page;
-		info->flag_buf = info->recv.buf + SERIAL_RECV_SIZE;
-	}
 
 #ifdef SERIAL_DEBUG_OPEN
 	printk("starting up ttyS%d (xmit_buf 0x%p, recv_buf 0x%p)...\n", info->line, info->xmit.buf, info->recv.buf);
@@ -2050,8 +2082,13 @@ startup(struct e100_serial * info)
 	   right? */
 	if (info->tty)
 		clear_bit(TTY_IO_ERROR, &info->tty->flags);
+
 	info->xmit.head = info->xmit.tail = 0;
-	info->recv.head = info->recv.tail = 0;
+	info->first_recv_buffer = info->last_recv_buffer = NULL;
+	info->recv_cnt = info->max_recv_cnt = 0;
+
+	for (i = 0; i < SERIAL_RECV_DESCRIPTORS; i++)
+		info->rec_descr[i].buf = NULL;
 
 	/* No real action in the simulator, but may set info important
 	   to ioctl. */
@@ -2090,8 +2127,12 @@ startup(struct e100_serial * info)
 		clear_bit(TTY_IO_ERROR, &info->tty->flags);
 
 	info->xmit.head = info->xmit.tail = 0;
-	info->recv.head = info->recv.tail = 0;
+	info->first_recv_buffer = info->last_recv_buffer = NULL;
+	info->recv_cnt = info->max_recv_cnt = 0;
 	
+	for (i = 0; i < SERIAL_RECV_DESCRIPTORS; i++)
+		info->rec_descr[i].buf = 0;
+
 	/*
 	 * and set the speed and other flags of the serial port
 	 * this will start the rx/tx as well
@@ -2143,6 +2184,9 @@ static void
 shutdown(struct e100_serial * info)
 {
 	unsigned long flags;
+	struct etrax_dma_descr *descr = info->rec_descr;
+	struct etrax_recv_buffer *buffer;
+	int i;
 
 #ifndef CONFIG_SVINTO_SIM	
 	/* shut down the transmitter and receiver */
@@ -2179,11 +2223,12 @@ shutdown(struct e100_serial * info)
 		info->xmit.buf = NULL;
 	}
 
-	if (info->recv.buf) {
-		kfree(info->recv.buf);
-		info->recv.buf = NULL;
-		info->flag_buf = NULL;
-	}
+	for (i = 0; i < SERIAL_RECV_DESCRIPTORS; i++)
+		if (descr[i].buf) {
+			buffer = phys_to_virt(descr[i].buf) - sizeof *buffer;
+			kfree(buffer);
+			descr[i].buf = 0;
+		}
 
 	if (!info->tty || (info->tty->termios->c_cflag & HUPCL)) {
 		/* hang up DTR and RTS if HUPCL is enabled */
@@ -3413,6 +3458,10 @@ static inline int line_info(char *buf, struct e100_serial *info)
 		       (unsigned long)info->icount.tx,
 		       (unsigned long)info->icount.rx);
 
+	ret += sprintf(buf+ret, " rx_pend:%lu/%lu",
+		       (unsigned long)info->recv_cnt,
+		       (unsigned long)info->max_recv_cnt);
+
 	if (info->icount.frame)
 		ret += sprintf(buf+ret, " fe:%lu",
 			       (unsigned long)info->icount.frame);
@@ -3581,9 +3630,8 @@ rs_init(void)
 		init_waitqueue_head(&info->close_wait);
 		info->xmit.buf = NULL;
 		info->xmit.tail = info->xmit.head = 0;
-		info->recv.buf = NULL;
-		info->recv.tail = info->recv.head = 0;
-		info->flag_buf = NULL;
+		info->first_recv_buffer = info->last_recv_buffer = NULL;
+		info->recv_cnt = info->max_recv_cnt = 0;
 		info->last_tx_active_usec = 0;
 		info->last_tx_active = 0;
 

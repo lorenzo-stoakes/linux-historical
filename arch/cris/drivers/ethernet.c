@@ -1,4 +1,4 @@
-/* $Id: ethernet.c,v 1.21 2001/11/23 11:54:49 starvik Exp $
+/* $Id: ethernet.c,v 1.22 2002/01/30 07:48:22 matsfg Exp $
  *
  * e100net.c: A network driver for the ETRAX 100LX network controller.
  *
@@ -7,6 +7,9 @@
  * The outline of this driver comes from skeleton.c.
  *
  * $Log: ethernet.c,v $
+ * Revision 1.22  2002/01/30 07:48:22  matsfg
+ * Initiate R_NETWORK_TR_CTRL
+ *
  * Revision 1.21  2001/11/23 11:54:49  starvik
  * Added IFF_PROMISC and IFF_ALLMULTI handling in set_multicast_list
  * Removed compiler warnings
@@ -526,6 +529,15 @@ e100_open(struct net_device *dev)
 	*R_NETWORK_GEN_CONFIG =
 		IO_STATE(R_NETWORK_GEN_CONFIG, phy,    mii_clk) |
 		IO_STATE(R_NETWORK_GEN_CONFIG, enable, on);
+
+        *R_NETWORK_TR_CTRL = 
+                IO_STATE(R_NETWORK_TR_CTRL, clr_error, clr) |
+                IO_STATE(R_NETWORK_TR_CTRL, delay, none) |
+                IO_STATE(R_NETWORK_TR_CTRL, cancel, dont) |
+                IO_STATE(R_NETWORK_TR_CTRL, cd, enable) |
+                IO_STATE(R_NETWORK_TR_CTRL, retry, enable) |
+                IO_STATE(R_NETWORK_TR_CTRL, pad, enable) |
+                IO_STATE(R_NETWORK_TR_CTRL, crc, enable);
 
 	save_flags(flags);
 	cli();

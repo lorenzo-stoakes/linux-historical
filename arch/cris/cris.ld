@@ -24,6 +24,7 @@ SECTIONS
 		*(.fixup)
 		*(.text.__*)
 	}
+  	.text.lock : { *(.text.lock) }        /* out-of-line lock text */
 
 	_etext = . ;                  /* End of text section */ 
 	__etext = .;

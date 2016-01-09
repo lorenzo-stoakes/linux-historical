@@ -2114,7 +2114,7 @@ static ssize_t cs_read(struct file *file, char *buffer, size_t count, loff_t *pp
 	
 	down(&state->sem);
 	if (!dmabuf->ready && (ret = __prog_dmabuf(state)))
-		goto out;
+		goto out2;
 
 	add_wait_queue(&state->dmabuf.wait, &wait);
 	while (count > 0) {
@@ -2184,8 +2184,9 @@ static ssize_t cs_read(struct file *file, char *buffer, size_t count, loff_t *pp
                 start_adc(state);
 	}
 out:
-	up(&state->sem);
 	remove_wait_queue(&state->dmabuf.wait, &wait);
+out2:
+	up(&state->sem);
 	set_current_state(TASK_RUNNING);
 	CS_DBGOUT(CS_WAVE_READ | CS_FUNCTION, 4, 
 		printk("cs46xx: cs_read()- %d\n",ret) );
@@ -2210,6 +2211,8 @@ static ssize_t cs_write(struct file *file, const char *buffer, size_t count, lof
 	state = (struct cs_state *)card->states[1];
 	if(!state)
 		return -ENODEV;
+	if (!access_ok(VERIFY_READ, buffer, count))
+		return EFAULT;
 	dmabuf = &state->dmabuf;
 
 	if (ppos != &file->f_pos)
@@ -2224,11 +2227,6 @@ static ssize_t cs_write(struct file *file, const char *buffer, size_t count, lof
 
 	if (!dmabuf->ready && (ret = __prog_dmabuf(state)))
 		goto out;
-	if (!access_ok(VERIFY_READ, buffer, count))
-	{
-	ret = -EFAULT;
-	goto out;
-	}
 	add_wait_queue(&state->dmabuf.wait, &wait);
 	ret = 0;
 /*

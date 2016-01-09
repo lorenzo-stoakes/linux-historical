@@ -119,6 +119,8 @@
    1.02.00.014 - Fix bug in tw_findcards() where AEN code could be lost.
                  Increase timeout in tw_aen_drain_queue() to 30 seconds.
    1.02.00.015 - Re-write raw command post with data ioctl method.
+   1.02.00.016 - Set max_cmd_len for 3dm.
+                 Set max sectors to 256 for non raid5 & 6XXX.          
 */
 
 #include <linux/module.h>
@@ -165,7 +167,7 @@ static struct notifier_block tw_notifier = {
 };
 
 /* Globals */
-char *tw_driver_version="1.02.00.015";
+char *tw_driver_version="1.02.00.016";
 TW_Device_Extension *tw_device_extension_list[TW_MAX_SLOT];
 int tw_device_extension_count = 0;
 
@@ -610,7 +612,7 @@ static void tw_copy_mem_info(TW_Info *info, char *data, int len)
 	}
 } /* End tw_copy_mem_info() */
 
-/* This function will print readable messages from statsu register errors */
+/* This function will print readable messages from status register errors */
 void tw_decode_bits(TW_Device_Extension *tw_dev, u32 status_reg_value)
 {
 	dprintk(KERN_WARNING "3w-xxxx: tw_decode_bits()\n");
@@ -871,9 +873,17 @@ int tw_findcards(Scsi_Host_Template *tw_host)
 			/* Set max target id's */
 			host->max_id = TW_MAX_UNITS;
 
+			/* Set max cdb size in bytes */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,15)			
+			host->max_cmd_len = TW_MAX_CDB_LEN;
+#endif
+
 			/* Set max sectors per io */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,7)
-			host->max_sectors = TW_MAX_SECTORS;
+			if ((tw_dev->num_raid_five > 0) && (tw_dev->tw_pci_dev->device == TW_DEVICE_ID))
+				host->max_sectors = TW_MAX_BOUNCE_SECTORS;
+			else
+				host->max_sectors = TW_MAX_SECTORS;
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,4)
@@ -1321,12 +1331,12 @@ int tw_initialize_units(TW_Device_Extension *tw_dev)
 	/* Now allocate raid5 bounce buffers */
 	if ((num_raid_five != 0) && (tw_dev->tw_pci_dev->device == TW_DEVICE_ID)) {
 		for (i=0;i<TW_MAX_BOUNCEBUF;i++) {
-			tw_allocate_memory(tw_dev, i, sizeof(TW_Sector)*TW_MAX_SECTORS, 2);
+			tw_allocate_memory(tw_dev, i, sizeof(TW_Sector)*TW_MAX_BOUNCE_SECTORS, 2);
 			if (tw_dev->bounce_buffer[i] == NULL) {
 				printk(KERN_WARNING "3w-xxxx: Bounce buffer allocation failed.\n");
 				return 1;
 			}
-			memset(tw_dev->bounce_buffer[i], 0, sizeof(TW_Sector)*TW_MAX_SECTORS);
+			memset(tw_dev->bounce_buffer[i], 0, sizeof(TW_Sector)*TW_MAX_BOUNCE_SECTORS);
 		}
 	}
   

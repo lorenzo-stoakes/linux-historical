@@ -25,6 +25,15 @@
 
 #define SERIAL_RECV_DESCRIPTORS 8
 
+struct etrax_recv_buffer {
+	struct etrax_recv_buffer *next;
+	unsigned short length;
+	unsigned char error;
+	unsigned char pad;
+
+	unsigned char buffer[0];
+};
+
 struct e100_serial {
 	int			baud;
 	volatile u8		*port; /* R_SERIALx_CTRL */
@@ -81,8 +90,10 @@ struct e100_serial {
 	long			session; /* Session of opening process */
 	long			pgrp; /* pgrp of opening process */
 	struct circ_buf		xmit;
-	struct circ_buf		recv;
-	unsigned char		*flag_buf;
+	struct etrax_recv_buffer *first_recv_buffer;
+	struct etrax_recv_buffer *last_recv_buffer;
+	unsigned int		recv_cnt;
+	unsigned int		max_recv_cnt;
 
 	struct tq_struct	tqueue;
 	struct async_icount	icount;   /* error-statistics etc.*/

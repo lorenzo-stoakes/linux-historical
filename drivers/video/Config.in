@@ -145,6 +145,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	 fi
 	 tristate '  3Dfx Banshee/Voodoo3 display support (EXPERIMENTAL)' CONFIG_FB_3DFX
 	 tristate '  3Dfx Voodoo Graphics (sst1) support (EXPERIMENTAL)' CONFIG_FB_VOODOO1
+	 tristate '  Trident support (EXPERIMENTAL)' CONFIG_FB_TRIDENT
       fi
    fi
    if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then

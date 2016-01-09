@@ -40,7 +40,6 @@ EXPORT_SYMBOL(memcmp);
 EXPORT_SYMBOL(memmove);
 EXPORT_SYMBOL(strtok);
 EXPORT_SYMBOL(strpbrk);
-EXPORT_SYMBOL(simple_strtol);
 EXPORT_SYMBOL(strstr);
 EXPORT_SYMBOL(strcpy);
 EXPORT_SYMBOL(strchr);

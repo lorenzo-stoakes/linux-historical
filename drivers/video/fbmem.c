@@ -114,6 +114,8 @@ extern int rivafb_init(void);
 extern int rivafb_setup(char*);
 extern int tdfxfb_init(void);
 extern int tdfxfb_setup(char*);
+extern int tridentfb_init(void);
+extern int tridentfb_setup(char*);
 extern int sisfb_init(void);
 extern int sisfb_setup(char*);
 extern int stifb_init(void);
@@ -227,6 +229,9 @@ static struct {
 
 #ifdef CONFIG_FB_3DFX
 	{ "tdfx", tdfxfb_init, tdfxfb_setup },
+#endif
+#ifdef CONFIG_FB_TRIDENT
+	{ "trident", tridentfb_init, tridentfb_setup },
 #endif
 #ifdef CONFIG_FB_SGIVW
 	{ "sgivw", sgivwfb_init, sgivwfb_setup },

@@ -3,7 +3,7 @@
 	8139too.c: A RealTek RTL-8139 Fast Ethernet driver for Linux.
 
 	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
-	Copyright 2000,2001 Jeff Garzik
+	Copyright 2000-2002 Jeff Garzik
 
 	Much code comes from Donald Becker's rtl8139.c driver,
 	versions 1.13 and older.  This driver was originally based
@@ -92,7 +92,7 @@
 */
 
 #define DRV_NAME	"8139too"
-#define DRV_VERSION	"0.9.23"
+#define DRV_VERSION	"0.9.24"
 
 
 #include <linux/config.h>
@@ -215,6 +215,7 @@ typedef enum {
 	ADDTRON8139,
 	DFE538TX,
 	DFE690TXD,
+	FE2000VX,
 	RTL8129,
 } board_t;
 
@@ -232,6 +233,7 @@ static struct {
 	{ "Addtron Technolgy 8139 10/100BaseTX", RTL8139_CAPS },
 	{ "D-Link DFE-538TX (RealTek RTL8139)", RTL8139_CAPS },
 	{ "D-Link DFE-690TXD (RealTek RTL8139)", RTL8139_CAPS },
+	{ "AboCom FE2000VX (RealTek RTL8139)", RTL8139_CAPS },
 	{ "RealTek RTL8129", RTL8129_CAPS },
 };
 
@@ -245,6 +247,7 @@ static struct pci_device_id rtl8139_pci_tbl[] __devinitdata = {
 	{0x4033, 0x1360, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ADDTRON8139 },
 	{0x1186, 0x1300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DFE538TX },
 	{0x1186, 0x1340, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DFE690TXD },
+	{0x13d1, 0xab06, PCI_ANY_ID, PCI_ANY_ID, 0, 0, FE2000VX },
 
 #ifdef CONFIG_8139TOO_8129
 	{0x10ec, 0x8129, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8129 },
@@ -256,6 +259,7 @@ static struct pci_device_id rtl8139_pci_tbl[] __devinitdata = {
 	 */
 	{PCI_ANY_ID, 0x8139, 0x10ec, 0x8139, 0, 0, RTL8139 },
 	{PCI_ANY_ID, 0x8139, 0x1186, 0x1300, 0, 0, DFE538TX },
+	{PCI_ANY_ID, 0x8139, 0x13d1, 0xab06, 0, 0, FE2000VX },
 
 	{0,}
 };

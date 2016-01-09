@@ -290,19 +290,38 @@ static void sonypi_camera_on(void) {
 	sonypi_device.camera_power = 1;
 }
 
+/* sets the bluetooth subsystem power state */
+static void sonypi_setbluetoothpower(u8 state) {
+
+	state = (state != 0);
+	if (sonypi_device.bluetooth_power && state) 
+		return;
+	if (!sonypi_device.bluetooth_power && !state) 
+		return;
+	
+	sonypi_call2(0x96, state);
+	sonypi_call1(0x93);
+	sonypi_device.bluetooth_power = state;
+}
+
 /* Interrupt handler: some event is available */
 void sonypi_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	u8 v1, v2, event = 0;
 	int i;
 	u8 sonypi_jogger_ev, sonypi_fnkey_ev;
+	u8 sonypi_capture_ev, sonypi_bluetooth_ev;
 
 	if (sonypi_device.model == SONYPI_DEVICE_MODEL_TYPE2) {
 		sonypi_jogger_ev = SONYPI_TYPE2_JOGGER_EV;
 		sonypi_fnkey_ev = SONYPI_TYPE2_FNKEY_EV;
+		sonypi_capture_ev = SONYPI_TYPE2_CAPTURE_EV;
+		sonypi_bluetooth_ev = SONYPI_TYPE2_BLUETOOTH_EV;
 	}
 	else {
 		sonypi_jogger_ev = SONYPI_TYPE1_JOGGER_EV;
 		sonypi_fnkey_ev = SONYPI_TYPE1_FNKEY_EV;
+		sonypi_capture_ev = SONYPI_TYPE1_CAPTURE_EV;
+		sonypi_bluetooth_ev = SONYPI_TYPE1_BLUETOOTH_EV;
 	}
 
 	v1 = inb_p(sonypi_device.ioport1);
@@ -322,7 +341,7 @@ void sonypi_irq(int irq, void *dev_id, struct pt_regs *regs) {
 				goto found;
 			}
 	}
-	if ((v2 & SONYPI_CAPTURE_EV) == SONYPI_CAPTURE_EV) {
+	if ((v2 & sonypi_capture_ev) == sonypi_capture_ev) {
 		for (i = 0; sonypi_captureev[i].event; i++)
 			if (sonypi_captureev[i].data == v1) {
 				event = sonypi_captureev[i].event;
@@ -336,7 +355,7 @@ void sonypi_irq(int irq, void *dev_id, struct pt_regs *regs) {
 				goto found;
 			}
 	}
-	if ((v2 & SONYPI_BLUETOOTH_EV) == SONYPI_BLUETOOTH_EV) {
+	if ((v2 & sonypi_bluetooth_ev) == sonypi_bluetooth_ev) {
 		for (i = 0; sonypi_blueev[i].event; i++)
 			if (sonypi_blueev[i].data == v1) {
 				event = sonypi_blueev[i].event;
@@ -568,6 +587,20 @@ static int sonypi_misc_ioctl(struct inode *ip, struct file *fp,
 			goto out;
 		}
 		break;
+	case SONYPI_IOCGBLUE:
+		val8 = sonypi_device.bluetooth_power;
+		if (copy_to_user((u8 *)arg, &val8, sizeof(val8))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
+	case SONYPI_IOCSBLUE:
+		if (copy_from_user(&val8, (u8 *)arg, sizeof(val8))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		sonypi_setbluetoothpower(val8);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -602,6 +635,7 @@ static int __devinit sonypi_probe(struct pci_dev *pcidev) {
 		sonypi_device.model = SONYPI_DEVICE_MODEL_TYPE2;
 	sonypi_initq();
 	init_MUTEX(&sonypi_device.lock);
+	sonypi_device.bluetooth_power = 0;
 	
 	if (pcidev && pci_enable_device(pcidev)) {
 		printk(KERN_ERR "sonypi: pci_enable_device failed\n");

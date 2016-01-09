@@ -1,4 +1,4 @@
-/* $Id: sungem.c,v 1.44.2.3 2002/01/23 15:40:01 davem Exp $
+/* $Id: sungem.c,v 1.44.2.5 2002/02/01 21:45:52 davem Exp $
  * sungem.c: Sun GEM ethernet driver.
  *
  * Copyright (C) 2000, 2001 David S. Miller (davem@redhat.com)
@@ -290,16 +290,26 @@ static int gem_txmac_interrupt(struct net_device *dev, struct gem *gp, u32 gem_s
 static int gem_rxmac_interrupt(struct net_device *dev, struct gem *gp, u32 gem_status)
 {
 	u32 rxmac_stat = readl(gp->regs + MAC_RXSTAT);
+	int ret = 0;
 
 	if (netif_msg_intr(gp))
 		printk(KERN_DEBUG "%s: rxmac interrupt, rxmac_stat: 0x%x\n",
 			gp->dev->name, rxmac_stat);
 
 	if (rxmac_stat & MAC_RXSTAT_OFLW) {
-		printk(KERN_ERR "%s: RX MAC fifo overflow.\n",
-		       dev->name);
+		u32 smac = readl(gp->regs + MAC_SMACHINE);
+
+		printk(KERN_ERR "%s: RX MAC fifo overflow smac[%08x].\n",
+		       dev->name, smac);
 		gp->net_stats.rx_over_errors++;
 		gp->net_stats.rx_fifo_errors++;
+
+		if (((smac >> 24) & 0x7) == 0x7) {
+			/* Due to a bug, the chip is hung in this case
+			 * and a full reset is necessary.
+			 */
+			ret = 1;
+		}
 	}
 
 	if (rxmac_stat & MAC_RXSTAT_ACE)
@@ -314,7 +324,7 @@ static int gem_rxmac_interrupt(struct net_device *dev, struct gem *gp, u32 gem_s
 	/* We do not track MAC_RXSTAT_FCE and MAC_RXSTAT_VCE
 	 * events.
 	 */
-	return 0;
+	return ret;
 }
 
 static int gem_mac_interrupt(struct net_device *dev, struct gem *gp, u32 gem_status)
@@ -474,7 +484,7 @@ static int gem_abnormal_irq(struct net_device *dev, struct gem *gp, u32 gem_stat
 	return 0;
 
 do_reset:
-	gp->reset_task_pending = 1;
+	gp->reset_task_pending = 2;
 	schedule_task(&gp->reset_task);
 
 	return 1;
@@ -1176,7 +1186,8 @@ static void gem_reset_task(void *data)
 		/* Reset the chip & rings */
 		gem_stop(gp);
 		gem_init_rings(gp, 0);
-		gem_init_hw(gp, 0);
+		gem_init_hw(gp,
+			    (gp->reset_task_pending == 2));
 
 		netif_wake_queue(gp->dev);
 	}

@@ -196,13 +196,11 @@ static char *tw_aen_string[] = {
 #define TW_MAX_AEN_TRIES                      100
 #define TW_UNIT_ONLINE                        1
 #define TW_IN_INTR                            1
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,7)
 #define TW_MAX_SECTORS                        256
-#else
-#define TW_MAX_SECTORS                        128
-#endif 
+#define TW_MAX_BOUNCE_SECTORS                 128
 #define TW_AEN_WAIT_TIME                      1000
 #define TW_IOCTL_WAIT_TIME                    (1 * HZ) /* 1 second */
+#define TW_MAX_CDB_LEN                        16
 
 /* Macros */
 #define TW_STATUS_ERRORS(x) \
@@ -268,7 +266,9 @@ typedef struct TW_Command {
 } TW_Command;
 
 typedef struct TAG_TW_Ioctl {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,15)
 	int buffer;
+#endif
 	unsigned char opcode;
 	unsigned short table_id;
 	unsigned char parameter_id;
