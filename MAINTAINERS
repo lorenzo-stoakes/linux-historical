@@ -1022,6 +1022,11 @@ P:	Andrew Veliath
 M:	andrewtv@usa.net
 S:	Maintained
 
+NATSEMI ETHERNET DRIVER (DP8381x)
+P: 	Tim Hockin
+M:	thockin@hockin.org
+S:	Maintained
+
 NCP FILESYSTEM
 P:	Petr Vandrovec
 M:	vandrove@vc.cvut.cz

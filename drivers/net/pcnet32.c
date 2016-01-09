@@ -648,6 +648,13 @@ pcnet32_probe1(unsigned long ioaddr, unsigned char irq_line, int shared, int car
 #if defined(__i386__)
 	    printk(KERN_WARNING "%s: Probably a Compaq, using the PROM address of", dev->name);
 	    memcpy(dev->dev_addr, promaddr, 6);
+#elif defined(__powerpc__)
+	    if (!is_valid_ether_addr(dev->dev_addr)
+		&& is_valid_ether_addr(promaddr)) {
+		    printk("\n" KERN_WARNING "%s: using PROM address:",
+			   dev->name);
+		    memcpy(dev->dev_addr, promaddr, 6);
+	    }
 #endif
 	}	    	    
     }

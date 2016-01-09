@@ -114,6 +114,14 @@ static inline void pci_unmap_page(struct pci_dev *hwdev, dma_addr_t dma_address,
 	/* Nothing to do */
 }
 
+/* pci_unmap_{page,single} is a nop so... */
+#define DECLARE_PCI_UNMAP_ADDR(ADDR_NAME)
+#define DECLARE_PCI_UNMAP_LEN(LEN_NAME)
+#define PCI_UNMAP_ADDR(PTR, ADDR_NAME)		(0)
+#define PCI_UNMAP_ADDR_SET(PTR, ADDR_NAME, VAL)	do { } while (0)
+#define PCI_UNMAP_LEN(PTR, LEN_NAME)		(0)
+#define PCI_UNMAP_LEN_SET(PTR, LEN_NAME, VAL)	do { } while (0)
+
 /* Map a set of buffers described by scatterlist in streaming
  * mode for DMA.  This is the scather-gather version of the
  * above pci_map_single interface.  Here the scatter gather list

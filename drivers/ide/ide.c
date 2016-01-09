@@ -1367,7 +1367,10 @@ repeat:
  * the driver.  This makes the driver much more friendlier to shared IRQs
  * than previous designs, while remaining 100% (?) SMP safe and capable.
  */
-static void ide_do_request(ide_hwgroup_t *hwgroup, int masked_irq)
+/* --BenH: made non-static as ide-pmac.c uses it to kick the hwgroup back
+ *         into life on wakeup from machine sleep.
+ */ 
+void ide_do_request(ide_hwgroup_t *hwgroup, int masked_irq)
 {
 	ide_drive_t	*drive;
 	ide_hwif_t	*hwif;

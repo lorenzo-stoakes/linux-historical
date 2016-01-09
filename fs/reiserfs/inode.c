@@ -273,7 +273,9 @@ research:
 	pathrelse (&path);
         if (p)
             kunmap(bh_result->b_page) ;
-	if ((args & GET_BLOCK_NO_HOLE)) {
+	// We do not return -ENOENT if there is a hole but page is uptodate, because it means
+	// That there is some MMAPED data associated with it that is yet to be written to disk.
+	if ((args & GET_BLOCK_NO_HOLE) && !Page_Uptodate(bh_result->b_page) ) {
 	    return -ENOENT ;
 	}
         return 0 ;
@@ -294,9 +296,13 @@ research:
 	    bh_result->b_dev = inode->i_dev;
 	    bh_result->b_blocknr = blocknr;
 	    bh_result->b_state |= (1UL << BH_Mapped);
-	} else if ((args & GET_BLOCK_NO_HOLE)) {
-	    ret = -ENOENT ;
-	}
+	} else
+	    // We do not return -ENOENT if there is a hole but page is uptodate, because it means
+	    // That there is some MMAPED data associated with it that is yet to be written to disk.
+	    if ((args & GET_BLOCK_NO_HOLE) && !Page_Uptodate(bh_result->b_page) ) {
+		ret = -ENOENT ;
+	    }
+
 	pathrelse (&path);
         if (p)
             kunmap(bh_result->b_page) ;
@@ -1766,6 +1772,7 @@ static int map_block_for_writepage(struct inode *inode,
     int bytes_copied = 0 ;
     int copy_size ;
 
+    kmap(bh_result->b_page) ;
 start_over:
     lock_kernel() ;
     journal_begin(&th, inode->i_sb, jbegin_count) ;
@@ -1838,10 +1845,8 @@ out:
 
     /* this is where we fill in holes in the file. */
     if (use_get_block) {
-        kmap(bh_result->b_page) ;
 	retval = reiserfs_get_block(inode, block, bh_result, 
 	                            GET_BLOCK_CREATE | GET_BLOCK_NO_ISEM) ;
-        kunmap(bh_result->b_page) ;
 	if (!retval) {
 	    if (!buffer_mapped(bh_result) || bh_result->b_blocknr == 0) {
 	        /* get_block failed to find a mapped unformatted node. */
@@ -1850,6 +1855,7 @@ out:
 	    }
 	}
     }
+    kunmap(bh_result->b_page) ;
     return retval ;
 }
 

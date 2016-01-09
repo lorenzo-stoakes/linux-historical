@@ -12908,6 +12908,17 @@ CONFIG_USB_SERIAL_VISOR
   The module will be called visor.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
+USB Compaq iPAQ Driver
+CONFIG_USB_SERIAL_IPAQ
+  Say Y here if you want to connect to your Compaq iPAQ running
+  Windows CE 3.0 using a USB autosync cable. For information on using
+  the driver, read <file:Documentation/usb/usb-serial.txt>.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called ipaq.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
 USB IR Dongle Serial Driver
 CONFIG_USB_SERIAL_IR
   Say Y here if you want to enable simple serial support for USB IrDA
@@ -13117,6 +13128,22 @@ CONFIG_USB_SERIAL_EDGEPORT
   The module will be called io_edgeport.o.  If you want to compile it
   as a module, say M here and read <file:Documentation/modules.txt>.
 
+USB PalmConnect (and other KL5KUSB105-based) Single Port Serial Driver
+CONFIG_USB_SERIAL_KLSI
+  Say Y here if you want to use a KL5KUSB105 - based single port
+  serial adapter. The most widely known -- and currently the only
+  tested -- device in this category is the PalmConnect USB Serial
+  adapter sold by Palm Inc. for use with their Palm III and Palm V
+  series PDAs.
+
+  Please read <file:Documentation/usb/usb-serial.txt> for more
+  information.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called kl5kusb105.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
+
 USB Serial Converter verbose debug
 CONFIG_USB_SERIAL_DEBUG
   Say Y here if you want verbose debug messages from the USB Serial
@@ -13222,6 +13249,54 @@ CONFIG_USB_PWC
   inserted in and removed from the running kernel whenever you want).
   The module will be called pwc.o.  If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
+
+USB SE401 Camera support
+CONFIG_USB_SE401
+  Say Y here if you want to connect this type of camera to your
+  computer's USB port. See <file:Documentation/usb/se401.txt> for more
+  information and for a list of supported cameras.
+
+  This driver uses the Video For Linux API. You must say Y or M to
+  "Video For Linux" (under Multimedia Devices) to use this driver.
+  Information on this API and pointers to "v4l" programs may be found
+  on the WWW at <http://roadrunner.swansea.uk.linux.org/v4l.shtml>.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called se401.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
+USB STV680 (Pencam) Camera support
+CONFIG_USB_STV680
+  Say Y here if you want to connect this type of camera to your
+  computer's USB port. This includes the Pencam line of cameras.
+  See <file:Documentation/usb/stv680.txt> for more information and for
+  a list of supported cameras.
+
+  This driver uses the Video For Linux API. You must say Y or M to
+  "Video For Linux" (under Multimedia Devices) to use this driver.
+  Information on this API and pointers to "v4l" programs may be found
+  on the WWW at <http://roadrunner.swansea.uk.linux.org/v4l.shtml>.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called stv680.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
+Vicam
+CONFIG_USB_VICAM
+  Say Y here if you have 3com homeconnect camera (vicam).
+
+  This driver uses the Video For Linux API. You must say Y or M to
+  "Video For Linux" (under Multimedia Devices) to use this driver.
+  Information on this API and pointers to "v4l" programs may be found
+  on the WWW at <http://roadrunner.swansea.uk.linux.org/v4l.shtml>.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called vicam.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
 
 Pegasus/Pegasus II based USB-Ethernet device support
 CONFIG_USB_PEGASUS
@@ -17024,22 +17099,6 @@ CONFIG_PM
   Note that, even if you say N here, Linux on the x86 architecture
   will issue the hlt instruction if nothing is to be done, thereby
   sending the processor to sleep and saving power.
-
-USB SE401 Camera support
-CONFIG_USB_SE401
-  Say Y here if you want to connect this type of camera to your
-  computer's USB port. See <file:Documentation/usb/se401.txt> for more
-  information and for a list of supported cameras.
-
-  This driver uses the Video For Linux API. You must say Y or M to
-  "Video For Linux" (under Multimedia Devices) to use this driver.
-  Information on this API and pointers to "v4l" programs may be found
-  on the WWW at <http://roadrunner.swansea.uk.linux.org/v4l.shtml>.
-
-  This code is also available as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want).
-  The module will be called se401.o. If you want to compile it as a
-  module, say M here and read <file:Documentation/modules.txt>.
 
 ACPI support
 CONFIG_ACPI
@@ -21615,23 +21674,17 @@ CONFIG_IPL
   If you want to use the produced kernel to IPL directly from a
   device, you have to merge a bootsector specific to the device
   into the first bytes of the kernel. You will have to select the
-  IPL device.
+  IPL device on another question, that pops up, when you select
+  CONFIG_IPL.
 
-# Choice: s390_ipl
-IPL from a S/390 tape unit
+IPL from a /390 tape unit
 CONFIG_IPL_TAPE
   Select this option if you want to IPL the image from a Tape.
 
 IPL from a virtual card reader emulated by VM/ESA
-CONFIG_IPL_RDR_VM
-  Select this option if you are running under VM/ESA and want
+CONFIG_IPL_VM
+  Select this option if you are running under VM/ESA and want 
   to IPL the image from the emulated card reader.
-
-IPL from a real card reader
-CONFIG_IPL_RDR
-  Select this option if you want to IPL the image from a real
-  card reader. Maybe you still got one and want to try. We didn't
-  test.
 
 Support for DASD hard disks
 CONFIG_DASD

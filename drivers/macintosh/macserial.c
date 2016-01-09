@@ -40,7 +40,8 @@
 #include <asm/system.h>
 #include <asm/segment.h>
 #include <asm/bitops.h>
-#include <asm/feature.h>
+#include <asm/machdep.h>
+#include <asm/pmac_feature.h>
 #include <linux/adb.h>
 #include <linux/pmu.h>
 #ifdef CONFIG_KGDB
@@ -1179,7 +1180,7 @@ static void shutdown(struct mac_serial * info)
 	}
 
 	memset(info->curregs, 0, sizeof(info->curregs));
-	memset(info->curregs, 0, sizeof(info->pendregs));
+	memset(info->pendregs, 0, sizeof(info->pendregs));
 
 	info->flags &= ~ZILOG_INITIALIZED;
 }
@@ -1194,69 +1195,34 @@ static int set_scc_power(struct mac_serial * info, int state)
 {
 	int delay = 0;
 
-	if (feature_test(info->dev_node, FEATURE_Serial_enable) < 0)
-		return 0;	/* don't have serial power control */
-
-	/* The timings looks strange but that's the ones MacOS seems
-	   to use for the internal modem. I think we can use a lot faster
-	   ones, at least whe not using the modem, this should be tested.
-	 */
 	if (state) {
 		PWRDBG("ttyS%02d: powering up hardware\n", info->line);
-		if (feature_test(info->dev_node, FEATURE_Serial_enable) == 0) {
-			feature_set(info->dev_node, FEATURE_Serial_enable);
-			mdelay(10);
-			feature_set(info->dev_node, FEATURE_Serial_reset);
-			mdelay(15);
-			feature_clear(info->dev_node, FEATURE_Serial_reset);
-			mdelay(10);
-		}
-		if (info->zs_chan_a == info->zs_channel)
-			feature_set(info->dev_node, FEATURE_Serial_IO_A);
-		else
-			feature_set(info->dev_node, FEATURE_Serial_IO_B);
-		delay = 10;
-		if (info->is_cobalt_modem) {
-			feature_set_modem_power(info->dev_node, 1);
+		pmac_call_feature(
+			PMAC_FTR_SCC_ENABLE,
+			info->dev_node, info->port_type, 1);
+		if (info->is_internal_modem) {
+			pmac_call_feature(
+				PMAC_FTR_MODEM_ENABLE,
+				info->dev_node, 0, 1);
 			delay = 2500;	/* wait for 2.5s before using */
-		}
-#ifdef CONFIG_PMAC_PBOOK
-		if (info->is_irda)
-			pmu_enable_irled(1);
-#endif /* CONFIG_PMAC_PBOOK */
+		} else if (info->is_irda)
+			mdelay(50);	/* Do better here once the problems
+			                 * with blocking have been ironed out
+			                 */
 	} else {
 		/* TODO: Make that depend on a timer, don't power down
 		 * immediately
 		 */
 		PWRDBG("ttyS%02d: shutting down hardware\n", info->line);
-		if (info->is_cobalt_modem) {
+		if (info->is_internal_modem) {
 			PWRDBG("ttyS%02d: shutting down modem\n", info->line);
-			feature_set_modem_power(info->dev_node, 0);
+			pmac_call_feature(
+				PMAC_FTR_MODEM_ENABLE,
+				info->dev_node, 0, 0);
 		}
-#ifdef CONFIG_PMAC_PBOOK
-		if (info->is_irda)
-			pmu_enable_irled(0);
-#endif /* CONFIG_PMAC_PBOOK */
-
-		if (info->zs_chan_a == info->zs_channel && !info->is_irda) {
-			PWRDBG("ttyS%02d: shutting down SCC channel A\n", info->line);
-			feature_clear(info->dev_node, FEATURE_Serial_IO_A);
-		} else if (!info->is_irda) {
-			PWRDBG("ttyS%02d: shutting down SCC channel B\n", info->line);
-			feature_clear(info->dev_node, FEATURE_Serial_IO_B);
-		}
-		/* XXX for now, shut down SCC core only on powerbooks */
-		if (is_powerbook
-		    && !(feature_test(info->dev_node, FEATURE_Serial_IO_A) ||
-			 feature_test(info->dev_node, FEATURE_Serial_IO_B))) {
-			PWRDBG("ttyS%02d: shutting down SCC core\n", info->line);
-			feature_set(info->dev_node, FEATURE_Serial_reset);
-			mdelay(15);
-			feature_clear(info->dev_node, FEATURE_Serial_reset);
-			mdelay(25);
-			feature_clear(info->dev_node, FEATURE_Serial_enable);
-			mdelay(5);
-		}
+		pmac_call_feature(
+			PMAC_FTR_SCC_ENABLE,
+			info->dev_node, info->port_type, 0);
 	}
 	return delay;
 }
@@ -2381,7 +2347,7 @@ static void show_serial_version(void)
  * Initialize one channel, both the mac_serial and mac_zschannel
  * structs.  We use the dev_node field of the mac_serial struct.
  */
-static void
+static int
 chan_init(struct mac_serial *zss, struct mac_zschannel *zs_chan,
 	  struct mac_zschannel *zs_chan_a)
 {
@@ -2411,12 +2377,15 @@ chan_init(struct mac_serial *zss, struct mac_zschannel *zs_chan,
 
 	/* setup misc varariables */
 	zss->kgdb_channel = 0;
-	zss->is_cobalt_modem = device_is_compatible(ch, "cobalt");
 
-	/* XXX tested only with wallstreet PowerBook,
-	   should do no harm anyway */
+	/* For now, we assume you either have a slot-names property
+	 * with "Modem" in it, or your channel is compatible with
+	 * "cobalt". Might need additional fixups
+	 */
+	zss->is_internal_modem = device_is_compatible(ch, "cobalt");
 	conn = get_property(ch, "AAPL,connector", &len);
 	zss->is_irda = conn && (strcmp(conn, "infrared") == 0);
+	zss->port_type = PMAC_SCC_ASYNC;
 	/* 1999 Powerbook G3 has slot-names property instead */
 	slots = (struct slot_names_prop *)get_property(ch, "slot-names", &len);
 	if (slots && slots->count > 0) {
@@ -2425,8 +2394,29 @@ chan_init(struct mac_serial *zss, struct mac_zschannel *zs_chan,
 		else if (strcmp(slots->name, "Modem") == 0)
 			zss->is_internal_modem = 1;
 	}
+	if (zss->is_irda)
+		zss->port_type = PMAC_SCC_IRDA;
+	if (zss->is_internal_modem) {
+		struct device_node* i2c_modem = find_devices("i2c-modem");
+		if (i2c_modem) {
+			char* mid = get_property(i2c_modem, "modem-id", NULL);
+			if (mid) switch(*mid) {
+			case 0x04 :
+			case 0x05 :
+			case 0x07 :
+			case 0x08 :
+			case 0x0b :
+			case 0x0c :
+				zss->port_type = PMAC_SCC_I2S1;
+			}
+			printk(KERN_INFO "macserial: i2c-modem detected, id: %d\n",
+				mid ? (*mid) : 0);
+		} else {
+			printk(KERN_INFO "macserial: serial modem detected\n");
+		}
+	}
 
-	if (zss->has_dma) {
+	while (zss->has_dma) {
 		zss->dma_priv = NULL;
 		/* it seems that the last two addresses are the
 		   DMA controllers */
@@ -2437,11 +2427,13 @@ chan_init(struct mac_serial *zss, struct mac_zschannel *zs_chan,
 		zss->tx_dma_irq = ch->intrs[1].line;
 		zss->rx_dma_irq = ch->intrs[2].line;
 		spin_lock_init(&zss->rx_dma_lock);
+		break;
 	}
 
 	init_timer(&zss->powerup_timer);
 	zss->powerup_timer.function = powerup_done;
 	zss->powerup_timer.data = (unsigned long) zss;
+	return 0;
 }
 
 /* Ask the PROM how many Z8530s we have and initialize their zs_channels */
@@ -2496,13 +2488,15 @@ probe_sccs()
 			continue;
 
 		/* set up A side */
-		chan_init(&zs_soft[chip + chan_a_index], zs_chan, zs_chan);
+		if (chan_init(&zs_soft[chip + chan_a_index], zs_chan, zs_chan))
+			continue;
 		++zs_chan;
 
 		/* set up B side, if it exists */
 		if (nchan > 1)
-			chan_init(&zs_soft[chip + 1 - chan_a_index],
-				  zs_chan, zs_chan - 1);
+			if (chan_init(&zs_soft[chip + 1 - chan_a_index],
+				  zs_chan, zs_chan - 1))
+				continue;
 		++zs_chan;
 	}
 	*pp = 0;
@@ -2528,13 +2522,35 @@ int macserial_init(void)
 	if (zs_chain == 0)
 		probe_sccs();
 
-	/* XXX assume it's a powerbook if we have a via-pmu */
+	/* XXX assume it's a powerbook if we have a via-pmu
+	 * 
+	 * This is OK for core99 machines as well.
+	 */
 	is_powerbook = find_devices("via-pmu") != 0;
 
-	/* Register the interrupt handler for each one */
+	/* Register the interrupt handler for each one
+	 * We also request the OF resources here as probe_sccs()
+	 * might be called too early for that
+	 */
 	save_flags(flags); cli();
 	for (i = 0; i < zs_channels_found; ++i) {
+		struct device_node* ch = zs_soft[i].dev_node;
+		if (!request_OF_resource(ch, 0, NULL)) {
+			printk(KERN_ERR "macserial: can't request IO resource !\n");
+			return -ENODEV;
+		}
 		if (zs_soft[i].has_dma) {
+			if (!request_OF_resource(ch, ch->n_addrs - 2, " (tx dma)")) {
+				printk(KERN_ERR "macserial: can't request TX DMA resource !\n");
+				zs_soft[i].has_dma = 0;
+				goto no_dma;
+			}
+			if (!request_OF_resource(ch, ch->n_addrs - 1, " (rx dma)")) {
+				release_OF_resource(ch, ch->n_addrs - 2);
+				printk(KERN_ERR "macserial: can't request RX DMA resource !\n");
+				zs_soft[i].has_dma = 0;
+				goto no_dma;
+			}
 			if (request_irq(zs_soft[i].tx_dma_irq, rs_txdma_irq, 0,
 					"SCC-txdma", &zs_soft[i]))
 				printk(KERN_ERR "macserial: can't get irq %d\n",
@@ -2546,6 +2562,7 @@ int macserial_init(void)
 				       zs_soft[i].rx_dma_irq);
 			disable_irq(zs_soft[i].rx_dma_irq);
 		}
+no_dma:		
 		if (request_irq(zs_soft[i].irq, rs_interrupt, 0,
 				"SCC", &zs_soft[i]))
 			printk(KERN_ERR "macserial: can't get irq %d\n",
@@ -2676,9 +2693,7 @@ int macserial_init(void)
 		connector = get_property(info->dev_node, "AAPL,connector", &lenp);
 		if (connector)
 			printk(", port = %s", connector);
-		if (info->is_cobalt_modem)
-			printk(" (cobalt modem)");
-		else if (info->is_internal_modem)
+		if (info->is_internal_modem)
 			printk(" (internal modem)");
 		if (info->is_irda)
 			printk(" (IrDA)");
@@ -2711,6 +2726,12 @@ void macserial_cleanup(void)
 		if (zs_soft[i].has_dma) {
 			free_irq(zs_soft[i].tx_dma_irq, &zs_soft[i]);
 			free_irq(zs_soft[i].rx_dma_irq, &zs_soft[i]);
+		}
+		release_OF_resource(zs_soft[i].dev_node, 0);
+		if (zs_soft[i].has_dma) {
+			struct device_node* ch = zs_soft[i].dev_node;
+			release_OF_resource(ch, ch->n_addrs - 2);
+			release_OF_resource(ch, ch->n_addrs - 1);
 		}
 	}
 	restore_flags(flags);

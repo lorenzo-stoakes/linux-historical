@@ -2192,6 +2192,11 @@ void __init console_init(void)
 #ifdef CONFIG_SERIAL_CONSOLE
 #if (defined(CONFIG_8xx) || defined(CONFIG_8260))
 	console_8xx_init();
+#elif defined(CONFIG_MAC_SERIAL) && defined(CONFIG_SERIAL)
+	if (_machine == _MACH_Pmac)
+ 		mac_scc_console_init();
+	else
+		serial_console_init();
 #elif defined(CONFIG_MAC_SERIAL)
  	mac_scc_console_init();
 #elif defined(CONFIG_PARISC)

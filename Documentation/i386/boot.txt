@@ -2,7 +2,7 @@
 		     ----------------------------
 
 		    H. Peter Anvin <hpa@zytor.com>
-			Last update 2000-10-29
+			Last update 2001-12-11
 
 On the i386 platform, the Linux kernel uses a rather complicated boot
 convention.  This has evolved partially due to historical aspects, as
@@ -31,6 +31,9 @@ Protocol 2.02:	(Kernel 2.4.0-test3-pre3) New command line protocol.
 		BIOS entry points.  zImage deprecated but still
 		supported.
 
+Protocol 2.03:	(???) Explicitly makes the highest possible initrd address
+		available to the bootloader.
+
 
 **** MEMORY LAYOUT
 
@@ -45,7 +48,7 @@ zImage kernels, typically looks like:
 098000	+------------------------+	
 	|  Kernel setup		 |	The kernel real-mode code.
 090200	+------------------------+
-	|  Kernel boot sector    |	The kernel legacy boot sector.
+	|  Kernel boot sector	 |	The kernel legacy boot sector.
 090000	+------------------------+
 	|  Protected-mode kernel |	The bulk of the kernel image.
 010000	+------------------------+
@@ -123,6 +126,7 @@ Offset	Proto	Name		Meaning
 0224/2	2.01+	heap_end_ptr	Free memory after setup end
 0226/2	N/A	pad1		Unused
 0228/4	2.02+	cmd_line_ptr	32-bit pointer to the kernel command line
+022C/4	2.03+	initrd_addr_max	Highest legal initrd address
 
 For backwards compatibility, if the setup_sects field contains 0, the
 real value is 4.
@@ -181,8 +185,8 @@ filled out, however:
 	The initrd should typically be located as high in memory as
 	possible, as it may otherwise get overwritten by the early
 	kernel initialization sequence.  However, it must never be
-	located above address 0x3C000000 if you want all kernels to
-	read it.
+	located above the address specified in the initrd_addr_max
+	field.  The initrd should be at least 4K page aligned.
 
   cmd_line_ptr:
 	If the protocol version is 2.02 or higher, this is a 32-bit
@@ -192,7 +196,15 @@ filled out, however:
 	command line, in which case you can point this to an empty
 	string (or better yet, to the string "auto".)  If this field
 	is left at zero, the kernel will assume that your boot loader
-	does not support the 2.02 protocol.
+	does not support the 2.02+ protocol.
+
+  ramdisk_max:
+	The maximum address that may be occupied by the initrd
+	contents.  For boot protocols 2.02 or earlier, this field is
+	not present, and the maximum address is 0x37FFFFFF.  (This
+	address is defined as the address of the highest safe byte, so
+	if your ramdisk is exactly 131072 bytes long and this field is
+	0x37FFFFFF, you can start your ramdisk at 0x37FE0000.)
 
 
 **** THE KERNEL COMMAND LINE
@@ -254,14 +266,14 @@ Such a boot loader should enter the following fields in the header:
 		if ( protocol >= 0x0202 ) {
 			cmd_line_ptr = base_ptr + 0x9000;
 		} else {
-			cmd_line_magic  = 0xA33F;
+			cmd_line_magic	= 0xA33F;
 			cmd_line_offset = 0x9000;
 			setup_move_size = 0x9100;
 		}
 	} else {
 		/* Very old kernel */
 
-		cmd_line_magic  = 0xA33F;
+		cmd_line_magic	= 0xA33F;
 		cmd_line_offset = 0x9000;
 
 		/* A very old kernel MUST have its real-mode code
@@ -411,4 +423,3 @@ IMPORTANT: All the hooks are required to preserve %esp, %ebp, %esi and
 
 	After completing your hook, you should jump to the address
 	that was in this field before your boot loader overwrote it.
-

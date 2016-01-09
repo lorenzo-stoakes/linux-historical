@@ -525,6 +525,16 @@ S: 14509 NE 39th Street #1096
 S: Bellevue, Washington 98007
 S: USA
 
+N: Christopher L. Cheney
+E: ccheney@debian.org
+E: ccheney@cheney.cx
+W: http://www.cheney.cx
+P: 1024D/8E384AF2 2D31 1927 87D7 1F24 9FF9  1BC5 D106 5AB3 8E38 4AF2
+D: Vista Imaging usb webcam driver
+S: 314 Prince of Wales
+S: Conroe, TX 77304
+S: USA
+
 N: Stuart Cheshire
 E: cheshire@cs.stanford.edu
 D: Author of Starmode Radio IP (STRIP) driver
@@ -1264,6 +1274,13 @@ E: jauderho@carumba.com
 W: http://www.carumba.com/
 D: bug toaster (A1 sauce makes all the difference)
 D: Random linux hacker
+
+N: Tim Hockin
+E: thockin@hockin.org
+W: http://www.hockin.org/~thockin
+D: Natsemi ethernet
+D: Cobalt Networks (x86) support
+D: This-and-That
 
 N: Dirk Hohndel
 E: hohndel@suse.de

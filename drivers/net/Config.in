@@ -34,11 +34,15 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    if [ "$CONFIG_PPC" = "y" ]; then
       dep_tristate '  MACE (Power Mac ethernet) support' CONFIG_MACE $CONFIG_ALL_PPC
       if [ "$CONFIG_MACE" != "n" ]; then
-        bool '    Use AAUI port instead of TP by default' CONFIG_MACE_AAUI_PORT
+	 bool '    Use AAUI port instead of TP by default' CONFIG_MACE_AAUI_PORT
       fi
       dep_tristate '  BMAC (G3 ethernet) support' CONFIG_BMAC $CONFIG_ALL_PPC
       dep_tristate '  GMAC (G4/iBook ethernet) support' CONFIG_GMAC $CONFIG_ALL_PPC
-      tristate '  National DP83902AV (Oak ethernet) support' CONFIG_OAKNET
+      if [ "$CONFIG_4xx" = "y" ]; then
+         if [ "$CONFIG_STB03xxx" = "y" -o "$CONFIG_403GCX" = "y" ]; then
+	    tristate '  National DP83902AV (Oak ethernet) support' CONFIG_OAKNET
+	 fi
+      fi
    fi
    if [ "$CONFIG_ZORRO" = "y" ]; then
       tristate '  Ariadne support' CONFIG_ARIADNE

@@ -33,7 +33,7 @@
 #include <linux/spinlock.h>
 #include <linux/time.h>
 #define TX_RING_SIZE	128
-#define TX_QUEUE_LEN	96	/* Limit ring entries actually used.  */
+#define TX_QUEUE_LEN	120	/* Limit ring entries actually used.  */
 #define RX_RING_SIZE 	128
 #define TX_TOTAL_SIZE	TX_RING_SIZE*sizeof(struct netdev_desc)
 #define RX_TOTAL_SIZE	RX_RING_SIZE*sizeof(struct netdev_desc)
@@ -649,13 +649,13 @@ struct netdev_private {
 	struct pci_dev *pdev;
 	spinlock_t lock;
 	struct net_device_stats stats;
-	unsigned int rx_buf_sz;	/* Based on MTU+slack. */
-	unsigned int speed;	/* Operating speed */
-	unsigned int vlan;	/* VLAN Id */
-	unsigned int chip_id;	/* PCI table chip id */
-	unsigned int int_count; /* Maximum frames each RxDMAComplete intr */
-	unsigned int int_timeout; /* Wait time between RxDMAComplete intr */
-	unsigned int tx_full:1;	/* The Tx queue is full. */
+	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
+	unsigned int speed;		/* Operating speed */
+	unsigned int vlan;		/* VLAN Id */
+	unsigned int chip_id;		/* PCI table chip id */
+	unsigned int rx_coalesce; 	/* Maximum frames each RxDMAComplete intr */
+	unsigned int rx_timeout; 	/* Wait time between RxDMAComplete intr */
+	unsigned int tx_full:1;		/* The Tx queue is full. */
 	unsigned int full_duplex:1;	/* Full-duplex operation requested. */
 	unsigned int an_enable:2;	/* Auto-Negotiated Enable */
 	unsigned int jumbo:1;		/* Jumbo frame enable */
@@ -697,6 +697,7 @@ static struct pci_device_id rio_pci_tbl[] __devinitdata = {
 MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
 #define TX_TIMEOUT  (4*HZ)
 #define PACKET_SIZE		1536
+#define MAX_JUMBO		8000
 #define RIO_IO_SIZE             340
 #ifdef RIO_DEBUG
 #define DEBUG_TFD_DUMP(x) debug_tfd_dump(x)
