@@ -1416,22 +1416,30 @@ int ideprobe_init (void)
 #ifdef MODULE
 extern int (*ide_xlate_1024_hook)(kdev_t, int, int, const char *);
 
-int init_module (void)
+static int ideprobe_done = 0;
+
+int ideprobe_init_module (void)
 {
 	unsigned int index;
+
+	if (ideprobe_done)
+    		return -EBUSY;
 	
 	for (index = 0; index < MAX_HWIFS; ++index)
 		ide_unregister(index);
 	ideprobe_init();
 	create_proc_ide_interfaces();
 	ide_xlate_1024_hook = ide_xlate_1024;
+	ideprobe_done++;
 	return 0;
 }
 
-void cleanup_module (void)
+void ideprobe_cleanup_module (void)
 {
 	ide_probe = NULL;
 	ide_xlate_1024_hook = 0;
 }
+EXPORT_SYMBOL(ideprobe_init_module);
+EXPORT_SYMBOL(ideprobe_cleanup_module);
 MODULE_LICENSE("GPL");
 #endif /* MODULE */

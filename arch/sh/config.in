@@ -177,6 +177,7 @@ fi
 hex 'Link address offset for booting' CONFIG_BOOT_LINK_OFFSET 00210000
 
 dep_bool 'Enable OC RAM zone (experimental)' CONFIG_SCRATCH_SPACE $CONFIG_EXPERIMENTAL
+bool 'DSP mode support' CONFIG_SH_DSP
 
 if [ "$CONFIG_CPU_SUBTYPE_ST40" = "y" ]; then
    bool 'PCI emulation of on-chip peripherals' CONFIG_SH_PCI_EMULATION

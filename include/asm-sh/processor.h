@@ -68,6 +68,7 @@ extern struct sh_cpuinfo boot_cpu_data;
  *     Interrupt level mask
  */
 #define SR_FD    0x00008000
+#define SR_DSP   0x00001000
 #define SR_IMASK 0x000000f0
 
 /*

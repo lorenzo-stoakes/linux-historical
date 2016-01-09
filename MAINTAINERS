@@ -1744,8 +1744,6 @@ P:	Paul Mundt
 M:	lethal@linux-sh.org
 P:	Richard Curnow
 M:	richard.curnow@superh.com
-P:	Benedict Gaster
-M:	benedict.gaster@superh.com
 L:	linuxsh-shmedia-dev@lists.sourceforge.net
 W:	http://www.linux-sh.org
 W:	http://linux-shmedia.bkbits.net
