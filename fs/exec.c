@@ -50,6 +50,7 @@
 
 int core_uses_pid;
 char core_pattern[65] = "core";
+int core_setuid_ok = 0;
 /* The maximal length of core_pattern is also specified in sysctl.c */ 
 
 static struct linux_binfmt *formats;
@@ -1104,13 +1105,18 @@ int do_coredump(long signr, struct pt_regs * regs)
 	struct file * file;
 	struct inode * inode;
 	int retval = 0;
+	int fsuid = current->fsuid;
 
 	lock_kernel();
 	binfmt = current->binfmt;
 	if (!binfmt || !binfmt->core_dump)
 		goto fail;
 	if (!is_dumpable(current))
-		goto fail;
+	{
+		if(!core_setuid_ok || !current->task_dumpable)
+			goto fail;
+		current->fsuid = 0;
+	}
 	current->mm->dumpable = 0;
 	if (current->rlim[RLIMIT_CORE].rlim_cur < binfmt->min_coredump)
 		goto fail;
@@ -1139,6 +1145,8 @@ int do_coredump(long signr, struct pt_regs * regs)
 close_fail:
 	filp_close(file, NULL);
 fail:
+	if (fsuid != current->fsuid)
+		current->fsuid = fsuid;
 	unlock_kernel();
 	return retval;
 }

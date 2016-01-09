@@ -400,37 +400,6 @@ static __init int swab_apm_power_in_minutes(struct dmi_blacklist *d)
 }
 
 /*
- * The Intel 440GX hall of shame. 
- *
- * On many (all we have checked) of these boxes the $PIRQ table is wrong.
- * The MP1.4 table is right however and so SMP kernels tend to work. 
- */
- 
-#ifdef CONFIG_PCI
-extern int broken_440gx_bios;
-extern unsigned int pci_probe;
-#endif
-static __init int broken_pirq(struct dmi_blacklist *d)
-{
-	printk(KERN_INFO " *** Possibly defective BIOS detected (irqtable)\n");
-	printk(KERN_INFO " *** Many BIOSes matching this signature have incorrect IRQ routing tables.\n");
-	printk(KERN_INFO " *** If you see IRQ problems, in paticular SCSI resets and hangs at boot\n");
-	printk(KERN_INFO " *** contact your hardware vendor and ask about updates.\n");
-	printk(KERN_INFO " *** Building an SMP kernel may evade the bug some of the time.\n");
-#ifdef CONFIG_X86_IO_APIC
-	{
-		extern int skip_ioapic_setup; 
-		skip_ioapic_setup = 0;
-	}
-#endif
-#ifdef CONFIG_PCI
-	broken_440gx_bios = 1;
-	pci_probe |= PCI_BIOS_IRQ_SCAN;
-#endif
-	return 0;
-}
-
-/*
  * ASUS K7V-RM has broken ACPI table defining sleep modes
  */
 
@@ -824,77 +793,17 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			NO_MATCH, NO_MATCH
 			} },
 
-	/* Problem Intel 440GX bioses */
-
-	{ broken_pirq, "SABR1 Bios", {			/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"SABR1"),
-			NO_MATCH, NO_MATCH
-			} },
-	{ broken_pirq, "l44GX Bios", {        		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0.86B.0066.P07"),
-			NO_MATCH, NO_MATCH
-                        } },
-	{ broken_pirq, "IBM xseries 370", {        		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "IBM"),
-			MATCH(DMI_BIOS_VERSION,"MMKT33AUS"),
-			NO_MATCH, NO_MATCH
-                        } },
-	{ broken_pirq, "l44GX Bios", {        		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0.86B.0094.P10"),
-			NO_MATCH, NO_MATCH
-                        } },
-	{ broken_pirq, "l44GX Bios", {        		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0.86B.0115.P12"),
-			NO_MATCH, NO_MATCH
-                        } },
-	{ broken_pirq, "l44GX Bios", {        		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0.86B.0120.P12"),
-			NO_MATCH, NO_MATCH
-                        } },
-	{ broken_pirq, "l44GX Bios", {		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0.86B.0125.P13"),
-			NO_MATCH, NO_MATCH
-			} },
-	{ broken_pirq, "l44GX Bios", {		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"C440GX0.86B"),
-			NO_MATCH, NO_MATCH
-			} },
-	{ broken_pirq, "l44GX Bios", {		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0.86B.0133.P14"),
-			NO_MATCH, NO_MATCH
-			} },
-	{ broken_pirq, "l44GX Bios", {		/* Bad $PIR */
-			MATCH(DMI_BIOS_VENDOR, "Intel Corporation"),
-			MATCH(DMI_BIOS_VERSION,"L440GX0"),
-			NO_MATCH, NO_MATCH
-			} },
-                        
-	/* Intel in disgiuse - In this case they can't hide and they don't run
-	   too well either... */
-	{ broken_pirq, "Dell PowerEdge 8450", {		/* Bad $PIR */
-			MATCH(DMI_PRODUCT_NAME, "Dell PowerEdge 8450"),
+	{ init_ints_after_s1, "Toshiba Satellite 4030cdt", { /* Reinitialization of 8259 is needed after S1 resume */
+			MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),
 			NO_MATCH, NO_MATCH, NO_MATCH
 			} },
-			
+
 	{ broken_acpi_Sx, "ASUS K7V-RM", {		/* Bad ACPI Sx table */
 			MATCH(DMI_BIOS_VERSION,"ASUS K7V-RM ACPI BIOS Revision 1003A"),
 			MATCH(DMI_BOARD_NAME, "<K7V-RM>"),
 			NO_MATCH, NO_MATCH
 			} },
 			
-	{ init_ints_after_s1, "Toshiba Satellite 4030cdt", { /* Reinitialization of 8259 is needed after S1 resume */
-			MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),
-			NO_MATCH, NO_MATCH, NO_MATCH
-			} },
-
 	{ print_if_true, KERN_WARNING "IBM T23 - BIOS 1.03b+ and controller firmware 1.02+ may be needed for Linux APM.", {
 			MATCH(DMI_SYS_VENDOR, "IBM"),
 			MATCH(DMI_BIOS_VERSION, "1AET38WW (1.01b)"),

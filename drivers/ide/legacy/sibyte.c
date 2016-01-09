@@ -75,5 +75,5 @@ void __init sibyte_ide_probe(void)
 	hwif->mmio                            = 2;
 
 	memcpy(hwif->io_ports, hwif->hw.io_ports, sizeof(hwif->io_ports));
-	printk("SiByte onboard IDE configured as device %i\n", hwif-ide_hwifs);
+	printk(KERN_INFO "SiByte onboard IDE configured as device %i\n", hwif-ide_hwifs);
 }

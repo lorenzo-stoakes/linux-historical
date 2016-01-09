@@ -127,3 +127,55 @@ hardware and it is important to prevent the OS from attempting to directly
 access these devices too, as if the array controller were merely a SCSI 
 controller in the same way that we are allowing it to access SCSI tape drives.
 
+Monitor Threads
+---------------
+
+For multipath configurations (acheived via a higher level driver, such
+as the "md" driver) it is important that failure of a controller is detected.
+Ordinarily, the driver is entirely interrupt driven.  If a failure occurs
+in such a way that the processor cannot receive interrupts from an adapter,
+the driver will wait forever for i/o's to complete.  In a multipath
+configuration this is undesirable, as the md driver relies on i/o's being
+reported as failed by the low level driver to trigger failing over to an 
+alternate controller.  The monitor threads allow the driver to detect such 
+situations and report outstanding i/o's as having failed so that recovery 
+actions such switching to an alternate controller can occur.  The monitor 
+threads periodically sends a trivial "no-operation" command down to 
+the controllers and expect them to complete within a a reasonable (short)
+time period.  The firmware on the adapter is designed such that no matter
+how busy the adapter is serving i/o, it can respond quickly to a
+"no-operation" command.  In the event that a deadline elapses before a no 
+operation command completes, all outstanding commands on that controller 
+are reported back to the upper layers as having failed, and any new commands 
+sent to the controller are immediately reported back as failed. 
+
+To enable the monitor threads, the compile time option must be enabled
+(via the usual linux kernel configuration) and the monitor thread must
+be enabled at runtime as well.  A system may have many adapters, but 
+perhaps only a single pair operating in a multipath configuration.  
+In this way, it is possible to run monitoring threads only for those 
+adapters which require it.
+
+To start a monitoring thread on the first cciss adapter, "cciss0" with
+a polling interval of 30 seconds, execute the following command:
+
+	echo "monitor 30" > /proc/driver/cciss/cciss0
+
+To change the polling interval, to say, 60 seconds:
+
+	echo "monitor 60" > /proc/driver/cciss/cciss0
+
+(Note, the change will not take effect until the previous polling 
+interval elapses.)
+
+To disable the monitoring thread, set the polling interval to 0 seconds:
+
+	echo "monitor 0" > /proc/driver/cciss/cciss0
+
+(Again, the monitoring thread will not exit until the previous polling
+interval elapses.)
+
+The minimum monitoring period is 10 seconds, and the maximum monitoring
+period is 3600 seconds (1 hour).  The no-operation command must complete
+with 5 seconds of submission in all cases or the controller will be presumed
+failed.

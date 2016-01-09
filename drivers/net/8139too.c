@@ -247,7 +247,7 @@ static struct {
 };
 
 
-static struct pci_device_id rtl8139_pci_tbl[] __devinitdata = {
+static struct pci_device_id rtl8139_pci_tbl[] = {
 	{0x10ec, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
 	{0x10ec, 0x8138, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139_CB },
 	{0x1113, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, SMC1211TX },
@@ -301,7 +301,6 @@ enum RTL8139_registers {
 	IntrMask = 0x3C,
 	IntrStatus = 0x3E,
 	TxConfig = 0x40,
-	ChipVersion = 0x43,
 	RxConfig = 0x44,
 	Timer = 0x48,		/* A general-purpose counter. */
 	RxMissed = 0x4C,	/* 24 bits valid, write clears. */
@@ -498,9 +497,13 @@ typedef enum {
 	CH_8139 = 0,
 	CH_8139_K,
 	CH_8139A,
+	CH_8139A_G,
 	CH_8139B,
 	CH_8130,
 	CH_8139C,
+	CH_8100,
+	CH_8100B_8139D,
+	CH_8101,
 } chip_t;
 
 enum chip_flags {
@@ -508,50 +511,65 @@ enum chip_flags {
 	HasLWake = (1 << 1),
 };
 
+#define HW_REVID(b30, b29, b28, b27, b26, b23, b22) \
+	(b30<<30 | b29<<29 | b28<<28 | b27<<27 | b26<<26 | b23<<23 | b22<<22)
+#define HW_REVID_MASK	HW_REVID(1, 1, 1, 1, 1, 1, 1)
 
 /* directly indexed by chip_t, above */
 const static struct {
 	const char *name;
-	u8 version; /* from RTL8139C docs */
-	u32 RxConfigMask; /* should clear the bits supported by this chip */
+	u32 version; /* from RTL8139C/RTL8139D docs */
 	u32 flags;
 } rtl_chip_info[] = {
 	{ "RTL-8139",
-	  0x40,
-	  0xf0fe0040, /* XXX copied from RTL8139A, verify */
+	  HW_REVID(1, 0, 0, 0, 0, 0, 0),
 	  HasHltClk,
 	},
 
 	{ "RTL-8139 rev K",
-	  0x60,
-	  0xf0fe0040,
+	  HW_REVID(1, 1, 0, 0, 0, 0, 0),
 	  HasHltClk,
 	},
 
 	{ "RTL-8139A",
-	  0x70,
-	  0xf0fe0040,
+	  HW_REVID(1, 1, 1, 0, 0, 0, 0),
+	  HasHltClk, /* XXX undocumented? */
+	},
+
+	{ "RTL-8139A rev G",
+	  HW_REVID(1, 1, 1, 0, 0, 1, 0),
 	  HasHltClk, /* XXX undocumented? */
 	},
 
 	{ "RTL-8139B",
-	  0x78,
-	  0xf0fc0040,
+	  HW_REVID(1, 1, 1, 1, 0, 0, 0),
 	  HasLWake,
 	},
 
 	{ "RTL-8130",
-	  0x7C,
-	  0xf0fe0040, /* XXX copied from RTL8139A, verify */
+	  HW_REVID(1, 1, 1, 1, 1, 0, 0),
 	  HasLWake,
 	},
 
 	{ "RTL-8139C",
-	  0x74,
-	  0xf0fc0040, /* XXX copied from RTL8139B, verify */
+	  HW_REVID(1, 1, 1, 0, 1, 0, 0),
 	  HasLWake,
 	},
 
+	{ "RTL-8100",
+	  HW_REVID(1, 1, 1, 1, 0, 1, 0),
+ 	  HasLWake,
+ 	},
+
+	{ "RTL-8100B/8139D",
+	  HW_REVID(1, 1, 1, 0, 1, 0, 1),
+	  HasLWake,
+	},
+
+	{ "RTL-8101",
+	  HW_REVID(1, 1, 1, 0, 1, 1, 1),
+	  HasLWake,
+	},
 };
 
 struct rtl_extra_stats {
@@ -616,7 +634,7 @@ static void rtl8139_tx_timeout (struct net_device *dev);
 static void rtl8139_init_ring (struct net_device *dev);
 static int rtl8139_start_xmit (struct sk_buff *skb,
 			       struct net_device *dev);
-static void rtl8139_interrupt (int irq, void *dev_instance,
+static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance,
 			       struct pt_regs *regs);
 static int rtl8139_close (struct net_device *dev);
 static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
@@ -756,7 +774,7 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
 	unsigned int i;
 	u32 pio_start, pio_end, pio_flags, pio_len;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
-	u32 tmp;
+	u32 version;
 
 	assert (pdev != NULL);
 
@@ -765,10 +783,11 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
 	/* dev and dev->priv zeroed in alloc_etherdev */
 	dev = alloc_etherdev (sizeof (*tp));
 	if (dev == NULL) {
-		printk (KERN_ERR PFX "%s: Unable to alloc new net device\n", pdev->slot_name);
+		printk (KERN_ERR PFX "%s: Unable to alloc new net device\n", pci_name(pdev));
 		return -ENOMEM;
 	}
 	SET_MODULE_OWNER(dev);
+
 	tp = dev->priv;
 	tp->pci_dev = pdev;
 
@@ -795,25 +814,25 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
 #ifdef USE_IO_OPS
 	/* make sure PCI base addr 0 is PIO */
 	if (!(pio_flags & IORESOURCE_IO)) {
-		printk (KERN_ERR PFX "%s: region #0 not a PIO resource, aborting\n", pdev->slot_name);
+		printk (KERN_ERR PFX "%s: region #0 not a PIO resource, aborting\n", pci_name(pdev));
 		rc = -ENODEV;
 		goto err_out;
 	}
 	/* check for weird/broken PCI region reporting */
 	if (pio_len < RTL_MIN_IO_SIZE) {
-		printk (KERN_ERR PFX "%s: Invalid PCI I/O region size(s), aborting\n", pdev->slot_name);
+		printk (KERN_ERR PFX "%s: Invalid PCI I/O region size(s), aborting\n", pci_name(pdev));
 		rc = -ENODEV;
 		goto err_out;
 	}
 #else
 	/* make sure PCI base addr 1 is MMIO */
 	if (!(mmio_flags & IORESOURCE_MEM)) {
-		printk (KERN_ERR PFX "%s: region #1 not an MMIO resource, aborting\n", pdev->slot_name);
+		printk (KERN_ERR PFX "%s: region #1 not an MMIO resource, aborting\n", pci_name(pdev));
 		rc = -ENODEV;
 		goto err_out;
 	}
 	if (mmio_len < RTL_MIN_IO_SIZE) {
-		printk (KERN_ERR PFX "%s: Invalid PCI mem region size(s), aborting\n", pdev->slot_name);
+		printk (KERN_ERR PFX "%s: Invalid PCI mem region size(s), aborting\n", pci_name(pdev));
 		rc = -ENODEV;
 		goto err_out;
 	}
@@ -835,7 +854,7 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
 	/* ioremap MMIO region */
 	ioaddr = ioremap (mmio_start, mmio_len);
 	if (ioaddr == NULL) {
-		printk (KERN_ERR PFX "%s: cannot remap MMIO, aborting\n", pdev->slot_name);
+		printk (KERN_ERR PFX "%s: cannot remap MMIO, aborting\n", pci_name(pdev));
 		rc = -EIO;
 		goto err_out;
 	}
@@ -850,23 +869,23 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
 	/* check for missing/broken hardware */
 	if (RTL_R32 (TxConfig) == 0xFFFFFFFF) {
 		printk (KERN_ERR PFX "%s: Chip not responding, ignoring board\n",
-			pdev->slot_name);
+			pci_name(pdev));
 		rc = -EIO;
 		goto err_out;
 	}
 
 	/* identify chip attached to board */
-	tmp = RTL_R8 (ChipVersion);
+	version = RTL_R32 (TxConfig) & HW_REVID_MASK;
 	for (i = 0; i < ARRAY_SIZE (rtl_chip_info); i++)
-		if (tmp == rtl_chip_info[i].version) {
+		if (version == rtl_chip_info[i].version) {
 			tp->chipset = i;
 			goto match;
 		}
 
 	/* if unknown chip, assume array element #0, original RTL-8139 in this case */
 	printk (KERN_DEBUG PFX "%s: unknown chip version, assuming RTL-8139\n",
-		pdev->slot_name);
-	printk (KERN_DEBUG PFX "%s: TxConfig = 0x%lx\n", pdev->slot_name, RTL_R32 (TxConfig));
+		pci_name(pdev));
+	printk (KERN_DEBUG PFX "%s: TxConfig = 0x%lx\n", pci_name(pdev), RTL_R32 (TxConfig));
 	tp->chipset = 0;
 
 match:
@@ -889,8 +908,11 @@ match:
 		}
 		if (rtl_chip_info[tp->chipset].flags & HasLWake) {
 			tmp8 = RTL_R8 (Config4);
-			if (tmp8 & LWPTN)
+			if (tmp8 & LWPTN) {
+				RTL_W8 (Cfg9346, Cfg9346_Unlock);
 				RTL_W8 (Config4, tmp8 & ~LWPTN);
+				RTL_W8 (Cfg9346, Cfg9346_Lock);
+			}
 		}
 	} else {
 		DPRINTK("Old chip wakeup\n");
@@ -941,7 +963,7 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
 	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
 	    pdev->device == PCI_DEVICE_ID_REALTEK_8139 && pci_rev >= 0x20) {
 		printk(KERN_INFO PFX "pci dev %s (id %04x:%04x rev %02x) is an enhanced 8139C+ chip\n",
-		       pdev->slot_name, pdev->vendor, pdev->device, pci_rev);
+		       pci_name(pdev), pdev->vendor, pdev->device, pci_rev);
 		printk(KERN_INFO PFX "Use the \"8139cp\" driver for improved performance and stability.\n");
 	}
 
@@ -1336,23 +1358,12 @@ static int rtl8139_open (struct net_device *dev)
 }
 
 
-static void rtl_check_media (struct net_device *dev)
+static void rtl_check_media (struct net_device *dev, unsigned int init_media)
 {
 	struct rtl8139_private *tp = dev->priv;
 
 	if (tp->phys[0] >= 0) {
-		u16 mii_lpa = mdio_read(dev, tp->phys[0], MII_LPA);
-		if (mii_lpa == 0xffff)
-			;					/* Not there */
-		else if ((mii_lpa & LPA_100FULL) == LPA_100FULL
-				 || (mii_lpa & 0x00C0) == LPA_10FULL)
-			tp->mii.full_duplex = 1;
-
-		printk (KERN_INFO"%s: Setting %s%s-duplex based on"
-				" auto-negotiated partner ability %4.4x.\n",
-		        dev->name, mii_lpa == 0 ? "" :
-				(mii_lpa & 0x0180) ? "100mbps " : "10mbps ",
-			tp->mii.full_duplex ? "full" : "half", mii_lpa);
+		mii_check_media(&tp->mii, 1, init_media);
 	}
 }
 
@@ -1387,7 +1398,7 @@ static void rtl8139_hw_start (struct net_device *dev)
 
 	tp->cur_rx = 0;
 
-	rtl_check_media (dev);
+	rtl_check_media (dev, 1);
 
 	if (tp->chipset >= CH_8139B) {
 		/* Disable magic packet scanning, which is enabled
@@ -2002,18 +2013,7 @@ static void rtl8139_weird_interrupt (struct net_device *dev,
 
 	if ((status & RxUnderrun) && link_changed &&
 	    (tp->drv_flags & HAS_LNK_CHNG)) {
-		/* Really link-change on new chips. */
-		int lpar = RTL_R16 (NWayLPAR);
-		int duplex = (lpar & LPA_100FULL) || (lpar & 0x01C0) == 0x0040
-				|| tp->mii.force_media;
-		if (tp->mii.full_duplex != duplex) {
-			tp->mii.full_duplex = duplex;
-#if 0
-			RTL_W8 (Cfg9346, Cfg9346_Unlock);
-			RTL_W8 (Config1, tp->mii.full_duplex ? 0x60 : 0x20);
-			RTL_W8 (Cfg9346, Cfg9346_Lock);
-#endif
-		}
+		rtl_check_media(dev, 0);
 		status &= ~RxUnderrun;
 	}
 
@@ -2039,7 +2039,7 @@ static void rtl8139_weird_interrupt (struct net_device *dev,
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
-static void rtl8139_interrupt (int irq, void *dev_instance,
+static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance,
 			       struct pt_regs *regs)
 {
 	struct net_device *dev = (struct net_device *) dev_instance;
@@ -2048,6 +2048,7 @@ static void rtl8139_interrupt (int irq, void *dev_instance,
 	void *ioaddr = tp->mmio_addr;
 	int ackstat, status;
 	int link_changed = 0; /* avoid bogus "uninit" warning */
+	int handled = 0;
 
 	spin_lock (&tp->lock);
 
@@ -2062,6 +2063,8 @@ static void rtl8139_interrupt (int irq, void *dev_instance,
 		     (PCIErr | PCSTimeout | RxUnderrun | RxOverflow |
 		      RxFIFOOver | TxErr | TxOK | RxErr | RxOK)) == 0)
 			break;
+
+		handled = 1;
 
 		/* Acknowledge all of the current interrupt sources ASAP, but
 		   an first get an additional status bit from CSCR. */
@@ -2107,6 +2110,7 @@ static void rtl8139_interrupt (int irq, void *dev_instance,
 
 	DPRINTK ("%s: exiting interrupt, intr_status=%#4.4x.\n",
 		 dev->name, RTL_R16 (IntrStatus));
+	return IRQ_RETVAL(handled);
 }
 
 
@@ -2260,7 +2264,7 @@ static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
 		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
 		strcpy (info.driver, DRV_NAME);
 		strcpy (info.version, DRV_VERSION);
-		strcpy (info.bus_info, np->pci_dev->slot_name);
+		strcpy (info.bus_info, pci_name(np->pci_dev));
 		info.regdump_len = np->regs_len;
 		if (copy_to_user (useraddr, &info, sizeof (info)))
 			return -EFAULT;

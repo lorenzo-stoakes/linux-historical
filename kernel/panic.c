@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/sysrq.h>
 #include <linux/interrupt.h>
+#include <linux/console.h>
 
 asmlinkage void sys_sync(void);	/* it's really int */
 

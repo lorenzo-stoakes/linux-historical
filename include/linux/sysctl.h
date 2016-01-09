@@ -127,6 +127,7 @@ enum
  	KERN_CORE_PATTERN=56,	/* string: pattern for core-files */
 	KERN_PPC_L3CR=57,       /* l3cr register on PPC */
 	KERN_EXCEPTION_TRACE=58, /* boolean: exception trace */
+ 	KERN_CORE_SETUID=59,	/* int: set to allow core dumps of setuid apps */
 };
 
 

@@ -263,4 +263,7 @@ if [ "$CONFIG_DUMP" = "y" -o "$CONFIG_DUMP" = "m" ]; then
    dep_bool '  LKCD RLE compression' CONFIG_DUMP_COMPRESS_RLE $CONFIG_DUMP
    dep_bool '  LKCD GZIP compression' CONFIG_DUMP_COMPRESS_GZIP $CONFIG_DUMP
 fi
+
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu

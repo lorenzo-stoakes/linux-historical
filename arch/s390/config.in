@@ -80,6 +80,9 @@ comment 'Kernel hacking'
 #  bool 'Remote GDB kernel debugging' CONFIG_REMOTE_DEBUG
 #fi
 bool 'Magic SysRq key' CONFIG_MAGIC_SYSRQ
+
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
 source crypto/Config.in

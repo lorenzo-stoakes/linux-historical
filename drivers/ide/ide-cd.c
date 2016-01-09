@@ -3262,7 +3262,7 @@ int ide_cdrom_init(void)
 		}
 		if (ide_register_subdriver(drive, 
 				&ide_cdrom_driver, IDE_SUBDRIVER_VERSION)) {
-			printk("%s: Failed to register the driver with "
+			printk("ide-cd: %s: Failed to register the driver with "
 				"ide.c\n", drive->name);
 			kfree(info);
 			continue;

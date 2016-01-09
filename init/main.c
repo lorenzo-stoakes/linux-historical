@@ -26,6 +26,7 @@
 #include <linux/hdreg.h>
 #include <linux/iobuf.h>
 #include <linux/bootmem.h>
+#include <linux/file.h>
 #include <linux/tty.h>
 
 #include <asm/io.h>
@@ -424,9 +425,6 @@ asmlinkage void __init start_kernel(void)
 #ifdef CONFIG_PROC_FS
 	proc_root_init();
 #endif
-#if defined(CONFIG_SYSVIPC)
-	ipc_init();
-#endif
 	check_bugs();
 	printk("POSIX conformance testing by UNIFIX\n");
 
@@ -436,6 +434,9 @@ asmlinkage void __init start_kernel(void)
 	 *	make syscalls (and thus be locked).
 	 */
 	smp_init();
+#if defined(CONFIG_SYSVIPC)
+	ipc_init();
+#endif
 	rest_init();
 }
 
@@ -548,6 +549,7 @@ extern void prepare_namespace(void);
 
 static int init(void * unused)
 {
+	struct files_struct *files;
 	lock_kernel();
 	do_basic_setup();
 
@@ -560,7 +562,17 @@ static int init(void * unused)
 	 */
 	free_initmem();
 	unlock_kernel();
-
+	
+	/*
+	 * Right now we are a thread sharing with a ton of kernel
+	 * stuff. We don't want to end up in user space in that state
+	 */
+	 
+	files = current->files;
+	if(unshare_files())
+		panic("unshare");
+	put_files_struct(files);
+	
 	if (open("/dev/console", O_RDWR, 0) < 0)
 		printk("Warning: unable to open an initial console.\n");
 

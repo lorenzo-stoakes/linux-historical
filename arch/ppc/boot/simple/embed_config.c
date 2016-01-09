@@ -640,7 +640,7 @@ embed_config(bd_t **bdp)
 }
 #endif /* WILLOW */
 
-#ifdef CONFIG_TREEBOOT
+#ifdef CONFIG_IBM_OPENBIOS
 /* This could possibly work for all treeboot roms.
 */
 #define	BOARD_INFO_VECTOR	0xFFFE0B50

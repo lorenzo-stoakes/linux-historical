@@ -311,6 +311,8 @@ if [ "$CONFIG_STACK_DEBUG" = "y" ] ; then
    define_bool CONFIG_MCOUNT y
 fi
 
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
 source crypto/Config.in

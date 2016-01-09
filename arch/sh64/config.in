@@ -301,6 +301,8 @@ bool 'GDB Stub kernel debug' CONFIG_DEBUG_KERNEL_WITH_GDB_STUB
 bool "Debug: audit page tables on return from syscall/exception/interrupt" CONFIG_SH64_PAGE_TABLE_AUDIT
 dep_bool "Debug: report TLB fill/purge activity through /proc/tlb" CONFIG_SH64_PROC_TLB $CONFIG_PROC_FS
 
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
 source lib/Config.in

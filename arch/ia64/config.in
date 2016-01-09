@@ -294,4 +294,6 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  Turn on irq debug checks (slow!)' CONFIG_IA64_DEBUG_IRQ
 fi
 
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu

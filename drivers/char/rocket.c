@@ -1052,7 +1052,7 @@ static void rp_close(struct tty_struct *tty, struct file * filp)
 		restore_flags(flags);
 		return;
 	}
-	if ((tty->count == 1) && (info->count != 1)) {
+	if ((atomic_read(&tty->count) == 1) && (info->count != 1)) {
 		/*
 		 * Uh, oh.  tty->count is 1, which means that the tty
 		 * structure will be freed.  Info->count should always
@@ -1944,6 +1944,10 @@ int __init register_PCI(int i, unsigned int bus, unsigned int device_fn)
 		str = "8J";
 		max_num_aiops = 1;
 		break;
+	case PCI_DEVICE_ID_RP4J:
+		str = "4J";
+		max_num_aiops = 1;
+		break;
 	case PCI_DEVICE_ID_RP16INTF:
 		str = "16";
 		max_num_aiops = 2;
@@ -2006,6 +2010,10 @@ static int __init init_PCI(int boards_found)
 			PCI_DEVICE_ID_RP8J, i, &bus, &device_fn)) 
 			if (register_PCI(count+boards_found, bus, device_fn))
 				count++;
+		if (!pcibios_find_device(PCI_VENDOR_ID_RP,
+			PCI_DEVICE_ID_RP4J, i, &bus, &device_fn)) 
+			if (register_PCI(count+boards_found, bus, device_fn))
+				count++;
 		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
 			PCI_DEVICE_ID_RP8OCTA, i, &bus, &device_fn)) 
 			if(register_PCI(count+boards_found, bus, device_fn))
@@ -2028,6 +2036,10 @@ static int __init init_PCI(int boards_found)
 				count++;
 		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
 			PCI_DEVICE_ID_RP8J, i, &bus, &device_fn)) 
+			if(register_PCI(count+boards_found, bus, device_fn))
+				count++;
+		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
+			PCI_DEVICE_ID_RP4J, i, &bus, &device_fn)) 
 			if(register_PCI(count+boards_found, bus, device_fn))
 				count++;
 		if(!pcibios_find_device(PCI_VENDOR_ID_RP,

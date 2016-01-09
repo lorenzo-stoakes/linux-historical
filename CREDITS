@@ -1238,14 +1238,13 @@ S: Germany
 
 N: Christoph Hellwig
 E: hch@infradead.org
-E: hch@sgi.com
 D: all kinds of driver, filesystem & core kernel hacking
 D: freevxfs driver
 D: sysvfs maintainer
 D: chief codingstyle nitpicker
-S: Auweg 38
-S: 85748 Garching
-S: Germany
+S: Ampferstr. 50 / 4
+S: 6020 Innsbruck
+S: Austria
 
 N: Richard Henderson
 E: rth@twiddle.net
@@ -2207,6 +2206,15 @@ S: South Australia
 N. Wolfgang Muees
 E: wolfgang@iksw-muees.de
 D: Auerswald USB driver
+
+N: Paul Mundt
+E: lethal@linux-sh.org
+P: 1024D/917167DC 563C FC60 83BB A3EE D816  E60D D4AF AD78 9171 67DC
+D: Linux/SH and Linux/sh64
+D: Occasional MIPS hacker
+D: fbdev hacker
+S: Hamilton, Ontario
+S: Canada
 
 N: Ian A. Murdock
 E: imurdock@gnu.ai.mit.edu

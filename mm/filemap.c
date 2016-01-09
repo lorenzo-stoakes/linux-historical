@@ -3007,7 +3007,7 @@ int precheck_file_write(struct file *file, struct inode *inode,
 	}
 
 	/* FIXME: this is for backwards compatibility with 2.4 */
-	if (!S_ISBLK(inode->i_mode) && file->f_flags & O_APPEND)
+	if (!S_ISBLK(inode->i_mode) && (file->f_flags & O_APPEND))
 		*ppos = pos = inode->i_size;
 
 	/*
@@ -3238,7 +3238,7 @@ do_generic_direct_write(struct file *file,const char *buf,size_t count, loff_t *
 	if (err != 0 || count == 0)
 		goto out;
 
-	if (!file->f_flags & O_DIRECT)
+	if (!(file->f_flags & O_DIRECT))
 		BUG();
 
 	remove_suid(inode);
@@ -3259,7 +3259,7 @@ do_generic_direct_write(struct file *file,const char *buf,size_t count, loff_t *
 	 * Sync the fs metadata but not the minor inode changes and
 	 * of course not the data as we did direct DMA for the IO.
 	 */
-	if (written >= 0 && file->f_flags & O_SYNC)
+	if (written >= 0 && (file->f_flags & O_SYNC))
 		status = generic_osync_inode(inode, OSYNC_METADATA);
 
 	err = written ? written : status;

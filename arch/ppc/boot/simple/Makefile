@@ -28,6 +28,22 @@ ZIMAGEINITRD			:= zImage.initrd-EMBEDDED
 TFTPIMAGE			:= /tftpboot/zImage.embedded
 MISC				:= misc-embedded.o
 endif
+ifeq ($(CONFIG_EBONY),y)
+ZIMAGE				:= zImage-TREE
+ZIMAGEINITRD			:= zImage.initrd-TREE
+END				:= ebony
+ENTRYPOINT			:= 0x00800000
+TFTPIMAGE			:= /tftpboot/zImage.$(END)
+EXTRA				:= misc-44x.o
+endif
+ifeq ($(CONFIG_OCOTEA),y)
+ZIMAGE				:= zImage-TREE
+ZIMAGEINITRD			:= zImage.initrd-TREE
+END				:= ocotea
+ENTRYPOINT			:= 0x00800000
+TFTPIMAGE			:= /tftpboot/zImage.$(END)
+EXTRA				:= misc-44x.o
+endif
 ifeq ($(CONFIG_GEMINI),y)
 ZIMAGE				:= zImage-SMON
 ZIMAGEINITRD			:= zImage.initrd-SMON
@@ -68,7 +84,7 @@ LD_ARGS				= -T ../ld.script -Ttext 0x00800000 -Bstatic
 ifdef CONFIG_8xx
 LD_ARGS				:= -T ../ld.script -Ttext 0x00180000 -Bstatic
 endif
-ifeq ($(CONFIG_8260)$(CONFIG_4xx),y)
+ifeq ($(CONFIG_8260)$(CONFIG_40x),y)
 LD_ARGS				:= -T ../ld.script -Ttext 0x00400000 -Bstatic
 endif
 OBJCOPY_ARGS			:= -O elf32-powerpc

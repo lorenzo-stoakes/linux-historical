@@ -48,8 +48,6 @@ endif
 
 obj-$(CONFIG_BLK_DEV_IDE)		+= ide-core.o
 
-obj-$(CONFIG_BLK_DEV_IDE_SIBYTE)	+= ide-sibyte.o
-
 ifeq ($(CONFIG_BLK_DEV_IDE),y)
   obj-y		+= legacy/idedriver-legacy.o
   obj-y		+= ppc/idedriver-ppc.o

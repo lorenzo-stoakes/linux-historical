@@ -2,8 +2,6 @@
 #	Eric S. Raymond <mailto:esr@thyrsus.com>
 #	Steven Cole <mailto:elenstev@mesatop.com>
 #
-# Version 3.01: current with 2.4.19+
-#
 # Translations of this file available on the WWW:
 #
 #   - Japanese, maintained by the JF Project <mailto:JF@linux.or.jp>, at
@@ -18,13 +16,6 @@
 #     also includes infrastructure to support different languages.
 #   - Catalan, by Antoni Bella <mailto:bella5@teleline.es>, at
 #     <http://www.terra.es/personal7/bella5/traduccions.htm>
-#
-# To access a document on the WWW, you need to have a direct Internet
-# connection and a browser program such as netscape or lynx. If you
-# only have email access, you can still use FTP and WWW servers: send
-# an email to <mailto:mail-server@rtfm.mit.edu> with the text
-#   send usenet/news.answers/internet-services/access-via-email
-# in the body of the message.
 #
 # Information about what a kernel is, what it does, how to patch and
 # compile it and much more is contained in the Kernel-HOWTO, available
@@ -1150,6 +1141,15 @@ CONFIG_BLK_DEV_CMD64X
   Say Y here if you have an IDE controller which uses any of these
   chipsets: CMD643, CMD646 and CMD648.
 
+Compaq Triflex IDE support
+CONFIG_BLK_DEV_TRIFLEX
+  Say Y here if you have a Compaq Triflex IDE controller, such
+  as those commonly found on Compaq Pentium-Pro systems
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The module will be called
+  triflex.o.
+
 CY82C693 chipset support
 CONFIG_BLK_DEV_CY82C693
   This driver adds detection and support for the CY82C693 chipset
@@ -1219,10 +1219,25 @@ CONFIG_BLK_DEV_OPTI621
   This is a driver for the OPTi 82C621 EIDE controller.
   Please read the comments at the top of <file:drivers/ide/pci/opti621.c>.
 
+National SCx200 chipset support
+CONFIG_BLK_DEV_SC1200
+  This driver adds support for the built in IDE on the National
+  SCx200 series of embedded x86 "Geode" systems
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The module will be called
+  sc1200.o.
+
 ServerWorks OSB4/CSB5 chipset support
 CONFIG_BLK_DEV_SVWKS
   This driver adds PIO/(U)DMA support for the ServerWorks OSB4/CSB5
   chipsets.
+
+SGI IOC4 chipset support
+CONFIG_BLK_DEV_SGIIOC4
+  This driver adds PIO & MultiMode DMA-2 support for the SGI IOC4
+  chipset.  Please say Y here, if you have an Altix System from
+  Silicon Graphics Inc.
 
 Intel PIIXn chipsets support
 CONFIG_BLK_DEV_PIIX
@@ -1270,6 +1285,29 @@ CONFIG_BLK_DEV_PDC202XX_OLD
 
   Please read the comments at the top of
   <file:drivers/ide/pci/pdc202xx_old.c>.
+
+  If unsure, say N.
+
+PROMISE PDC202{68|69|70|71|75|76|77} support
+CONFIG_BLK_DEV_PDC202XX_NEW
+  Promise Ultra 100 TX2 [PDC20268]
+  Promise Ultra 133 PTX2 [PDC20269]
+  Promise FastTrak LP/TX2/TX4 [PDC20270]
+  Promise FastTrak TX2000 [PDC20271]
+  Promise MB Ultra 133 [PDC20275]
+  Promise MB FastTrak 133 [PDC20276]
+  Promise FastTrak 133 [PDC20277]
+
+  This driver adds up to 4 more EIDE devices sharing a single
+  interrupt. This device is a bootable PCI UDMA controller. Since
+  multiple cards can be installed and there are BIOS ROM problems that
+  happen if the BIOS revisions of all installed cards (max of five) do
+  not match, the driver attempts to do dynamic tuning of the chipset
+  at boot-time for max speed.  Ultra33 BIOS 1.25 or newer is required
+  for more than one card.
+
+  If you say Y here, you need to say Y to "Use DMA by default when
+  available" as well.
 
   If unsure, say N.
 
@@ -2039,6 +2077,17 @@ CONFIG_ALGOR_P4032
   This is an evaluation board of the British company Algorithmics.
   The board uses the R4300 and a R5230 CPUs.  For more information
   about this board see <http://www.algor.co.uk/>.
+
+SGI SN2 L1 serial port support
+CONFIG_SGI_L1_SERIAL
+  If you have an SGI SN2 and you want to use the serial port connected
+  to the system controller (you want this!), say Y.  Otherwise, say N.
+
+SGI SN2 L1 serial console support
+CONFIG_SGI_L1_SERIAL_CONSOLE
+  If you have an SGI SN2 and you would like to use the system
+  controller serial port as your console (you want this!), say Y.
+  Otherwise, say N.
 
 Support for BAGET MIPS series
 CONFIG_BAGET_MIPS
@@ -3410,6 +3459,71 @@ CONFIG_IP_VS_FTP
   it as a module, say M here and read Documentation/modules.txt. If
   unsure, say N.
 
+AH/ESP match support (EXPERIMENTAL)
+CONFIG_IP6_NF_MATCH_AHESP
+  This module allows one to match AH and ESP packets.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The modules will be called
+  ip6t_ah.o and ip6t_esp.o.
+
+  If unsure, say 'N'.
+
+Routing header match support
+CONFIG_IP6_NF_MATCH_RT
+  rt matching allows you to match packets based on the routing
+  header of the packet.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The module will be called
+  ip6t_rt.o.
+
+  If unsure, say 'N'.
+
+Hop-by-hop and Dst opts header match support
+CONFIG_IP6_NF_MATCH_OPTS
+  This allows one to match packets based on the hop-by-hop
+  and destination options headers of a packet.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The modules will be called
+  ip6t_hbh.o and ip6t_dst.o.
+
+  If unsure, say 'N'.
+
+Fragmentation header match support
+CONFIG_IP6_NF_MATCH_FRAG
+  frag matching allows you to match packets based on the fragmentation
+  header of the packet.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The module will be called
+  ip6t_frag.o.
+
+  If unsure, say 'N'.
+
+HL match support
+CONFIG_IP6_NF_MATCH_HL
+  HL matching allows you to match packets based on the hop
+  limit of the packet.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The module will be called
+  ip6t_hl.o.
+
+  If unsure, say 'N'.
+
+IPv6 Extension Headers Match (EXPERIMENTAL)
+CONFIG_IP6_NF_MATCH_IPV6HEADER
+  This module allows one to match packets based upon
+  the ipv6 extension headers.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  The module will be called
+  ip6t_ipv6header.o.
+
+  If unsure, say 'N'.
+
 SYN flood protection
 CONFIG_SYN_COOKIES
   Normal TCP/IP networking is open to an attack known as "SYN
@@ -3899,18 +4013,18 @@ CONFIG_AGP_AMD_8151
 
 Generic SiS support
 CONFIG_AGP_SIS
-  This option gives you AGP support for the GLX component of the "soon
-  to be released" XFree86 4.x on Silicon Integrated Systems [SiS]
-  chipsets.
+  This option gives you AGP support for the GLX component of
+  XFree86 4.x on Silicon Integrated Systems [SiS] chipsets.
 
-  Note that 5591/5592 AGP chipsets are NOT supported.
+  Note that 5591/5592 AGP chipsets are NOT specifically supported;
+  However, the driver works well on these, too.
 
   You should say Y here if you use XFree86 3.3.6 or 4.x and want to
   use GLX or DRI.  If unsure, say N.
 
 Serverworks LE/HE support
 CONFIG_AGP_SWORKS
-  Say Y here to support the Serverworks AGP card.  See 
+  Say Y here to support the Serverworks AGP card.  See
   <http://www.serverworks.com/> for product descriptions and images.
 
 NVIDIA chipset support
@@ -5300,21 +5414,23 @@ CONFIG_FB_HIT
   This is the frame buffer device driver for the Hitachi HD64461 LCD
   frame buffer card.
 
-SIS acceleration
+SIS display support
 CONFIG_FB_SIS
-  This is the frame buffer device driver for the SiS 630 and 640 Super
-  Socket 7 UMA cards.  Specs available at <http://www.sis.com.tw/>.
+  This is the frame buffer device driver for the SiS 300, 315 and 330
+  series chipsets.  Documentation available at the maintainer's site
+  at <http://www.winischhofer.net/linuxsisvga.shtml>.
 
-SIS 630/540/730 support
+SIS 300 series support
 CONFIG_FB_SIS_300
-  This is the frame buffer device driver for the SiS 630 and related
-  Super Socket 7 UMA cards.  Specs available at
-  <http://www.sis.com.tw/>.
+  This enables support for SiS 300 series chipsets (300/305, 540, 630,
+  730).  Documentation available at the maintainer's website at
+   <http://www.winischhofer.net/linuxsisvga.shtml>.
 
-SIS 315H/315 support
+SIS 315/330 series support
 CONFIG_FB_SIS_315
-  This is the frame buffer device driver for the SiS 315 graphics
-  card.  Specs available at <http://www.sis.com.tw/>.
+  This enables support for SiS 315/330 series chipsets (315, 550, 650,
+  M650, 651, 661FX, M661FX, 740, 741, 330). Documentation available at
+  the maintainer's site <http://www.winischhofer.net/linuxsisvga.shtml>.
 
 IMS Twin Turbo display support
 CONFIG_FB_IMSTT
@@ -7108,13 +7224,22 @@ SCSI tape drive support for Smart Array 5xxx
 CONFIG_CISS_SCSI_TAPE
   When enabled (Y), this option allows SCSI tape drives and SCSI medium
   changers (tape robots) to be accessed via a Compaq 5xxx array
-  controller.  (See Documentation/cciss.txt for more details.)
+  controller.  (See <file:Documentation/cciss.txt> for more details.)
 
   "SCSI support" and "SCSI tape support" must also be enabled for this
   option to work.
 
   When this option is disabled (N), the SCSI portion of the driver
   is not compiled.
+
+Enable monitor thread
+CONFIG_CISS_MONITOR_THREAD
+  Intended for use with multipath configurations (see the md driver).
+  This option allows a per-adapter monitoring thread to periodically
+  poll the adapter to detect failure modes in which the processor
+  is unable to receive interrupts from the adapter, thus enabling 
+  fail-over to an alternate adapter in such situations.  See 
+  <file:Documentation/cciss.txt> for more details.
 
 QuickNet Internet LineJack/PhoneJack support
 CONFIG_PHONE_IXJ
@@ -7279,6 +7404,16 @@ CONFIG_FUSION
   Fusion MPT is trademark of LSI Logic Corporation, and its
   architecture is based on LSI Logic's Message Passing Interface (MPI)
   specification.
+
+Maximum number of scatter gather entries
+CONFIG_FUSION_MAX_SGE
+  This option allows you to specify the maximum number of scatter-
+  gather entries per I/O. The driver defaults to 40, a reasonable number
+  for most systems. However, the user may increase this up to 128.
+  Increasing this parameter will require significantly more memory
+  on a per controller instance. Increasing the parameter is not
+  necessary (or recommended) unless the user will be running
+  large I/O's via the raw interface.
 
 Fusion MPT enhanced SCSI error reporting [optional] module
 CONFIG_FUSION_ISENSE
@@ -7546,6 +7681,27 @@ CONFIG_SCSI_LOGGING
   problems. If you say Y here your kernel will be somewhat larger, but
   there should be no noticeable performance impact as long as you have
   logging turned off.
+
+QDIO base support for IBM S/390 and zSeries
+CONFIG_QDIO
+  This driver provides the Queued Direct I/O base support for the
+  IBM S/390 (G5 and G6) and eServer zSeries (z800 and z900).
+
+  For details please refer to the documentation provided by IBM at
+  <http://www10.software.ibm.com/developerworks/opensource/linux390>
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called qdio.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
+  If unsure, say Y.
+
+Performance statistics for QDIO base support
+CONFIG_QDIO_PERF_STATS
+  Say Y here to get performance statistics in /proc/qdio_perf
+
+  If unsure, say N.
 
 SGI WD93C93 SCSI Driver
 CONFIG_SCSI_SGIWD93
@@ -9171,6 +9327,17 @@ CONFIG_IEEE1394_VERBOSEDEBUG
 
   Say Y if you really want or need the debugging output, everyone else
   says N.
+
+CONFIG_IEEE1394_OUI_DB
+  If you say Y here, then an OUI list (vendor unique ID's) will be
+  compiled into the ieee1394 module. This doesn't really do much
+  except being able to display the vendor of a hardware node. The
+  downside is that it adds about 300k to the size of the module,
+  or kernel (depending on whether you compile ieee1394 as a
+  module, or static in the kernel).
+
+  This option is not needed for userspace programs like gscanbus
+  to show this information.
 
 Network device support
 CONFIG_NETDEVICES
@@ -13319,6 +13486,15 @@ CONFIG_MTD_CMDLINE_PARTS
 
   If unsure, say 'N'.
 
+MTD concatenating support
+CONFIG_MTD_CONCAT
+  Support for concatenating several MTD devices into a single
+  (virtual) one. This allows you to have -for example- a JFFS(2)
+  file system spanning multiple physical flash chips. If unsure,
+  say 'Y'.
+
+  If compiled as a module, it will be called mtdconcat.o.
+
 ARM Firmware Suite flash layout / partition parsing
 CONFIG_MTD_AFS_PARTS
   The ARM Firmware Suite allows the user to divide flash devices into
@@ -13725,6 +13901,14 @@ CONFIG_MTD_DBOX2
   D-Box 2 board. If you have one of these boards and would like to use
   the flash chips on it, say 'Y'.
 
+CFI Flash devices mapped on IBM Redwood
+CONFIG_MTD_REDWOOD
+  This enables access routines for the flash chips on the IBM
+  Redwood board. If you have one of these boards and would like to
+  use the flash chips on it, say 'Y'.
+
+  If compiled as a module, it will be called redwood.o.
+
 CFI Flash device mapped on the XScale IQ80310 board
 CONFIG_MTD_IQ80310
   This enables access routines for the flash chips on the Intel XScale
@@ -13856,6 +14040,20 @@ CONFIG_MTD_NAND_VERIFY_WRITE
 Support for the SPIA board
 CONFIG_MTD_NAND_SPIA
   If you had to ask, you don't have one. Say 'N'.
+
+SmartMediaCard on autronix autcpu12 board
+CONFIG_MTD_NAND_AUTCPU12
+  This enables the driver for the autronix autcpu12 board to
+  access the SmartMediaCard.
+
+  If compiled as a module, it will be called autcpu12.o.
+
+Support for Cirrus Logic EBD7312 evaluation board
+CONFIG_MTD_NAND_EDB7312
+  This enables the driver for the Cirrus Logic EBD7312 evaluation
+  board to access the onboard NAND Flash.
+
+  If compiled as a module, it will be called edb7312.o.
 
 M-Systems Disk-On-Chip 1000 support
 CONFIG_MTD_DOC1000
@@ -17687,6 +17885,24 @@ CONFIG_HIL
 
   Enable this option if you intend to use a HIL keyboard.
 
+HP System Device Controller support
+CONFIG_HP_SDC
+  This option enables supports for the the "System Device Controller",
+  an i8042 carrying microcode to manage a few miscellanous devices
+  on some Hewlett Packard systems.  The SDC itself contains a 10ms
+  resolution timer/clock capable of delivering interrupts on periodic
+  and one-shot basis.  The SDC may also be connected to a battery-backed
+  real-time clock, a basic audio waveform generator, and an HP-HIL
+  Master Link Controller serving up to seven input devices.
+
+  By itself this option is rather useless, but enabling it will
+  enable selection of drivers for the abovementioned devices.
+  It is, however, incompatible with the old, reliable HIL keyboard
+  driver, and the new HIL driver is experimental, so if you plan to
+  use a HIL keyboard as your primary keyboard, you may wish to
+  keep using that driver until the new HIL drivers have had more
+  testing.
+
 Include IOP (IIfx/Quadra 9x0) ADB driver
 CONFIG_ADB_IOP
   The I/O Processor (IOP) is an Apple custom IC designed to provide
@@ -18001,6 +18217,19 @@ CONFIG_ISTALLION
   removed from the running kernel whenever you want), say M here and
   read <file:Documentation/modules.txt>. The module will be called
   istallion.o.
+
+PDC software console support
+CONFIG_PDC_CONSOLE
+  Saying Y here will enable the software based PDC console to be
+  used as the system console.  This is useful for machines in
+  which the hardware based console has not been written yet.  The
+  following steps must be competed to use the PDC console:
+
+    1. create the device entry (mknod /dev/ttyB0 c 60 0)
+    2. Edit the /etc/inittab to start a getty listening on /dev/ttyB0
+    3. Add device ttyB0 to /etc/securetty (if you want to log on as
+         root on this console.)
+    4. Change the kernel command console parameter to: console=ttyB0
 
 Microgate SyncLink adapter support
 CONFIG_SYNCLINK
@@ -18451,6 +18680,15 @@ CONFIG_I2C_PROC
   This code is also available as a module. If you want to compile
   it as a module, say M here and read <file:Documentation/modules.txt>.
   The module will be called i2c-proc.o.
+
+Powermac Keywest I2C interface
+CONFIG_I2C_KEYWEST
+  This supports the use of the I2C interface in the combo-I/O
+  chip on recent Apple machines.  Say Y if you have such a machine.
+
+  This driver is also available as a module.  If you want to compile
+  it as a module, say M here and read Documentation/modules.txt.
+  The module will be called i2c-keywest.o.
 
 Bus Mouse Support
 CONFIG_BUSMOUSE
@@ -18960,6 +19198,13 @@ CONFIG_DRM_I810
   Choose this option if you have an Intel I810 graphics card.  If M is
   selected, the module will be called i810.o.  AGP support is required
   for this driver to work.
+
+Intel 830M, 845G, 852GM, 855GM, 865G
+CONFIG_DRM_I830
+  Choose this option if you have a system that has Intel 830M, 845G,
+  852GM, 855GM or 865G integrated graphics.  If M is selected, the
+  module will be called i830.o.  AGP support is required for this driver
+  to work.
 
 Matrox G200/G400/G450
 CONFIG_DRM_MGA
@@ -21748,6 +21993,11 @@ CONFIG_HISAX_HFC_SX
   This enables HiSax support for the HFC-S+, HFC-SP and HFC-PCMCIA
   cards. This code is not finished yet.
 
+Formula-n enter:now PCI card (EXPERIMENTAL)
+CONFIG_HISAX_ENTERNOW_PCI
+  This enables HiSax support for the Formula-n enter:now PCI
+  ISDN card.
+
 Am7930
 CONFIG_HISAX_AMD7930
   This enables HiSax support for the AMD7930 chips on some SPARCs.
@@ -22895,15 +23145,16 @@ CONFIG_ARIADNE
   want). The module is called ariadne.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
-Ariadne II and X-Surf support
-CONFIG_ARIADNE2
-  This driver is for the Village Tronic Ariadne II and the Individual
+Zorro NS8390-based Ethernet support
+CONFIG_ZORRO8390
+  This driver is for Zorro Ethernet cards using an NS8390-compatible
+  chipset, like the Village Tronic Ariadne II and the Individual
   Computers X-Surf Ethernet cards. If you have such a card, say Y.
   Otherwise, say N.
 
   This driver is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
-  The module will be called ariadne2.o. If you want to compile it as
+  The module is called zorro8390.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
 A2065 support
@@ -24943,6 +25194,46 @@ CONFIG_CPU_ARM1020
   Say Y if you want support for the ARM1020 processor.
   Otherwise, say N.
 
+Disable I-Cache
+CONFIG_CPU_ICACHE_DISABLE
+  Say Y here to disable the processor instruction cache. Unless
+  you have a reason not to or are unsure, say N.
+
+Disable D-Cache
+CONFIG_CPU_DCACHE_DISABLE
+  Say Y here to disable the processor data cache. Unless
+  you have a reason not to or are unsure, say N.
+
+Force write through D-cache
+CONFIG_CPU_DCACHE_WRITETHROUGH
+  Say Y here to use the data cache in write-through mode. Unless you
+  specifically require this or are unsure, say N.
+
+Round robin I and D cache replacement algorithm
+CONFIG_CPU_CACHE_ROUND_ROBIN
+  Say Y here to use the predictable round-robin cache replacement
+  policy.  Unless you specifically require this or are unsure, say N.
+
+Disable branch prediction
+CONFIG_CPU_BPREDICT_DISABLE
+  Say Y here to disable branch prediction.  If unsure, say N.
+
+Compressed boot loader in ROM/flash
+CONFIG_ZBOOT_ROM
+  Say Y here if you intend to execute your compressed kernel image (zImage)
+  directly from ROM or flash.  If unsure, say N.
+
+Compressed ROM boot loader base address
+CONFIG_ZBOOT_ROM_TEXT
+  The base address for zImage.  Unless you have special requirements, you
+  should not change this value.
+
+Compressed ROM boot loader BSS address
+CONFIG_ZBOOT_ROM_BSS
+  The base address of 64KiB of read/write memory, which must be available
+  while the decompressor is running.  Unless you have special requirements,
+  you should not change this value.
+
 Support StrongARM SA-110 processor
 CONFIG_CPU_SA110
   The Intel StrongARM(R) SA-110 is a 32-bit microprocessor and
@@ -25470,6 +25761,44 @@ CONFIG_USB_STORAGE_JUMPSHOT
   sub-drivers are considered experimental, and should only be used by very
   brave people.  System crashes and other bad things are likely to occur if
   you use this driver.  If in doubt, select N.
+
+Tieman Voyager USB Braille display support (EXPERIMENTAL)
+CONFIG_USB_BRLVGER
+  Say Y here if you want to use the Voyager USB Braille display from
+  Tieman. See <file:Documentation/usb/brlvger.txt> for more
+  information.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called brlvger.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
+
+KB Gear JamStudio tablet support
+CONFIG_USB_KBTAB
+  Say Y here if you want to use the USB version of the KB Gear
+  JamStudio tablet.  Make sure to say Y to "Mouse support"
+  (CONFIG_INPUT_MOUSEDEV) and/or "Event interface support"
+  (CONFIG_INPUT_EVDEV) as well.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called kbtab.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
+USB Inside Out Edgeport Serial Driver (TI devices)
+CONFIG_USB_SERIAL_EDGEPORT_TI
+  Say Y here if you want to use any of the devices from Inside Out
+  Networks (Digi) that are not supported by the io_edgeport driver.
+  This includes the Edgeport/1 device.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called io_ti.o.  If you want to compile it
+  as a module, say M here and read <file:Documentation/modules.txt>.
+
+USB Keyspan MPR Firmware
+CONFIG_USB_SERIAL_KEYSPAN_MPR
+  Say Y here to include firmware for the Keyspan MPR converter.
 
 Winbond W83977AF IrDA Device Driver
 CONFIG_WINBOND_FIR
@@ -26718,6 +27047,11 @@ CONFIG_DEBUG_SPINLOCK
   best used in conjunction with the NMI watchdog so that spinlock
   deadlocks are also debuggable.
 
+Additional run-time checks
+CONFIG_CHECKING
+  Enables some internal consistency checks for kernel debugging.
+  You should normally say N.
+
 Read-write spinlock debugging
 CONFIG_DEBUG_RWLOCK
   If you say Y here then read-write lock processing will count how many
@@ -27615,6 +27949,82 @@ CONFIG_CRC32
   modules require CRC32 functions, but a module built outside the
   kernel tree does. Such modules that use library CRC32 functions
   require that you say M or Y here.
+
+Chassis LCD and LED support
+CONFIG_CHASSIS_LCD_LED
+  Say Y here if you want to enable support for the Heartbeat,
+  Disk/Network activities LEDs on some PA-RISC machines,
+  or support for the LCD that can be found on recent material.
+
+  This has nothing to do with LED State support for A, J and E class.
+
+  If unsure, say Y.
+
+VSC/GSC/HSC bus support
+CONFIG_GSC
+  The VSC, GSC and HSC busses were used from the earliest 700-series
+  workstations up to and including the C360/J2240 workstations.  They
+  were also used in servers from the E-class to the K-class.  They
+  are not found in B1000, C3000, J5000, A500, L1000, N4000 and upwards.
+  If in doubt, say "Y".
+
+Wax I/O support
+CONFIG_GSC_WAX
+  Say Y here to support the Wax multifunction chip found in some
+  older systems, including B/C/D/R class and 715/64, 715/80 and
+  715/100.  Wax includes an EISA adapter, a serial port (not always
+  used), a HIL interface chip and is also known to be used as the
+  GSC bridge for an X.25 GSC card.
+
+GSCtoPCI/Dino PCI support
+CONFIG_GSC_DINO
+  Say Y here to support the Dino & Cujo GSC to PCI bridges found in
+  machines from the B132 to the C360, the J2240 and the A180.  Some
+  GSC/HSC cards (eg gigabit & dual 100 Mbit Ethernet) have a Dino on
+  the card, and you also need to say Y here if you have such a card.
+  Note that Dino also supplies one of the serial ports on certain
+  machines.  If in doubt, say Y.
+
+HPET timers
+CONFIG_HPET_TIMER
+  Use the IA-PC HPET (High Precision Event Timer) to manage
+  time in preference to the PIT and RTC, if a HPET is
+  present.  The HPET provides a stable time base on SMP
+  systems, unlike the RTC, but it is more expensive to access,
+  as it is off-chip.  You can find the HPET spec at
+  <http://www.intel.com/labs/platcomp/hpet/hpetspec.htm>.
+
+  If unsure, say Y.
+
+IOMMU support
+CONFIG_GART_IOMMU
+  Support the K8 IOMMU. Needed to run systems with more than 4GB of memory
+  properly with 32-bit PCI devices that do not support DAC (Double Address
+  Cycle). The IOMMU can be turned off at runtime with the iommu=off parameter.
+  Normally the kernel will take the right choice by itself.
+  If unsure say Y
+
+Debug __init statements
+CONFIG_INIT_DEBUG
+  Fill __init and __initdata at the end of boot. This helps debugging
+  invalid uses of __init and __initdata after initialization.	
+
+Force IOMMU to on
+CONFIG_IOMMU_DEBUG
+  Force the IOMMU to on even when you have less than 4GB of memory and add
+  debugging code.
+  Can be disabled at boot time with iommu=noforce.
+
+IOMMU leak tracing
+CONFIG_IOMMU_LEAK
+  Add a simple leak tracer to the IOMMU code. This is useful when you
+  are debugging a buggy device driver that leaks IOMMU mappings.
+
+pSeries Hypervisor Virtual Console support
+CONFIG_HVC_CONSOLE
+  pSeries machines when partitioned support a hypervisor virtual
+  console. This driver allows each pSeries partition to have a console
+  which is accessed via the HMC.
 
 CONFIG_CRYPTO
   This option provides the core Cryptographic API.

@@ -17,6 +17,20 @@
  * See http://ftdi-usb-sio.sourceforge.net for upto date testing info
  *	and extra documentation
  *
+ * (19/Aug/2003) Ian Abbott
+ *      Omitted some paranoid checks in write bulk callback that don't matter.
+ *
+ * (05/Aug/2003) Ian Abbott
+ *      Added VID/PID for ID TECH IDT1221U USB to RS-232 adapter.
+ *      VID/PID provided by Steve Briggs.
+ *
+ * (23/Jul/2003) Ian Abbott
+ *      Added PIDs for CrystalFontz 547, 633, 631, 635, 640 and 640 from
+ *      Wayne Wylupski.
+ *
+ * (10/Jul/2003) David Glance
+ *      Added PID for DSS-20 SyncStation cradle for Sony-Ericsson P800.
+ *
  * (23/Jun/2003) Ian Abbott
  *      Reduced flip buffer pushes and corrected a data length test in
  *      ftdi_read_bulk_callback.
@@ -247,8 +261,14 @@ static struct usb_device_id id_table_8U232AM [] = {
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_8U232AM_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_RELAIS_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(FTDI_NF_RIC_VID, FTDI_NF_RIC_PID, 0, 0x3ff) },
-	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_634_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_632_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_634_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_547_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_633_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_631_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_635_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_640_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_642_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_VNHCPCUSB_D_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_DSS20_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(FTDI_MTXORB_VID, FTDI_MTXORB_0_PID, 0, 0x3ff) },
@@ -304,6 +324,7 @@ static struct usb_device_id id_table_8U232AM [] = {
 	{ USB_DEVICE_VER(SEALEVEL_VID, SEALEVEL_2803_6_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(SEALEVEL_VID, SEALEVEL_2803_7_PID, 0, 0x3ff) },
 	{ USB_DEVICE_VER(SEALEVEL_VID, SEALEVEL_2803_8_PID, 0, 0x3ff) },
+	{ USB_DEVICE_VER(IDTECH_VID, IDTECH_IDT1221U_PID, 0, 0x3ff) },
 	{ }						/* Terminating entry */
 };
 
@@ -312,8 +333,14 @@ static struct usb_device_id id_table_FT232BM [] = {
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_8U232AM_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_RELAIS_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(FTDI_NF_RIC_VID, FTDI_NF_RIC_PID, 0x400, 0xffff) },
-	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_634_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_632_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_634_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_547_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_633_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_631_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_635_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_640_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(FTDI_VID, FTDI_XF_642_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_VNHCPCUSB_D_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_DSS20_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(FTDI_MTXORB_VID, FTDI_MTXORB_0_PID, 0x400, 0xffff) },
@@ -369,6 +396,7 @@ static struct usb_device_id id_table_FT232BM [] = {
 	{ USB_DEVICE_VER(SEALEVEL_VID, SEALEVEL_2803_6_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(SEALEVEL_VID, SEALEVEL_2803_7_PID, 0x400, 0xffff) },
 	{ USB_DEVICE_VER(SEALEVEL_VID, SEALEVEL_2803_8_PID, 0x400, 0xffff) },
+	{ USB_DEVICE_VER(IDTECH_VID, IDTECH_IDT1221U_PID, 0x400, 0xffff) },
 	{ }						/* Terminating entry */
 };
 
@@ -389,8 +417,14 @@ static __devinitdata struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_SIO_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_8U232AM_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_RELAIS_PID) },
-	{ USB_DEVICE(FTDI_VID, FTDI_XF_634_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_XF_632_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_634_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_547_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_633_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_631_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_635_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_640_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_XF_642_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_DSS20_PID) },
 	{ USB_DEVICE(FTDI_NF_RIC_VID, FTDI_NF_RIC_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_VNHCPCUSB_D_PID) },
@@ -447,6 +481,7 @@ static __devinitdata struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(SEALEVEL_VID, SEALEVEL_2803_6_PID) },
 	{ USB_DEVICE(SEALEVEL_VID, SEALEVEL_2803_7_PID) },
 	{ USB_DEVICE(SEALEVEL_VID, SEALEVEL_2803_8_PID) },
+	{ USB_DEVICE(IDTECH_VID, IDTECH_IDT1221U_PID) },
 	{ USB_DEVICE_VER(FTDI_VID, FTDI_HE_TIRA1_PID, 0x400, 0xffff) },
 	{ USB_DEVICE(FTDI_VID, FTDI_USB_UIRT_PID) },
 	{ }						/* Terminating entry */
@@ -1419,33 +1454,21 @@ static int ftdi_write (struct usb_serial_port *port, int from_user,
 static void ftdi_write_bulk_callback (struct urb *urb)
 {
 	struct usb_serial_port *port = (struct usb_serial_port *)urb->context;
-	struct usb_serial *serial;
-
-	dbg("%s", __FUNCTION__);
 
 	if (port_paranoia_check (port, __FUNCTION__))
 		return;
+	
+	dbg("%s - port %d", __FUNCTION__, port->number);
 	
 	if (urb->status) {
 		dbg("nonzero write bulk status received: %d", urb->status);
 		return;
 	}
 
-	serial = get_usb_serial (port, __FUNCTION__);
-	if (!serial) {
-		dbg("%s - bad serial pointer, exiting", __FUNCTION__);
-		return;
-	}
-
-	/* Have to check for validity of queueing up the tasks */
-	dbg("%s - port->open_count = %d", __FUNCTION__, port->open_count);
-
  	if (port->open_count > 0){
 		queue_task(&port->tqueue, &tq_immediate);
 		mark_bh(IMMEDIATE_BH);
-	} 
-
-	return;
+	}
 } /* ftdi_write_bulk_callback */
 
 

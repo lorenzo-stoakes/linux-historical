@@ -465,6 +465,9 @@ if [ "$CONFIG_SH_KGDB" = "y" ]; then
           8 CONFIG_KGDB_DEFBITS_8"	8
    endmenu
 fi
+
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
 source crypto/Config.in

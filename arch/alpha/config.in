@@ -454,6 +454,8 @@ else
    define_tristate CONFIG_MATHEMU y
 fi
 
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
 source crypto/Config.in

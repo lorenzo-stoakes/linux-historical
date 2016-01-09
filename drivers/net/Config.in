@@ -49,9 +49,9 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    if [ "$CONFIG_ZORRO" = "y" ]; then
       tristate '  Ariadne support' CONFIG_ARIADNE
-      tristate '  Ariadne II and X-Surf support' CONFIG_NE2K_ZORRO
       tristate '  A2065 support' CONFIG_A2065
       tristate '  Hydra support' CONFIG_HYDRA
+      tristate '  Zorro NS8390-based Ethernet support' CONFIG_ZORRO8390
    fi
    if [ "$CONFIG_PARISC" = "y" ]; then
       dep_tristate '  Lasi ethernet' CONFIG_LASI_82596 $CONFIG_GSC_LASI

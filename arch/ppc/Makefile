@@ -42,18 +42,13 @@ ifdef CONFIG_MORE_COMPILE_OPTIONS
   CFLAGS += $(shell echo $(CONFIG_COMPILE_OPTIONS) | sed -e 's/"//g')
 endif
 
-ifdef CONFIG_40x
-  HEAD := arch/ppc/kernel/head_4xx.o
-else
-  ifdef CONFIG_8xx
-    HEAD := arch/ppc/kernel/head_8xx.o
-  else
-    HEAD := arch/ppc/kernel/head.o
-    ifdef CONFIG_6xx
-	HEAD += arch/ppc/kernel/idle_6xx.o
-    endif
-  endif
-endif
+HEAD-y			:= arch/ppc/kernel/head.o
+HEAD-$(CONFIG_40x)	:= arch/ppc/kernel/head_4xx.o
+HEAD-$(CONFIG_44x)	:= arch/ppc/kernel/head_44x.o
+HEAD-$(CONFIG_8xx)	:= arch/ppc/kernel/head_8xx.o
+HEAD-$(CONFIG_6xx)	+= arch/ppc/kernel/idle_6xx.o
+
+HEAD := $(HEAD-y)
 
 ARCH_SUBDIRS = arch/ppc/kernel arch/ppc/platforms arch/ppc/mm arch/ppc/lib
 SUBDIRS := $(SUBDIRS) $(ARCH_SUBDIRS)

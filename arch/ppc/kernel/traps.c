@@ -457,7 +457,7 @@ SoftwareEmulation(struct pt_regs *regs)
 }
 #endif /* CONFIG_8xx */
 
-#if defined(CONFIG_4xx)
+#if defined(CONFIG_4xx) || defined(CONFIG_BOOKE)
 
 void DebugException(struct pt_regs *regs)
 {
@@ -484,16 +484,27 @@ void DebugException(struct pt_regs *regs)
 		_exception(SIGTRAP, regs, 0, 0);
 	}
 }
-#endif /* CONFIG_4xx */
+#endif /* CONFIG_4xx || CONFIG_BOOKE */
 
 #if !defined(CONFIG_TAU_INT)
 void
 TAUException(struct pt_regs *regs)
 {
-	printk("TAU trap at PC: %lx, SR: %lx, vector=%lx    %s\n",
+	printk("Thermal trap at PC: %lx, SR: %lx, vector=%lx    %s\n",
 	       regs->nip, regs->msr, regs->trap, print_tainted());
 }
 #endif /* CONFIG_INT_TAU */
+
+#ifdef CONFIG_ALTIVEC
+void
+AltivecAssistException(struct pt_regs *regs)
+{
+	if (regs->msr & MSR_VEC)
+		giveup_altivec(current);
+	/* XXX quick hack for now: set the non-Java bit in the VSCR */
+	current->thread.vscr.u[3] |= 0x10000;
+}
+#endif /* CONFIG_ALTIVEC */
 
 void __init trap_init(void)
 {

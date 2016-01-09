@@ -91,6 +91,40 @@ struct ctlr_info
 #ifdef CONFIG_CISS_SCSI_TAPE
 	void *scsi_ctlr; /* ptr to structure containing scsi related stuff */
 #endif
+#ifdef CONFIG_CISS_MONITOR_THREAD
+	struct timer_list watchdog;
+	struct task_struct *monitor_thread; 
+	unsigned int monitor_period;
+	unsigned int monitor_deadline;
+	unsigned char alive;
+	unsigned char monitor_started;
+#define CCISS_MIN_PERIOD 10
+#define CCISS_MAX_PERIOD 3600 
+#define CTLR_IS_ALIVE(h) (h->alive)
+#define ASSERT_CTLR_ALIVE(h) {	h->alive = 1; \
+				h->monitor_period = 0; \
+				h->monitor_started = 0; }
+#define MONITOR_STATUS_PATTERN "Status: %s\n"
+#define CTLR_STATUS(h) CTLR_IS_ALIVE(h) ? "operational" : "failed"
+#define MONITOR_PERIOD_PATTERN "Monitor thread period: %d\n"
+#define MONITOR_PERIOD_VALUE(h) (h->monitor_period)
+#define MONITOR_DEADLINE_PATTERN "Monitor thread deadline: %d\n"
+#define MONITOR_DEADLINE_VALUE(h) (h->monitor_deadline)
+#define START_MONITOR_THREAD(h, cmd, count, cciss_monitor, rc) \
+	start_monitor_thread(h, cmd, count, cciss_monitor, rc)
+#else
+
+#define MONITOR_PERIOD_PATTERN "%s"
+#define MONITOR_PERIOD_VALUE(h) ""
+#define MONITOR_DEADLINE_PATTERN "%s"
+#define MONITOR_DEADLINE_VALUE(h) ""
+#define MONITOR_STATUS_PATTERN "%s\n"
+#define CTLR_STATUS(h) ""
+#define CTLR_IS_ALIVE(h) (1)
+#define ASSERT_CTLR_ALIVE(h)
+#define START_MONITOR_THREAD(a,b,c,d,rc) (*rc == 0)
+
+#endif
 };
 
 /*  Defining the diffent access_menthods */

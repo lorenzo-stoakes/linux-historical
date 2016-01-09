@@ -245,6 +245,9 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  IOMMU leak tracing' CONFIG_IOMMU_LEAK
    bool '  Probalistic stack overflow check' CONFIG_DEBUG_STACKOVERFLOW
 fi
+
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
 source lib/Config.in
