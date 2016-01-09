@@ -1343,6 +1343,25 @@ static void end_level_ioapic_irq (unsigned int irq)
 
 static void mask_and_ack_level_ioapic_irq (unsigned int irq) { /* nothing */ }
 
+#ifndef CONFIG_SMP
+
+void send_IPI_self(int vector)
+{
+	unsigned int cfg;
+
+	/*
+	 * Wait for idle.
+	 */
+	apic_wait_icr_idle();
+	cfg = APIC_DM_FIXED | APIC_DEST_SELF | vector | APIC_DEST_LOGICAL;
+	/*
+	 * Send the IPI. The write to APIC_ICR fires this off.
+	 */
+	apic_write_around(APIC_ICR, cfg);
+}
+
+#endif /* CONFIG_SMP */
+
 static void set_ioapic_affinity (unsigned int irq, unsigned long mask)
 {
 	unsigned long flags;

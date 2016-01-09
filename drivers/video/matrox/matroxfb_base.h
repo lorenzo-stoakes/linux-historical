@@ -468,6 +468,11 @@ struct matrox_switch;
 struct matroxfb_driver;
 struct matroxfb_dh_fb_info;
 
+struct matrox_vsync {
+	wait_queue_head_t	wait;
+	unsigned int		cnt;
+};
+
 struct matrox_fb_info {
 	struct fb_info		fbcon;
 
@@ -475,6 +480,9 @@ struct matrox_fb_info {
 
 	int			dead;
 	unsigned int		usecount;
+
+	unsigned int		userusecount;
+	unsigned long		irq_flags;
 
 	struct matroxfb_par	curr;
 	struct matrox_hw_state	hw;
@@ -603,10 +611,13 @@ struct matrox_fb_info {
 			      } cursor;
 	struct matrox_bios	bios;
 	struct {
+		struct matrox_vsync	vsync;
+		int		panpos;
 		unsigned int	pixclock;
 		int		mnp;
 			      } crtc1;
 	struct {
+		struct matrox_vsync	vsync;
 		unsigned int 	pixclock;
 		int		mnp;
 	struct matroxfb_dh_fb_info*	info;
@@ -663,6 +674,8 @@ struct matrox_fb_info {
 #endif
 };
 
+#define info2minfo(info) list_entry(info, struct matrox_fb_info, fbcon)
+
 #ifdef CONFIG_FB_MATROX_MULTIHEAD
 #define ACCESS_FBINFO2(info, x) (info->x)
 #define ACCESS_FBINFO(x) ACCESS_FBINFO2(minfo,x)
@@ -677,12 +690,11 @@ struct matrox_fb_info {
 #define PMINFO   PMINFO2 ,
 
 static inline struct matrox_fb_info* mxinfo(const struct display* p) {
-	return list_entry(p->fb_info, struct matrox_fb_info, fbcon);
+	return info2minfo(p->fb_info);
 }
 
 #define PMXINFO(p)	   mxinfo(p),
 #define MINFO_FROM(x)	   struct matrox_fb_info* minfo = x
-#define MINFO_FROM_DISP(x) MINFO_FROM(mxinfo(x))
 
 #else
 
@@ -700,17 +712,13 @@ extern struct matrox_fb_info matroxfb_global_mxinfo;
 #define PMINFO2
 #define PMINFO
 
-#if 0
-static inline struct matrox_fb_info* mxinfo(const struct display* p) {
-	return &matroxfb_global_mxinfo;
-}
-#endif
-
 #define PMXINFO(p)
 #define MINFO_FROM(x)
-#define MINFO_FROM_DISP(x)
 
 #endif
+
+#define MINFO_FROM_DISP(x) MINFO_FROM(mxinfo(x))
+#define MINFO_FROM_INFO(x) MINFO_FROM(info2minfo(x))
 
 struct matrox_switch {
 	int	(*preinit)(WPMINFO2);
@@ -793,7 +801,7 @@ void matroxfb_unregister_driver(struct matroxfb_driver* drv);
 
 #define M_FIFOSTATUS	0x1E10
 #define M_STATUS	0x1E14
-
+#define M_ICLEAR	0x1E18
 #define M_IEN		0x1E1C
 
 #define M_VCOUNT	0x1E20
@@ -916,6 +924,8 @@ extern int matroxfb_DAC_in(CPMINFO int reg);
 extern struct list_head matroxfb_list;
 extern void matroxfb_var2my(struct fb_var_screeninfo* fvsi, struct my_timming* mt);
 extern int matroxfb_switch(int con, struct fb_info *);
+extern int matroxfb_wait_for_sync(WPMINFO u_int32_t crtc);
+extern int matroxfb_enable_irq(WPMINFO int reenable);
 
 #ifdef MATROXFB_USE_SPINLOCKS
 #define CRITBEGIN  spin_lock_irqsave(&ACCESS_FBINFO(lock.accel), critflags);

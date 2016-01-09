@@ -90,9 +90,7 @@ extern wait_queue_head_t	acpi_bus_event_queue;
 static void
 acpi_power_off (void)
 {
-	acpi_enter_sleep_state_prep(ACPI_STATE_S5);
-	ACPI_DISABLE_IRQS();
-	acpi_enter_sleep_state(ACPI_STATE_S5);
+	acpi_suspend(ACPI_STATE_S5);
 }
 
 #endif /*CONFIG_PM*/
@@ -180,7 +178,7 @@ acpi_system_save_state(
 			return AE_ERROR;
 	}
 
-	if (state < ACPI_STATE_S5) {
+	if (state <= ACPI_STATE_S5) {
 		/* Tell devices to stop I/O and actually save their state.
 		 * It is theoretically possible that something could fail,
 		 * so handle that gracefully..

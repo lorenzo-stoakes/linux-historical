@@ -5580,7 +5580,11 @@ static int __init agp_find_max (void)
 {
 	long memory, index, result;
 
-	memory = (num_physpages << PAGE_SHIFT) >> 20;
+#if PAGE_SHIFT < 20
+	memory = num_physpages >> (20 - PAGE_SHIFT);
+#else
+	memory = num_physpages << (PAGE_SHIFT - 20);
+#endif
 	index = 1;
 
 	while ((memory > maxes_table[index].mem) &&

@@ -27,7 +27,7 @@
  *    - 2001/02/16 Chad N. Tindel <ctindel at ieee dot org> :
  *       - Master is now brought down before setting the MAC address.  In
  *         the 2.4 kernel you can't change the MAC address while the device is
- *         up because you get EBUSY.  
+ *         up because you get EBUSY.
  *
  *    - 2001/09/13 Takao Indoh <indou dot takao at jp dot fujitsu dot com>
  *       - Added the ability to change the active interface on a mode 1 bond
@@ -44,10 +44,10 @@
  *
  *    - 2002/10/31 Tony Cureington <tony.cureington * hp_com> :
  *       - If the master does not have a hardware address when the first slave
- *         is enslaved, the master is assigned the hardware address of that 
- *         slave - there is a comment in bonding.c stating "ifenslave takes 
- *         care of this now." This corrects the problem of slaves having 
- *         different hardware addresses in active-backup mode when 
+ *         is enslaved, the master is assigned the hardware address of that
+ *         slave - there is a comment in bonding.c stating "ifenslave takes
+ *         care of this now." This corrects the problem of slaves having
+ *         different hardware addresses in active-backup mode when
  *         multiple interfaces are specified on a single ifenslave command
  *         (ifenslave bond0 eth0 eth1).
  *
@@ -82,16 +82,18 @@
  *	   processing.
  *
  *    - 2003/05/27 - Amir Noam <amir.noam at intel dot com>
- *	 - Fix backward compatibility issue:
+ *	 - Fix backward compatibility issues:
  *	   For drivers not using ABI versions, slave was set down while
  *	   it should be left up before enslaving.
+ *	   Also, master was not set down and the default set_mac_address()
+ *	   would fail and generate an error message in the system log.
  * 	 - For opt_c: slave should not be set to the master's setting
- *	   while it is runnig. It was already set during enslave. To
+ *	   while it is running. It was already set during enslave. To
  *	   simplify things, it is now handeled separately.
  */
 
-#define APP_VERSION	"1.0.11"
-#define APP_RELDATE	"May 29, 2003"
+#define APP_VERSION	"1.0.12"
+#define APP_RELDATE	"June 30, 2003"
 #define APP_NAME	"ifenslave"
 
 static char *version =
@@ -138,8 +140,7 @@ static const char *howto_msg =
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <linux/if.h>
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_bonding.h>
 #include <linux/sockios.h>
@@ -360,7 +361,7 @@ main(int argc, char **argv)
 					}
 				}
 			}
-		} else if (opt_c) {
+		} else if (opt_c) { /* change primary slave */
 			strncpy(if_flags.ifr_name, master_ifname, IFNAMSIZ);
 			strncpy(if_flags.ifr_slave, slave_ifname, IFNAMSIZ);
 			if ((ioctl(skfd, SIOCBONDCHANGEACTIVE, &if_flags) < 0) &&
@@ -386,11 +387,11 @@ main(int argc, char **argv)
 
 			/* if hwaddr_notset, assign the slave hw address to the master */
 			if (hwaddr_notset) {
-				/* assign the slave hw address to the 
-				 * master since it currently does not 
+				/* assign the slave hw address to the
+				 * master since it currently does not
 				 * have one; otherwise, slaves may
-				 * have different hw addresses in 
-				 * active-backup mode as seen when enslaving 
+				 * have different hw addresses in
+				 * active-backup mode as seen when enslaving
 				 * using "ifenslave bond0 eth0 eth1" because
 				 * hwaddr_notset is set outside this loop.
 				 * TODO: put this and the "else" portion in
@@ -403,7 +404,7 @@ main(int argc, char **argv)
 				if (-1 == rv) {
 					fprintf(stderr, "Could not get MAC "
 						"address of %s: %s\n",
-						slave_ifname, 
+						slave_ifname,
 						strerror(errno));
 					strncpy(if_hwaddr.ifr_name,
 						master_ifname, IFNAMSIZ);
@@ -411,18 +412,52 @@ main(int argc, char **argv)
 				}
 
 				if (!goterr) {
-					strncpy(if_hwaddr.ifr_name, 
+					if (abi_ver < 1) {
+						/* In ABI versions older than 1, the
+						 * master's set_mac routine couldn't
+						 * work if it was up, because it
+						 * used the default ethernet set_mac
+						 * function.
+						 */
+						/* bring master down */
+						if_flags.ifr_flags &= ~IFF_UP;
+						if (ioctl(skfd, SIOCSIFFLAGS,
+								&if_flags) < 0) {
+							goterr = 1;
+							fprintf(stderr,
+								"Shutting down "
+								"interface %s failed: "
+								"%s\n",
+								master_ifname,
+								strerror(errno));
+						}
+					}
+
+					strncpy(if_hwaddr.ifr_name,
 						master_ifname, IFNAMSIZ);
-					if (ioctl(skfd, SIOCSIFHWADDR, 
+					if (ioctl(skfd, SIOCSIFHWADDR,
 							&if_hwaddr) < 0) {
-						fprintf(stderr, 
+						fprintf(stderr,
 							"Could not set MAC "
 							"address of %s: %s\n",
-							master_ifname, 
+							master_ifname,
 							strerror(errno));
 						goterr=1;
 					} else {
 						hwaddr_notset = 0;
+					}
+
+					if (abi_ver < 1) {
+						/* bring master back up */
+						if_flags.ifr_flags |= IFF_UP;
+						if (ioctl(skfd, SIOCSIFFLAGS,
+							  &if_flags) < 0) {
+							fprintf(stderr,
+								"Bringing up interface "
+								"%s failed: %s\n",
+								master_ifname,
+								strerror(errno));
+						}
 					}
 				}
 			} else if (abi_ver < 1) { /* if (hwaddr_notset) */
@@ -479,7 +514,7 @@ main(int argc, char **argv)
 				}
 				spp++;
 			}
-	
+
 			if (strncpy(if_ipaddr.ifr_name, slave_ifname, IFNAMSIZ) <= 0
 				|| ioctl(skfd, SIOCSIFADDR, &if_ipaddr) < 0) {
 				fprintf(stderr,
@@ -492,16 +527,16 @@ main(int argc, char **argv)
 						   slave_ifname, ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3]);
 				}
 			}
-	
+
 			if (strncpy(if_mtu.ifr_name, slave_ifname, IFNAMSIZ) <= 0
-				|| ioctl(skfd, SIOCSIFMTU, &if_mtu) < 0) { 
+				|| ioctl(skfd, SIOCSIFMTU, &if_mtu) < 0) {
 				fprintf(stderr, "Something broke setting the slave MTU: %s.\n",
 						strerror(errno));
 			} else {
 				if (verbose)
 					printf("Set the slave's (%s) MTU to %d.\n", slave_ifname, if_mtu.ifr_mtu);
 			}
-	
+
 			if (strncpy(if_dstaddr.ifr_name, slave_ifname, IFNAMSIZ) <= 0
 				|| ioctl(skfd, SIOCSIFDSTADDR, &if_dstaddr) < 0) {
 				fprintf(stderr, "Error setting the slave (%s) with SIOCSIFDSTADDR: %s.\n",
@@ -513,7 +548,7 @@ main(int argc, char **argv)
 						   slave_ifname, ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3]);
 				}
 			}
-	
+
 			if (strncpy(if_brdaddr.ifr_name, slave_ifname, IFNAMSIZ) <= 0
 				|| ioctl(skfd, SIOCSIFBRDADDR, &if_brdaddr) < 0) {
 				fprintf(stderr,
@@ -526,7 +561,7 @@ main(int argc, char **argv)
 						   slave_ifname, ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3]);
 				}
 			}
-			
+
 			if (strncpy(if_netmask.ifr_name, slave_ifname, IFNAMSIZ) <= 0
 				|| ioctl(skfd, SIOCSIFNETMASK, &if_netmask) < 0) {
 				fprintf(stderr,
@@ -539,7 +574,7 @@ main(int argc, char **argv)
 						   slave_ifname, ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3]);
 				}
 			}
-			
+
 			if (abi_ver < 1) {
 
 			      	/* The driver is using an old ABI, so we'll set the interface
@@ -721,7 +756,7 @@ static int get_abi_ver(char *master_ifname)
 }
 
 
-
+
 /*
  * Local variables:
  *  version-control: t

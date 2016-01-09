@@ -1234,7 +1234,7 @@ static int __init ip_auto_config(void)
 			 * 				-- Chip
 			 */
 #ifdef CONFIG_ROOT_NFS
-			if (ROOT_DEV == MKDEV(UNNAMED_MAJOR, 255)) {
+			if (ROOT_DEV == MKDEV(NFS_MAJOR, NFS_MINOR)) {
 				printk(KERN_ERR 
 					"IP-Config: Retrying forever (NFS root)...\n");
 				goto try_try_again;

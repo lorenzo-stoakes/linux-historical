@@ -18,7 +18,7 @@ if [ "$CONFIG_SERIAL" = "y" ]; then
       bool '   serial port on GSC support' CONFIG_SERIAL_GSC
    fi
    if [ "$CONFIG_IA64" = "y" ]; then
-      bool 'Support for serial console port described by EFI HCDP table' CONFIG_SERIAL_HCDP
+      bool '  Support for serial port described by EFI HCDP table' CONFIG_SERIAL_HCDP
    fi
    if [ "$CONFIG_ARCH_ACORN" = "y" ]; then
       tristate '   Atomwide serial port support' CONFIG_ATOMWIDE_SERIAL

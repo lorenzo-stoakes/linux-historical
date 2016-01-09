@@ -180,7 +180,8 @@ int xdr_kmap(struct iovec *iov_base, struct xdr_buf *xdr, unsigned int base)
 {
 	struct iovec	*iov = iov_base;
 	struct page	**ppage = xdr->pages;
-	unsigned int	len, pglen = xdr->page_len, first_kmap;
+	struct page	**first_kmap = NULL;
+	unsigned int	len, pglen = xdr->page_len;
 
 	len = xdr->head[0].iov_len;
 	if (base < len) {
@@ -203,16 +204,15 @@ int xdr_kmap(struct iovec *iov_base, struct xdr_buf *xdr, unsigned int base)
 		ppage += base >> PAGE_CACHE_SHIFT;
 		base &= ~PAGE_CACHE_MASK;
 	}
-	first_kmap = 1;
 	do {
 		len = PAGE_CACHE_SIZE;
-		if (first_kmap) {
-			first_kmap = 0;
+		if (!first_kmap) {
+			first_kmap = ppage;
 			iov->iov_base = kmap(*ppage);
 		} else {
 			iov->iov_base = kmap_nonblock(*ppage);
 			if (!iov->iov_base)
-				goto out;
+				goto out_err;
 		}
 		if (base) {
 			iov->iov_base += base;
@@ -233,6 +233,10 @@ map_tail:
 	}
  out:
 	return (iov - iov_base);
+out_err:
+	for (; first_kmap != ppage; first_kmap++)
+		kunmap(*first_kmap);
+	return 0;
 }
 
 void xdr_kunmap(struct xdr_buf *xdr, unsigned int base, int niov)

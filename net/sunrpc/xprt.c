@@ -237,6 +237,10 @@ xprt_sendmsg(struct rpc_xprt *xprt, struct rpc_rqst *req)
 		unsigned int slen_part, n;
 
 		niov = xdr_kmap(niv, xdr, skip);
+		if (!niov) {
+			result = -EAGAIN;
+			break;
+		}
 
 		msg.msg_flags   = MSG_DONTWAIT|MSG_NOSIGNAL;
 		msg.msg_iov	= niv;
@@ -726,11 +730,11 @@ udp_data_ready(struct sock *sk, int len)
 	xprt_pktdump("packet data:",
 		     (u32 *) (skb->h.raw+sizeof(struct udphdr)), repsize);
 
-	if ((copied = rovr->rq_rlen) > repsize)
+	if ((copied = rovr->rq_private_buf.len) > repsize)
 		copied = repsize;
 
 	/* Suck it into the iovec, verify checksum if not done by hw. */
-	if (csum_partial_copy_to_xdr(&rovr->rq_rcv_buf, skb))
+	if (csum_partial_copy_to_xdr(&rovr->rq_private_buf, skb))
 		goto out_unlock;
 
 	/* Something worked... */
@@ -852,7 +856,7 @@ tcp_read_request(struct rpc_xprt *xprt, skb_reader_t *desc)
 		return;
 	}
 
-	rcvbuf = &req->rq_rcv_buf;
+	rcvbuf = &req->rq_private_buf;
 	len = desc->count;
 	if (len > xprt->tcp_reclen - xprt->tcp_offset) {
 		skb_reader_t my_desc;
@@ -870,7 +874,7 @@ tcp_read_request(struct rpc_xprt *xprt, skb_reader_t *desc)
 	xprt->tcp_copied += len;
 	xprt->tcp_offset += len;
 
-	if (xprt->tcp_copied == req->rq_rlen)
+	if (xprt->tcp_copied == req->rq_private_buf.len)
 		xprt->tcp_flags &= ~XPRT_COPY_DATA;
 	else if (xprt->tcp_offset == xprt->tcp_reclen) {
 		if (xprt->tcp_flags & XPRT_LAST_FRAG)
@@ -1102,6 +1106,9 @@ xprt_transmit(struct rpc_task *task)
 	}
 
 	spin_lock_bh(&xprt->sock_lock);
+	if (req->rq_received != 0 && !req->rq_bytes_sent)
+		goto out_notrans;
+
 	if (!__xprt_lock_write(xprt, task))
 		goto out_notrans;
 
@@ -1111,8 +1118,10 @@ xprt_transmit(struct rpc_task *task)
 	}
 
 	if (list_empty(&req->rq_list)) {
+		/* Update the softirq receive buffer */
+		memcpy(&req->rq_private_buf, &req->rq_rcv_buf,
+				sizeof(req->rq_private_buf));
 		list_add_tail(&req->rq_list, &xprt->recv);
-		req->rq_received = 0;
 	}
 	spin_unlock_bh(&xprt->sock_lock);
 
@@ -1145,8 +1154,12 @@ do_xprt_transmit(struct rpc_task *task)
 		if (xprt->stream) {
 			req->rq_bytes_sent += status;
 
-			if (req->rq_bytes_sent >= req->rq_slen)
+			/* If we've sent the entire packet, immediately
+			 * reset the count of bytes sent. */
+			if (req->rq_bytes_sent >= req->rq_slen) {
+				req->rq_bytes_sent = 0;
 				goto out_receive;
+			}
 		} else {
 			if (status >= req->rq_slen)
 				goto out_receive;
@@ -1168,9 +1181,6 @@ do_xprt_transmit(struct rpc_task *task)
 	 * Note, though, that we can't do this if we've already started
 	 * resending down a TCP stream.
 	 */
-	if (req->rq_received && !req->rq_bytes_sent)
-		goto out_release;
-
 	task->tk_status = status;
 
 	switch (status) {
@@ -1200,7 +1210,6 @@ do_xprt_transmit(struct rpc_task *task)
 		if (xprt->stream)
 			xprt_disconnect(xprt);
 	}
- out_release:
 	xprt_release_write(xprt, task);
 	return;
  out_receive:

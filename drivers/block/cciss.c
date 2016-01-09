@@ -48,7 +48,7 @@
 #define DRIVER_VERSION CCISS_DRIVER_VERSION(2,4,47)
 
 /* Embedded module documentation macros - see modules.h */
-MODULE_AUTHOR("Charles M. White III - Hewlett-Packard Company");
+MODULE_AUTHOR("Hewlett-Packard Company");
 MODULE_DESCRIPTION("Driver for HP SA5xxx SA6xxx Controllers version 2.4.47");
 MODULE_SUPPORTED_DEVICE("HP SA5i SA5i+ SA532 SA5300 SA5312 SA641 SA642 SA6400"); 
 MODULE_LICENSE("GPL");
@@ -2341,7 +2341,7 @@ static void do_cciss_intr(int irq, void *dev_id, struct pt_regs *regs)
 
 
 	/* Is this interrupt for us? */
-	if (h->access.intr_pending(h) == 0)
+	if ((h->access.intr_pending(h) == 0) || (h->interrupts_enabled == 0))
 		return;
 
 	/*

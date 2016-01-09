@@ -460,7 +460,7 @@ struct bond_parm_tbl {
 
 static int arp_interval = BOND_LINK_ARP_INTERV;
 static char *arp_ip_target[MAX_ARP_IP_TARGETS] = { NULL, };
-static unsigned long arp_target[MAX_ARP_IP_TARGETS] = { 0, } ;
+static u32 arp_target[MAX_ARP_IP_TARGETS] = { 0, } ;
 static int arp_ip_count = 0;
 static u32 my_ip = 0;
 char *arp_target_hw_addr = NULL;
@@ -524,7 +524,7 @@ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
 MODULE_PARM(miimon, "i");
 MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
 MODULE_PARM(use_carrier, "i");
-MODULE_PARM_DESC(use_carrier, "Use netif_carrier_ok (vs MII ioctls) in miimon; 09 for off, 1 for on (default)");
+MODULE_PARM_DESC(use_carrier, "Use netif_carrier_ok (vs MII ioctls) in miimon; 0 for off, 1 for on (default)");
 MODULE_PARM(mode, "s");
 MODULE_PARM_DESC(mode, "Mode of operation : 0 for round robin, 1 for active-backup, 2 for xor");
 MODULE_PARM(arp_interval, "i");
@@ -1594,11 +1594,14 @@ static int bond_enslave(struct net_device *master_dev,
 #endif
 			bond_set_slave_inactive_flags(new_slave);
 		}
-		read_lock_irqsave(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
-		ifap= &(((struct in_device *)slave_dev->ip_ptr)->ifa_list);
-		ifa = *ifap;
-		my_ip = ifa->ifa_address;
-		read_unlock_irqrestore(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
+		if (((struct in_device *)slave_dev->ip_ptr) != NULL) {
+			read_lock_irqsave(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
+			ifap= &(((struct in_device *)slave_dev->ip_ptr)->ifa_list);
+			ifa = *ifap;
+			if (ifa != NULL)
+				my_ip = ifa->ifa_address;
+			read_unlock_irqrestore(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
+		}
 
 		/* if there is a primary slave, remember it */
 		if (primary != NULL) {
@@ -3930,7 +3933,7 @@ static int __init bonding_init(void)
                         arp_interval = 0;
 		} else { 
 			u32 ip = in_aton(arp_ip_target[arp_ip_count]); 
-			*(u32 *)(arp_ip_target[arp_ip_count]) = ip;
+			arp_target[arp_ip_count] = ip;
 		}
         }
 
