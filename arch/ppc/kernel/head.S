@@ -1633,6 +1633,21 @@ start_here:
 	TLBSYNC			/* ... on all CPUs */
 
 	bl	load_up_mmu
+
+#ifdef CONFIG_BDI_SWITCH
+	/* Add helper information for the Abatron bdiGDB debugger.
+	 * We do this here because we know the mmu is disabled, and
+	 * will be enabled for real in just a few instructions.
+	 */
+	lis	r5, abatron_pteptrs@h
+	ori	r5, r5, abatron_pteptrs@l
+	stw	r5, 0xf0(r0)	/* This much match your Abatron config */
+	lis	r6, swapper_pg_dir@h
+	ori	r6, r6, swapper_pg_dir@l
+	tophys(r5, r5)
+	stw	r6, 0(r5)
+#endif
+
 /* Now turn on the MMU for real! */
 	li	r4,MSR_KERNEL
 	FIX_SRR1(r4,r5)
@@ -1652,6 +1667,16 @@ _GLOBAL(set_context)
 	addis	r3,r3,0x6000	/* Set Ks, Ku bits */
 	li	r0,NUM_USER_SEGMENTS
 	mtctr	r0
+
+#ifdef CONFIG_BDI_SWITCH
+	/* Context switch the PTE pointer for the Abatron BDI2000.
+	 * The PGDIR is passed as second argument.
+	 */
+	lis	r5, KERNELBASE@h
+	lwz	r5, 0xf0(r5)
+	stw	r4, 0x4(r5)
+#endif
+
 	li	r4,0
 BEGIN_FTR_SECTION
 	DSSALL
@@ -1870,3 +1895,11 @@ intercept_table:
 	.long 0, 0, 0, 0, 0, 0, 0, 0
 	.long 0, 0, 0, 0, 0, 0, 0, 0
 	.long 0, 0, 0, 0, 0, 0, 0, 0
+
+#ifdef CONFIG_BDI_SWITCH
+/* Room for two PTE pointers, usually the kernel and current user pointers
+ * to their respective root page table.
+ */
+abatron_pteptrs:
+	.space	8
+#endif

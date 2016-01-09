@@ -99,7 +99,6 @@ static inline void md_init_signals (void)
 #define md_test_and_clear_bit test_and_clear_bit
 
 /* 018 */
-#define md_atomic_read atomic_read
 #define md_atomic_set atomic_set
 
 /* 019 */

@@ -141,7 +141,7 @@ unsigned long apus_get_rtc_time(void)
 {
 #ifdef CONFIG_APUS
 	extern unsigned long m68k_get_rtc_time(void);
-	
+
 	return m68k_get_rtc_time ();
 #else
 	return 0;
@@ -222,7 +222,7 @@ void __init apus_setup_arch(void)
 		    if ((q = strchr( debug_device, ' ' ))) *q = 0;
 		    i = 1;
 	    } else if (!strncmp( p, "60nsram", 7 )) {
-		    APUS_WRITE (APUS_REG_WAITSTATE, 
+		    APUS_WRITE (APUS_REG_WAITSTATE,
 				REGWAITSTATE_SETRESET
 				|REGWAITSTATE_PPCR
 				|REGWAITSTATE_PPCW);
@@ -286,7 +286,7 @@ static void get_current_tb(unsigned long long *time)
 			  "  bne   1b     \n\t"
 			  "  stw   4,0(%0)\n\t"
 			  "  stw   5,4(%0)\n\t"
-			  : 
+			  :
 			  : "r" (time)
 			  : "r4", "r5", "r6");
 }
@@ -395,7 +395,7 @@ void kbd_reset_setup(char *str, int *ints)
 
 /*********************************************************** FLOPPY */
 #if defined(CONFIG_AMIGA_FLOPPY)
-__init 
+__init
 void floppy_setup(char *str, int *ints)
 {
 	if (mach_floppy_setup)
@@ -416,7 +416,7 @@ static __inline__ pte_t *my_find_pte(struct mm_struct *mm,unsigned long va)
 	pte_t *pte = 0;
 
 	va &= PAGE_MASK;
-	
+
 	dir = pgd_offset( mm, va );
 	if (dir)
 	{
@@ -447,11 +447,11 @@ void kernel_set_cachemode( unsigned long address, unsigned long size,
 		flags = (_PAGE_NO_CACHE | _PAGE_GUARDED);
 		break;
 	default:
-		panic ("kernel_set_cachemode() doesn't support mode %d\n", 
+		panic ("kernel_set_cachemode() doesn't support mode %d\n",
 		       cmode);
 		break;
 	}
-	
+
 	size /= PAGE_SIZE;
 	address &= PAGE_MASK;
 	while (size--)
@@ -491,7 +491,7 @@ unsigned long mm_ptov (unsigned long paddr)
 				goto exit;
 			}
 		}
-		
+
 		ret = (unsigned long) __va(paddr);
 	}
 exit:
@@ -543,7 +543,7 @@ void cache_clear(__u32 addr, int length)
 	       "icbi 0,%0 \n\t"
 	       "isync \n\t"
 	       : : "r" (addr));
-	
+
 	addr += L1_CACHE_BYTES;
 	length -= L1_CACHE_BYTES;
 
@@ -570,11 +570,11 @@ apus_restart(char *cmd)
 {
 	cli();
 
-	APUS_WRITE(APUS_REG_LOCK, 
+	APUS_WRITE(APUS_REG_LOCK,
 		   REGLOCK_BLACKMAGICK1|REGLOCK_BLACKMAGICK2);
-	APUS_WRITE(APUS_REG_LOCK, 
+	APUS_WRITE(APUS_REG_LOCK,
 		   REGLOCK_BLACKMAGICK1|REGLOCK_BLACKMAGICK3);
-	APUS_WRITE(APUS_REG_LOCK, 
+	APUS_WRITE(APUS_REG_LOCK,
 		   REGLOCK_BLACKMAGICK2|REGLOCK_BLACKMAGICK3);
 	APUS_WRITE(APUS_REG_SHADOW, REGSHADOW_SELFRESET);
 	APUS_WRITE(APUS_REG_RESET, REGRESET_AMIGARESET);
@@ -657,116 +657,47 @@ void apus_ide_init_hwif_ports (hw_regs_t *hw, ide_ioreg_t data_port,
 #endif
 /****************************************************** IRQ stuff */
 
-static unsigned int apus_irq_cannonicalize(unsigned int irq)
-{
-	return irq;
-}
-
-int apus_get_irq_list(char *buf)
-{
-#ifdef CONFIG_APUS
-	extern int amiga_get_irq_list(char *buf);
-	
-	return amiga_get_irq_list (buf);
-#else
-	return 0;
-#endif
-}
-
-/* IPL must be between 0 and 7 */
-static inline void apus_set_IPL(unsigned long ipl)
-{
-	APUS_WRITE(APUS_IPL_EMU, IPLEMU_SETRESET | IPLEMU_DISABLEINT);
-	APUS_WRITE(APUS_IPL_EMU, IPLEMU_IPLMASK);
-	APUS_WRITE(APUS_IPL_EMU, IPLEMU_SETRESET | ((~ipl) & IPLEMU_IPLMASK));
-	APUS_WRITE(APUS_IPL_EMU, IPLEMU_DISABLEINT);
-}
-
-static inline unsigned long apus_get_IPL(void)
-{
-	/* This returns the present IPL emulation level. */
-	unsigned long __f;
-	APUS_READ(APUS_IPL_EMU, __f);
-	return ((~__f) & IPLEMU_IPLMASK);
-}
-
-static inline unsigned long apus_get_prev_IPL(struct pt_regs* regs)
-{
-	/* The value saved in mq is the IPL_EMU value at the time of
-	   interrupt. The lower bits are the current interrupt level,
-	   the upper bits the requested level. Thus, to restore the
-	   IPL level to the post-interrupt state, we will need to use
-	   the lower bits. */
-	unsigned long __f = regs->mq;
-	return ((~__f) & IPLEMU_IPLMASK);
-}
-
-
-#ifdef CONFIG_APUS
-void free_irq(unsigned int irq, void *dev_id)
-{
-	extern void amiga_free_irq(unsigned int irq, void *dev_id);
-
-	amiga_free_irq (irq, dev_id);
-}
-
-int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *),
-	unsigned long irqflags, const char * devname, void *dev_id)
-{
-	extern int  amiga_request_irq(unsigned int irq, 
-				      void (*handler)(int, void *, 
-						      struct pt_regs *),
-				      unsigned long flags, 
-				      const char *devname, 
-				      void *dev_id);
-
-	return amiga_request_irq (irq, handler, irqflags, devname, dev_id);
-}
-
-/* In Linux/m68k the sys_request_irq deals with vectors 0-7. That's what
-   callers expect - but on Linux/APUS we actually use the IRQ_AMIGA_AUTO
-   vectors (24-31), so we put this dummy function in between to adjust
-   the vector argument (rather have cruft here than in the generic irq.c). */
-int sys_request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *),
-		    unsigned long irqflags, const char * devname, void *dev_id)
-{
-	extern int request_sysirq(unsigned int irq, 
-				  void (*handler)(int, void *, 
-						  struct pt_regs *),
-				  unsigned long irqflags,
-				  const char * devname, void *dev_id);
-	return request_sysirq(irq+IRQ_AMIGA_AUTO, handler, irqflags, 
-			      devname, dev_id);
-}
-#endif
+static unsigned char last_ipl[8];
 
 int apus_get_irq(struct pt_regs* regs)
 {
-#ifdef CONFIG_APUS
-	int level = apus_get_IPL();
+	unsigned char ipl_emu, mask;
+	unsigned int level;
+
+	APUS_READ(APUS_IPL_EMU, ipl_emu);
+	level = (ipl_emu >> 3) & IPLEMU_IPLMASK;
+	mask = IPLEMU_SETRESET|IPLEMU_DISABLEINT|level;
+	level ^= 7;
+
+	/* Save previous IPL value */
+	if (last_ipl[level])
+		return -2;
+	last_ipl[level] = ipl_emu;
+
+	/* Set to current IPL value */
+	APUS_WRITE(APUS_IPL_EMU, mask);
+	APUS_WRITE(APUS_IPL_EMU, IPLEMU_DISABLEINT|level);
+
 
 #ifdef __INTERRUPT_DEBUG
-	printk("<%d:%d>", level, apus_get_prev_IPL(regs));
+	printk("<%d:%d>", level, ~ipl_emu & IPLEMU_IPLMASK);
 #endif
-
-	if (0 == level)
-		return -8;
-	if (7 == level)
-		return -9;
-
 	return level + IRQ_AMIGA_AUTO;
-#else
-	return 0;
-#endif
 }
 
-void apus_post_irq(struct pt_regs* regs, int level)
+void apus_end_irq(unsigned int irq)
 {
+	unsigned char ipl_emu;
+	unsigned int level = irq - IRQ_AMIGA_AUTO;
 #ifdef __INTERRUPT_DEBUG
-	printk("{%d}", apus_get_prev_IPL(regs));
+	printk("{%d}", ~last_ipl[level] & IPLEMU_IPLMASK);
 #endif
 	/* Restore IPL to the previous value */
-	apus_set_IPL(apus_get_prev_IPL(regs));
+	ipl_emu = last_ipl[level] & IPLEMU_IPLMASK;
+	APUS_WRITE(APUS_IPL_EMU, IPLEMU_SETRESET|IPLEMU_DISABLEINT|ipl_emu);
+	last_ipl[level] = 0;
+	ipl_emu ^= 7;
+	APUS_WRITE(APUS_IPL_EMU, IPLEMU_DISABLEINT|ipl_emu);
 }
 
 /****************************************************** keyboard */
@@ -851,9 +782,9 @@ unsigned char __debug_ser_in( void )
 }
 
 int __debug_serinit( void )
-{	
+{
 	unsigned long flags;
-	
+
 	save_flags (flags);
 	cli();
 
@@ -871,7 +802,7 @@ int __debug_serinit( void )
 	 */
 	ciab.ddra |= (SER_DTR | SER_RTS);   /* outputs */
 	ciab.ddra &= ~(SER_DCD | SER_CTS | SER_DSR);  /* inputs */
-	
+
 #ifdef CONFIG_KGDB
 	/* turn Rx interrupts on for GDB */
 	custom.intena = IF_SETCLR | IF_RBF;
@@ -913,40 +844,21 @@ static void apus_progress(char *s, unsigned short value)
 /* The number of spurious interrupts */
 volatile unsigned int num_spurious;
 
-#define NUM_IRQ_NODES 100
-static irq_node_t nodes[NUM_IRQ_NODES];
+extern struct irqaction amiga_sys_irqaction[AUTO_IRQS];
 
-extern void (*amiga_default_handler[AUTO_IRQS])(int, void *, struct pt_regs *);
-
-static const char *default_names[SYS_IRQS] = {
-	"spurious int", "int1 handler", "int2 handler", "int3 handler",
-	"int4 handler", "int5 handler", "int6 handler", "int7 handler"
-};
-
-irq_node_t *new_irq_node(void)
-{
-	irq_node_t *node;
-	short i;
-
-	for (node = nodes, i = NUM_IRQ_NODES-1; i >= 0; node++, i--)
-		if (!node->handler)
-			return node;
-
-	printk ("new_irq_node: out of nodes\n");
-	return NULL;
-}
 
 extern void amiga_enable_irq(unsigned int irq);
 extern void amiga_disable_irq(unsigned int irq);
 
+struct hw_interrupt_type amiga_sys_irqctrl = {
+	typename: "Amiga IPL",
+	end: apus_end_irq,
+};
+
 struct hw_interrupt_type amiga_irqctrl = {
-	" Amiga  ",
-	NULL,
-	NULL,
-	amiga_enable_irq,
-	amiga_disable_irq,
-	0,
-	0
+	typename: "Amiga    ",
+	enable: amiga_enable_irq,
+	disable: amiga_disable_irq,
 };
 
 #define HARDWARE_MAPPED_SIZE (512*1024)
@@ -1015,18 +927,23 @@ apus_map_io(void)
 __init
 void apus_init_IRQ(void)
 {
+	struct irqaction *action;
 	int i;
 
-	for ( i = 0 ; i < NR_IRQS ; i++ )
-		irq_desc[i].handler = &amiga_irqctrl;
+#ifdef CONFIG_PCI
+        apus_setup_pci_ptrs();
+#endif
 
-	for (i = 0; i < NUM_IRQ_NODES; i++)
-		nodes[i].handler = NULL;
-
-	for (i = 0; i < AUTO_IRQS; i++) {
-		if (amiga_default_handler[i] != NULL)
-			sys_request_irq(i, amiga_default_handler[i],
-					0, default_names[i], NULL);
+	for ( i = 0 ; i < AMI_IRQS; i++ ) {
+		irq_desc[i].status = IRQ_LEVEL;
+		if (i < IRQ_AMIGA_AUTO) {
+			irq_desc[i].handler = &amiga_irqctrl;
+		} else {
+			irq_desc[i].handler = &amiga_sys_irqctrl;
+			action = &amiga_sys_irqaction[i-IRQ_AMIGA_AUTO];
+			if (action->name)
+				setup_irq(i, action);
+		}
 	}
 
 	amiga_init_IRQ();
@@ -1039,7 +956,7 @@ void platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 {
 	extern int parse_bootinfo(const struct bi_record *);
 	extern char _end[];
-	
+
 	/* Parse bootinfo. The bootinfo is located right after
            the kernel bss */
 	parse_bootinfo((const struct bi_record *)&_end);
@@ -1049,7 +966,7 @@ void platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	   registers when kernel is booted via a PPC reset. */
 	if ( ramdisk.addr ) {
 		initrd_start = (unsigned long) __va(ramdisk.addr);
-		initrd_end = (unsigned long) 
+		initrd_end = (unsigned long)
 			__va(ramdisk.size + ramdisk.addr);
 	}
 #endif /* CONFIG_BLK_DEV_INITRD */
@@ -1058,13 +975,9 @@ void platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	ppc_md.setup_arch     = apus_setup_arch;
 	ppc_md.show_cpuinfo   = apus_show_cpuinfo;
-	ppc_md.irq_cannonicalize = apus_irq_cannonicalize;
 	ppc_md.init_IRQ       = apus_init_IRQ;
 	ppc_md.get_irq        = apus_get_irq;
-	
-#error Should use the ->end() member of irq_desc[x]. -- Cort
-	/*ppc_md.post_irq       = apus_post_irq;*/
-	
+
 #ifdef CONFIG_HEARTBEAT
 	ppc_md.heartbeat      = apus_heartbeat;
 	ppc_md.heartbeat_count = 1;

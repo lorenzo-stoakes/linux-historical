@@ -41,18 +41,12 @@ static const char version[] = "0.23";
 #include <asm/semaphore.h>
 #include <linux/wrapper.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 3, 0)
-#define virt_to_page(arg)	MAP_NR(arg)
-#define vmalloc_32		vmalloc
-#endif
-
 #include "se401.h"
 
 static int flickerless=0;
 static int video_nr = -1;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 3, 0)
-static __devinitdata struct usb_device_id device_table [] = {
+static struct usb_device_id device_table [] = {
 	{ USB_DEVICE(0x03e8, 0x0004) },/* Endpoints/Aox SE401 */
 	{ USB_DEVICE(0x0471, 0x030b) },/* Philips PCVC665K */
 	{ USB_DEVICE(0x047d, 0x5001) },/* Kensington 67014 */
@@ -62,7 +56,6 @@ static __devinitdata struct usb_device_id device_table [] = {
 };
 
 MODULE_DEVICE_TABLE(usb, device_table);
-#endif
 
 MODULE_AUTHOR("Jeroen Vreeken <pe1rxq@amsat.org>");
 MODULE_DESCRIPTION("SE401 USB Camera Driver");
@@ -1448,12 +1441,8 @@ static int se401_init(struct usb_se401 *se401)
         return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 3, 0)
-static void* se401_probe(struct usb_device *dev, unsigned int ifnum)
-#else
-static void* __devinit se401_probe(struct usb_device *dev, unsigned int ifnum,
+static void* se401_probe(struct usb_device *dev, unsigned int ifnum,
 	const struct usb_device_id *id)
-#endif
 {
         struct usb_interface_descriptor *interface;
         struct usb_se401 *se401;
@@ -1582,9 +1571,7 @@ static inline void usb_se401_remove_disconnected (struct usb_se401 *se401)
 
 static struct usb_driver se401_driver = {
         name:		"se401",
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 3, 0)
         id_table:	device_table,
-#endif
 	probe:		se401_probe,
         disconnect:	se401_disconnect
 };

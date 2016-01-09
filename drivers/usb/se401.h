@@ -10,7 +10,7 @@
 
 #ifdef se401_DEBUG
 #  define PDEBUG(level, fmt, args...) \
-if (debug >= level) info("[" __PRETTY_FUNCTION__ ":%d] " fmt, __LINE__ , ## args)
+if (debug >= level) info("[%s:%d] " fmt, __PRETTY_FUNCTION__, __LINE__ , ## args)
 #else
 #  define PDEBUG(level, fmt, args...) do {} while(0)
 #endif

@@ -564,6 +564,17 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_BIOS_VERSION, "Version1.01"),
 			NO_MATCH, NO_MATCH,
 			} },
+	{ apm_is_horked, "Intel D850MD", { /* APM crashes */
+			MATCH(DMI_BIOS_VENDOR, "Intel Corp."),
+			MATCH(DMI_BIOS_VERSION, "MV85010A.86A.0016.P07.0201251536"),
+			NO_MATCH, NO_MATCH,
+			} },
+	{ apm_is_horked, "Dell XPS-Z", { /* APM crashes */
+			MATCH(DMI_BIOS_VENDOR, "Intel Corp."),
+			MATCH(DMI_BIOS_VERSION, "A11"),
+			MATCH(DMI_PRODUCT_NAME, "XPS-Z"),
+			NO_MATCH,
+			} },
 	{ apm_is_horked, "Sharp PC-PJ/AX", { /* APM crashes */
 			MATCH(DMI_SYS_VENDOR, "SHARP"),
 			MATCH(DMI_PRODUCT_NAME, "PC-PJ/AX"),

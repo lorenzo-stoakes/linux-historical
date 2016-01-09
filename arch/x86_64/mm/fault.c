@@ -144,9 +144,8 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	if (in_interrupt() || !mm)
 		goto no_context;
 
-again:
 	down_read(&mm->mmap_sem);
-
+again:
 	vma = find_vma(mm, address);
 	if (!vma)
 		goto bad_area;
@@ -268,11 +267,11 @@ no_context:
  * us unable to handle the page fault gracefully.
  */
 out_of_memory:
-	up_read(&mm->mmap_sem);
 	if (current->pid == 1) { 
 		yield();
 		goto again;
 	}
+	up_read(&mm->mmap_sem);
 	printk("VM: killing process %s\n", tsk->comm);
 	if (error_code & 4)
 		do_exit(SIGKILL);

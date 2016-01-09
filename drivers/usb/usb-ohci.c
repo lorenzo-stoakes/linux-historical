@@ -384,6 +384,8 @@ static void ohci_dump_roothub (ohci_t *controller, int verbose)
 	__u32			temp, ndp, i;
 
 	temp = roothub_a (controller);
+	if (temp == ~(u32)0)
+		return;
 	ndp = (temp & RH_A_NDP);
 
 	if (verbose) {
@@ -1626,11 +1628,6 @@ static void dl_del_list (ohci_t  * ohci, unsigned int frame)
 			if (tdHeadP == tdTailP) {
 				if (ed->state == ED_OPER)
 					ep_unlink(ohci, ed);
-				td_free (ohci, tdTailP);
-				ed->hwINFO = cpu_to_le32 (OHCI_ED_SKIP);
-				ed->state = ED_NEW;
-				hash_free_ed(ohci, ed);
-				--(usb_to_ohci (ohci->dev[edINFO & 0x7F]))->ed_cnt;
 			} else
    	 			ed->hwINFO &= ~cpu_to_le32 (OHCI_ED_SKIP);
    	 	}
@@ -2301,9 +2298,19 @@ static void hc_interrupt (int irq, void * __ohci, struct pt_regs * r)
 	struct ohci_regs * regs = ohci->regs;
  	int ints; 
 
-	if ((ohci->hcca->done_head != 0) && !(le32_to_cpup (&ohci->hcca->done_head) & 0x01)) {
+	/* avoid (slow) readl if only WDH happened */
+	if ((ohci->hcca->done_head != 0)
+			&& !(le32_to_cpup (&ohci->hcca->done_head) & 0x01)) {
 		ints =  OHCI_INTR_WDH;
-	} else if ((ints = (readl (&regs->intrstatus) & readl (&regs->intrenable))) == 0) {
+
+	/* cardbus/... hardware gone before remove() */
+	} else if ((ints = readl (&regs->intrstatus)) == ~(u32)0) {
+		ohci->disabled++;
+		err ("%s device removed!", ohci->ohci_dev->slot_name);
+		return;
+
+	/* interrupt for some other device? */
+	} else if ((ints &= readl (&regs->intrenable)) == 0) {
 		return;
 	} 
 

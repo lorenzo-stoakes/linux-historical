@@ -151,13 +151,12 @@ good_area:
 	 * the fault.
 	 */
 	fault = handle_mm_fault(mm, vma, address, cause > 0);
-	up_read(&mm->mmap_sem);
-
 	if (fault < 0)
 		goto out_of_memory;
 	if (fault == 0)
 		goto do_sigbus;
 
+	up_read(&mm->mmap_sem);
 	return;
 
 /*
@@ -206,9 +205,9 @@ no_context:
 out_of_memory:
 	if (current->pid == 1) {
 		yield();
-		down_read(&mm->mmap_sem);
 		goto survive;
 	}
+	up_read(&mm->mmap_sem);
 	printk(KERN_ALERT "VM: killing process %s(%d)\n",
 	       current->comm, current->pid);
 	if (!user_mode(regs))
@@ -216,6 +215,7 @@ out_of_memory:
 	do_exit(SIGKILL);
 
 do_sigbus:
+	up_read(&mm->mmap_sem);
 	/*
 	 * Send a sigbus, regardless of whether we were in kernel
 	 * or user mode.

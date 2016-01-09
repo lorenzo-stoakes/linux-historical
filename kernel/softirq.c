@@ -40,7 +40,7 @@
    - Bottom halves: globally serialized, grr...
  */
 
-irq_cpustat_t irq_stat[NR_CPUS];
+irq_cpustat_t irq_stat[NR_CPUS] ____cacheline_aligned;
 
 static struct softirq_action softirq_vec[32] __cacheline_aligned;
 

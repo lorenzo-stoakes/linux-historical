@@ -165,7 +165,7 @@ rcpci45_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	 * API private area, which requires a minimum of 16KB.  The top 
 	 * of the allocated area will be assigned to struct net_device; 
 	 * the next chunk will be assigned to DPA; and finally, the rest 
-	 * will be assigned to the the LAN API layer.
+	 * will be assigned to the LAN API layer.
 	 */
 
 	dev = init_etherdev (NULL, sizeof (*pDpa));

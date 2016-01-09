@@ -13,6 +13,8 @@
 
 #if defined(CONFIG_GEMINI)
 #include <platforms/gemini_serial.h>
+#elif defined(CONFIG_SPRUCE)
+#include <platforms/spruce.h>
 #elif defined(CONFIG_4xx)
 #include <asm/ppc4xx_serial.h>
 #else

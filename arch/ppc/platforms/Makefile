@@ -21,6 +21,10 @@ endif
 # Extra CFLAGS so we don't have to do relative includes
 CFLAGS_pmac_setup.o	+= -I$(TOPDIR)/drivers/scsi -I$(TOPDIR)/fs/partitions \
 				-I$(TOPDIR)/arch/$(ARCH)/mm
+CFLAGS_spruce_setup.o	+= -I$(TOPDIR)/arch/ppc/kernel
+CFLAGS_spruce_pci.o	+= -I$(TOPDIR)/arch/ppc/kernel
+CFLAGS_pal4_setup.o	+= -I$(TOPDIR)/arch/ppc/kernel
+CFLAGS_pal4_pci.o	+= -I$(TOPDIR)/arch/ppc/kernel
 
 O_TARGET := platform.o
 
@@ -45,6 +49,8 @@ obj-$(CONFIG_PMAC_PBOOK)	+= sleep.o
 obj-$(CONFIG_PPC_RTAS)		+= error_log.o proc_rtas.o
 obj-$(CONFIG_PREP_RESIDUAL)	+= residual.o
 obj-$(CONFIG_GEMINI)		+= gemini_pci.o gemini_setup.o gemini_prom.o
+obj-$(CONFIG_PAL4)		+= pal4_setup.o pal4_pci.o cpc700_pic.o
+obj-$(CONFIG_SPRUCE)		+= spruce_setup.o spruce_pci.o cpc700_pic.o
 
 ifeq ($(CONFIG_SMP),y)
 obj-$(CONFIG_ALL_PPC)		+= pmac_smp.o chrp_smp.o

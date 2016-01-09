@@ -580,10 +580,10 @@ static void ps2esdi_readwrite(int cmd, u_char drive, u_int block, u_int count)
 	     cylinder, head, sector,
 	     CURRENT->current_nr_sectors, drive);
 
-	spin_unlock_irq(&io_request_irq);
+	spin_unlock_irq(&io_request_lock);
 	/* send the command block to the controller */
 	err = ps2esdi_out_cmd_blk(cmd_blk);
-	spin_lock_irq(&io_request_irq);
+	spin_lock_irq(&io_request_lock);
 	
 	if (err) {
 		printk(KERN_ERR "%s: Controller failed\n", DEVICE_NAME);

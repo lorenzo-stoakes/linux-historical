@@ -3712,7 +3712,7 @@ struct {
  * Searches all registered partitions for autorun RAID arrays
  * at boot time.
  */
-static int detected_devices[128];
+static kdev_t detected_devices[128];
 static int dev_cnt;
 
 void md_autodetect_dev(kdev_t dev)

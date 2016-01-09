@@ -1176,7 +1176,7 @@ _static int uhci_unlink_urb_sync (uhci_t *s, struct urb *urb)
 
 	if (urb->status == -EINPROGRESS) {
 
-		// move descriptors out the the running chains, dequeue urb
+		// move descriptors out of the running chains, dequeue urb
 		uhci_unlink_urb_async(s, urb, UNLINK_ASYNC_DONT_STORE);
 
 		urb_priv = urb->hcpriv;

@@ -42,6 +42,11 @@ ifdef CONFIG_PPC64BRIDGE
 CFLAGS := $(CFLAGS) -Wa,-mppc64bridge
 endif
 
+ifdef CONFIG_MORE_COMPILE_OPTIONS
+# Use sed to remove the quotes.
+  CFLAGS += $(shell echo $(CONFIG_COMPILE_OPTIONS) | sed -e 's/"//g')
+endif
+
 ifdef CONFIG_4xx
   HEAD := arch/ppc/kernel/head_4xx.o
 else

@@ -1215,7 +1215,8 @@ static long bttv_write(struct video_device *v, const char *buf, unsigned long co
 static long bttv_read(struct video_device *v, char *buf, unsigned long count, int nonblock)
 {
 	struct bttv *btv= (struct bttv *)v;
-	int q,todo;
+	int q;
+	unsigned long todo;
 	DECLARE_WAITQUEUE(wait, current);
 
 	/* BROKEN: RETURNS VBI WHEN IT SHOULD RETURN GRABBED VIDEO FRAME */

@@ -312,7 +312,7 @@ void ipc64_perm_to_ipc_perm (struct ipc64_perm *in, struct ipc_perm *out)
 	out->seq	= in->seq;
 }
 
-#ifndef __ia64__
+#if !defined(__ia64__) && !defined(__hppa__)
 
 /**
  *	ipc_parse_version	-	IPC call version

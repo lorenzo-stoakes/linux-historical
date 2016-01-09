@@ -481,7 +481,7 @@ int vt_ioctl(struct tty_struct *tty, struct file * file,
 		ucval = keyboard_type;
 		goto setchar;
 
-#if defined(__i386__) || defined(__mc68000__) || defined(__ppc__) || defined(__sparc__)
+#if defined(CONFIG_X86)
 		/*
 		 * These cannot be implemented on any machine that implements
 		 * ioperm() in user level (such as Alpha PCs).

@@ -896,6 +896,12 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
         ssize_t retval;
         void *membase;
 
+	if (*offset != off)	/* Check for EOF before we trust wrap */
+		return 0;
+	
+	if (off + count > off)
+		return 0;
+		
         if ((off + count) > PCILYNX_MAX_MEMORY + 1) {
                 count = PCILYNX_MAX_MEMORY + 1 - off;
         }

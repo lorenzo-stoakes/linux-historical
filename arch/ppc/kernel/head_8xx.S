@@ -777,14 +777,18 @@ start_here:
 	sync			/* wait for tlbia/tlbie to finish */
 	TLBSYNC			/* ... on all CPUs */
 
-	/* set up the PTE pointers for the Abatron bdiGDB.
-	*/
+#ifdef CONFIG_BDI_SWITCH
+	/* Add helper information for the Abatron bdiGDB debugger.
+	 * We do this here because we know the mmu is disabled, and
+	 * will be enabled for real in just a few instructions.
+	 */
 	tovirt(r6,r6)
 	lis	r5, abatron_pteptrs@h
 	ori	r5, r5, abatron_pteptrs@l
 	stw	r5, 0xf0(r0)	/* Must match your Abatron config file */
 	tophys(r5,r5)
 	stw	r6, 0(r5)
+#endif
 
 /* Now turn on the MMU for real! */
 	li	r4,MSR_KERNEL
@@ -948,15 +952,16 @@ swapper_pg_dir:
 cmd_line:
 	.space	512
 
+#ifdef CONFIG_BDI_SWITCH
 /* Room for two PTE table poiners, usually the kernel and current user
  * pointer to their respective root page table (pgdir).
  */
 abatron_pteptrs:
 	.space	8
+#endif
 
 #ifdef CONFIG_8xx_CPU6
 	.globl	cpu6_errata_word
 cpu6_errata_word:
 	.space	16
 #endif
-

@@ -1072,6 +1072,9 @@ static int stv680_newframe (struct usb_stv *stv680, int framenr)
 			errors++;
 		}
 		wait_event_interruptible (stv680->wq, (stv680->scratch[stv680->scratch_use].state == BUFFER_READY));
+		
+		if (stv680->removed)
+			return -ENODEV;
 
 		if (stv680->nullpackets > STV680_MAX_NULLPACKETS) {
 			stv680->nullpackets = 0;
@@ -1140,10 +1143,10 @@ static void stv_close (struct video_device *dev)
 
 	for (i = 0; i < STV680_NUMFRAMES; i++)
 		stv680->frame[i].grabstate = FRAME_UNUSED;
-	if (stv680->streaming)
+	if (stv680->streaming && !stv680->removed)
 		stv680_stop_stream (stv680);
 
-	if ((i = stv_stop_video (stv680)) < 0)
+	if ((!stv680->removed) && (i = stv_stop_video (stv680)) < 0)
 		PDEBUG (1, "STV(e): stop_video failed in stv_close");
 
 	rvfree (stv680->fbuf, stv680->maxframesize * STV680_NUMFRAMES);
@@ -1169,6 +1172,9 @@ static int stv680_ioctl (struct video_device *vdev, unsigned int cmd, void *arg)
 
 	if (!stv680->udev)
 		return -EIO;
+		
+	if (stv680->removed)
+		return -ENODEV;
 
 	switch (cmd) {
 	case VIDIOCGCAP:{
@@ -1494,7 +1500,7 @@ static struct video_device stv680_template = {
 	initialize:	stv_init_done,
 };
 
-static void *__devinit stv680_probe (struct usb_device *dev, unsigned int ifnum, const struct usb_device_id *id)
+static void *stv680_probe (struct usb_device *dev, unsigned int ifnum, const struct usb_device_id *id)
 {
 	struct usb_interface_descriptor *interface;
 	struct usb_stv *stv680;
@@ -1578,6 +1584,7 @@ static inline void usb_stv680_remove_disconnected (struct usb_stv *stv680)
 static void stv680_disconnect (struct usb_device *dev, void *ptr)
 {
 	struct usb_stv *stv680 = (struct usb_stv *) ptr;
+	int i;
 
 	lock_kernel ();
 	/* We don't want people trying to open up the device */
@@ -1586,6 +1593,9 @@ static void stv680_disconnect (struct usb_device *dev, void *ptr)
 		usb_stv680_remove_disconnected (stv680);
 	} else {
 		stv680->removed = 1;
+		for( i = 0; i < STV680_NUMSBUF; i++)
+			usb_unlink_urb(stv680->urb[i]);
+		wake_up_interruptible (&stv680->wq);
 	}
 	unlock_kernel ();
 }

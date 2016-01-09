@@ -601,7 +601,14 @@ void update_process_times(int user_tick)
 	if (p->pid) {
 		if (--p->counter <= 0) {
 			p->counter = 0;
-			p->need_resched = 1;
+			/*
+			 * SCHED_FIFO is priority preemption, so this is 
+			 * not the place to decide whether to reschedule a
+			 * SCHED_FIFO task or not - Bhavesh Davda
+			 */
+			if (p->policy != SCHED_FIFO) {
+				p->need_resched = 1;
+			}
 		}
 		if (p->nice > 0)
 			kstat.per_cpu_nice[cpu] += user_tick;

@@ -56,6 +56,8 @@ obj-$(CONFIG_MBX)		+= i8259.o
 obj-$(CONFIG_ALL_PPC)		+= prom_init.o prom.o open_pic.o \
 					indirect_pci.o i8259.o prep_nvram.o
 obj-$(CONFIG_GEMINI)		+= open_pic.o
+obj-$(CONFIG_PAL4)		+= indirect_pci.o pci_auto.o todc_time.o
+obj-$(CONFIG_SPRUCE)		+= indirect_pci.o pci_auto.o todc_time.o
 obj-$(CONFIG_8260)		+= m8260_setup.o ppc8260_pic.o
 obj-$(CONFIG_BOOTX_TEXT)	+= btext.o
 

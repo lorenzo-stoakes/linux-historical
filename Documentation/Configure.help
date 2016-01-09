@@ -3644,6 +3644,16 @@ CONFIG_HOTPLUG_PCI_COMPAQ_NVRAM
 
   When in doubt, say N.
 
+ACPI PCI Hotplug driver
+CONFIG_HOTPLUG_PCI_ACPI
+  Say Y here if you have a system that supports PCI Hotplug using
+  ACPI.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called acpiphp.o. If you want to compile it
+  as a module, say M here and read <file:Documentation/modules.txt>.
+
 MCA support
 CONFIG_MCA
   MicroChannel Architecture is found in some IBM PS/2 machines and
@@ -10883,6 +10893,48 @@ CONFIG_DL2K
   say M here and read <file:Documentation/modules.txt>.  This is
   recommended.  The module will be called dl2k.o.
 
+Intel(R) PRO/1000 Gigabit Ethernet support
+CONFIG_E1000
+  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
+  adapters, which includes:
+
+     Controller  Adapter Name                         Board IDs
+     ----------  ------------                         ---------
+     82542       PRO/1000 Gigabit Server Adapter      700262-xxx,
+                                                      717037-xxx
+     82543       PRO/1000 F Server Adapter            738640-xxx,
+                                                      A38888-xxx
+     82543       PRO/1000 T Server Adapter            A19845-xxx,
+                                                      A33948-xxx
+     82544       PRO/1000 XT Server Adapter           A51580-xxx
+     82544       PRO/1000 XF Server Adapter           A50484-xxx
+     82544       PRO/1000 T Desktop Adapter           A62947-xxx
+     82540       PRO/1000 MT Desktop Adapter          A78408-xxx
+     82545       PRO/1000 MT Server Adapter           A92165-xxx
+     82546       PRO/1000 MT Dual Port Server Adapter A92111-xxx
+     82545       PRO/1000 MF Server Adapter           A91622-xxx
+     82545       PRO/1000 MF Server Adapter(LX)       A91624-xxx
+     82546       PRO/1000 MF Dual Port Server Adapter A91620-xxx 
+
+  For more information on how to identify your adapter, go to the
+  Adapter & Driver ID Guide at:
+
+   <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+
+  For general information and support, go to the Intel support
+  website at:
+
+   <http://support.intel.com>
+
+  More specific information on configuring the driver is in 
+  <file:Documentation/networking/e1000.txt>.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called e1000.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt> as well
+  as <file:Documentation/networking/net-modules.txt>.
+
 AMD LANCE and PCnet (AT1500 and NE2100) support
 CONFIG_LANCE
   If you have a network (Ethernet) card of this type, say Y and read
@@ -14234,6 +14286,11 @@ CONFIG_USB_STORAGE_SDDR09
   Say Y here to include additional code to support the Sandisk SDDR-09
   SmartMedia reader in the USB Mass Storage driver.
 
+SanDisk SDDR-55 SmartMedia support
+CONFIG_USB_STORAGE_SDDR55
+  Say Y here to include additional code to support the Sandisk SDDR-55
+  SmartMedia reader in the USB Mass Storage driver.
+
 USB Diamond Rio500 support
 CONFIG_USB_RIO500
   Say Y here if you want to connect a USB Rio500 mp3 player to your
@@ -14243,7 +14300,17 @@ CONFIG_USB_RIO500
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called rio500.o. If you want to compile it as
-  a module, say M here and read <file:Documentation/modules.txt>.
+  a module, say M here and read <file:Documenatation/modules.txt>.
+
+USB Auerswald ISDN device support
+CONFIG_USB_AUERSWALD
+  Say Y here if you want to connect an Auerswald USB ISDN Device
+  to your computer's USB port.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called auerswald.o. If you want to compile it as
+  a module, say M here and read <file:Documenatation/modules.txt>
 
 CONFIG_USB_TIGL
   If you own a Texas Instruments graphing calculator and use a 

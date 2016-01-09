@@ -32,6 +32,14 @@
 
 #define journal_oom_retry 1
 
+/*
+ * Define JBD_PARANOID_WRITES to cause a kernel BUG() check if ext3
+ * finds a buffer unexpectedly dirty.  This is useful for debugging, but
+ * can cause spurious kernel panics if there are applications such as
+ * tune2fs modifying our buffer_heads behind our backs.
+ */
+#undef JBD_PARANOID_WRITES
+
 #ifdef CONFIG_JBD_DEBUG
 /*
  * Define JBD_EXPENSIVE_CHECKING to enable more expensive internal
@@ -730,6 +738,10 @@ do {								      \
 	schedule();						      \
 } while (1)
 
+extern void __jbd_unexpected_dirty_buffer(char *, int, struct journal_head *);
+#define jbd_unexpected_dirty_buffer(jh) \
+	__jbd_unexpected_dirty_buffer(__FUNCTION__, __LINE__, (jh))
+	
 /*
  * is_journal_abort
  *

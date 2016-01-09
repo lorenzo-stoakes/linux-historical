@@ -57,9 +57,7 @@ unsigned long sysmap_size;
 
 /* Used with the BI_MEMSIZE bootinfo parameter to store the memory
    size value reported by the boot loader. */ 
-unsigned int boot_mem_size;
-
-int parse_bootinfo(void);
+unsigned long boot_mem_size;
 
 unsigned long ISA_DMA_THRESHOLD;
 unsigned long DMA_MODE_READ, DMA_MODE_WRITE;
@@ -339,6 +337,8 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	}
 #endif	
 
+	parse_bootinfo(find_bootinfo());
+
 	/* if we didn't get any bootinfo telling us what we are... */
 	if (_machine == 0) {
 		/* prep boot loader tells us if we're prep or not */
@@ -428,7 +428,7 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 }
 #endif /* CONFIG_ALL_PPC */
 
-int parse_bootinfo(void)
+struct bi_record *find_bootinfo(void)
 {
 	struct bi_record *rec;
 	extern char __bss_start[];
@@ -442,11 +442,16 @@ int parse_bootinfo(void)
 		 */
 		rec = (struct bi_record *)_ALIGN((ulong)__bss_start+0x10000+(1<<20)-1,(1<<20));
 		if ( rec->tag != BI_FIRST )
-			return -1;
+			return NULL;
 	}
-	for ( ; rec->tag != BI_LAST ;
-	      rec = (struct bi_record *)((ulong)rec + rec->size) )
-	{
+	return rec;
+}
+
+void parse_bootinfo(struct bi_record *rec)
+{
+	if (rec == NULL || rec->tag != BI_FIRST)
+		return;
+	while (rec->tag != BI_LAST) {
 		ulong *data = rec->data;
 		switch (rec->tag) {
 		case BI_CMD_LINE:
@@ -472,9 +477,8 @@ int parse_bootinfo(void)
 			boot_mem_size = data[0];
 			break;
 		}
+		rec = (struct bi_record *)((ulong)rec + rec->size);
 	}
-
-	return 0;
 }
 
 /*
@@ -490,8 +494,6 @@ machine_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #ifdef CONFIG_CMDLINE
 	strcpy(cmd_line, CONFIG_CMDLINE);
 #endif /* CONFIG_CMDLINE */
-
-	parse_bootinfo();
 
 	platform_init(r3, r4, r5, r6, r7);
 

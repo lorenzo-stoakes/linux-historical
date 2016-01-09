@@ -1,80 +1,50 @@
 /*******************************************************************************
 
-  This software program is available to you under a choice of one of two
-  licenses. You may choose to be licensed under either the GNU General Public
-  License 2.0, June 1991, available at http://www.fsf.org/copyleft/gpl.html,
-  or the Intel BSD + Patent License, the text of which follows:
   
-  Recipient has requested a license and Intel Corporation ("Intel") is willing
-  to grant a license for the software entitled Linux Base Driver for the
-  Intel(R) PRO/1000 Family of Adapters (e1000) (the "Software") being provided
-  by Intel Corporation. The following definitions apply to this license:
+  Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
   
-  "Licensed Patents" means patent claims licensable by Intel Corporation which
-  are necessarily infringed by the use of sale of the Software alone or when
-  combined with the operating system referred to below.
+  This program is free software; you can redistribute it and/or modify it 
+  under the terms of the GNU General Public License as published by the Free 
+  Software Foundation; either version 2 of the License, or (at your option) 
+  any later version.
   
-  "Recipient" means the party to whom Intel delivers this Software.
+  This program is distributed in the hope that it will be useful, but WITHOUT 
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+  more details.
   
-  "Licensee" means Recipient and those third parties that receive a license to
-  any operating system available under the GNU General Public License 2.0 or
-  later.
+  You should have received a copy of the GNU General Public License along with
+  this program; if not, write to the Free Software Foundation, Inc., 59 
+  Temple Place - Suite 330, Boston, MA  02111-1307, USA.
   
-  Copyright (c) 1999 - 2002 Intel Corporation.
-  All rights reserved.
+  The full GNU General Public License is included in this distribution in the
+  file called LICENSE.
   
-  The license is provided to Recipient and Recipient's Licensees under the
-  following terms.
-  
-  Redistribution and use in source and binary forms of the Software, with or
-  without modification, are permitted provided that the following conditions
-  are met:
-  
-  Redistributions of source code of the Software may retain the above
-  copyright notice, this list of conditions and the following disclaimer.
-  
-  Redistributions in binary form of the Software may reproduce the above
-  copyright notice, this list of conditions and the following disclaimer in
-  the documentation and/or materials provided with the distribution.
-  
-  Neither the name of Intel Corporation nor the names of its contributors
-  shall be used to endorse or promote products derived from this Software
-  without specific prior written permission.
-  
-  Intel hereby grants Recipient and Licensees a non-exclusive, worldwide,
-  royalty-free patent license under Licensed Patents to make, use, sell, offer
-  to sell, import and otherwise transfer the Software, if any, in source code
-  and object code form. This license shall include changes to the Software
-  that are error corrections or other minor changes to the Software that do
-  not add functionality or features when the Software is incorporated in any
-  version of an operating system that has been distributed under the GNU
-  General Public License 2.0 or later. This patent license shall apply to the
-  combination of the Software and any operating system licensed under the GNU
-  General Public License 2.0 or later if, at the time Intel provides the
-  Software to Recipient, such addition of the Software to the then publicly
-  available versions of such operating systems available under the GNU General
-  Public License 2.0 or later (whether in gold, beta or alpha form) causes
-  such combination to be covered by the Licensed Patents. The patent license
-  shall not apply to any other combinations which include the Software. NO
-  hardware per se is licensed hereunder.
-  
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MECHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR IT CONTRIBUTORS BE LIABLE FOR ANY
-  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-  (INCLUDING, BUT NOT LIMITED, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-  ANY LOSS OF USE; DATA, OR PROFITS; OR BUSINESS INTERUPTION) HOWEVER CAUSED
-  AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  Contact Information:
+  Linux NICS <linux.nics@intel.com>
+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
 
 *******************************************************************************/
+
 #define __E1000_MAIN__
 #include "e1000.h"
 
 /* Change Log
  *
+ * 4.3.15      8/9/02
+ *   o Converted from Dual BSD/GPL license to GPL license.
+ *   o Clean up: use pci_[clear|set]_mwi rather than direct calls to
+ *     pci_write_config_word.
+ *   o Bug fix: added read-behind-write calls to post writes before delays.
+ *   o Bug fix: removed mdelay busy-waits in interrupt context.
+ *   o Clean up: direct clear of descriptor bits rather than using memset.
+ *   o Bug fix: added wmb() for ia-64 between descritor writes and advancing
+ *     descriptor tail.
+ *   o Feature: added locking mechanism for asf functionality.
+ *   o Feature: exposed two Tx and one Rx interrupt delay knobs for finer
+ *     control over interurpt rate tuning.
+ *   o Misc ethtool bug fixes.
+ *         
  * 4.3.2       7/5/02
  *   o Bug fix: perform controller reset using I/O rather than mmio because
  *     some chipsets try to perform a 64-bit write, but the controller ignores
@@ -95,10 +65,10 @@
  *
  * 4.2.17      5/30/02
  */
-
+ 
 char e1000_driver_name[] = "e1000";
 char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
-char e1000_driver_version[] = "4.3.2-k1";
+char e1000_driver_version[] = "4.3.15-k1";
 char e1000_copyright[] = "Copyright (c) 1999-2002 Intel Corporation.";
 
 /* e1000_pci_tbl - PCI Device ID Table
@@ -195,6 +165,7 @@ static inline void e1000_rx_checksum(struct e1000_adapter *adapter,
                                      struct e1000_rx_desc *rx_desc,
                                      struct sk_buff *skb);
 static void e1000_tx_timeout(struct net_device *dev);
+static void e1000_tx_timeout_task(struct net_device *dev);
 
 static void e1000_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp);
 static void e1000_vlan_rx_add_vid(struct net_device *netdev, uint16_t vid);
@@ -233,7 +204,7 @@ static struct pci_driver e1000_driver = {
 
 MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
 MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
-MODULE_LICENSE("Dual BSD/GPL");
+MODULE_LICENSE("GPL");
 
 /**
  * e1000_init_module - Driver Registration Routine
@@ -483,6 +454,9 @@ e1000_probe(struct pci_dev *pdev,
 	adapter->phy_info_timer.function = &e1000_update_phy_info;
 	adapter->phy_info_timer.data = (unsigned long) adapter;
 
+	INIT_TQUEUE(&adapter->tx_timeout_task, 
+		(void (*)(void *))e1000_tx_timeout_task, netdev);
+
 	register_netdev(netdev);
 
 	/* we're going to reset, so assume we have no link for now */
@@ -589,43 +563,8 @@ e1000_sw_init(struct e1000_adapter *adapter)
 
 	/* identify the MAC */
 
-	switch (hw->device_id) {
-	case E1000_DEV_ID_82542:
-		switch (hw->revision_id) {
-		case E1000_82542_2_0_REV_ID:
-			hw->mac_type = e1000_82542_rev2_0;
-			break;
-		case E1000_82542_2_1_REV_ID:
-			hw->mac_type = e1000_82542_rev2_1;
-			break;
-		default:
-			hw->mac_type = e1000_82542_rev2_0;
-			E1000_ERR("Could not identify 82542 revision\n");
-		}
-		break;
-	case E1000_DEV_ID_82543GC_FIBER:
-	case E1000_DEV_ID_82543GC_COPPER:
-		hw->mac_type = e1000_82543;
-		break;
-	case E1000_DEV_ID_82544EI_COPPER:
-	case E1000_DEV_ID_82544EI_FIBER:
-	case E1000_DEV_ID_82544GC_COPPER:
-	case E1000_DEV_ID_82544GC_LOM:
-		hw->mac_type = e1000_82544;
-		break;
-	case E1000_DEV_ID_82540EM:
-		hw->mac_type = e1000_82540;
-		break;
-	case E1000_DEV_ID_82545EM_COPPER:
-	case E1000_DEV_ID_82545EM_FIBER:
-		hw->mac_type = e1000_82545;
-		break;
-	case E1000_DEV_ID_82546EB_COPPER:
-	case E1000_DEV_ID_82546EB_FIBER:
-		hw->mac_type = e1000_82546;
-		break;
-	default:
-		E1000_ERR("Should never have loaded on this device\n");
+	if (e1000_set_mac_type(hw)) {
+		E1000_ERR("Unknown MAC Type\n");
 		BUG();
 	}
 
@@ -821,7 +760,9 @@ e1000_configure_tx(struct e1000_adapter *adapter)
 
 	/* Set the Tx Interrupt Delay register */
 
-	E1000_WRITE_REG(&adapter->hw, TIDV, 64);
+	E1000_WRITE_REG(&adapter->hw, TIDV, adapter->tx_int_delay);
+	if(adapter->hw.mac_type >= e1000_82540)
+		E1000_WRITE_REG(&adapter->hw, TADV, adapter->tx_abs_int_delay);
 
 	/* Program the Transmit Control Register */
 
@@ -951,8 +892,8 @@ e1000_configure_rx(struct e1000_adapter *adapter)
 	/* set the Receive Delay Timer Register */
 
 	if(adapter->hw.mac_type >= e1000_82540) {
-		E1000_WRITE_REG(&adapter->hw, RADV, adapter->rx_int_delay);
-		E1000_WRITE_REG(&adapter->hw, RDTR, 64);
+		E1000_WRITE_REG(&adapter->hw, RDTR, adapter->rx_int_delay);
+		E1000_WRITE_REG(&adapter->hw, RADV, adapter->rx_abs_int_delay);
 
 		/* Set the interrupt throttling rate.  Value is calculated
 		 * as DEFAULT_ITR = 1/(MAX_INTS_PER_SEC * 256ns) */
@@ -1457,9 +1398,14 @@ e1000_tx_queue(struct e1000_adapter *adapter, int count, int tx_flags)
 
 	tx_desc->lower.data |= cpu_to_le32(E1000_TXD_CMD_EOP);
 
+	/* Force memory writes to complete before letting h/w
+	 * know there are new descriptors to fetch.  (Only
+	 * applicable for weak-ordered memory model archs,
+	 * such as IA-64). */
+	wmb();
+
 	tx_ring->next_to_use = i;
 	E1000_WRITE_REG(&adapter->hw, TDT, i);
-	E1000_WRITE_FLUSH(&adapter->hw);
 }
 
 #define TXD_USE_COUNT(S, X) (((S) / (X)) + (((S) % (X)) ? 1 : 0))
@@ -1513,8 +1459,19 @@ e1000_tx_timeout(struct net_device *netdev)
 {
 	struct e1000_adapter *adapter = netdev->priv;
 
+	/* Do the reset outside of interrupt context */
+	schedule_task(&adapter->tx_timeout_task);
+}
+
+static void
+e1000_tx_timeout_task(struct net_device *netdev)
+{
+	struct e1000_adapter *adapter = netdev->priv;
+
+	netif_device_detach(netdev);
 	e1000_down(adapter);
 	e1000_up(adapter);
+	netif_device_attach(netdev);
 }
 
 /**
@@ -1979,8 +1936,15 @@ e1000_alloc_rx_buffers(struct e1000_adapter *adapter)
 
 		rx_desc->buffer_addr = cpu_to_le64(rx_ring->buffer_info[i].dma);
 
-		if(!(i % E1000_RX_BUFFER_WRITE))
+		if(!(i % E1000_RX_BUFFER_WRITE)) {
+			/* Force memory writes to complete before letting h/w
+			 * know there are new descriptors to fetch.  (Only
+			 * applicable for weak-ordered memory model archs,
+			 * such as IA-64). */
+			wmb();
+
 			E1000_WRITE_REG(&adapter->hw, RDT, i);
+		}
 
 		i = (i + 1) % rx_ring->count;
 	}

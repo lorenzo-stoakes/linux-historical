@@ -1574,6 +1574,13 @@ P:	Stéphane Doyon
 M:	s.doyon@videotron.ca
 S:	Maintained
 
+TIEMAN VOYAGER USB BRAILLE DISPLAY DRIVER
+P:	Stephane Dalton
+M:	sdalton@videotron.ca
+P:	Stéphane Doyon
+M:	s.doyon@videotron.ca
+S:	Maintained
+
 TLAN NETWORK DRIVER
 P:	Samuel Chessman
 M:	chessman@tux.org
@@ -1661,7 +1668,7 @@ S:	Maintained
 
 USB AUERSWALD DRIVER
 P:	Wolfgang Muees
-M:	wmues@nexgo.de
+M:	wolfgang@iksw-muees.de
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
 S:	Maintained

@@ -34,9 +34,11 @@
 #include <linux/timer.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
+#include <linux/ethtool.h>
 #include <asm/io.h>
 #include <asm/system.h>
 #include <asm/byteorder.h>
+#include <asm/uaccess.h>
 
 #include <linux/netdevice.h>
 #include "../8390.h"
@@ -790,6 +792,26 @@ reschedule:
     add_timer(&info->watchdog);
 }
 
+static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+{
+	u32 ethcmd;
+		
+	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
+		return -EFAULT;
+	
+	switch (ethcmd) {
+	case ETHTOOL_GDRVINFO: {
+		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
+		strncpy(info.driver, "axnet_cs", sizeof(info.driver)-1);
+		if (copy_to_user(useraddr, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+	}
+	
+	return -EOPNOTSUPP;
+}
+
 /*====================================================================*/
 
 static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
@@ -798,6 +820,8 @@ static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     u16 *data = (u16 *)&rq->ifr_data;
     ioaddr_t mii_addr = dev->base_addr + AXNET_MII_EEP;
     switch (cmd) {
+    case SIOCETHTOOL:
+        return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
     case SIOCDEVPRIVATE:
 	data[0] = info->phy_id;
     case SIOCDEVPRIVATE+1:

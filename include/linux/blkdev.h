@@ -6,6 +6,7 @@
 #include <linux/genhd.h>
 #include <linux/tqueue.h>
 #include <linux/list.h>
+#include <linux/mm.h>
 
 #include <asm/io.h>
 

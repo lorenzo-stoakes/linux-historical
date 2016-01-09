@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.apus_pci.c 1.5 09/08/01 15:47:42 paulus
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * Copyright (C) Michel Dänzer <michdaen@iiic.ethz.ch>
@@ -20,6 +20,7 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/string.h>
+#include <linux/init.h>
 
 #include <asm/io.h>
 #include <asm/pci-bridge.h>

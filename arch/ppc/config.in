@@ -97,6 +97,7 @@ if [ "$CONFIG_6xx" = "y" -a "$CONFIG_8260" = "n" ]; then
   choice 'Machine Type'		\
 	"CHRP/PowerMac/PReP	CONFIG_ALL_PPC		\
   	 Amiga-APUS		CONFIG_APUS		\
+	 IBM-Spruce		CONFIG_SPRUCE		\
 	 Synergy-Gemini        	CONFIG_GEMINI"		CHRP/PowerMac/PReP
 fi
 
@@ -403,4 +404,12 @@ comment 'Kernel hacking'
 bool 'Magic SysRq key' CONFIG_MAGIC_SYSRQ
 bool 'Include kgdb kernel debugger' CONFIG_KGDB
 bool 'Include xmon kernel debugger' CONFIG_XMON
+bool 'Include BDI-2000 user context switcher' CONFIG_BDI_SWITCH
+if [ "$CONFIG_KGDB" = "y" -o "$CONFIG_XMON" = "y" \
+	-o "$CONFIG_BDI_SWITCH" = "y" ]; then
+  bool 'Add any additional compile options' CONFIG_MORE_COMPILE_OPTIONS
+  if [ "$CONFIG_MORE_COMPILE_OPTIONS" = "y" ]; then
+    string 'Additional compile arguments' CONFIG_COMPILE_OPTIONS "-g -ggdb"
+  fi
+fi
 endmenu

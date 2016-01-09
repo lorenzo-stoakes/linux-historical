@@ -194,9 +194,7 @@ static int part_show(struct seq_file *s, void *v)
 
 	/* show the full disk and all non-0 size partitions of it */
 	for (n = 0; n < (gp->nr_real << gp->minor_shift); n++) {
-		int mask = (1<<gp->minor_shift) - 1;
-
-		if (!(n & mask) || gp->part[n].nr_sects) {
+		if (gp->part[n].nr_sects) {
 #ifdef CONFIG_BLK_STATS
 			struct hd_struct *hd = &gp->part[n];
 

@@ -539,76 +539,67 @@ void journal_unlock_updates (journal_t *journal)
 static int
 do_get_write_access(handle_t *handle, struct journal_head *jh, int force_copy) 
 {
+	struct buffer_head *bh;
 	transaction_t *transaction = handle->h_transaction;
 	journal_t *journal = transaction->t_journal;
 	int error;
 	char *frozen_buffer = NULL;
 	int need_copy = 0;
-
+	int locked;
+	
 	jbd_debug(5, "buffer_head %p, force_copy %d\n", jh, force_copy);
 
 	JBUFFER_TRACE(jh, "entry");
 repeat:
+	bh = jh2bh(jh);
+
 	/* @@@ Need to check for errors here at some point. */
 
 	/*
-	 * AKPM: neither bdflush nor kupdate run with the BKL.   There's
-	 * nothing we can do to prevent them from starting writeout of a
-	 * BUF_DIRTY buffer at any time.  And checkpointing buffers are on
-	 * BUF_DIRTY.  So.  We no longer assert that the buffer is unlocked.
-	 *
-	 * However.  It is very wrong for us to allow ext3 to start directly
-	 * altering the ->b_data of buffers which may at that very time be
-	 * undergoing writeout to the client filesystem.  This can leave
-	 * the filesystem in an inconsistent, transient state if we crash.
-	 * So what we do is to steal the buffer if it is in checkpoint
-	 * mode and dirty.  The journal lock will keep out checkpoint-mode
-	 * state transitions within journal_remove_checkpoint() and the buffer
-	 * is locked to keep bdflush/kupdate/whoever away from it as well.
-	 *
 	 * AKPM: we have replaced all the lock_journal_bh_wait() stuff with a
 	 * simple lock_journal().  This code here will care for locked buffers.
 	 */
-	/*
-	 * The buffer_locked() || buffer_dirty() tests here are simply an
-	 * optimisation tweak.  If anyone else in the system decides to
-	 * lock this buffer later on, we'll blow up.  There doesn't seem
-	 * to be a good reason why they should do this.
-	 */
-	if (jh->b_cp_transaction &&
-	    (buffer_locked(jh2bh(jh)) || buffer_dirty(jh2bh(jh)))) {
+	locked = test_and_set_bit(BH_Lock, &bh->b_state);
+	if (locked) {
+		/* We can't reliably test the buffer state if we found
+		 * it already locked, so just wait for the lock and
+		 * retry. */
 		unlock_journal(journal);
-		lock_buffer(jh2bh(jh));
-		spin_lock(&journal_datalist_lock);
-		if (jh->b_cp_transaction && buffer_dirty(jh2bh(jh))) {
-			/* OK, we need to steal it */
-			JBUFFER_TRACE(jh, "stealing from checkpoint mode");
-			J_ASSERT_JH(jh, jh->b_next_transaction == NULL);
-			J_ASSERT_JH(jh, jh->b_frozen_data == NULL);
-
-			J_ASSERT(handle->h_buffer_credits > 0);
-			handle->h_buffer_credits--;
-
-			/* This will clear BH_Dirty and set BH_JBDDirty. */
-			JBUFFER_TRACE(jh, "file as BJ_Reserved");
-			__journal_file_buffer(jh, transaction, BJ_Reserved);
-
-			/* And pull it off BUF_DIRTY, onto BUF_CLEAN */
-			refile_buffer(jh2bh(jh));
-
-			/*
-			 * The buffer is now hidden from bdflush.   It is
-			 * metadata against the current transaction.
-			 */
-			JBUFFER_TRACE(jh, "steal from cp mode is complete");
-		}
-		spin_unlock(&journal_datalist_lock);
-		unlock_buffer(jh2bh(jh));
+		__wait_on_buffer(bh);
 		lock_journal(journal);
 		goto repeat;
 	}
+	
+	/* We now hold the buffer lock so it is safe to query the buffer
+	 * state.  Is the buffer dirty? 
+	 * 
+	 * If so, there are two possibilities.  The buffer may be
+	 * non-journaled, and undergoing a quite legitimate writeback.
+	 * Otherwise, it is journaled, and we don't expect dirty buffers
+	 * in that state (the buffers should be marked JBD_Dirty
+	 * instead.)  So either the IO is being done under our own
+	 * control and this is a bug, or it's a third party IO such as
+	 * dump(8) (which may leave the buffer scheduled for read ---
+	 * ie. locked but not dirty) or tune2fs (which may actually have
+	 * the buffer dirtied, ugh.)  */
 
-	J_ASSERT_JH(jh, !buffer_locked(jh2bh(jh)));
+	if (buffer_dirty(bh)) {
+		spin_lock(&journal_datalist_lock);
+		/* First question: is this buffer already part of the
+		 * current transaction or the existing committing
+		 * transaction? */
+		if (jh->b_transaction) {
+			J_ASSERT_JH(jh, jh->b_transaction == transaction || 
+				    jh->b_transaction == journal->j_committing_transaction);
+			if (jh->b_next_transaction)
+				J_ASSERT_JH(jh, jh->b_next_transaction == transaction);
+			JBUFFER_TRACE(jh, "Unexpected dirty buffer");
+			jbd_unexpected_dirty_buffer(jh);
+		}
+		spin_unlock(&journal_datalist_lock);
+	}
+
+	unlock_buffer(bh);
 
 	error = -EROFS;
 	if (is_handle_aborted(handle)) 
@@ -1842,6 +1833,7 @@ static int journal_unmap_buffer(journal_t *journal, struct buffer_head *bh)
 		 * running transaction if that is set, but nothing
 		 * else. */
 		JBUFFER_TRACE(jh, "on committing transaction");
+		set_bit(BH_Freed, &bh->b_state);
 		if (jh->b_next_transaction) {
 			J_ASSERT(jh->b_next_transaction ==
 					journal->j_running_transaction);
@@ -1925,6 +1917,7 @@ void __journal_file_buffer(struct journal_head *jh,
 			transaction_t *transaction, int jlist)
 {
 	struct journal_head **list = 0;
+	int was_dirty = 0;
 
 	assert_spin_locked(&journal_datalist_lock);
 	
@@ -1935,13 +1928,24 @@ void __journal_file_buffer(struct journal_head *jh,
 	J_ASSERT_JH(jh, jh->b_transaction == transaction ||
 				jh->b_transaction == 0);
 
-	if (jh->b_transaction) {
-		if (jh->b_jlist == jlist)
-			return;
-		__journal_unfile_buffer(jh);
-	} else {
-		jh->b_transaction = transaction;
+	if (jh->b_transaction && jh->b_jlist == jlist)
+		return;
+	
+	/* The following list of buffer states needs to be consistent
+	 * with __jbd_unexpected_dirty_buffer()'s handling of dirty
+	 * state. */
+
+	if (jlist == BJ_Metadata || jlist == BJ_Reserved || 
+	    jlist == BJ_Shadow || jlist == BJ_Forget) {
+		if (atomic_set_buffer_clean(jh2bh(jh)) ||
+		    test_and_clear_bit(BH_JBDDirty, &jh2bh(jh)->b_state))
+			was_dirty = 1;
 	}
+
+	if (jh->b_transaction)
+		__journal_unfile_buffer(jh);
+	else
+		jh->b_transaction = transaction;
 
 	switch (jlist) {
 	case BJ_None:
@@ -1978,12 +1982,8 @@ void __journal_file_buffer(struct journal_head *jh,
 	__blist_add_buffer(list, jh);
 	jh->b_jlist = jlist;
 
-	if (jlist == BJ_Metadata || jlist == BJ_Reserved || 
-	    jlist == BJ_Shadow || jlist == BJ_Forget) {
-		if (atomic_set_buffer_clean(jh2bh(jh))) {
-			set_bit(BH_JBDDirty, &jh2bh(jh)->b_state);
-		}
-	}
+	if (was_dirty)
+		set_bit(BH_JBDDirty, &jh2bh(jh)->b_state);
 }
 
 void journal_file_buffer(struct journal_head *jh,
@@ -2003,26 +2003,36 @@ void journal_file_buffer(struct journal_head *jh,
 
 void __journal_refile_buffer(struct journal_head *jh)
 {
+	int was_dirty = 0;
+
 	assert_spin_locked(&journal_datalist_lock);
 #ifdef __SMP__
 	J_ASSERT_JH(jh, current->lock_depth >= 0);
 #endif
-	__journal_unfile_buffer(jh);
-
-	/* If the buffer is now unused, just drop it.  If it has been
-	   modified by a later transaction, add it to the new
-	   transaction's metadata list. */
-
-	jh->b_transaction = jh->b_next_transaction;
-	jh->b_next_transaction = NULL;
-
-	if (jh->b_transaction != NULL) {
-		__journal_file_buffer(jh, jh->b_transaction, BJ_Metadata);
-		J_ASSERT_JH(jh, jh->b_transaction->t_state == T_RUNNING);
-	} else {
+	/* If the buffer is now unused, just drop it. */
+	if (jh->b_next_transaction == NULL) {
+		__journal_unfile_buffer(jh);
+		jh->b_transaction = NULL;
 		/* Onto BUF_DIRTY for writeback */
 		refile_buffer(jh2bh(jh));
+		return;
 	}
+	
+	/* It has been modified by a later transaction: add it to the
+	 * new transaction's metadata list. */
+
+	if (test_and_clear_bit(BH_JBDDirty, &jh2bh(jh)->b_state))
+			was_dirty = 1;
+
+	__journal_unfile_buffer(jh);
+	jh->b_transaction = jh->b_next_transaction;
+	jh->b_next_transaction = NULL;
+	__journal_file_buffer(jh, jh->b_transaction, BJ_Metadata);
+	J_ASSERT_JH(jh, jh->b_transaction->t_state == T_RUNNING);
+
+	if (was_dirty)
+		set_bit(BH_JBDDirty, &jh2bh(jh)->b_state);
+
 }
 
 /*

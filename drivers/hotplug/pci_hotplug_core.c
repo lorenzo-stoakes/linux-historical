@@ -76,7 +76,6 @@ struct hotplug_slot_core {
 };
 
 static struct super_operations pcihpfs_ops;
-static struct file_operations pcihpfs_dir_operations;
 static struct file_operations default_file_operations;
 static struct inode_operations pcihpfs_dir_inode_operations;
 static struct vfsmount *pcihpfs_mount;	/* one of the mounts of our fs for reference counting */
@@ -122,7 +121,7 @@ static struct inode *pcihpfs_get_inode (struct super_block *sb, int mode, int de
 			break;
 		case S_IFDIR:
 			inode->i_op = &pcihpfs_dir_inode_operations;
-			inode->i_fop = &pcihpfs_dir_operations;
+			inode->i_fop = &dcache_dir_ops;
 			break;
 		}
 	}
@@ -234,11 +233,6 @@ static int default_open (struct inode *inode, struct file *filp)
 
 	return 0;
 }
-
-static struct file_operations pcihpfs_dir_operations = {
-	read:		generic_read_dir,
-	readdir:	dcache_readdir,
-};
 
 static struct file_operations default_file_operations = {
 	read:		default_read_file,
@@ -966,7 +960,7 @@ int pci_hp_register (struct hotplug_slot *slot)
 	if (get_slot_from_name (slot->name) != NULL) {
 		spin_unlock (&list_lock);
 		kfree (core);
-		return -EINVAL;
+		return -EEXIST;
 	}
 
 	slot->core_priv = core;

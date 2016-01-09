@@ -681,6 +681,8 @@ ehci_qh_make (
 	default:
 #ifdef DEBUG
 		BUG ();
+#else
+		;
 #endif
 	}
 
@@ -817,9 +819,9 @@ submit_async (
 		} else {
 			// dbg_qh ("empty qh", ehci, qh);
 
-// FIXME:  how handle usb_clear_halt() for an EP with queued URBs?
-// usbcore may not let us handle that cleanly...
-// likely must cancel them all first!
+			/* NOTE: we already canceled any queued URBs
+			 * when the endpoint halted.
+			 */
 
 			/* usb_clear_halt() means qh data toggle gets reset */
 			if (usb_pipebulk (urb->pipe)

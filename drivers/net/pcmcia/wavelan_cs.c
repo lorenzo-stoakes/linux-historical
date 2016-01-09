@@ -63,6 +63,8 @@
  *
  */
 
+#include <linux/ethtool.h>
+#include <asm/uaccess.h>
 #include "wavelan_cs.h"		/* Private header */
 
 /************************* MISC SUBROUTINES **************************/
@@ -1889,6 +1891,26 @@ wl_his_gather(device *	dev,
 }
 #endif	/* HISTOGRAM */
 
+static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+{
+	u32 ethcmd;
+		
+	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
+		return -EFAULT;
+	
+	switch (ethcmd) {
+	case ETHTOOL_GDRVINFO: {
+		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
+		strncpy(info.driver, "wavelan_cs", sizeof(info.driver)-1);
+		if (copy_to_user(useraddr, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+	}
+	
+	return -EOPNOTSUPP;
+}
+
 /*------------------------------------------------------------------*/
 /*
  * Perform ioctl : config & info stuff
@@ -1910,6 +1932,9 @@ wavelan_ioctl(struct net_device *	dev,	/* Device on wich the ioctl apply */
 #ifdef DEBUG_IOCTL_TRACE
   printk(KERN_DEBUG "%s: ->wavelan_ioctl(cmd=0x%X)\n", dev->name, cmd);
 #endif
+
+  if (cmd == SIOCETHTOOL)
+    return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
 
   /* Disable interrupts & save flags */
   wv_splhi(lp, &flags);
