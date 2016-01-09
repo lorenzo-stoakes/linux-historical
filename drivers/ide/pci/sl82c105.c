@@ -445,6 +445,9 @@ static void __init init_dma_sl82c105(ide_hwif_t *hwif, unsigned long dma_base)
 	}
 	hwif->OUTB(dma_state, dma_base + 2);
 
+	hwif->drives[0].autodma = hwif->autodma;
+	hwif->drives[1].autodma = hwif->autodma;
+
 	ide_setup_dma(hwif, dma_base, 8);
 }
 
@@ -491,11 +494,6 @@ static void __init init_hwif_sl82c105(ide_hwif_t *hwif)
 	hwif->ide_dma_lostirq = &sl82c105_ide_dma_lost_irq;
 	hwif->ide_dma_begin = &sl82c105_ide_dma_begin;
 	hwif->ide_dma_timeout = &sl82c105_ide_dma_timeout;
-
-	if (!noautodma)
-		hwif->autodma = 1;
-	hwif->drives[0].autodma = hwif->autodma;
-	hwif->drives[1].autodma = hwif->autodma;
 #endif /* CONFIG_BLK_DEV_IDEDMA */
 }
 

@@ -97,7 +97,7 @@
 #include <asm/cache.h>
 
 static char version[] __devinitdata =
-	"82596.c $Revision: 1.29 $\n";
+	"82596.c $Revision: 1.30 $\n";
 
 /* DEBUG flags
  */

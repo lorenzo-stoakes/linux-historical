@@ -111,13 +111,14 @@ flush_cache_page(struct vm_area_struct *vma, unsigned long vmaddr)
 	}
 }
 
+extern void __flush_dcache_page(struct page *page);
 static inline void flush_dcache_page(struct page *page)
 {
 	if (page->mapping && !page->mapping->i_mmap &&
 			!page->mapping->i_mmap_shared) {
 		set_bit(PG_dcache_dirty, &page->flags);
 	} else {
-		flush_kernel_dcache_page(page_address(page));
+		__flush_dcache_page(page);
 	}
 }
 

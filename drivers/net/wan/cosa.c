@@ -1030,7 +1030,8 @@ static inline int cosa_download(struct cosa_data *cosa, struct cosa_download *d)
 		return -EPERM;
 	}
 
-	if (get_user(addr, &(d->addr)) ||
+	if (verify_area(VERIFY_READ, d, sizeof(*d)) ||
+	    __get_user(addr, &(d->addr)) ||
 	    __get_user(len, &(d->len)) ||
 	    __get_user(code, &(d->code)))
 		return -EFAULT;

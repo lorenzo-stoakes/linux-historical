@@ -354,11 +354,12 @@ static ide_startstop_t multwrite_intr (ide_drive_t *drive)
 
 
 /*
- * do_rw_disk() issues READ and WRITE commands to a disk,
+ * __ide_do_rw_disk() issues READ and WRITE commands to a disk,
  * using LBA if supported, or CHS otherwise, to address sectors.
  * It also takes care of issuing special DRIVE_CMDs.
  */
-static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsigned long block)
+
+ide_startstop_t __ide_do_rw_disk (ide_drive_t *drive, struct request *rq, unsigned long block)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
 	u8 lba48		= (drive->addressing == 1) ? 1 : 0;
@@ -369,11 +370,6 @@ static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsig
 
 	if (driver_blocked)
 		panic("Request while ide driver is blocked?");
-
-#if defined(CONFIG_BLK_DEV_PDC4030) || defined(CONFIG_BLK_DEV_PDC4030_MODULE)
-	if (IS_PDC4030_DRIVE)
-		return promise_rw_disk(drive, rq, block);
-#endif /* CONFIG_BLK_DEV_PDC4030 */
 
 	if (IDE_CONTROL_REG)
 		hwif->OUTB(drive->ctl, IDE_CONTROL_REG);
@@ -527,6 +523,7 @@ static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsig
 	return ide_stopped;
 }
 
+
 #else /* CONFIG_IDE_TASKFILE_IO */
 
 static ide_startstop_t chs_rw_disk(ide_drive_t *, struct request *, unsigned long);
@@ -534,11 +531,11 @@ static ide_startstop_t lba_28_rw_disk(ide_drive_t *, struct request *, unsigned 
 static ide_startstop_t lba_48_rw_disk(ide_drive_t *, struct request *, unsigned long long);
 
 /*
- * do_rw_disk() issues READ and WRITE commands to a disk,
+ * __ide_do_rw_disk() issues READ and WRITE commands to a disk,
  * using LBA if supported, or CHS otherwise, to address sectors.
  * It also takes care of issuing special DRIVE_CMDs.
  */
-static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsigned long block)
+ide_startstop_t __ide_do_rw_disk (ide_drive_t *drive, struct request *rq, unsigned long block)
 {
 	if (!blk_fs_request(rq)) {
 		printk(KERN_ERR "%s: bad command: %d\n", drive->name, rq->cmd);
@@ -551,11 +548,6 @@ static ide_startstop_t do_rw_disk (ide_drive_t *drive, struct request *rq, unsig
 	 *
 	 * need to add split taskfile operations based on 28bit threshold.
 	 */
-
-#if defined(CONFIG_BLK_DEV_PDC4030) || defined(CONFIG_BLK_DEV_PDC4030_MODULE)
-        if (IS_PDC4030_DRIVE)
-                return promise_rw_disk(drive, rq, block);
-#endif /* CONFIG_BLK_DEV_PDC4030 */
 
 	if (drive->addressing == 1)		/* 48-bit LBA */
 		return lba_48_rw_disk(drive, rq, (unsigned long long) block);
@@ -701,6 +693,17 @@ static ide_startstop_t lba_48_rw_disk (ide_drive_t *drive, struct request *rq, u
 }
 
 #endif /* CONFIG_IDE_TASKFILE_IO */
+
+static ide_startstop_t ide_do_rw_disk (ide_drive_t *drive, struct request *rq, unsigned long block)
+{
+	ide_hwif_t *hwif	= HWIF(drive);
+	if (hwif->rw_disk)
+		return hwif->rw_disk(drive, rq, block);
+	else 
+		return __ide_do_rw_disk(drive, rq, block);
+}
+
+EXPORT_SYMBOL_GPL(__ide_do_rw_disk);
 
 static int idedisk_open (struct inode *inode, struct file *filp, ide_drive_t *drive)
 {
@@ -1614,11 +1617,6 @@ static void idedisk_setup (ide_drive_t *drive)
 	struct hd_driveid *id = drive->id;
 	unsigned long capacity;
 
-#if 0
-	if (IS_PDC4030_DRIVE)
-		DRIVER(drive)->do_request = promise_rw_disk;
-#endif
-	
 	idedisk_add_settings(drive);
 
 	if (drive->id_read == 0)
@@ -1707,18 +1705,10 @@ static void idedisk_setup (ide_drive_t *drive)
 
 	drive->mult_count = 0;
 	if (id->max_multsect) {
-#ifdef CONFIG_IDEDISK_MULTI_MODE
 		id->multsect = ((id->max_multsect/2) > 1) ? id->max_multsect : 0;
 		id->multsect_valid = id->multsect ? 1 : 0;
 		drive->mult_req = id->multsect_valid ? id->max_multsect : INITIAL_MULT_COUNT;
 		drive->special.b.set_multmode = drive->mult_req ? 1 : 0;
-#else	/* original, pre IDE-NFG, per request of AC */
-		drive->mult_req = INITIAL_MULT_COUNT;
-		if (drive->mult_req > id->max_multsect)
-			drive->mult_req = id->max_multsect;
-		if (drive->mult_req || ((id->multsect_valid & 1) && id->multsect))
-			drive->special.b.set_multmode = 1;
-#endif	/* CONFIG_IDEDISK_MULTI_MODE */
 	}
 	drive->no_io_32bit = id->dword_io ? 1 : 0;
 	if (drive->id->cfs_enable_2 & 0x3000)
@@ -1749,7 +1739,7 @@ static ide_driver_t idedisk_driver = {
 	suspend:		do_idedisk_suspend,
 	resume:			do_idedisk_resume,
 	flushcache:		do_idedisk_flushcache,
-	do_request:		do_rw_disk,
+	do_request:		ide_do_rw_disk,
 	end_request:		idedisk_end_request,
 	sense:			idedisk_dump_status,
 	error:			idedisk_error,

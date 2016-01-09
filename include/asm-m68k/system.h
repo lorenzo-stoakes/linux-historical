@@ -83,7 +83,7 @@ asmlinkage void resume(void);
 #define mb()		barrier()
 #define rmb()		barrier()
 #define wmb()		barrier()
-#define set_mb(var, value)    do { xchg(&var, value); } while (0)
+#define set_mb(var, value)     do { var = value; mb(); } while (0)
 #define set_wmb(var, value)    do { var = value; wmb(); } while (0)
 
 #define smp_mb()	barrier()

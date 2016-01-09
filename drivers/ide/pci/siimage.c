@@ -2,6 +2,9 @@
  * linux/drivers/ide/pci/siimage.c		Version 1.02	Jan 30, 2003
  *
  * Copyright (C) 2001-2002	Andre Hedrick <andre@linux-ide.org>
+ * Copyright (C) 2003		Red Hat <alan@redhat.com>
+ *
+ *  May be copied or modified under the terms of the GNU General Public License
  */
 
 #include <linux/config.h>
@@ -23,7 +26,7 @@
 #include <linux/proc_fs.h>
 
 static u8 siimage_proc = 0;
-#define SIIMAGE_MAX_DEVS		5
+#define SIIMAGE_MAX_DEVS		16
 static struct pci_dev *siimage_devs[SIIMAGE_MAX_DEVS];
 static int n_siimage_devs;
 
@@ -72,6 +75,16 @@ static int siimage_get_info (char *buffer, char **addr, off_t offset, int count)
 
 #endif	/* defined(DISPLAY_SIIMAGE_TIMINGS) && defined(CONFIG_PROC_FS) */
 
+/**
+ *	siimage_ratemask	-	Compute available modes
+ *	@drive: IDE drive
+ *
+ *	Compute the available speeds for the devices on the interface.
+ *	For the CMD680 this depends on the clocking mode (scsc), for the
+ *	SI3312 SATA controller life is a bit simpler. Enforce UDMA33
+ *	as a limit if there is no 80pin cable present.
+ */
+ 
 static byte siimage_ratemask (ide_drive_t *drive)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
@@ -86,12 +99,14 @@ static byte siimage_ratemask (ide_drive_t *drive)
 		case PCI_DEVICE_ID_SII_3112:
 			return 4;
 		case PCI_DEVICE_ID_SII_680:
-			if ((scsc & 0x10) == 0x10)	/* 133 */
+			if ((scsc & 0x30) == 0x10)	/* 133 */
+				mode = 4;
+			else if ((scsc & 0x30) == 0x20)	/* 2xPCI */
 				mode = 4;
 			else if ((scsc & 0x30) == 0x00)	/* 100 */
 				mode = 3;
-			else if ((scsc & 0x20) == 0x20)	/* 66 eek */
-				BUG();	// mode = 2;
+			else 	/* Disabled ? */
+				BUG();
 			break;
 		default:	return 0;
 	}
@@ -119,6 +134,15 @@ static byte siimage_taskfile_timing (ide_hwif_t *hwif)
 	}
 }
 
+/**
+ *	simmage_tuneproc	-	tune a drive
+ *	@drive: drive to tune
+ *	@mode_wanted: the target operating mode
+ *
+ *	Load the timing settings for this device mode into the
+ *	controller
+ */
+ 
 static void siimage_tuneproc (ide_drive_t *drive, byte mode_wanted)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
@@ -187,7 +211,7 @@ static int siimage_tune_chipset (ide_drive_t *drive, byte xferspeed)
 		multi = hwif->INW(SELADDR(0x08|(unit<<unit)));
 		ultra = hwif->INW(SELADDR(0x0C|(unit<<unit)));
 	} else {
-		pci_read_config_byte(hwif->pci_dev, HWIFADDR(0x8A), &scsc);
+		pci_read_config_byte(hwif->pci_dev, 0x8A, &scsc);
 		pci_read_config_byte(hwif->pci_dev, addr_mask, &mode);
 		pci_read_config_word(hwif->pci_dev,
 				SELREG(0x08|(unit<<unit)), &multi);
@@ -225,8 +249,8 @@ static int siimage_tune_chipset (ide_drive_t *drive, byte xferspeed)
 		case XFER_UDMA_1:
 		case XFER_UDMA_0:
 			multi = dma[2];
-			ultra |= ((scsc) ? (ultra5[speed - XFER_UDMA_0]) :
-					   (ultra6[speed - XFER_UDMA_0]));
+			ultra |= ((scsc) ? (ultra6[speed - XFER_UDMA_0]) :
+					   (ultra5[speed - XFER_UDMA_0]));
 			mode |= ((unit) ? 0x30 : 0x03);
 			config_siimage_chipset_for_pio(drive, 0);
 			break;
@@ -394,6 +418,16 @@ static int siimage_mmio_ide_dma_verbose (ide_drive_t *drive)
 	return temp;
 }
 
+/**
+ *	siimage_busproc		-	bus isolation ioctl
+ *	@drive: drive to isolate/restore
+ *	@state: bus state to set
+ *
+ *	Used by the SII3112 to handle bus isolation. As this is a 
+ *	SATA controller the work required is quite limited, we 
+ *	just have to clean up the statistics
+ */
+ 
 static int siimage_busproc (ide_drive_t * drive, int state)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
@@ -433,13 +467,7 @@ static int siimage_reset_poll (ide_drive_t *drive)
 			printk(KERN_WARNING "%s: reset phy dead, status=0x%08x\n",
 				hwif->name, hwif->INL(SATA_STATUS_REG));
 			HWGROUP(drive)->poll_timeout = 0;
-#if 0
-			drive->failures++;
-			return ide_stopped;
-#else
 			return ide_started;
-#endif
-			return 1;
 		}
 		return 0;
 	} else {
@@ -447,6 +475,14 @@ static int siimage_reset_poll (ide_drive_t *drive)
 	}
 }
 
+/**
+ *	siimage_pre_reset	-	reset hook
+ *	@drive: IDE device being reset
+ *
+ *	For the SATA devices we need to handle recalibration/geometry
+ *	differently
+ */
+ 
 static void siimage_pre_reset (ide_drive_t *drive)
 {
 	if (drive->media != ide_disk)
@@ -458,6 +494,14 @@ static void siimage_pre_reset (ide_drive_t *drive)
 	}
 }
 
+/**
+ *	siimage_reset	-	reset a device on an siimage controller
+ *	@drive: drive to reset
+ *
+ *	Perform a controller level reset fo the device. For
+ *	SATA we must also check the PHY.
+ */
+ 
 static void siimage_reset (ide_drive_t *drive)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
@@ -490,20 +534,28 @@ static void siimage_reset (ide_drive_t *drive)
 
 }
 
+/**
+ *	proc_reports_siimage		-	add siimage controller to proc
+ *	@dev: PCI device
+ *	@clocking: SCSC value
+ *	@name: controller name
+ *
+ *	Report the clocking mode of the controller and add it to
+ *	the /proc interface layer
+ */
+ 
 static void proc_reports_siimage (struct pci_dev *dev, u8 clocking, const char *name)
 {
 	if (dev->device == PCI_DEVICE_ID_SII_3112)
 		goto sata_skip;
 
 	printk(KERN_INFO "%s: BASE CLOCK ", name);
-	clocking &= ~0x0C;
+	clocking &= ~0x03;
 	switch(clocking) {
 		case 0x03: printk("DISABLED !\n"); break;
 		case 0x02: printk("== 2X PCI \n"); break;
 		case 0x01: printk("== 133 \n"); break;
 		case 0x00: printk("== 100 \n"); break;
-		default:
-			BUG();
 	}
 
 sata_skip:
@@ -556,22 +608,21 @@ static unsigned int setup_mmio_siimage (struct pci_dev *dev, const char *name)
 	writeb(0, DEVADDR(0xF4));
 	tmpbyte = readb(DEVADDR(0x4A));
 
-	switch(tmpbyte) {
-		case 0x01:
+	switch(tmpbyte & 0x30) {
+		case 0x00:
+			/* In 100 MHz clocking, try and switch to 133 */
 			writeb(tmpbyte|0x10, DEVADDR(0x4A));
-			tmpbyte = readb(DEVADDR(0x4A));
-		case 0x31:
-			/* if clocking is disabled */
+			break;
+		case 0x10:
+			/* On 133Mhz clocking */
+			break;
+		case 0x20:
+			/* On PCIx2 clocking */
+			break;
+		case 0x30:
+			/* Clocking is disabled */
 			/* 133 clock attempt to force it on */
 			writeb(tmpbyte & ~0x20, DEVADDR(0x4A));
-			tmpbyte = readb(DEVADDR(0x4A));
-		case 0x11:
-		case 0x21:
-			break;
-		default:
-			tmpbyte &= ~0x30;
-			tmpbyte |= 0x20;
-			writeb(tmpbyte, DEVADDR(0x4A));
 			break;
 	}
 	
@@ -619,27 +670,19 @@ static unsigned int __init init_chipset_siimage (struct pci_dev *dev, const char
 	pci_write_config_byte(dev, 0x80, 0x00);
 	pci_write_config_byte(dev, 0x84, 0x00);
 	pci_read_config_byte(dev, 0x8A, &tmpbyte);
-	switch(tmpbyte) {
+	switch(tmpbyte & 0x30) {
 		case 0x00:
-		case 0x01:
 			/* 133 clock attempt to force it on */
 			pci_write_config_byte(dev, 0x8A, tmpbyte|0x10);
-			pci_read_config_byte(dev, 0x8A, &tmpbyte);
 		case 0x30:
-		case 0x31:
 			/* if clocking is disabled */
 			/* 133 clock attempt to force it on */
 			pci_write_config_byte(dev, 0x8A, tmpbyte & ~0x20);
-			pci_read_config_byte(dev, 0x8A, &tmpbyte);
 		case 0x10:
-		case 0x11:
-		case 0x20:
-		case 0x21:
+			/* 133 already */
 			break;
-		default:
-			tmpbyte &= ~0x30;
-			tmpbyte |= 0x20;
-			pci_write_config_byte(dev, 0x8A, tmpbyte);
+		case 0x20:
+			/* BIOS set PCI x2 clocking */
 			break;
 	}
 
@@ -783,12 +826,15 @@ static unsigned int __init ata66_siimage (ide_hwif_t *hwif)
 static void __init init_hwif_siimage (ide_hwif_t *hwif)
 {
 	hwif->autodma = 0;
-	hwif->busproc   = &siimage_busproc;
+	
 	hwif->resetproc = &siimage_reset;
 	hwif->speedproc = &siimage_tune_chipset;
 	hwif->tuneproc	= &siimage_tuneproc;
 	hwif->reset_poll = &siimage_reset_poll;
 	hwif->pre_reset = &siimage_pre_reset;
+
+	if(hwif->pci_dev->device == PCI_DEVICE_ID_SII_3112)
+		hwif->busproc   = &siimage_busproc;
 
 	if (!hwif->dma_base) {
 		hwif->drives[0].autotune = 1;
@@ -863,7 +909,7 @@ static void siimage_ide_exit(void)
 module_init(siimage_ide_init);
 module_exit(siimage_ide_exit);
 
-MODULE_AUTHOR("Andre Hedrick");
+MODULE_AUTHOR("Andre Hedrick, Alan Cox");
 MODULE_DESCRIPTION("PCI driver module for SiI IDE");
 MODULE_LICENSE("GPL");
 

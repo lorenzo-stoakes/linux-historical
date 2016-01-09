@@ -1558,7 +1558,9 @@ extern wait_queue_head_t reiserfs_commit_thread_wait ;
 #define JOURNAL_BUFFER(j,n) ((j)->j_ap_blocks[((j)->j_start + (n)) % JOURNAL_BLOCK_COUNT])
 
 void reiserfs_commit_for_inode(struct inode *) ;
+void reiserfs_commit_for_tail(struct inode *) ;
 void reiserfs_update_inode_transaction(struct inode *) ;
+void reiserfs_update_tail_transaction(struct inode *) ;
 void reiserfs_wait_on_write_block(struct super_block *s) ;
 void reiserfs_block_writes(struct reiserfs_transaction_handle *th) ;
 void reiserfs_allow_writes(struct super_block *s) ;

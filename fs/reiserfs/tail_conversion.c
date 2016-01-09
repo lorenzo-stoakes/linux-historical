@@ -133,6 +133,7 @@ int direct2indirect (struct reiserfs_transaction_handle *th, struct inode * inod
 
     inode->u.reiserfs_i.i_first_direct_byte = U32_MAX;
 
+    reiserfs_update_tail_transaction(inode);
     return 0;
 }
 

@@ -368,7 +368,7 @@ static void ali15x3_tune_drive (ide_drive_t *drive, u8 pio)
  *	Check the drive and controller revisions. Return 0 if UDMA is
  *	not available, or 1 if UDMA can be used. The actual rules for
  *	the ALi are
- *		No UDMA on revisions <= 0x20
+ *		No UDMA on revisions <= 0xC1
  *		Disk only for revisions < 0xC2
  *		Not WDC drives for revisions < 0xC2
  *

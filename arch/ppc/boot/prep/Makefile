@@ -18,7 +18,7 @@ USE_STANDARD_AS_RULE		:= true
 
 TFTPIMAGE			= /tftpboot/zImage.prep
 ifeq ($(CONFIG_SMP),y)
-TFTPIMAGE			= $(TFTPBOOT).smp
+TFTPIMAGE			:= $(TFTPIMAGE).smp
 endif
 
 LD_ARGS				= -T ../ld.script -Ttext 0x00800000 -Bstatic

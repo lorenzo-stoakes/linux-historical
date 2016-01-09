@@ -13,7 +13,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptbase.h,v 1.139 2002/11/11 18:33:40 pdelaney Exp $
+ *  $Id: mptbase.h,v 1.144 2003/01/28 21:31:56 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -80,8 +80,8 @@
 #define COPYRIGHT	"Copyright (c) 1999-2002 " MODULEAUTHOR
 #endif
 
-#define MPT_LINUX_VERSION_COMMON	"2.03.00"
-#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.03.00"
+#define MPT_LINUX_VERSION_COMMON	"2.05.00+"
+#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.05.00+"
 #define WHAT_MAGIC_STRING		"@" "(" "#" ")"
 
 #define show_mptmod_ver(s,ver)  \
@@ -134,8 +134,10 @@
 #define	 CAN_SLEEP			1
 #define  NO_SLEEP			0
 
-/* 
- * SCSI transfer rate defines. 
+#define MPT_COALESCING_TIMEOUT		0x10
+
+/*
+ * SCSI transfer rate defines.
  */
 #define MPT_ULTRA320			0x08
 #define MPT_ULTRA160			0x09
@@ -301,6 +303,7 @@ typedef enum {
 	FC919 = 0x0919,
 	FC929 = 0x0929,
 	C1030 = 0x1030,
+	C1035 = 0x1035,
 	FCUNK = 0xFBAD
 } CHIP_TYPE;
 
@@ -368,6 +371,7 @@ typedef struct _ScsiCmndTracker {
 typedef struct _VirtDevice {
 	struct _VirtDevice	*forw;
 	struct _VirtDevice	*back;
+	struct scsi_device	*device;
 	rwlock_t		 VdevLock;
 	int			 ref_cnt;
 	u8			 tflags;
@@ -522,7 +526,7 @@ typedef struct _mpt_ioctl_events {
 #define MPT_SCSICFG_DV_PENDING		0x04	/* DV on this physical id pending */
 #define MPT_SCSICFG_DV_NOT_DONE		0x08	/* DV has not been performed */
 #define MPT_SCSICFG_BLK_NEGO		0x10	/* WriteSDP1 with WDTR and SDTR disabled */
-
+#define MPT_SCSICFG_RELOAD_IOC_PG3	0x20	/* IOC Pg 3 data is obsolete */
 						/* Args passed to writeSDP1: */
 #define MPT_SCSICFG_USE_NVRAM		0x01	/* WriteSDP1 using NVRAM */
 #define MPT_SCSICFG_ALL_IDS		0x02	/* WriteSDP1 to all IDS */
@@ -915,6 +919,7 @@ typedef struct _MPT_SCSI_HOST {
 	unsigned long		  hard_resets;		/* driver forced bus resets count */
 	unsigned long		  soft_resets;		/* fw/external bus resets count */
 	unsigned long		  timeouts;		/* cmd timeouts */
+	ushort			  sel_timeout[MPT_MAX_FC_DEVICES];
 } MPT_SCSI_HOST;
 
 /*
@@ -1006,6 +1011,7 @@ extern int	 mpt_HardResetHandler(MPT_ADAPTER *ioc, int sleepFlag);
 extern int	 mpt_config(MPT_ADAPTER *ioc, CONFIGPARMS *cfg);
 extern void	*mpt_alloc_fw_memory(MPT_ADAPTER *ioc, int size, int *frags, int *alloc_sz);
 extern void	 mpt_free_fw_memory(MPT_ADAPTER *ioc, fw_image_t **alt_img);
+extern int	 mpt_read_ioc_pg_3(MPT_ADAPTER *ioc);
 
 /*
  *  Public data decl's...
@@ -1038,7 +1044,7 @@ extern int		  mpt_ASCQ_TableSz;
 #define offsetof(t, m)	((size_t) (&((t *)0)->m))
 #endif
 
-#if defined(__alpha__) || defined(__sparc_v9__) || defined(__ia64__)
+#if defined(__alpha__) || defined(__sparc_v9__) || defined(__ia64__) || defined(__x86_64__)
 #define CAST_U32_TO_PTR(x)	((void *)(u64)x)
 #define CAST_PTR_TO_U32(x)	((u32)(u64)x)
 #else

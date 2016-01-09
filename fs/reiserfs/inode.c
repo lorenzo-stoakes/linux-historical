@@ -20,6 +20,10 @@
 static int reiserfs_get_block (struct inode * inode, long block,
 			       struct buffer_head * bh_result, int create);
 
+/* This spinlock guards inode pkey in private part of inode
+   against race between find_actor() vs reiserfs_read_inode2 */
+static spinlock_t keycopy_lock = SPIN_LOCK_UNLOCKED;
+
 void reiserfs_delete_inode (struct inode * inode)
 {
     int jbegin_count = JOURNAL_PER_BALANCE_CNT * 2; 
@@ -469,7 +473,7 @@ static int convert_tail_for_hole(struct inode *inode,
     tail_end = (tail_start | (bh_result->b_size - 1)) + 1 ;
 
     index = tail_offset >> PAGE_CACHE_SHIFT ;
-    if (index != hole_page->index) {
+    if ( !hole_page || index != hole_page->index) {
 	tail_page = grab_cache_page(inode->i_mapping, index) ;
 	retval = -ENOMEM;
 	if (!tail_page) {
@@ -898,8 +902,9 @@ static void init_inode (struct inode * inode, struct path * path)
     bh = PATH_PLAST_BUFFER (path);
     ih = PATH_PITEM_HEAD (path);
 
-
+    spin_lock(&keycopy_lock);
     copy_key (INODE_PKEY (inode), &(ih->ih_key));
+    spin_unlock(&keycopy_lock);
     inode->i_blksize = PAGE_SIZE;
 
     INIT_LIST_HEAD(&inode->u.reiserfs_i.i_prealloc_list) ;
@@ -1220,10 +1225,27 @@ static int reiserfs_find_actor( struct inode *inode,
 				unsigned long inode_no, void *opaque )
 {
     struct reiserfs_iget4_args *args;
+    int retval;
 
     args = opaque;
+    /* We protect against possible parallel init_inode() on another CPU here. */
+    spin_lock(&keycopy_lock);
     /* args is already in CPU order */
-    return le32_to_cpu(INODE_PKEY(inode)->k_dir_id) == args -> objectid;
+    if (le32_to_cpu(INODE_PKEY(inode)->k_dir_id) == args -> objectid)
+	retval = 1;
+    else
+	/* If The key does not match, lets see if we are racing
+	   with another iget4, that already progressed so far
+	   to reiserfs_read_inode2() and was preempted in
+	   call to search_by_key(). The signs of that are:
+	     Inode is locked
+	     dirid and object id are zero (not yet initialized)*/
+	retval = (inode->i_state & I_LOCK) &&
+		 !INODE_PKEY(inode)->k_dir_id &&
+		 !INODE_PKEY(inode)->k_objectid;
+
+    spin_unlock(&keycopy_lock);
+    return retval;
 }
 
 struct inode * reiserfs_iget (struct super_block * s, const struct cpu_key * key)
@@ -1810,7 +1832,12 @@ void reiserfs_truncate_file(struct inode *p_s_inode, int update_timestamps) {
 	    flush_dcache_page(page) ;
 	    kunmap(page) ;
 	    if (buffer_mapped(bh) && bh->b_blocknr != 0) {
-	        mark_buffer_dirty(bh) ;
+	        if (!atomic_set_buffer_dirty(bh)) {
+			set_buffer_flushtime(bh);
+			refile_buffer(bh);
+			buffer_insert_inode_data_queue(bh, p_s_inode);
+			balance_dirty();
+		}
 	    }
 	}
 	UnlockPage(page) ;
@@ -2085,8 +2112,8 @@ static int reiserfs_commit_write(struct file *f, struct page *page,
 	/* If the file have grown beyond the border where it
 	   can have a tail, unmark it as needing a tail
 	   packing */
-	if ( (have_large_tails (inode->i_sb) && inode->i_size < block_size (inode)*4) ||
-	     (have_small_tails (inode->i_sb) && inode->i_size < block_size(inode)) )
+	if ( (have_large_tails (inode->i_sb) && inode->i_size > block_size (inode)*4) ||
+	     (have_small_tails (inode->i_sb) && inode->i_size > block_size(inode)) )
 	    inode->u.reiserfs_i.i_flags &= ~i_pack_on_close_mask;
 
 	journal_begin(&th, inode->i_sb, 1) ;
@@ -2158,6 +2185,9 @@ static int reiserfs_direct_io(int rw, struct inode *inode,
                               struct kiobuf *iobuf, unsigned long blocknr,
 			      int blocksize) 
 {
+    lock_kernel();
+    reiserfs_commit_for_tail(inode);
+    unlock_kernel();
     return generic_direct_IO(rw, inode, iobuf, blocknr, blocksize,
                              reiserfs_get_block_direct_io) ;
 }

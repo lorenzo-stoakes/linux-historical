@@ -902,6 +902,8 @@ static void free_pgtables(struct mm_struct * mm, struct vm_area_struct *prev,
 		break;
 	}
 no_mmaps:
+	if (last < first)
+		return;
 	/*
 	 * If the PGD bits are not consecutive in the virtual address, the
 	 * old method of shifting the VA >> by PGDIR_SHIFT doesn't work.

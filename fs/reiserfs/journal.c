@@ -2655,32 +2655,52 @@ void reiserfs_update_inode_transaction(struct inode *inode) {
   inode->u.reiserfs_i.i_trans_id = SB_JOURNAL(inode->i_sb)->j_trans_id ;
 }
 
-static int reiserfs_inode_in_this_transaction(struct inode *inode) {
-  if (inode->u.reiserfs_i.i_trans_id == SB_JOURNAL(inode->i_sb)->j_trans_id || 
-      inode->u.reiserfs_i.i_trans_id == 0) {
-    return 1; 
-  } 
-  return 0 ;
+void reiserfs_update_tail_transaction(struct inode *inode) {
+  
+  inode->u.reiserfs_i.i_tail_trans_index = SB_JOURNAL_LIST_INDEX(inode->i_sb);
+
+  inode->u.reiserfs_i.i_tail_trans_id = SB_JOURNAL(inode->i_sb)->j_trans_id ;
 }
 
+static void __commit_trans_index(struct inode *inode, unsigned long id,
+                                 unsigned long index) 
+{
+    struct reiserfs_journal_list *jl ;
+    struct reiserfs_transaction_handle th ;
+    struct super_block *sb = inode->i_sb ;
+
+    jl = SB_JOURNAL_LIST(sb) + index;
+
+    /* is it from the current transaction, or from an unknown transaction? */
+    if (id == SB_JOURNAL(sb)->j_trans_id) {
+	journal_join(&th, sb, 1) ;
+	journal_end_sync(&th, sb, 1) ;
+    } else if (jl->j_trans_id == id) {
+	flush_commit_list(sb, jl, 1) ;
+    }
+    /* if the transaction id does not match, this list is long since flushed
+    ** and we don't have to do anything here
+    */
+}
+void reiserfs_commit_for_tail(struct inode *inode) {
+    unsigned long id = inode->u.reiserfs_i.i_tail_trans_id;
+    unsigned long index = inode->u.reiserfs_i.i_tail_trans_index;
+
+    /* for tails, if this info is unset there's nothing to commit */
+    if (id && index)
+	__commit_trans_index(inode, id, index);
+}
 void reiserfs_commit_for_inode(struct inode *inode) {
-  struct reiserfs_journal_list *jl ;
-  struct reiserfs_transaction_handle th ;
-  struct super_block *sb = inode->i_sb ;
+    unsigned long id = inode->u.reiserfs_i.i_trans_id;
+    unsigned long index = inode->u.reiserfs_i.i_trans_index;
 
-  jl = SB_JOURNAL_LIST(sb) + inode->u.reiserfs_i.i_trans_index ;
+    /* for the whole inode, assume unset id or index means it was
+     * changed in the current transaction.  More conservative
+     */
+    if (!id || !index)
+	reiserfs_update_inode_transaction(inode) ;
 
-  /* is it from the current transaction, or from an unknown transaction? */
-  if (reiserfs_inode_in_this_transaction(inode)) {
-    journal_join(&th, sb, 1) ;
-    reiserfs_update_inode_transaction(inode) ;
-    journal_end_sync(&th, sb, 1) ;
-  } else if (jl->j_trans_id == inode->u.reiserfs_i.i_trans_id) {
-    flush_commit_list(sb, jl, 1) ;
-  }
-  /* if the transaction id does not match, this list is long since flushed
-  ** and we don't have to do anything here
-  */
+    __commit_trans_index(inode, id, index);
 }
 
 void reiserfs_restore_prepared_buffer(struct super_block *p_s_sb, 

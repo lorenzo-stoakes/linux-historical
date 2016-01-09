@@ -182,7 +182,7 @@ static int __devinit probe_one(struct pci_dev *pdev, const struct pci_device_id 
 	return 0;
 }
 
-static void __exit remove_one(struct pci_dev *pdev)
+static void __devexit remove_one(struct pci_dev *pdev)
 {
 	struct address_info *hw_config = pci_get_drvdata(pdev);
 	sb_dsp_unload(hw_config, 0);
@@ -219,7 +219,7 @@ static int __init kahlua_init_module(void)
 	return pci_module_init(&kahlua_driver);
 }
 
-static void __exit kahlua_cleanup_module(void)
+static void __devexit kahlua_cleanup_module(void)
 {
 	return pci_unregister_driver(&kahlua_driver);
 }

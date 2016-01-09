@@ -20,7 +20,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptctl.h,v 1.12 2002/10/17 20:15:58 pdelaney Exp $
+ *  $Id: mptctl.h,v 1.13 2002/12/03 21:26:33 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -310,103 +310,15 @@ struct mpt_ioctl_command32 {
 #endif	/*}*/
 
 
-
-/*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
- /*
-  *	COMPAQ Specific IOCTL Defines and Structures
-  */
-
-#define CPQFCTS_IOC_MAGIC 'Z'
-
-#define CPQFCTS_GETPCIINFO		_IOR(CPQFCTS_IOC_MAGIC, 1, cpqfc_pci_info_struct)
-#define CPQFCTS_GETDRIVVER		_IOR(CPQFCTS_IOC_MAGIC, 9, int)
-#define CPQFCTS_CTLR_STATUS		_IOR(CPQFCTS_IOC_MAGIC, 3, struct _cpqfc_ctlr_status)
-#define CPQFCTS_SCSI_IOCTL_FC_TARGET_ADDRESS	_IOR(CPQFCTS_IOC_MAGIC, 13, struct scsi_fctargaddress)
-#define CPQFCTS_SCSI_PASSTHRU		_IOWR(CPQFCTS_IOC_MAGIC, 11, VENDOR_IOCTL_REQ)
-#if defined(__sparc__) && defined(__sparc_v9__)
-#define CPQFCTS_SCSI_PASSTHRU32		_IOWR(CPQFCTS_IOC_MAGIC, 11, VENDOR_IOCTL_REQ32)
-#endif
-
-typedef struct {
-	unsigned short bus;
-	unsigned short bus_type;
-	unsigned short device_fn;
-	u32 board_id;
-	u32 slot_number;
-	unsigned short vendor_id;
-	unsigned short device_id;
-	unsigned short class_code;
-	unsigned short sub_vendor_id;
-	unsigned short sub_device_id;
-	u8 serial_number[81];
-} cpqfc_pci_info_struct;
-
-
-typedef struct scsi_fctargaddress {
-	unsigned int host_port_id;
-	u8 host_wwn[8];	/* WW Network Name */
-} Scsi_FCTargAddress;
-
-typedef struct _cpqfc_ctlr_status {
-	u32 status;
-	u32 offline_reason;
-} cpqfc_ctlr_status;
-
-
-/* Compaq SCSI I/O Passthru structures.
- */
-#define MPT_COMPAQ_READ		0x26
-#define MPT_COMPAQ_WRITE	0x27
-
-typedef struct {
-	int lc;		/* controller number */
-	int node;	/* node number */
-	int ld;		/* target logical id */
-	u32 nexus;
-	void *argp;
-} VENDOR_IOCTL_REQ;
-
-#if defined(__KERNEL__) && defined(__sparc__) && defined(__sparc_v9__)		/*{*/
-typedef struct {
-	int lc;		/* controller number */
-	int node;	/* node number */
-	int ld;		/* target logical id */
-	u32 nexus;
-	u32 argp;
-} VENDOR_IOCTL_REQ32;
-#endif
-
-typedef struct {
-	char cdb[16];		/* cdb */
-	unsigned short bus;	/* bus number */
-	unsigned short pdrive;	/* physical drive */
-	int len;		/* data area size */
-	int sense_len;		/* sense size */
-	char sense_data[40];	/* sense buffer */
-	void *bufp;		/* data buffer pointer */
-	char rw_flag;
-} cpqfc_passthru_t;
-
-#if defined(__KERNEL__) && defined(__sparc__) && defined(__sparc_v9__)		/*{*/
-typedef struct {
-	char cdb[16];		/* cdb */
-	unsigned short bus;	/* bus number */
-	unsigned short pdrive;	/* physical drive */
-	int len;		/* data area size */
-	int sense_len;		/* sense size */
-	char sense_data[40];	/* sense buffer */
-	u32 bufp;		/* data buffer pointer */
-	char rw_flag;
-} cpqfc_passthru32_t;
-#endif
-
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
  *	HP Specific IOCTL Defines and Structures
  */
 
-#define HP_GETHOSTINFO		_IOR(CPQFCTS_IOC_MAGIC, 20, hp_host_info_t)
-#define HP_GETTARGETINFO	_IOR(CPQFCTS_IOC_MAGIC, 21, hp_target_info_t)
+#define CPQFCTS_IOC_MAGIC 'Z'
+#define HP_IOC_MAGIC 'Z'
+#define HP_GETHOSTINFO		_IOR(HP_IOC_MAGIC, 20, hp_host_info_t)
+#define HP_GETTARGETINFO	_IOR(HP_IOC_MAGIC, 21, hp_target_info_t)
 
 /* All HP IOCTLs must include this header
  */

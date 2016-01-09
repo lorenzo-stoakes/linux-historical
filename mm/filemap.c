@@ -98,9 +98,10 @@ static inline void remove_page_from_inode_queue(struct page * page)
 	if (mapping->a_ops->removepage)
 		mapping->a_ops->removepage(page);
 	
-	mapping->nrpages--;
 	list_del(&page->list);
 	page->mapping = NULL;
+	wmb();
+	mapping->nrpages--;
 }
 
 static inline void remove_page_from_hash_queue(struct page * page)

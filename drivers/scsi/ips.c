@@ -246,9 +246,6 @@ struct proc_dir_entry proc_scsi_ips = {
     #define IPS_SG_ADDRESS(sg)       ((sg)->address)
     #define IPS_LOCK_SAVE(lock,flags) spin_lock_irqsave(&io_request_lock,flags)
     #define IPS_UNLOCK_RESTORE(lock,flags) spin_unlock_irqrestore(&io_request_lock,flags)
-    #ifndef __devexit_p
-        #define __devexit_p(x) x
-    #endif
 #else
     #define IPS_SG_ADDRESS(sg)      (page_address((sg)->page) ? \
                                      page_address((sg)->page)+(sg)->offset : 0)
@@ -338,48 +335,48 @@ IPS_DEFINE_COMPAT_TABLE( Compatable );               /* Version Compatability Ta
    static char ips_hot_plug_name[] = "ips";
    
    static int __devinit  ips_insert_device(struct pci_dev *pci_dev, const struct pci_device_id *ent);
-   static void __devexit ips_remove_device(struct pci_dev *pci_dev);
+   static void ips_remove_device(struct pci_dev *pci_dev);
    
    struct pci_driver ips_pci_driver = {
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table,
        probe:		ips_insert_device,
-       remove:		__devexit_p(ips_remove_device),
+       remove:		ips_remove_device,
    }; 
            
    struct pci_driver ips_pci_driver_anaconda = {
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table_anaconda,
        probe:		ips_insert_device,
-       remove:		__devexit_p(ips_remove_device),
+       remove:		ips_remove_device,
    }; 
 
    struct pci_driver ips_pci_driver_5i = {
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table_5i,
        probe:		ips_insert_device,
-       remove:		__devexit_p(ips_remove_device),
+       remove:		ips_remove_device,
    };
            
    struct pci_driver ips_pci_driver_6i = {
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table_6i,
        probe:		ips_insert_device,
-       remove:		__devexit_p(ips_remove_device),
+       remove:		ips_remove_device,
    };
 
    struct pci_driver ips_pci_driver_i960 = {
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table_i960,
        probe:		ips_insert_device,
-       remove:		__devexit_p(ips_remove_device),
+       remove:		ips_remove_device,
    };
 
    struct pci_driver ips_pci_driver_adaptec = {
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table_adaptec,
        probe:		ips_insert_device,
-       remove:		__devexit_p(ips_remove_device),
+       remove:		ips_remove_device,
    };
 
 #endif
@@ -7346,7 +7343,7 @@ static int ips_abort_init(ips_ha_t *ha, struct Scsi_Host *sh, int index){
 /*   Routine Description:                                                    */
 /*     Remove one Adapter ( Hot Plugging )                                   */
 /*---------------------------------------------------------------------------*/
-static void __devexit ips_remove_device(struct pci_dev *pci_dev)
+static void ips_remove_device(struct pci_dev *pci_dev)
 {
    int    i;
    struct Scsi_Host *sh;

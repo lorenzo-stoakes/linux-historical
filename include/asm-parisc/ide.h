@@ -20,8 +20,6 @@
 #define MAX_HWIFS	2
 #endif
 
-#define ide__sti()      __sti()
-
 static __inline__ int ide_default_irq(ide_ioreg_t base)
 {
 	switch (base) {
@@ -80,28 +78,7 @@ static __inline__ void ide_init_default_hwifs(void)
 #endif /* CONFIG_BLK_DEV_IDEPCI */
 }
 
-typedef union {
-	unsigned all			: 8;	/* all of the bits together */
-	struct {
-		unsigned bit7		: 1;	/* always 1 */
-		unsigned lba		: 1;	/* using LBA instead of CHS */
-		unsigned bit5		: 1;	/* always 1 */
-		unsigned unit		: 1;	/* drive select number, 0 or 1 */
-		unsigned head		: 4;	/* always zeros here */
-	} b;
-} select_t;
-
-typedef union {
-	unsigned all			: 8;	/* all of the bits together */
-	struct {
-		unsigned bit0		: 1;
-		unsigned nIEN		: 1;	/* device INTRQ to host */
-		unsigned SRST		: 1;	/* host soft reset bit */
-		unsigned bit3		: 1;	/* ATA-2 thingy */
-		unsigned reserved456	: 3;
-		unsigned HOB		: 1;	/* 48-bit address ordering */
-	} b;
-} control_t;
+#include <asm-generic/ide_iops.h>
 
 #endif /* __KERNEL__ */
 

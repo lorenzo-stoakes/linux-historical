@@ -25,7 +25,9 @@ outb_p((addr),RTC_PORT(0)); \
 outb_p((val),RTC_PORT(1)); \
 })
 
+#ifndef RTC_IRQ
 #define RTC_IRQ 8
+#endif
 
 #endif /* __ASM_PPC_MC146818RTC_H */
 #endif /* __KERNEL__ */

@@ -20,7 +20,7 @@
  *  (mailto:netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptscsih.h,v 1.20 2002/10/17 20:16:00 pdelaney Exp $
+ *  $Id: mptscsih.h,v 1.22 2002/12/16 15:28:48 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -73,9 +73,16 @@
  *	Try to keep these at 2^N-1
  */
 #define MPT_FC_CAN_QUEUE	63
-//#define MPT_SCSI_CAN_QUEUE	31
-#define MPT_SCSI_CAN_QUEUE	MPT_FC_CAN_QUEUE
-#define MPT_SCSI_CMD_PER_LUN	 7
+#if defined MPT_SCSI_USE_NEW_EH
+	#define MPT_SCSI_CAN_QUEUE	127
+#else
+	#define MPT_SCSI_CAN_QUEUE	63
+#endif
+
+#define MPT_SCSI_CMD_PER_DEV_HIGH	31
+#define MPT_SCSI_CMD_PER_DEV_LOW	7
+
+#define MPT_SCSI_CMD_PER_LUN		7
 
 #define MPT_SCSI_MAX_SECTORS    8192
 
@@ -206,11 +213,16 @@ struct mptscsih_driver_setup
 #define x_scsi_dev_reset	mptscsih_dev_reset
 #define x_scsi_host_reset	mptscsih_host_reset
 #define x_scsi_bios_param	mptscsih_bios_param
-#define x_scsi_select_queue_depths	mptscsih_select_queue_depths
 
 #define x_scsi_taskmgmt_bh	mptscsih_taskmgmt_bh
 #define x_scsi_old_abort	mptscsih_old_abort
 #define x_scsi_old_reset	mptscsih_old_reset
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,44)
+#define x_scsi_slave_attach	mptscsih_slave_attach
+#else
+#define x_scsi_select_queue_depths	mptscsih_select_queue_depths
+#endif
+#define x_scsi_proc_info	mptscsih_proc_info
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -229,13 +241,22 @@ extern	int		 x_scsi_host_reset(Scsi_Cmnd *);
 extern	int		 x_scsi_old_abort(Scsi_Cmnd *);
 extern	int		 x_scsi_old_reset(Scsi_Cmnd *, unsigned int);
 #endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,28)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,45)
+extern int		 x_scsi_bios_param(struct scsi_device * sdev, struct block_device *bdev,
+				sector_t capacity, int *ip);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,28)
 extern	int		 x_scsi_bios_param(Disk *, struct block_device *, int *);
 #else
 extern	int		 x_scsi_bios_param(Disk *, kdev_t, int *);
 #endif
-extern	void		 x_scsi_select_queue_depths(struct Scsi_Host *, Scsi_Device *);
 extern	void		 x_scsi_taskmgmt_bh(void *);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,44)
+extern	int		 x_scsi_slave_attach(Scsi_Device *);
+#else
+extern	void		 x_scsi_select_queue_depths(struct Scsi_Host *, Scsi_Device *);
+#endif
+
+extern	int		 x_scsi_proc_info(char *, char **, off_t, int, int, int);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
 #define PROC_SCSI_DECL
@@ -245,56 +266,84 @@ extern	void		 x_scsi_taskmgmt_bh(void *);
 
 #ifdef MPT_SCSI_USE_NEW_EH
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,44)
 
 #define MPT_SCSIHOST {						\
-	next:				NULL,			\
 	PROC_SCSI_DECL						\
-	name:				"MPT SCSI Host",	\
-	detect:				x_scsi_detect,		\
-	release:			x_scsi_release,		\
-	info:				x_scsi_info,		\
-	command:			NULL,			\
-	queuecommand:			x_scsi_queuecommand,	\
-	eh_strategy_handler:		NULL,			\
-	eh_abort_handler:		x_scsi_abort,		\
-	eh_device_reset_handler:	x_scsi_dev_reset,	\
-	eh_bus_reset_handler:		x_scsi_bus_reset,	\
-	eh_host_reset_handler:		x_scsi_host_reset,	\
-	bios_param:			x_scsi_bios_param,	\
-	can_queue:			MPT_SCSI_CAN_QUEUE,	\
-	this_id:			-1,			\
-	sg_tablesize:			MPT_SCSI_SG_DEPTH,	\
-	max_sectors:			MPT_SCSI_MAX_SECTORS,   \
-	cmd_per_lun:			MPT_SCSI_CMD_PER_LUN,	\
-	unchecked_isa_dma:		0,			\
-	use_clustering:			ENABLE_CLUSTERING,	\
+	.proc_info			= x_scsi_proc_info,	\
+	.name				= "MPT SCSI Host",	\
+	.detect				= x_scsi_detect,	\
+	.release			= x_scsi_release,	\
+	.info				= x_scsi_info,		\
+	.command			= NULL,			\
+	.queuecommand			= x_scsi_queuecommand,	\
+	.slave_attach			= x_scsi_slave_attach,	\
+	.eh_strategy_handler		= NULL,			\
+	.eh_abort_handler		= x_scsi_abort,		\
+	.eh_device_reset_handler	= x_scsi_dev_reset,	\
+	.eh_bus_reset_handler		= x_scsi_bus_reset,	\
+	.eh_host_reset_handler		= x_scsi_host_reset,	\
+	.bios_param			= x_scsi_bios_param,	\
+	.can_queue			= MPT_SCSI_CAN_QUEUE,	\
+	.this_id			= -1,			\
+	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+	.max_sectors			= MPT_SCSI_MAX_SECTORS,	\
+	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+	.unchecked_isa_dma		= 0,			\
+	.use_clustering			= ENABLE_CLUSTERING,	\
+}
+
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1)
+
+#define MPT_SCSIHOST {						\
+	PROC_SCSI_DECL						\
+	.proc_info			= x_scsi_proc_info,	\
+	.name				= "MPT SCSI Host",	\
+	.detect				= x_scsi_detect,	\
+	.release			= x_scsi_release,	\
+	.info				= x_scsi_info,		\
+	.command			= NULL,			\
+	.queuecommand			= x_scsi_queuecommand,	\
+	.eh_strategy_handler		= NULL,			\
+	.eh_abort_handler		= x_scsi_abort,		\
+	.eh_device_reset_handler	= x_scsi_dev_reset,	\
+	.eh_bus_reset_handler		= x_scsi_bus_reset,	\
+	.eh_host_reset_handler		= x_scsi_host_reset,	\
+	.bios_param			= x_scsi_bios_param,	\
+	.can_queue			= MPT_SCSI_CAN_QUEUE,	\
+	.this_id			= -1,			\
+	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+	.max_sectors			= MPT_SCSI_MAX_SECTORS,	\
+	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+	.unchecked_isa_dma		= 0,			\
+	.use_clustering			= ENABLE_CLUSTERING,	\
 }
 
 #else  /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1) */
 
 #define MPT_SCSIHOST {						\
-	next:				NULL,			\
+	.next				= NULL,			\
 	PROC_SCSI_DECL						\
-	name:				"MPT SCSI Host",	\
-	detect:				x_scsi_detect,		\
-	release:			x_scsi_release,		\
-	info:				x_scsi_info,		\
-	command:			NULL,			\
-	queuecommand:			x_scsi_queuecommand,	\
-	eh_strategy_handler:		NULL,			\
-	eh_abort_handler:		x_scsi_abort,		\
-	eh_device_reset_handler:	x_scsi_dev_reset,	\
-	eh_bus_reset_handler:		x_scsi_bus_reset,	\
-	eh_host_reset_handler:		NULL,			\
-	bios_param:			x_scsi_bios_param,	\
-	can_queue:			MPT_SCSI_CAN_QUEUE,	\
-	this_id:			-1,			\
-	sg_tablesize:			MPT_SCSI_SG_DEPTH,	\
-	cmd_per_lun:			MPT_SCSI_CMD_PER_LUN,	\
-	unchecked_isa_dma:		0,			\
-	use_clustering:			ENABLE_CLUSTERING,	\
-	use_new_eh_code:		1			\
+	.proc_info			= x_scsi_proc_info,	\
+	.name				= "MPT SCSI Host",	\
+	.detect				= x_scsi_detect,	\
+	.release			= x_scsi_release,	\
+	.info				= x_scsi_info,		\
+	.command			= NULL,			\
+	.queuecommand			= x_scsi_queuecommand,	\
+	.eh_strategy_handler		= NULL,			\
+	.eh_abort_handler		= x_scsi_abort,		\
+	.eh_device_reset_handler	= x_scsi_dev_reset,	\
+	.eh_bus_reset_handler		= x_scsi_bus_reset,	\
+	.eh_host_reset_handler		= NULL,			\
+	.bios_param			= x_scsi_bios_param,	\
+	.can_queue			= MPT_SCSI_CAN_QUEUE,	\
+	.this_id			= -1,			\
+	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+	.unchecked_isa_dma		= 0,			\
+	.use_clustering			= ENABLE_CLUSTERING,	\
+	.use_new_eh_code		= 1			\
 }
 
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1) */
@@ -302,23 +351,23 @@ extern	void		 x_scsi_taskmgmt_bh(void *);
 #else /* MPT_SCSI_USE_NEW_EH */
 
 #define MPT_SCSIHOST {						\
-	next:				NULL,			\
+	.next				= NULL,			\
 	PROC_SCSI_DECL						\
-	name:				"MPT SCSI Host",	\
-	detect:				x_scsi_detect,		\
-	release:			x_scsi_release,		\
-	info:				x_scsi_info,		\
-	command:			NULL,			\
-	queuecommand:			x_scsi_queuecommand,	\
-	abort:				x_scsi_old_abort,	\
-	reset:				x_scsi_old_reset,	\
-	bios_param:			x_scsi_bios_param,	\
-	can_queue:			MPT_SCSI_CAN_QUEUE,	\
-	this_id:			-1,			\
-	sg_tablesize:			MPT_SCSI_SG_DEPTH,	\
-	cmd_per_lun:			MPT_SCSI_CMD_PER_LUN,	\
-	unchecked_isa_dma:		0,			\
-	use_clustering:			ENABLE_CLUSTERING	\
+	.name				= "MPT SCSI Host",	\
+	.detect				= x_scsi_detect,	\
+	.release			= x_scsi_release,	\
+	.info				= x_scsi_info,		\
+	.command			= NULL,			\
+	.queuecommand			= x_scsi_queuecommand,	\
+	.abort				= x_scsi_old_abort,	\
+	.reset				= x_scsi_old_reset,	\
+	.bios_param			= x_scsi_bios_param,	\
+	.can_queue			= MPT_SCSI_CAN_QUEUE,	\
+	.this_id			= -1,			\
+	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+	.unchecked_isa_dma		= 0,			\
+	.use_clustering			= ENABLE_CLUSTERING	\
 }
 #endif  /* MPT_SCSI_USE_NEW_EH */
 

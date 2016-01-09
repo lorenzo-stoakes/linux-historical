@@ -283,9 +283,6 @@ typedef unsigned char	byte;	/* used everywhere */
 	return ((hwif)->chipset == chipset) ? 1 : 0;		\
 }
 
-#define IDE_DEBUG(lineno) \
-	printk("%s,%s,line=%d\n", __FILE__, __FUNCTION__, (lineno))
-
 /*
  * Check for an interrupt and acknowledge the interrupt status
  */
@@ -682,6 +679,15 @@ typedef union {
 struct ide_driver_s;
 struct ide_settings_s;
 
+/*
+ * Status returned from various ide_ functions
+ */
+typedef enum {
+	ide_stopped,	/* no drive operation was started */
+	ide_started	/* a drive operation was started, handler was set */
+} ide_startstop_t;
+
+
 typedef struct ide_drive_s {
 	char		name[4];	/* drive name, such as "hda" */
         char            driver_req[10];	/* requests specific driver */
@@ -875,6 +881,8 @@ typedef struct hwif_s {
 	struct pci_dev  *pci_dev;	/* for pci chipsets */
 	struct ide_pci_device_s	*cds;	/* chipset device struct */
 
+	ide_startstop_t	(*rw_disk)(ide_drive_t *, struct request *, unsigned long);
+	
 #if 0
 	ide_hwif_ops_t	*hwifops;
 #else
@@ -987,6 +995,7 @@ typedef struct hwif_s {
 
 	unsigned	noprobe    : 1;	/* don't probe for this interface */
 	unsigned	present    : 1;	/* this interface exists */
+	unsigned	hold       : 1; /* this interface is always present */
 	unsigned	serialized : 1;	/* serialized all channel operation */
 	unsigned	sharing_irq: 1;	/* 1 = sharing irq with another hwif */
 	unsigned	reset      : 1;	/* reset after probe */
@@ -997,14 +1006,6 @@ typedef struct hwif_s {
 
 	void		*hwif_data;	/* extra hwif data */
 } ide_hwif_t;
-
-/*
- * Status returned from various ide_ functions
- */
-typedef enum {
-	ide_stopped,	/* no drive operation was started */
-	ide_started	/* a drive operation was started, handler was set */
-} ide_startstop_t;
 
 /*
  *  internal ide interrupt handler type
@@ -1573,6 +1574,7 @@ extern u8 eighty_ninty_three (ide_drive_t *);
 extern int set_transfer(ide_drive_t *, ide_task_t *);
 extern int taskfile_lib_get_identify(ide_drive_t *drive, u8 *);
 
+extern ide_startstop_t __ide_do_rw_disk(ide_drive_t *, struct request *, unsigned long);
 /*
  * ide_system_bus_speed() returns what we think is the system VESA/PCI
  * bus speed (in MHz).  This is used for calculating interface PIO timings.
