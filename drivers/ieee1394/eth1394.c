@@ -702,14 +702,14 @@ fail:
 
 /* Function for incoming 1394 packets */
 static struct hpsb_address_ops addr_ops = {
-	write:		ether1394_write,
+	.write =	ether1394_write,
 };
 
 /* Ieee1394 highlevel driver functions */
 static struct hpsb_highlevel_ops hl_ops = {
-	add_host:	ether1394_add_host,
-	remove_host:	ether1394_remove_host,
-	host_reset:	ether1394_host_reset,
+	.add_host =	ether1394_add_host,
+	.remove_host =	ether1394_remove_host,
+	.host_reset =	ether1394_host_reset,
 };
 
 static int __init ether1394_init_module (void)

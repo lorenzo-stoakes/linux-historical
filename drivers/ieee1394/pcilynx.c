@@ -693,13 +693,13 @@ static ssize_t mem_write(struct file*, const char*, size_t, loff_t*);
 
 
 static struct file_operations aux_ops = {
-	owner:		THIS_MODULE,
-        read:           mem_read,
-        write:          mem_write,
-        poll:           aux_poll,
-        llseek:         mem_llseek,
-        open:           mem_open,
-        release:        mem_release,
+	.owner =	THIS_MODULE,
+        .read =         mem_read,
+        .write =        mem_write,
+        .poll =         aux_poll,
+        .llseek =       mem_llseek,
+        .open =         mem_open,
+        .release =      mem_release,
 };
 
 
@@ -1682,25 +1682,25 @@ static size_t get_lynx_rom(struct hpsb_host *host, const quadlet_t **ptr)
 
 static struct pci_device_id pci_table[] __devinitdata = {
 	{
-                vendor:     PCI_VENDOR_ID_TI,
-                device:     PCI_DEVICE_ID_TI_PCILYNX,
-                subvendor:  PCI_ANY_ID,
-                subdevice:  PCI_ANY_ID,
+                .vendor =    PCI_VENDOR_ID_TI,
+                .device =    PCI_DEVICE_ID_TI_PCILYNX,
+                .subvendor = PCI_ANY_ID,
+                .subdevice = PCI_ANY_ID,
 	},
 	{ }			/* Terminating entry */
 };
 
 static struct pci_driver lynx_pci_driver = {
-        name:      PCILYNX_DRIVER_NAME,
-        id_table:  pci_table,
-        probe:     add_card,
-        remove:    __devexit_p(remove_card),
+        .name =     PCILYNX_DRIVER_NAME,
+        .id_table = pci_table,
+        .probe =    add_card,
+        .remove =   __devexit_p(remove_card),
 };
 
 static struct hpsb_host_operations lynx_ops = {
-        get_rom:          get_lynx_rom,
-        transmit_packet:  lynx_transmit,
-        devctl:           lynx_devctl,
+        .get_rom =         get_lynx_rom,
+        .transmit_packet = lynx_transmit,
+        .devctl =          lynx_devctl,
 };
 
 MODULE_AUTHOR("Andreas E. Bombe <andreas.bombe@munich.netsurf.de>");

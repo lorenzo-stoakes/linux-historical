@@ -39,8 +39,8 @@ static int dummy_devctl(struct hpsb_host *h, enum devctl_cmd c, int arg)
 }
 
 static struct hpsb_host_operations dummy_ops = {
-        transmit_packet:  dummy_transmit_packet,
-        devctl:           dummy_devctl
+        .transmit_packet = dummy_transmit_packet,
+        .devctl =          dummy_devctl
 };
 
 /**

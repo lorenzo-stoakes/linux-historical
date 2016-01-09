@@ -233,7 +233,6 @@ int coda_release(struct inode *coda_inode, struct file *coda_file)
 			coda_inode->i_mapping = &coda_inode->i_data;
 	}
 
-	coda_inode->i_mapping = &coda_inode->i_data;
 	fput(cfi->cfi_container);
 
 	kfree(coda_file->private_data);

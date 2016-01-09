@@ -20,9 +20,9 @@ int begin_kml_reint (struct file *file, unsigned long arg)
 {
         struct {
                 char *volname;
-                int   namelen;  
+                unsigned int namelen;  
                 char *recbuf;
-                int   reclen;     /* int   newpos; */
+                unsigned int reclen;     /* int   newpos; */
         } input;
         struct kml_fsdata *kml_fsdata = NULL;
         struct presto_file_set *fset = NULL;
@@ -36,6 +36,12 @@ int begin_kml_reint (struct file *file, unsigned long arg)
                 return -EFAULT;
         }
 
+	if (input.namelen > PATH_MAX)
+	{
+		EXIT;
+		return -EINVAL;
+	}
+		
         if (input.reclen > kml_fsdata->kml_maxsize)
                 return -ENOMEM; /* we'll find solution to this in the future */
 
@@ -75,9 +81,9 @@ int do_kml_reint (struct file *file, unsigned long arg)
 {
         struct {
                 char *volname;
-                int   namelen;  
+                unsigned int namelen;  
                 char *path;
-                int pathlen;
+                unsigned int pathlen;
                 int recno;
                 int offset;
                 int len;
@@ -95,6 +101,13 @@ int do_kml_reint (struct file *file, unsigned long arg)
                 EXIT;
                 return -EFAULT;
         }
+        
+        if(input.namelen > PATH_MAX || input.pathlen > PATH_MAX)
+        {
+        	EXIT;
+        	return -EFAULT;
+        }
+        
         PRESTO_ALLOC(path, char *, input.namelen + 1);
         if ( !path ) {
                 EXIT;
@@ -145,7 +158,7 @@ int end_kml_reint (struct file *file, unsigned long arg)
         /* Free KML buffer and related volume info */
         struct {
                 char *volname;
-                int   namelen;  
+                unsigned int namelen;  
 #if 0
                 int   count; 
                 int   newpos; 
@@ -162,6 +175,12 @@ int end_kml_reint (struct file *file, unsigned long arg)
                return -EFAULT;
         }
 
+	if (input.namelen > PATH_MAX)
+	{
+		EXIT;
+		return -EFAULT;
+	}
+	
         PRESTO_ALLOC(path, char *, input.namelen + 1);
         if ( !path ) {
                 EXIT;

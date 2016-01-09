@@ -811,8 +811,8 @@ static rwlock_t ieee1394_chardevs_lock = RW_LOCK_UNLOCKED;
 static int ieee1394_dispatch_open(struct inode *inode, struct file *file);
 
 static struct file_operations ieee1394_chardev_ops = {
-	owner:	THIS_MODULE,
-	open:	ieee1394_dispatch_open,
+	.owner =THIS_MODULE,
+	.open =	ieee1394_dispatch_open,
 };
 
 devfs_handle_t ieee1394_devfs_handle;

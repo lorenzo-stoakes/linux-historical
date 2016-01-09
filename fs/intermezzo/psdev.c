@@ -350,12 +350,18 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 char *path;
                 struct {
                         char *path;
-                        int   path_len;
+                        unsigned int path_len;
                 } input;
 
                 if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
                         return -EFAULT;
+                }
+                
+                if(input.path_len > PATH_MAX)
+                {
+                	EXIT;
+                	return -EINVAL;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -389,12 +395,17 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 char *path;
                 struct {
                         char *path;
-                        int   path_len;
+                        unsigned int path_len;
                 } input;
 
                 if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
                         return -EFAULT;
+                }
+                
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -426,12 +437,17 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 struct {
                         __u64 size;
                         char *path;
-                        int   path_len;
+                        unsigned int path_len;
                 } input;
 
                 if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
                         return -EFAULT;
+                }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -474,12 +490,17 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 struct {
                         __u64 recno;
                         char *path;
-                        int   path_len;
+                        unsigned int path_len;
                 } input;
 
                 if (copy_from_user(&input, (char *)arg, sizeof(input))) {
                         EXIT;
                         return -EFAULT;
+                }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
                 }
 
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
@@ -525,9 +546,9 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 char *path;
                 struct {
                         char *path;
-                        int   path_len;
+                        unsigned int path_len;
                         char *name;
-                        int   name_len;
+                        unsigned int name_len;
                         int   id;
                         int   flags;
                 } input;
@@ -537,6 +558,16 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         return -EFAULT;
                 }
 
+                if(input.name_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+                
                 PRESTO_ALLOC(path, char *, input.path_len + 1);
                 if ( !path ) {
                         EXIT;
@@ -926,6 +957,12 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -EFAULT;
                 }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+
                 user_path = input.path;
 
                 PRESTO_ALLOC(input.path, char *, input.path_len + 1);
@@ -967,6 +1004,12 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -EFAULT;
                 }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+
                 user_path = input.path;
 
                 PRESTO_ALLOC(input.path, char *, input.path_len + 1);
@@ -1004,6 +1047,12 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -EFAULT;
                 }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+
                 user_path = input.path;
 
                 PRESTO_ALLOC(input.path, char *, input.path_len + 1);
@@ -1038,6 +1087,12 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -EFAULT;
                 }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+
                 user_path = input.path;
 
                 PRESTO_ALLOC(input.path, char *, input.path_len + 1);
@@ -1067,7 +1122,7 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         int  mark_what;
                         int  and_flag;
                         int  or_flag;
-                        int path_len;
+                        unsigned int path_len;
                         char *path;
                 } input;
 
@@ -1075,6 +1130,12 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -EFAULT;
                 }
+
+                if(input.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
+
                 user_path = input.path;
 
                 PRESTO_ALLOC(input.path, char *, input.path_len + 1);
@@ -1167,7 +1228,7 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                 char *user_path;
                 struct {
                         int  cookie;
-                        int path_len;
+                        unsigned int path_len;
                         char *path;
                 } permit;
                 
@@ -1175,6 +1236,11 @@ static int presto_psdev_ioctl(struct inode *inode, struct file *file,
                         EXIT;
                         return -EFAULT;
 		}
+
+                if(permit.path_len > PATH_MAX) {
+                	EXIT;
+                	return -EINVAL;
+                }
                 user_path = permit.path;
                 
                 PRESTO_ALLOC(permit.path, char *, permit.path_len + 1);

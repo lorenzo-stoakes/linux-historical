@@ -673,9 +673,16 @@ static void *catc_probe(struct usb_device *usbdev, unsigned int ifnum, const str
 	}
 
 	catc = kmalloc(sizeof(struct catc), GFP_KERNEL);
+	if (!catc)
+		return NULL;
+
 	memset(catc, 0, sizeof(struct catc));
 
 	netdev = init_etherdev(0, 0);
+	if (!netdev) {
+		kfree(catc);
+		return NULL;
+	}
 
 	netdev->open = catc_open;
 	netdev->hard_start_xmit = catc_hard_start_xmit;

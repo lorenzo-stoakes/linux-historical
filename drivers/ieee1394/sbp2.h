@@ -357,6 +357,10 @@ struct sbp2_command_info {
 
 };
 
+/* A list of flags for detected oddities and brokeness. */
+#define SBP2_BREAKAGE_128K_MAX_TRANSFER		0x1
+#define SBP2_BREAKAGE_INQUIRY_HACK		0x2
+
 /*
  * Information needed on a per scsi id basis (one for each sbp2 device)
  */
@@ -412,6 +416,9 @@ struct scsi_id_instance_data {
 
 	/* Node entry, as retrieved from NodeMgr entries */
 	struct node_entry *ne;
+
+	/* Device specific workarounds/brokeness */
+	u32 workarounds;
 };
 
 /*

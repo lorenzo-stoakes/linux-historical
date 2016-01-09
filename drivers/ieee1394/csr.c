@@ -402,23 +402,23 @@ static int write_fcp(struct hpsb_host *host, int nodeid, int dest,
 
 
 static struct hpsb_highlevel_ops csr_ops = {
-        add_host: add_host,
-        host_reset: host_reset,
+	.add_host =	add_host,
+        .host_reset =	host_reset,
 };
 
 
 static struct hpsb_address_ops map_ops = {
-        read: read_maps,
+        .read = read_maps,
 };
 
 static struct hpsb_address_ops fcp_ops = {
-        write: write_fcp,
+        .write = write_fcp,
 };
 
 static struct hpsb_address_ops reg_ops = {
-        read: read_regs,
-        write: write_regs,
-        lock: lock_regs,
+        .read = read_regs,
+        .write = write_regs,
+        .lock = lock_regs,
 };
 
 static struct hpsb_highlevel *hl;

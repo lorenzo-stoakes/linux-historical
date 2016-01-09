@@ -602,7 +602,7 @@ static int do_dv1394_shutdown(struct video_card *video, int free_user_buf);
    calibrated against a Sony DSR-40 DVCAM deck */
 
 #define CIP_N_NTSC   68000000
-#define CIP_D_NTSC 1000000000
+#define CIP_D_NTSC 1068000000
 
 #define CIP_N_PAL  1
 #define CIP_D_PAL 16

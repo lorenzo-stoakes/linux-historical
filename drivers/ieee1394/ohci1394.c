@@ -154,7 +154,7 @@ printk(level "%s: " fmt "\n" , OHCI1394_DRIVER_NAME , ## args)
 printk(level "%s_%d: " fmt "\n" , OHCI1394_DRIVER_NAME, card , ## args)
 
 static char version[] __devinitdata =
-	"$Rev: 515 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 530 $ Ben Collins <bcollins@debian.org>";
 
 /* Module Parameters */
 MODULE_PARM(attempt_root,"i");
@@ -2029,10 +2029,10 @@ static quadlet_t ohci_hw_csr_reg(struct hpsb_host *host, int reg,
 }
 
 static struct hpsb_host_operations ohci1394_ops = {
-	get_rom:		ohci_get_rom,
-	transmit_packet:	ohci_transmit,
-	devctl:			ohci_devctl,
-	hw_csr_reg:		ohci_hw_csr_reg,
+	.get_rom =		ohci_get_rom,
+	.transmit_packet =	ohci_transmit,
+	.devctl =		ohci_devctl,
+	.hw_csr_reg =		ohci_hw_csr_reg,
 };
 
 static struct hpsb_host_driver *ohci1394_driver;
@@ -2308,12 +2308,12 @@ static void ohci1394_pci_remove(struct pci_dev *pdev)
 
 static struct pci_device_id ohci1394_pci_tbl[] __devinitdata = {
 	{
-		class: 		PCI_CLASS_FIREWIRE_OHCI,
-		class_mask: 	0x00ffffff,
-		vendor:		PCI_ANY_ID,
-		device:		PCI_ANY_ID,
-		subvendor:	PCI_ANY_ID,
-		subdevice:	PCI_ANY_ID,
+		.class = 		PCI_CLASS_FIREWIRE_OHCI,
+		.class_mask = 	0x00ffffff,
+		.vendor =		PCI_ANY_ID,
+		.device =		PCI_ANY_ID,
+		.subvendor =	PCI_ANY_ID,
+		.subdevice =	PCI_ANY_ID,
 	},
 	{ 0, },
 };
@@ -2321,10 +2321,10 @@ static struct pci_device_id ohci1394_pci_tbl[] __devinitdata = {
 MODULE_DEVICE_TABLE(pci, ohci1394_pci_tbl);
 
 static struct pci_driver ohci1394_pci_driver = {
-	name:		OHCI1394_DRIVER_NAME,
-	id_table:	ohci1394_pci_tbl,
-	probe:		ohci1394_pci_probe,
-	remove:		ohci1394_pci_remove,
+	.name =		OHCI1394_DRIVER_NAME,
+	.id_table =	ohci1394_pci_tbl,
+	.probe =	ohci1394_pci_probe,
+	.remove =	ohci1394_pci_remove,
 };
 
 

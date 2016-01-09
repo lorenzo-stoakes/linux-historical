@@ -382,10 +382,10 @@ static void frame_prepare(struct video_card *video, unsigned int this_frame)
 		
 		/* is this an empty packet? */
 
-		if(video->cip_accum > video->cip_d) {
+		if(video->cip_accum > (video->cip_d - video->cip_n)) {
 			empty_packet = 1;
 			payload_size = 8;
-			video->cip_accum -= video->cip_d;
+			video->cip_accum -= (video->cip_d - video->cip_n);
 		} else {
 			payload_size = 488;
 			video->cip_accum += video->cip_n;
@@ -1467,7 +1467,7 @@ static struct page * dv1394_nopage(struct vm_area_struct * area, unsigned long a
 }
 
 static struct vm_operations_struct dv1394_vm_ops = {
-	nopage: dv1394_nopage
+	.nopage = dv1394_nopage
 };
 
 /*
@@ -2547,15 +2547,15 @@ static void irq_handler(int card, quadlet_t isoRecvIntEvent,
 
 static struct file_operations dv1394_fops=
 {
-	owner:		THIS_MODULE,
-	poll:           dv1394_poll,
-	ioctl:		dv1394_ioctl,
-	mmap:		dv1394_mmap,
-	open:		dv1394_open,
-	write:          dv1394_write,
-	read:           dv1394_read,
-	release:	dv1394_release,
-	fasync:         dv1394_fasync,
+	.owner =	THIS_MODULE,
+	.poll =         dv1394_poll,
+	.ioctl =	dv1394_ioctl,
+	.mmap =		dv1394_mmap,
+	.open =		dv1394_open,
+	.write =        dv1394_write,
+	.read =         dv1394_read,
+	.release =	dv1394_release,
+	.fasync =       dv1394_fasync,
 };
 
 
@@ -2764,8 +2764,10 @@ static int dv1394_init(struct ti_ohci *ohci, enum pal_or_ntsc format, enum modes
 		video->id |= mode;
 	else video->id |= 2 + mode;
 	
+#ifdef CONFIG_DEVFS_FS
 	if (dv1394_devfs_add_entry(video) < 0)
 			goto err_free;
+#endif
 
 	debug_printk("dv1394: dv1394_init() OK on ID %d\n", video->id);
 	
@@ -2788,7 +2790,9 @@ static void dv1394_un_init(struct video_card *video)
 		(video->pal_or_ntsc == DV1394_NTSC ? "NTSC" : "PAL"),
 		(video->mode == MODE_RECEIVE ? "in" : "out")
 		);
+#ifdef CONFIG_DEVFS_FS
 	dv1394_devfs_del(buf);
+#endif
 #ifdef CONFIG_PROC_FS
 	dv1394_procfs_del(buf);
 #endif
@@ -2825,12 +2829,14 @@ static void dv1394_remove_host (struct hpsb_host *host)
 	spin_unlock_irqrestore(&dv1394_cards_lock, flags);
 
 	n = (video->id >> 2);
+#ifdef CONFIG_DEVFS_FS
 	snprintf(buf, sizeof(buf), "dv/host%d/NTSC", n);
 	dv1394_devfs_del(buf);
 	snprintf(buf, sizeof(buf), "dv/host%d/PAL", n);
 	dv1394_devfs_del(buf);
 	snprintf(buf, sizeof(buf), "dv/host%d", n);
 	dv1394_devfs_del(buf);
+#endif
 
 #ifdef CONFIG_PROC_FS
 	snprintf(buf, sizeof(buf), "dv/host%d/NTSC", n);
@@ -2867,6 +2873,7 @@ static void dv1394_add_host (struct hpsb_host *host)
 }
 #endif
 
+#ifdef CONFIG_DEVFS_FS
 	devfs_entry = dv1394_devfs_find("dv");
 	if (devfs_entry != NULL) {
 		snprintf(buf, sizeof(buf), "host%d", ohci->id);
@@ -2874,6 +2881,7 @@ static void dv1394_add_host (struct hpsb_host *host)
 		dv1394_devfs_add_dir("NTSC", devfs_entry, NULL);
 		dv1394_devfs_add_dir("PAL", devfs_entry, NULL);
 	}
+#endif
 	
 	dv1394_init(ohci, DV1394_NTSC, MODE_RECEIVE);
 	dv1394_init(ohci, DV1394_NTSC, MODE_TRANSMIT);
@@ -3001,9 +3009,9 @@ static void dv1394_host_reset(struct hpsb_host *host)
 }
 
 static struct hpsb_highlevel_ops hl_ops = {
-	add_host:	dv1394_add_host,
-	remove_host:	dv1394_remove_host,
-	host_reset:     dv1394_host_reset,
+	.add_host =	dv1394_add_host,
+	.remove_host =	dv1394_remove_host,
+	.host_reset =   dv1394_host_reset,
 };
 
 
@@ -3018,7 +3026,9 @@ static void __exit dv1394_exit_module(void)
 {
 	hpsb_unregister_highlevel (hl_handle);
 	ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
+#ifdef CONFIG_DEVFS_FS
 	dv1394_devfs_del("dv");
+#endif
 #ifdef CONFIG_PROC_FS
 	dv1394_procfs_del("dv");
 #endif
@@ -3032,17 +3042,21 @@ static int __init dv1394_init_module(void)
 		return -EIO;
 	}
 
+#ifdef CONFIG_DEVFS_FS
 	if (dv1394_devfs_add_dir("dv", NULL, NULL) < 0) {
 		printk(KERN_ERR "dv1394: unable to create /dev/ieee1394/dv\n");
 		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
 		return -ENOMEM;
 	}
+#endif
 
 #ifdef CONFIG_PROC_FS
 	if (dv1394_procfs_add_dir("dv",NULL,NULL) < 0) {
 		printk(KERN_ERR "dv1394: unable to create /proc/bus/ieee1394/dv\n");
 		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
+#ifdef CONFIG_DEVFS_FS
 		dv1394_devfs_del("dv");
+#endif
 		return -ENOMEM;
 	}
 #endif
@@ -3051,7 +3065,9 @@ static int __init dv1394_init_module(void)
 	if (hl_handle == NULL) {
 		printk(KERN_ERR "dv1394: hpsb_register_highlevel failed\n");
 		ieee1394_unregister_chardev(IEEE1394_MINOR_BLOCK_DV1394);
+#ifdef CONFIG_DEVFS_FS
 		dv1394_devfs_del("dv");
+#endif
 #ifdef CONFIG_PROC_FS
 		dv1394_procfs_del("dv");
 #endif

@@ -1368,11 +1368,11 @@ static void irq_handler(int card, quadlet_t isoRecvIntEvent,
 
 static struct file_operations video1394_fops=
 {
-	owner:		THIS_MODULE,
-	ioctl:		video1394_ioctl,
-	mmap:		video1394_mmap,
-	open:		video1394_open,
-	release:	video1394_release
+	.owner =	THIS_MODULE,
+	.ioctl =	video1394_ioctl,
+	.mmap =		video1394_mmap,
+	.open =		video1394_open,
+	.release =	video1394_release
 };
 
 static int video1394_init(struct ti_ohci *ohci)
@@ -1460,8 +1460,8 @@ static void video1394_add_host (struct hpsb_host *host)
 }
 
 static struct hpsb_highlevel_ops hl_ops = {
-	add_host:	video1394_add_host,
-	remove_host:	video1394_remove_host,
+	.add_host =	video1394_add_host,
+	.remove_host =	video1394_remove_host,
 };
 
 MODULE_AUTHOR("Sebastien Rougeaux <sebastien.rougeaux@anu.edu.au>");
