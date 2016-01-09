@@ -27,7 +27,6 @@
 
 #include "pci-x86_64.h"
 
-int use_acpi_pci = 1;
 unsigned int pci_probe = PCI_PROBE_CONF1 | PCI_PROBE_CONF2;
 
 int pcibios_last_bus = -1;
@@ -570,14 +569,6 @@ void __devinit pcibios_config_init(void)
 	return;
 }
 
-static int use_acpi_pci __initdata = 1;
-
-__init void pci_disable_acpi(void)
-{
-	use_acpi_pci = 0;
-	return;
-}
-
 void __devinit pcibios_init(void)
 {
 	struct pci_ops *dir = NULL;
@@ -598,7 +589,7 @@ void __devinit pcibios_init(void)
 
 	printk(KERN_INFO "PCI: Probing PCI hardware\n");
 #ifdef CONFIG_ACPI_PCI
- 	if (!acpi_disabled && use_acpi_pci && !acpi_pci_irq_init())
+ 	if (!acpi_disabled && !acpi_noirq && !acpi_pci_irq_init())
  		pci_using_acpi_prt = 1;
 #endif
  	if (!pci_using_acpi_prt) {
@@ -671,7 +662,7 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 		return err;
 
 #ifdef CONFIG_ACPI_PCI
-	if (use_acpi_pci && pci_using_acpi_prt) {
+	if (!acpi_noirq && pci_using_acpi_prt) {
 		acpi_pci_irq_enable(dev);
 		return 0;
 	}

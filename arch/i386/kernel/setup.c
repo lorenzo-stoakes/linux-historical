@@ -185,12 +185,9 @@ static u32 disabled_x86_caps[NCAPINTS] __initdata = { 0 };
 EXPORT_SYMBOL(acpi_disabled);
 
 #ifdef	CONFIG_ACPI_BOOT
-	int acpi_irq __initdata = 1; 	/* enable IRQ */
-	int acpi_ht __initdata = 1; 	/* enable HT */
-#endif
-
-
+extern	int __initdata acpi_ht;
 int acpi_force __initdata = 0;
+#endif
 
 extern int blk_nohighio;
 
@@ -853,7 +850,7 @@ static void __init parse_cmdline_early (char ** cmdline_p)
 		} 
 
 		else if (!memcmp(from, "pci=noacpi", 10)) { 
-			acpi_irq = 0; 
+			acpi_noirq_set();
 		}
 
                 /* disable IO-APIC */

@@ -107,7 +107,7 @@
 #ifdef CONFIG_ACPI_BOOT 
 extern int acpi_lapic;
 extern int acpi_ioapic;
-
+extern int acpi_noirq;
 
 /* Fixmap pages to reserve for ACPI boot-time tables (see fixmap.h) */
 #define FIX_ACPI_PAGES 4
@@ -119,10 +119,11 @@ extern int acpi_ioapic;
 #endif
 
 #ifdef CONFIG_ACPI_PCI
+static inline void acpi_noirq_set(void) { acpi_noirq = 1; }
 extern int acpi_irq_balance_set(char *str);
 #else
-static inline int acpi_irq_balance_set(char *str)
-{ return 0; }
+static inline void acpi_noirq_set(void) { }
+static inline int acpi_irq_balance_set(char *str) { return 0; }
 #endif
 
 #ifdef CONFIG_ACPI_SLEEP
@@ -142,8 +143,6 @@ extern void acpi_reserve_bootmem(void);
 #define boot_cpu_physical_apicid boot_cpu_id
 
 extern void mp_config_ioapic_for_sci(int irq);
-
-extern int use_acpi_pci;
 
 #endif /*__KERNEL__*/
 

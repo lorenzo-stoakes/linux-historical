@@ -44,7 +44,6 @@
 #include <asm/io_apic.h>
 #include <asm/proto.h>
 
-extern int acpi_disabled;
 
 #define PREFIX			"ACPI: "
 
@@ -57,7 +56,6 @@ int acpi_ioapic = 0;
 
 #ifdef CONFIG_ACPI_BOOT
 
-extern int acpi_irq;
 enum acpi_irq_model_id		acpi_irq_model;
 
 
@@ -397,7 +395,6 @@ acpi_find_rsdp (void)
 
 int __init
 acpi_boot_init (void)
-	
 {
 	int			result = 0;
 
@@ -419,19 +416,7 @@ acpi_boot_init (void)
 
 #ifdef CONFIG_X86_LOCAL_APIC
 
-	/* 
-	 * ACPI interpreter is required to complete interrupt setup,
-	 * so if it is off, don't enumerate the io-apics with ACPI.
-	 * If MPS is present, it will handle them,
-	 * otherwise the system will stay in PIC mode
-	 */
-	if (acpi_disabled) {
-		return 1;
-	}
-
-	if (!use_acpi_pci)
-		return 0; 
-
+	/* this check should not need to be here -lenb */
 	/* If "nolocalapic" is specified don't look further */
 	extern int apic_disabled;
 	if (apic_disabled) {
@@ -522,7 +507,7 @@ acpi_boot_init (void)
 	 * If MPS is present, it will handle them,
 	 * otherwise the system will stay in PIC mode
 	 */
-	if (acpi_disabled || !acpi_irq) {
+	if (acpi_disabled || acpi_noirq) {
 		return 1;
 	}
 

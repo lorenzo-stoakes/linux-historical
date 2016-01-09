@@ -50,7 +50,7 @@
 
 int acpi_disabled = 0;
 #ifdef	CONFIG_ACPI_BOOT
-int acpi_irq __initdata = 1;	/* enable IRQ */
+int acpi_noirq __initdata = 0;	/* skip ACPI IRQ initialization */
 #endif
 
 
