@@ -42,6 +42,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    fi
    bool '  HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
    bool '  HiSax Support for US NI1' CONFIG_HISAX_NI1
+   int  '  Maximum number of cards supported by HiSax' CONFIG_HISAX_MAX_CARDS 8
    comment '  HiSax supported cards'
    bool '  Teles 16.0/8.0' CONFIG_HISAX_16_0
    bool '  Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3

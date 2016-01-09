@@ -43,7 +43,6 @@
 #define NCR5380_BIOSPARAM NULL
 #endif
 
-#ifndef ASM
 int generic_NCR5380_abort(Scsi_Cmnd *);
 int generic_NCR5380_detect(Scsi_Host_Template *);
 int generic_NCR5380_release_resources(struct Scsi_Host *);
@@ -56,10 +55,6 @@ int generic_NCR5380_biosparam(Disk *, kdev_t, int *);
 #endif
 
 int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int length, int hostno, int inout);
-
-#ifndef NULL
-#define NULL 0
-#endif
 
 #ifndef CMD_PER_LUN
 #define CMD_PER_LUN 2
@@ -91,19 +86,15 @@ int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int leng
 #define STRVAL(x) __STRVAL(x)
 
 #ifdef CONFIG_SCSI_G_NCR5380_PORT
-
 #define NCR5380_map_config port
-
 #define NCR5380_map_type int
-
 #define NCR5380_map_name port
-
 #define NCR5380_instance_name io_port
-
 #define NCR53C400_register_offset 0
-
 #define NCR53C400_address_adjust 8
-
+/*
+ *	FIXME: size should be runtime decided
+ */
 #ifdef NCR53C400
 #define NCR5380_region_size 16
 #else
@@ -117,23 +108,14 @@ int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int leng
 /* therefore CONFIG_SCSI_G_NCR5380_MEM */
 
 #define NCR5380_map_config memory
-
 #define NCR5380_map_type unsigned long
-
 #define NCR5380_map_name base
-
 #define NCR5380_instance_name base
-
 #define NCR53C400_register_offset 0x108
-
 #define NCR53C400_address_adjust 0
-
 #define NCR53C400_mem_base 0x3880
-
 #define NCR53C400_host_buffer 0x3900
-
 #define NCR5380_region_size 0x3a00
-
 
 #define NCR5380_read(reg) isa_readb(NCR5380_map_name + NCR53C400_mem_base + (reg))
 #define NCR5380_write(reg, value) isa_writeb(NCR5380_map_name + NCR53C400_mem_base + (reg), value)
@@ -164,5 +146,4 @@ int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int leng
 #define BOARD_DTC3181E	3
 
 #endif				/* else def HOSTS_C */
-#endif				/* ndef ASM */
 #endif				/* GENERIC_NCR5380_H */

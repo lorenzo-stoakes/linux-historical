@@ -1,6 +1,6 @@
 #define AUTOSENSE
 #define PSEUDO_DMA
-#define FOO
+#define BOARD_REQUIRES_NO_UDELAY	/* PAS16 needs no I/O recovery delays */
 #define UNSAFE  /* Not unsafe for PAS16 -- use it */
 
 /*

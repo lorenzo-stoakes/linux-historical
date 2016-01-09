@@ -2203,12 +2203,15 @@ static void ymfpci_aclink_reset(struct pci_dev * pci)
 {
 	u8 cmd;
 
+	/*
+	 * In the 744, 754 only 0x01 exists, 0x02 is undefined.
+	 * It does not seem to hurt to trip both regardless of revision.
+	 */
 	pci_read_config_byte(pci, PCIR_DSXGCTRL, &cmd);
-	if (cmd & 0x03) {
-		pci_write_config_byte(pci, PCIR_DSXGCTRL, cmd & 0xfc);
-		pci_write_config_byte(pci, PCIR_DSXGCTRL, cmd | 0x03);
-		pci_write_config_byte(pci, PCIR_DSXGCTRL, cmd & 0xfc);
-	}
+	pci_write_config_byte(pci, PCIR_DSXGCTRL, cmd & 0xfc);
+	pci_write_config_byte(pci, PCIR_DSXGCTRL, cmd | 0x03);
+	pci_write_config_byte(pci, PCIR_DSXGCTRL, cmd & 0xfc);
+
 	pci_write_config_word(pci, PCIR_DSXPWRCTRL1, 0);
 	pci_write_config_word(pci, PCIR_DSXPWRCTRL2, 0);
 }

@@ -27,6 +27,9 @@
  * 10-Nov-2001 Wolfgang Grandegger
  *   - Fixed an endianess problem with the baudrate selection for PowerPC.
  *
+ * 06-Dec-2001 Martin Hamilton <martinh@gnu.org>
+ *	Added support for the Belkin F5U109 DB9 adaptor
+ *
  * 30-May-2001 Greg Kroah-Hartman
  *	switched from using spinlock to a semaphore, which fixes lots of problems.
  *
@@ -133,11 +136,13 @@ static __devinitdata struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(MCT_U232_VID, MCT_U232_PID) },
 	{ USB_DEVICE(MCT_U232_VID, MCT_U232_SITECOM_PID) },
 	{ USB_DEVICE(MCT_U232_VID, MCT_U232_DU_H3SP_PID) },
+	{ USB_DEVICE(MCT_U232_BELKIN_F5U109_VID, MCT_U232_BELKIN_F5U109_PID) },
 	{ }		/* Terminating entry */
 };
 
 static __devinitdata struct usb_device_id mct_u232_table [] = {
         { USB_DEVICE(MCT_U232_VID, MCT_U232_PID) },
+	{ USB_DEVICE(MCT_U232_BELKIN_F5U109_VID, MCT_U232_BELKIN_F5U109_PID) },
         { }                        /* Terminating entry */
 };
 
@@ -243,7 +248,8 @@ struct mct_u232_private {
 #define WDR_TIMEOUT (HZ * 5 ) /* default urb timeout */
 
 static int mct_u232_calculate_baud_rate(struct usb_serial *serial, int value) {
-	if (serial->dev->descriptor.idProduct == MCT_U232_SITECOM_PID) {
+	if (serial->dev->descriptor.idProduct == MCT_U232_SITECOM_PID
+	  || serial->dev->descriptor.idProduct == MCT_U232_BELKIN_F5U109_PID) {
 		switch (value) {
 			case    300: return 0x01;
 			case    600: return 0x02; /* this one not tested */
