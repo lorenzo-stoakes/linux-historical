@@ -24,7 +24,7 @@
 #include <asm/uaccess.h>
 #include <asm/sgi/sgimc.h>
 
-static int indydog_alive;
+static unsigned long indydog_alive;
 static struct sgimc_misc_ctrl *mcmisc_regs; 
 
 static void indydog_ping()
@@ -41,7 +41,7 @@ static int indydog_open(struct inode *inode, struct file *file)
 {
 	u32 mc_ctrl0;
 	
-	if(indydog_alive)
+	if( test_and_set_bit(0,&indydog_alive) )
 		return -EBUSY;
 #ifdef CONFIG_WATCHDOG_NOWAYOUT
 	MOD_INC_USE_COUNT;
@@ -55,7 +55,6 @@ static int indydog_open(struct inode *inode, struct file *file)
 	mcmisc_regs->cpuctrl0 = mc_ctrl0;
 	indydog_ping();
 			
-	indydog_alive=1;
 	printk("Started watchdog timer.\n");
 	return 0;
 }
@@ -66,7 +65,6 @@ static int indydog_release(struct inode *inode, struct file *file)
 	 *	Shut off the timer.
 	 * 	Lock it in if it's a module and we defined ...NOWAYOUT
 	 */
-	 lock_kernel();
 #ifndef CONFIG_WATCHDOG_NOWAYOUT
 	{
 	u32 mc_ctrl0 = mcmisc_regs->cpuctrl0; 
@@ -75,8 +73,7 @@ static int indydog_release(struct inode *inode, struct file *file)
 	printk("Stopped watchdog timer.\n");
 	}
 #endif
-	indydog_alive=0;
-	unlock_kernel();
+	clear_bit(0,&indydog_alive);
 	return 0;
 }
 

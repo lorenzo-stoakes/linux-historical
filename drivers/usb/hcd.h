@@ -37,7 +37,7 @@ struct usb_hcd {	/* usb_bus.hcpriv points to this */
 	struct list_head	hcd_list;
 
 	const char		*bus_name;
-
+	const char		*product_desc;
 	const char		*description;	/* "ehci-hcd" etc */
 
 	struct timer_list	rh_timer;	/* drives root hub */

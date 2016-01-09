@@ -47,9 +47,7 @@
 #include <linux/usb.h>
 
 #include "hid.h"
-#ifdef CONFIG_USB_HIDDEV
 #include <linux/hiddev.h>
-#endif
 
 /*
  * Version Information
@@ -204,16 +202,12 @@ static int hid_add_field(struct hid_parser *parser, unsigned report_type, unsign
 		return -1;
 	}
 
-	if (HID_MAIN_ITEM_VARIABLE & ~flags) { /* ARRAY */
-		if (parser->global.logical_maximum <= parser->global.logical_minimum) {
-			dbg("logical range invalid %d %d", parser->global.logical_minimum, parser->global.logical_maximum);
-			return -1;
-		}
-		usages = parser->local.usage_index;
-		/* Hint: we can assume usages < MAX_USAGE here */
-	} else { /* VARIABLE */
-		usages = parser->global.report_count;
+	if (parser->global.logical_maximum <= parser->global.logical_minimum) {
+		dbg("logical range invalid %d %d", parser->global.logical_minimum, parser->global.logical_maximum);
+		return -1;
 	}
+
+	usages = parser->local.usage_index;
 
 	offset = report->size;
 	report->size += parser->global.report_size * parser->global.report_count;
@@ -310,7 +304,10 @@ static int hid_parser_global(struct hid_parser *parser, struct hid_item *item)
 			return 0;
 
 		case HID_GLOBAL_ITEM_TAG_LOGICAL_MAXIMUM:
-			parser->global.logical_maximum = item_sdata(item);
+			if (parser->global.logical_minimum < 0)
+				parser->global.logical_maximum = item_sdata(item);
+			else
+				parser->global.logical_maximum = item_udata(item);
 			return 0;
 
 		case HID_GLOBAL_ITEM_TAG_PHYSICAL_MINIMUM:
@@ -318,7 +315,10 @@ static int hid_parser_global(struct hid_parser *parser, struct hid_item *item)
 			return 0;
 
 		case HID_GLOBAL_ITEM_TAG_PHYSICAL_MAXIMUM:
-			parser->global.physical_maximum = item_sdata(item);
+			if (parser->global.physical_minimum < 0)
+				parser->global.physical_maximum = item_sdata(item);
+			else
+				parser->global.physical_maximum = item_udata(item);
 			return 0;
 
 		case HID_GLOBAL_ITEM_TAG_UNIT_EXPONENT:
@@ -735,10 +735,8 @@ static void hid_process_event(struct hid_device *hid, struct hid_field *field, s
 	hid_dump_input(usage, value);
 	if (hid->claimed & HID_CLAIMED_INPUT)
 		hidinput_hid_event(hid, field, usage, value);
-#ifdef CONFIG_USB_HIDDEV
 	if (hid->claimed & HID_CLAIMED_HIDDEV)
 		hiddev_hid_event(hid, usage->hid, value);
-#endif
 }
 
 
@@ -1239,10 +1237,8 @@ static void* hid_probe(struct usb_device *dev, unsigned int ifnum,
 
 	if (!hidinput_connect(hid))
 		hid->claimed |= HID_CLAIMED_INPUT;
-#ifdef CONFIG_USB_HIDDEV
 	if (!hiddev_connect(hid))
 		hid->claimed |= HID_CLAIMED_HIDDEV;
-#endif
 	printk(KERN_INFO);
 
 	if (hid->claimed & HID_CLAIMED_INPUT)
@@ -1272,13 +1268,10 @@ static void hid_disconnect(struct usb_device *dev, void *ptr)
 
 	dbg("cleanup called");
 	usb_unlink_urb(&hid->urb);
-
 	if (hid->claimed & HID_CLAIMED_INPUT)
 		hidinput_disconnect(hid);
-#ifdef CONFIG_USB_HIDDEV
 	if (hid->claimed & HID_CLAIMED_HIDDEV)
 		hiddev_disconnect(hid);
-#endif
 	hid_free_device(hid);
 }
 
@@ -1299,9 +1292,7 @@ static struct usb_driver hid_driver = {
 
 static int __init hid_init(void)
 {
-#ifdef CONFIG_USB_HIDDEV
 	hiddev_init();
-#endif
 	usb_register(&hid_driver);
 	info(DRIVER_VERSION " " DRIVER_AUTHOR);
 	info(DRIVER_DESC);
@@ -1311,9 +1302,7 @@ static int __init hid_init(void)
 
 static void __exit hid_exit(void)
 {
-#ifdef CONFIG_USB_HIDDEV
 	hiddev_exit();
-#endif
 	usb_deregister(&hid_driver);
 }
 

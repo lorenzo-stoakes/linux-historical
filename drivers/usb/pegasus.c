@@ -484,14 +484,12 @@ static int enable_net_traffic( struct net_device *dev, struct usb_device *usb )
 	__u8	data[4];
 	pegasus_t *pegasus = dev->priv;
 
-
-	if ( read_mii_word(pegasus, pegasus->phy, MII_BMSR, &bmsr) ) 
-		return 1;
-#if 0
-	if ( !(bmsr & 0x20) && !loopback ) 
+	/* read twice 'cos this is a latch bit */
+	read_mii_word(pegasus, pegasus->phy, MII_BMSR, &bmsr);
+	read_mii_word(pegasus, pegasus->phy, MII_BMSR, &bmsr);
+	if ( !(bmsr & 4) && !loopback ) 
 		warn( "%s: link NOT established (0x%x) - check the cable.",
 			dev->name, bmsr );
-#endif
 	if ( read_mii_word(pegasus, pegasus->phy, MII_LPA, &linkpart) )
 		return 2;
 	if ( !(linkpart & 1) )
@@ -1021,11 +1019,11 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 		usb_free_urb (pegasus->rx_urb);
 		usb_free_urb (pegasus->ctrl_urb);
 		kfree( pegasus );
-		pegasus = NULL;
-		goto exit;
+		return NULL;
 	}
 
 	init_MUTEX(&pegasus->sem);
+	down(&pegasus->sem);
 	pegasus->usb = dev;
 	pegasus->net = net;
 	SET_MODULE_OWNER(net);
@@ -1072,7 +1070,7 @@ static void * pegasus_probe( struct usb_device *dev, unsigned int ifnum,
 	}
 
 exit:
-	up(&gsem);
+	up(&pegasus->sem);
 	return pegasus;
 }
 

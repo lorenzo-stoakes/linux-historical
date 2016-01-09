@@ -4490,22 +4490,6 @@ MODULE_LICENSE("GPL");
 
 __setup ("floppy=", floppy_setup);
 
-/* eject the boot floppy (if we need the drive for a different root floppy) */
-/* This should only be called at boot time when we're sure that there's no
- * resource contention. */
-void floppy_eject(void)
-{
-	int dummy;
-	if (have_no_fdc)
-		return;
-	if(floppy_grab_irq_and_dma()==0)
-	{
-		lock_fdc(MAXTIMEOUT,0);
-		dummy=fd_eject(0);
-		process_fd_request();
-		floppy_release_irq_and_dma();
-	}
-}
 #endif
 
 EXPORT_NO_SYMBOLS;

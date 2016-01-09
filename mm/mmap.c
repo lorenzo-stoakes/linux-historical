@@ -14,6 +14,7 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/personality.h>
+#include <linux/compiler.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgalloc.h>
@@ -548,7 +549,30 @@ munmap_back:
 	 * Answer: Yes, several device drivers can do it in their
 	 *         f_op->mmap method. -DaveM
 	 */
-	addr = vma->vm_start;
+	if (addr != vma->vm_start) {
+		/*
+		 * It is a bit too late to pretend changing the virtual
+		 * area of the mapping, we just corrupted userspace
+		 * in the do_munmap, so FIXME (not in 2.4 to avoid breaking
+		 * the driver API).
+		 */
+		struct vm_area_struct * stale_vma;
+		/* Since addr changed, we rely on the mmap op to prevent 
+		 * collisions with existing vmas and just use find_vma_prepare 
+		 * to update the tree pointers.
+		 */
+		addr = vma->vm_start;
+		stale_vma = find_vma_prepare(mm, addr, &prev,
+						&rb_link, &rb_parent);
+		/*
+		 * Make sure the lowlevel driver did its job right.
+		 */
+		if (unlikely(stale_vma && stale_vma->vm_start < vma->vm_end)) {
+			printk(KERN_ERR "buggy mmap operation: [<%p>]\n",
+				file ? file->f_op->mmap : NULL);
+			BUG();
+		}
+	}
 
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 	if (correct_wcount)

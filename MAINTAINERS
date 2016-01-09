@@ -1395,6 +1395,13 @@ P:	Ingo Molnar
 M:	mingo@redhat.com
 S:	Maintained
 
+SIS 5513 IDE CONTROLLER DRIVER
+P:      Lionel Bouton
+M:      Lionel.Bouton@inet6.fr
+W:      http://inet6.dyn.dhs.org/sponsoring/sis5513/index.html
+W:      http://gyver.homeip.net/sis5513/index.html
+S:      Maintained
+
 SIS 900/7016 FAST ETHERNET DRIVER
 P:	Ollie Lho
 M:	ollie@sis.com.tw
@@ -1509,12 +1516,10 @@ M:	hch@infradead.org
 S:	Maintained
 
 TLAN NETWORK DRIVER
-P:	Torben Mathiasen
-M:	torben.mathiasen@compaq.com
-M:	torben@kernel.dk
-L:	tlan@vuser.vu.union.edu
-L:	linux-net@vger.kernel.org
-W:	http://tlan.kernel.dk
+P:	Samuel Chessman
+M:	chessman@tux.org
+L:	tlan-devel@lists.sourceforge.net
+W:	http://sourceforge.net/projects/tlan/
 S:	Maintained
 
 TOKEN-RING NETWORK DRIVER

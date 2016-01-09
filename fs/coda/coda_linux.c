@@ -15,7 +15,6 @@
 #include <linux/stat.h>
 #include <linux/errno.h>
 #include <linux/locks.h>
-#include <asm/segment.h>
 #include <asm/uaccess.h>
 #include <linux/string.h>
 
@@ -26,7 +25,6 @@
 
 /* initialize the debugging variables */
 int coda_debug;
-int coda_print_entry; 
 int coda_access_cache = 1;
 int coda_fake_statfs;
 

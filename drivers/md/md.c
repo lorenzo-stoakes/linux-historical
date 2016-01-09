@@ -3486,7 +3486,7 @@ recheck:
 	 * this also signals 'finished resyncing' to md_stop
 	 */
 out:
-	wait_event(mddev->recovery_wait, atomic_read(&mddev->recovery_active)==0);
+	wait_disk_event(mddev->recovery_wait, atomic_read(&mddev->recovery_active)==0);
 	up(&mddev->resync_sem);
 out_nolock:
 	mddev->curr_resync = 0;

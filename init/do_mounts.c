@@ -3,13 +3,10 @@
 #include <linux/slab.h>
 #include <linux/devfs_fs_kernel.h>
 #include <linux/unistd.h>
-#include <linux/string.h>
 #include <linux/ctype.h>
-#include <linux/init.h>
-#include <linux/smp_lock.h>
 #include <linux/blk.h>
-#include <linux/tty.h>
 #include <linux/fd.h>
+#include <linux/tty.h>
 
 #include <linux/nfs_fs.h>
 #include <linux/nfs_fs_sb.h>
@@ -18,12 +15,9 @@
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
 
-#include <asm/uaccess.h>
-
 #define BUILD_CRAMDISK
 
 extern int get_filesystem_list(char * buf);
-extern void wait_for_keypress(void);
 
 asmlinkage long sys_mount(char *dev_name, char *dir_name, char *type,
 	 unsigned long flags, void *data);
@@ -38,12 +32,21 @@ asmlinkage long sys_ioctl(int fd, int cmd, unsigned long arg);
 
 #ifdef CONFIG_BLK_DEV_INITRD
 unsigned int real_root_dev;	/* do_proc_dointvec cannot handle kdev_t */
-#endif
-#ifdef CONFIG_BLK_DEV_RAM
-extern int rd_doload;
+static int __initdata mount_initrd = 1;
+
+static int __init no_initrd(char *str)
+{
+	mount_initrd = 0;
+	return 1;
+}
+
+__setup("noinitrd", no_initrd);
 #else
-static int rd_doload = 0;
+static int __initdata mount_initrd = 0;
 #endif
+
+int __initdata rd_doload;	/* 1 = load RAM disk, 0 = don't load */
+
 int root_mountflags = MS_RDONLY | MS_VERBOSE;
 static char root_device_name[64];
 
@@ -51,6 +54,13 @@ static char root_device_name[64];
 kdev_t ROOT_DEV;
 
 static int do_devfs = 0;
+
+static int __init load_ramdisk(char *str)
+{
+	rd_doload = simple_strtol(str,NULL,0) & 3;
+	return 1;
+}
+__setup("load_ramdisk=", load_ramdisk);
 
 static int __init readonly(char *str)
 {
@@ -351,28 +361,53 @@ static int __init create_dev(char *name, kdev_t dev, char *devfs_name)
 	return sys_symlink(path + n + 5, name);
 }
 
-#ifdef CONFIG_MAC_FLOPPY
-int swim3_fd_eject(int devnum);
-#endif
 static void __init change_floppy(char *fmt, ...)
 {
-	extern void wait_for_keypress(void);
+	struct termios termios;
 	char buf[80];
+	char c;
+	int fd;
 	va_list args;
 	va_start(args, fmt);
 	vsprintf(buf, fmt, args);
 	va_end(args);
-#ifdef CONFIG_BLK_DEV_FD
-	floppy_eject();
-#endif
-#ifdef CONFIG_MAC_FLOPPY
-	swim3_fd_eject(MINOR(ROOT_DEV));
-#endif
+	fd = open("/dev/root", O_RDWR, 0);
+	if (fd >= 0) {
+		sys_ioctl(fd, FDEJECT, 0);
+		close(fd);
+	}
 	printk(KERN_NOTICE "VFS: Insert %s and press ENTER\n", buf);
-	wait_for_keypress();
+	fd = open("/dev/console", O_RDWR, 0);
+	if (fd >= 0) {
+		sys_ioctl(fd, TCGETS, (long)&termios);
+		termios.c_lflag &= ~ICANON;
+		sys_ioctl(fd, TCSETSF, (long)&termios);
+		read(fd, &c, 1);
+		termios.c_lflag |= ICANON;
+		sys_ioctl(fd, TCSETSF, (long)&termios);
+		close(fd);
+	}
 }
 
 #ifdef CONFIG_BLK_DEV_RAM
+
+int __initdata rd_prompt = 1;	/* 1 = prompt for RAM disk, 0 = don't prompt */
+
+static int __init prompt_ramdisk(char *str)
+{
+	rd_prompt = simple_strtol(str,NULL,0) & 1;
+	return 1;
+}
+__setup("prompt_ramdisk=", prompt_ramdisk);
+
+int __initdata rd_image_start;		/* starting block # of image */
+
+static int __init ramdisk_start_setup(char *str)
+{
+	rd_image_start = simple_strtol(str,NULL,0);
+	return 1;
+}
+__setup("ramdisk_start=", ramdisk_start_setup);
 
 static int __init crd_load(int in_fd, int out_fd);
 
@@ -591,13 +626,69 @@ out:
 static int __init rd_load_disk(int n)
 {
 #ifdef CONFIG_BLK_DEV_RAM
-	extern int rd_prompt;
 	if (rd_prompt)
 		change_floppy("root floppy disk to be loaded into RAM disk");
 	create_dev("/dev/ram", MKDEV(RAMDISK_MAJOR, n), NULL);
 #endif
 	return rd_load_image("/dev/root");
 }
+
+#ifdef CONFIG_DEVFS_FS
+
+static void __init convert_name(char *prefix, char *name, char *p, int part)
+{
+	int host, bus, target, lun;
+	char dest[64];
+	char src[64];
+	char *base = p - 1;
+
+	/*  Decode "c#b#t#u#"  */
+	if (*p++ != 'c')
+		return;
+	host = simple_strtol(p, &p, 10);
+	if (*p++ != 'b')
+		return;
+	bus = simple_strtol(p, &p, 10);
+	if (*p++ != 't')
+		return;
+	target = simple_strtol(p, &p, 10);
+	if (*p++ != 'u')
+		return;
+	lun = simple_strtol(p, &p, 10);
+	if (!part)
+		sprintf(dest, "%s/host%d/bus%d/target%d/lun%d",
+				prefix, host, bus, target, lun);
+	else if (*p++ == 'p')
+		sprintf(dest, "%s/host%d/bus%d/target%d/lun%d/part%s",
+				prefix, host, bus, target, lun, p);
+	else
+		sprintf(dest, "%s/host%d/bus%d/target%d/lun%d/disc",
+				prefix, host, bus, target, lun);
+	*base = '\0';
+	sprintf(src, "/dev/%s", name);
+	sys_mkdir(src, 0755);
+	*base = '/';
+	sprintf(src, "/dev/%s", name);
+	sys_symlink(dest, src);
+}
+
+static void __init devfs_make_root(char *name)
+{
+
+	if (!strncmp(name, "sd/", 3))
+		convert_name("../scsi", name, name+3, 1);
+	else if (!strncmp(name, "sr/", 3))
+		convert_name("../scsi", name, name+3, 0);
+	else if (!strncmp(name, "ide/hd/", 7))
+		convert_name("..", name, name + 7, 1);
+	else if (!strncmp(name, "ide/cd/", 7))
+		convert_name("..", name, name + 7, 0);
+}
+#else
+static void __init devfs_make_root(char *name)
+{
+}
+#endif
 
 static void __init mount_root(void)
 {
@@ -718,24 +809,22 @@ static int __init initrd_load(void)
  */
 void prepare_namespace(void)
 {
-	int do_initrd = 0;
 	int is_floppy = MAJOR(ROOT_DEV) == FLOPPY_MAJOR;
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (!initrd_start)
 		mount_initrd = 0;
-	if (mount_initrd)
-		do_initrd = 1;
 	real_root_dev = ROOT_DEV;
 #endif
 	sys_mkdir("/dev", 0700);
 	sys_mkdir("/root", 0700);
+	sys_mknod("/dev/console", S_IFCHR|0600, MKDEV(TTYAUX_MAJOR, 1));
 #ifdef CONFIG_DEVFS_FS
 	sys_mount("devfs", "/dev", "devfs", 0, NULL);
 	do_devfs = 1;
 #endif
 
 	create_dev("/dev/root", ROOT_DEV, NULL);
-	if (do_initrd) {
+	if (mount_initrd) {
 		if (initrd_load() && ROOT_DEV != MKDEV(RAMDISK_MAJOR, 0)) {
 			handle_initrd();
 			goto out;

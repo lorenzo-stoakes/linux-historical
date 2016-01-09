@@ -774,11 +774,6 @@ static kdev_t ser_console_device(struct console *c)
 	return MKDEV(TTY_MAJOR, 64 + c->index);
 }
 
-static int ser_console_wait_key(struct console *cons)
-{
-	panic("ser_console_wait_key called");
-}
-
 static int ser_console_setup(struct console *cons, char *str)
 {
 	/* Initialize the transmitter */
@@ -791,7 +786,6 @@ static struct console sb1250_ser_cons = {
 	name:		"ttyS",
 	write:		ser_console_write,
 	device:		ser_console_device,
-	wait_key:	ser_console_wait_key,
 	setup:		ser_console_setup,
 	flags:		CON_PRINTBUFFER,
 	index:		-1,

@@ -30,6 +30,7 @@ struct request {
 	kdev_t rq_dev;
 	int cmd;		/* READ or WRITE */
 	int errors;
+	unsigned long start_time;
 	unsigned long sector;
 	unsigned long nr_sectors;
 	unsigned long hard_sector, hard_nr_sectors;

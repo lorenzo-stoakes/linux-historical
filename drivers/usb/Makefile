@@ -16,7 +16,7 @@ export-objs		:= usb.o ov511.o pwc-uncompress.o
 
 list-multi		:= usbcore.o hid.o pwc.o
 usbcore-objs		:= usb.o usb-debug.o hub.o
-hid-objs		:= hid-core.o hid-input.o
+hid-objs		:= hid-core.o
 pwc-objs		:= pwc-if.o pwc-misc.o pwc-ctrl.o pwc-uncompress.o
 
 
@@ -28,6 +28,10 @@ endif
 
 ifeq ($(CONFIG_USB_HIDDEV),y)
 	hid-objs	+= hiddev.o
+endif
+
+ifeq ($(CONFIG_USB_HIDINPUT),y)
+	hid-objs	+= hid-input.o
 endif
 
 # Object file lists.
@@ -77,6 +81,7 @@ obj-$(CONFIG_USB_OV511)		+= ov511.o
 obj-$(CONFIG_USB_SE401)		+= se401.o
 obj-$(CONFIG_USB_STV680)	+= stv680.o
 obj-$(CONFIG_USB_PEGASUS)	+= pegasus.o
+obj-$(CONFIG_USB_RTL8150)	+= rtl8150.o
 obj-$(CONFIG_USB_CATC)		+= catc.o
 obj-$(CONFIG_USB_KAWETH)        += kaweth.o
 obj-$(CONFIG_USB_CDCETHER)	+= CDCEther.o

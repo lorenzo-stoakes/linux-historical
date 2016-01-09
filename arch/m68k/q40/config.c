@@ -36,7 +36,6 @@
 #include <asm/q40_master.h>
 #include <asm/keyboard.h>
 
-extern void floppy_eject(void);
 extern void floppy_setup(char *str, int *ints);
 
 extern int q40kbd_translate(unsigned char scancode, unsigned char *keycode,
@@ -73,10 +72,8 @@ static void q40_mem_console_write(struct console *co, const char *b,
 
 extern int ql_ticks;
 
-static int q40_wait_key(struct console *co){return 0;}
 static struct console q40_console_driver = {
 	name:		"debug",
-	wait_key:	q40_wait_key,
 	flags:		CON_PRINTBUFFER,
 	index:		-1,
 };

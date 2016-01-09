@@ -12815,18 +12815,6 @@ CONFIG_USB_DEBUG
   of debug messages to the system log. Select this if you are having a
   problem with USB support and want to see more of what is going on.
 
-USB fetch large config
-CONFIG_USB_LARGE_CONFIG
-  This option changes the initial request for a config descriptor so
-  that some poorly designed devices will still work.  Some APC UPSes
-  need it.  Basically, the usb subsystem sends a request for a short
-  (8 byte) config, just to find out how large the real config is.
-  Incorrectly implemented devices may choke on this small config
-  request.  This option make the initial request for a quite large
-  config (1009 bytes), and things just work.
-
-  If you have an APC UPS, say Y; otherwise say N.
-
 USB long timeout for slow-responding devices (some MGE Ellipse UPSes)
 CONFIG_USB_LONG_TIMEOUT
   This option makes the standard time out a bit longer.  Basically,
@@ -12922,9 +12910,13 @@ USB Human Interface Device (full HID) support
 CONFIG_USB_HID
   Say Y here if you want full HID support to connect keyboards,
   mice, joysticks, graphic tablets, or any other HID based devices
-  to your computer via USB. You can't use this driver and the
-  HIDBP (Boot Protocol) keyboard and mouse drivers at the same time.
-  More information is available: <file:Documentation/input/input.txt>.
+  to your computer via USB. You also need to select HID Input layer
+  support (below) if you want to use keyboards, mice, joysticks and
+  the like.
+
+  You can't use this driver and the HIDBP (Boot Protocol) keyboard
+  and mouse drivers at the same time. More information is available:
+  <file:Documentation/input/input.txt>.
 
   If unsure, say Y.
 
@@ -12932,6 +12924,14 @@ CONFIG_USB_HID
   inserted in and removed from the running kernel whenever you want).
   The module will be called hid.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
+
+USB HID Input layer support
+CONFIG_USB_HIDINPUT
+  Say Y here if you want to use a USB keyboard, mouse or joystick,
+  or any other HID input device. You also need Input layer support, 
+  (CONFIG_INPUT) which you select under "Input core support".
+
+  If unsure, say Y.
 
 /dev/usb/hiddev raw HID device support
 CONFIG_USB_HIDDEV
@@ -12943,33 +12943,37 @@ CONFIG_USB_HIDDEV
   event interface on /dev/usb/hiddevX (char 180:96 to 180:111).
   This driver requires CONFIG_USB_HID.
 
-  If unsure, say N.
+  If unsure, say Y.
 
 USB HIDBP Keyboard (basic) support
 CONFIG_USB_KBD
-  Say Y here if you don't want to use the generic HID driver for your
-  USB keyboard and prefer to use the keyboard in its limited Boot
-  Protocol mode instead. This driver is much smaller than the HID one.
+  Say Y here only if you are absolutely sure that you don't want
+  to use the generic HID driver for your USB keyboard and prefer
+  to use the keyboard in its limited Boot Protocol mode instead.
+
+  This is almost certainly not what you want.
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called usbkbd.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
-  If unsure, say N.
+  If even remotely unsure, say N.
 
 USB HIDBP Mouse (basic) support
 CONFIG_USB_MOUSE
-  Say Y here if you don't want to use the generic HID driver for your
-  USB mouse and prefer to use the mouse in its limited Boot Protocol
-  mode instead. This driver is much smaller than the HID one.
+  Say Y here only if you are absolutely sure that you don't want
+  to use the generic HID driver for your USB keyboard and prefer
+  to use the keyboard in its limited Boot Protocol mode instead.
+
+  This is almost certainly not what you want.
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called usbmouse.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
-  If unsure, say N.
+  If even remotely unsure, say N.
 
 Wacom Intuos/Graphire tablet support
 CONFIG_USB_WACOM
@@ -13475,6 +13479,7 @@ CONFIG_USB_CDCETHER
         * Motorola (DM100 and SB4100)
         * Broadcom Cable Modem (reference design)
         * Toshiba PCX1100U and possibly other cable modems
+        * Sharp Zaurus SL-5000D
 
   The device creates a network device (ethX, where X depends on what
   other networking devices you have in use), as for a normal PCI
@@ -13574,10 +13579,21 @@ CONFIG_USB_PEGASUS
   If your particular adapter is not in the list and you are _sure_ it
   is Pegasus or Pegasus-II based then send me (pmanolov@users.sourceforge.net)
   vendor and device IDs.
-
+  
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called pegasus.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
+Realtek RTL8150 based USB-Ethernet device support
+CONFIG_USB_RTL8150
+  Say Y here if you have RTL8150 based usb-ethernet adapter.
+  Send me (petkan@users.sourceforge.net) any comments you may have.
+  You can also check for updates at http://pegasus2.sourceforge.net/
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called rtl8150.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
 USB KLSI KL5USB101-based Ethernet device support

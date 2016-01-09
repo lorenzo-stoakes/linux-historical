@@ -135,20 +135,39 @@ int
 get_partition_list(char *page, char **start, off_t offset, int count)
 {
 	struct gendisk *gp;
+	struct hd_struct *hd;
 	char buf[64];
 	int len, n;
 
-	len = sprintf(page, "major minor  #blocks  name\n\n");
+	len = sprintf(page, "major minor  #blocks  name     "
+			"rio rmerge rsect ruse wio wmerge "
+			"wsect wuse running use aveq\n\n");
+		
+		
 	read_lock(&gendisk_lock);
 	for (gp = gendisk_head; gp; gp = gp->next) {
 		for (n = 0; n < (gp->nr_real << gp->minor_shift); n++) {
 			if (gp->part[n].nr_sects == 0)
 				continue;
 
-			len += snprintf(page + len, 63,
-					"%4d  %4d %10d %s\n",
+			hd = &gp->part[n]; disk_round_stats(hd);
+			len += sprintf(page + len,
+					"%4d  %4d %10d %s "
+					"%d %d %d %d %d %d %d %d %d %d %d\n",
 					gp->major, n, gp->sizes[n],
-					disk_name(gp, n, buf));
+					disk_name(gp, n, buf),
+					hd->rd_ios, hd->rd_merges,
+					hd->rd_sectors,
+#define MSEC(x) ((x) * 1000 / HZ)
+					MSEC(hd->rd_ticks),
+					hd->wr_ios, hd->wr_merges,
+					hd->wr_sectors,
+					MSEC(hd->wr_ticks),
+					hd->ios_in_flight,
+					MSEC(hd->io_ticks),
+					MSEC(hd->aveq));
+#undef MSEC
+
 			if (len < offset)
 				offset -= len, len = 0;
 			else if (len >= offset + count)

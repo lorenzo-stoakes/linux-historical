@@ -12,7 +12,6 @@
 #include <linux/coda_psdev.h>
 
 extern int coda_debug;
-extern int coda_print_entry;
 
 inline int coda_fideq(ViceFid *fid1, ViceFid *fid2)
 {
@@ -58,7 +57,6 @@ static void coda_fill_inode(struct inode *inode, struct coda_vattr *attr)
         } else if (S_ISLNK(inode->i_mode)) {
 		inode->i_op = &coda_symlink_inode_operations;
 		inode->i_data.a_ops = &coda_symlink_aops;
-		inode->i_mapping = &inode->i_data;
 	} else
                 init_special_inode(inode, inode->i_mode, attr->va_rdev);
 }
@@ -178,24 +176,24 @@ struct inode *coda_fid_to_inode(ViceFid *fid, struct super_block *sb)
 	if ( !coda_fideq(fid, &cii->c_fid) ) BUG();
 
         CDEBUG(D_INODE, "found %ld\n", inode->i_ino);
-        return inode;
+	return inode;
 }
 
 /* the CONTROL inode is made without asking attributes from Venus */
 int coda_cnode_makectl(struct inode **inode, struct super_block *sb)
 {
-    int error = 0;
+	int error = 0;
 
-    *inode = iget(sb, CTL_INO);
-    if ( *inode ) {
-	(*inode)->i_op = &coda_ioctl_inode_operations;
-	(*inode)->i_fop = &coda_ioctl_operations;
-	(*inode)->i_mode = 0444;
-	error = 0;
-    } else { 
-	error = -ENOMEM;
-    }
+	*inode = iget(sb, CTL_INO);
+	if ( *inode ) {
+		(*inode)->i_op = &coda_ioctl_inode_operations;
+		(*inode)->i_fop = &coda_ioctl_operations;
+		(*inode)->i_mode = 0444;
+		error = 0;
+	} else { 
+		error = -ENOMEM;
+	}
     
-    return error;
+	return error;
 }
 

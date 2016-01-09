@@ -608,6 +608,13 @@
 	       Fixed deadlock bug in <devfs_d_revalidate_wait>.
 	       Tag VFS deletable in <devfs_mk_symlink> if handle ignored.
   v1.10
+    20020129   Richard Gooch <rgooch@atnf.csiro.au>
+	       Added KERN_* to remaining messages.
+	       Cleaned up declaration of <stat_read>.
+  v1.11
+    20020219   Richard Gooch <rgooch@atnf.csiro.au>
+	       Changed <devfs_rmdir> to allow later additions if not yet empty.
+  v1.12
 */
 #include <linux/types.h>
 #include <linux/errno.h>
@@ -640,7 +647,7 @@
 #include <asm/bitops.h>
 #include <asm/atomic.h>
 
-#define DEVFS_VERSION            "1.10 (20020120)"
+#define DEVFS_VERSION            "1.12 (20020219)"
 
 #define DEVFS_NAME "devfs"
 
@@ -848,8 +855,8 @@ static int devfsd_ioctl (struct inode *inode, struct file *file,
 			 unsigned int cmd, unsigned long arg);
 static int devfsd_close (struct inode *inode, struct file *file);
 #ifdef CONFIG_DEVFS_DEBUG
-static int stat_read (struct file *file, char *buf, size_t len,
-			    loff_t *ppos);
+static ssize_t stat_read (struct file *file, char *buf, size_t len,
+			  loff_t *ppos);
 static struct file_operations stat_fops =
 {
     read:    stat_read,
@@ -2431,10 +2438,10 @@ static int check_disc_changed (struct devfs_entry *de)
     if (bdops->check_media_change == NULL) goto out;
     if ( !bdops->check_media_change (dev) ) goto out;
     retval = 1;
-    printk ( KERN_DEBUG "VFS: Disk change detected on device %s\n",
+    printk (KERN_DEBUG "VFS: Disk change detected on device %s\n",
 	     kdevname (dev) );
-    if (invalidate_device(dev, 0))
-	printk("VFS: busy inodes on changed media..\n");
+    if ( invalidate_device (dev, 0) )
+	printk (KERN_WARNING "VFS: busy inodes on changed media..\n");
     /*  Ugly hack to disable messages about unable to read partition table  */
     tmp = warn_no_part;
     warn_no_part = 0;
@@ -3112,10 +3119,10 @@ static int devfs_rmdir (struct inode *dir, struct dentry *dentry)
     if (de == NULL) return -ENOENT;
     if ( !S_ISDIR (de->mode) ) return -ENOTDIR;
     if (!de->vfs_deletable) return -EPERM;
-    /*  First ensure the directory is empty and will stay thay way  */
+    /*  First ensure the directory is empty and will stay that way  */
     write_lock (&de->u.dir.lock);
-    de->u.dir.no_more_additions = TRUE;
     if (de->u.dir.first) err = -ENOTEMPTY;
+    else de->u.dir.no_more_additions = TRUE;
     write_unlock (&de->u.dir.lock);
     if (err) return err;
     /*  Now unhook the directory from it's parent  */
@@ -3237,7 +3244,7 @@ static struct super_block *devfs_read_super (struct super_block *sb,
     return sb;
 
 out_no_root:
-    printk ("devfs_read_super: get root inode failed\n");
+    PRINTK ("(): get root inode failed\n");
     if (root_inode) iput (root_inode);
     return NULL;
 }   /*  End Function devfs_read_super  */
@@ -3464,7 +3471,7 @@ static int __init init_devfs_fs (void)
 {
     int err;
 
-    printk ("%s: v%s Richard Gooch (rgooch@atnf.csiro.au)\n",
+    printk (KERN_INFO "%s: v%s Richard Gooch (rgooch@atnf.csiro.au)\n",
 	    DEVFS_NAME, DEVFS_VERSION);
     devfsd_buf_cache = kmem_cache_create ("devfsd_event",
 					  sizeof (struct devfsd_buf_entry),
@@ -3472,9 +3479,9 @@ static int __init init_devfs_fs (void)
     if (!devfsd_buf_cache) OOPS ("(): unable to allocate event slab\n");
 #ifdef CONFIG_DEVFS_DEBUG
     devfs_debug = devfs_debug_init;
-    printk ("%s: devfs_debug: 0x%0x\n", DEVFS_NAME, devfs_debug);
+    printk (KERN_INFO "%s: devfs_debug: 0x%0x\n", DEVFS_NAME, devfs_debug);
 #endif
-    printk ("%s: boot_options: 0x%0x\n", DEVFS_NAME, boot_options);
+    printk (KERN_INFO "%s: boot_options: 0x%0x\n", DEVFS_NAME, boot_options);
     err = register_filesystem (&devfs_fs_type);
     if (!err)
     {
@@ -3491,8 +3498,8 @@ void __init mount_devfs_fs (void)
 
     if ( !(boot_options & OPTION_MOUNT) ) return;
     err = do_mount ("none", "/dev", "devfs", 0, "");
-    if (err == 0) printk ("Mounted devfs on /dev\n");
-    else printk ("Warning: unable to mount devfs, err: %d\n", err);
+    if (err == 0) printk (KERN_INFO "Mounted devfs on /dev\n");
+    else PRINTK ("(): unable to mount devfs, err: %d\n", err);
 }   /*  End Function mount_devfs_fs  */
 
 module_init(init_devfs_fs)

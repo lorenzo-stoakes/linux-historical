@@ -336,6 +336,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci *uhci, struct usb_device *dev)
 	qh->link = UHCI_PTR_TERM;
 
 	qh->dev = dev;
+	qh->urbp = NULL;
 
 	INIT_LIST_HEAD(&qh->list);
 	INIT_LIST_HEAD(&qh->remove_list);
@@ -410,20 +411,19 @@ static void uhci_insert_qh(struct uhci *uhci, struct uhci_qh *skelqh, struct urb
 	spin_unlock_irqrestore(&uhci->frame_list_lock, flags);
 }
 
-static void uhci_remove_qh(struct uhci *uhci, struct urb *urb)
+static void uhci_remove_qh(struct uhci *uhci, struct uhci_qh *qh)
 {
-	struct urb_priv *urbp = (struct urb_priv *)urb->hcpriv;
 	unsigned long flags;
-	struct uhci_qh *qh = urbp->qh, *pqh;
+	struct uhci_qh *pqh;
 
 	if (!qh)
 		return;
 
+	qh->urbp = NULL;
+
 	/* Only go through the hoops if it's actually linked in */
 	spin_lock_irqsave(&uhci->frame_list_lock, flags);
 	if (!list_empty(&qh->list)) {
-		qh->urbp = NULL;
-
 		pqh = list_entry(qh->list.prev, struct uhci_qh, list);
 
 		if (pqh->urbp) {
@@ -1040,7 +1040,7 @@ static int usb_control_retrigger_status(struct urb *urb)
 	urbp->short_control_packet = 1;
 
 	/* Create a new QH to avoid pointer overwriting problems */
-	uhci_remove_qh(uhci, urb);
+	uhci_remove_qh(uhci, urbp->qh);
 
 	/* Delete all of the TD's except for the status TD at the end */
 	head = &urbp->td_list;
@@ -1259,20 +1259,29 @@ static int uhci_submit_bulk(struct urb *urb, struct urb *eurb)
 			data);
 
 		data += pktsze;
-		len -= pktsze;
+		len -= maxsze;
 
 		usb_dotoggle(urb->dev, usb_pipeendpoint(urb->pipe),
 			usb_pipeout(urb->pipe));
 	} while (len > 0);
 
+	/*
+	 * USB_ZERO_PACKET means adding a 0-length packet, if
+	 * direction is OUT and the transfer_length was an
+	 * exact multiple of maxsze, hence
+	 * (len = transfer_length - N * maxsze) == 0
+	 * however, if transfer_length == 0, the zero packet
+	 * was already prepared above.
+	 */
 	if (usb_pipeout(urb->pipe) && (urb->transfer_flags & USB_ZERO_PACKET) &&
-	   urb->transfer_buffer_length) {
+	   !len && urb->transfer_buffer_length) {
 		td = uhci_alloc_td(uhci, urb->dev);
 		if (!td)
 			return -ENOMEM;
 
 		uhci_add_td_to_urb(urb, td);
-		uhci_fill_td(td, status, destination | UHCI_NULL_DATA_SIZE |
+		uhci_fill_td(td, status, destination |
+			(UHCI_NULL_DATA_SIZE << 21) |
 			(usb_gettoggle(urb->dev, usb_pipeendpoint(urb->pipe),
 			 usb_pipeout(urb->pipe)) << TD_TOKEN_TOGGLE),
 			data);
@@ -1728,7 +1737,8 @@ static void uhci_unlink_generic(struct uhci *uhci, struct urb *urb)
 	uhci_delete_queued_urb(uhci, urb);
 
 	/* The interrupt loop will reclaim the QH's */
-	uhci_remove_qh(uhci, urb);
+	uhci_remove_qh(uhci, urbp->qh);
+	urbp->qh = NULL;
 }
 
 static int uhci_unlink_urb(struct urb *urb)
@@ -2351,15 +2361,15 @@ static void uhci_call_completion(struct urb *urb)
 	urb->dev = NULL;
 	spin_unlock_irqrestore(&urb->lock, flags);
 
-	if (urb->complete) {
+	if (urb->complete)
 		urb->complete(urb);
 
+	if (resubmit_interrupt)
 		/* Recheck the status. The completion handler may have */
 		/*  unlinked the resubmitting interrupt URB */
 		killed = (urb->status == -ENOENT ||
 			  urb->status == -ECONNABORTED ||
 			  urb->status == -ECONNRESET);
-	}
 
 	if (resubmit_interrupt && !killed) {
 		urb->dev = dev;

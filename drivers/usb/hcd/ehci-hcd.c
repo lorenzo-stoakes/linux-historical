@@ -747,8 +747,8 @@ static int __init init (void)
 {
 	dbg (DRIVER_INFO);
 	dbg ("block sizes: qh %d qtd %d itd %d sitd %d",
-		sizeof (struct ehci_qh), sizeof (struct ehci_qtd),
-		sizeof (struct ehci_itd), sizeof (struct ehci_sitd));
+		(int) sizeof (struct ehci_qh), (int) sizeof (struct ehci_qtd),
+		(int) sizeof (struct ehci_itd), (int) sizeof (struct ehci_sitd));
 
 	return pci_module_init (&ehci_pci_driver);
 }

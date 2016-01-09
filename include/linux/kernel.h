@@ -184,4 +184,6 @@ struct sysinfo {
 	char _f[20-2*sizeof(long)-sizeof(int)];	/* Padding: libc5 uses this.. */
 };
 
-#endif
+#define BUG_ON(condition) do { if (unlikely((condition)!=0)) BUG(); } while(0)
+
+#endif /* _LINUX_KERNEL_H */

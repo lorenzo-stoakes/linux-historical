@@ -411,7 +411,7 @@ static struct file_operations joydev_fops = {
 static struct input_handle *joydev_connect(struct input_handler *handler, struct input_dev *dev)
 {
 	struct joydev *joydev;
-	int i, j, minor;
+	int i, j, t, minor;
 
 	if (!(test_bit(EV_KEY, dev->evbit) && test_bit(EV_ABS, dev->evbit) &&
 	     (test_bit(ABS_X, dev->absbit) || test_bit(ABS_Y, dev->absbit)) &&
@@ -470,8 +470,10 @@ static struct input_handle *joydev_connect(struct input_handler *handler, struct
 		joydev->corr[i].prec = dev->absfuzz[j];
 		joydev->corr[i].coef[0] = (dev->absmax[j] + dev->absmin[j]) / 2 - dev->absflat[j];
 		joydev->corr[i].coef[1] = (dev->absmax[j] + dev->absmin[j]) / 2 + dev->absflat[j];
-		joydev->corr[i].coef[2] = (1 << 29) / ((dev->absmax[j] - dev->absmin[j]) / 2 - 2 * dev->absflat[j]);
-		joydev->corr[i].coef[3] = (1 << 29) / ((dev->absmax[j] - dev->absmin[j]) / 2 - 2 * dev->absflat[j]);
+		if (!(t = ((dev->absmax[j] - dev->absmin[j]) / 2 - 2 * dev->absflat[j])))
+			continue;
+		joydev->corr[i].coef[2] = (1 << 29) / t;
+		joydev->corr[i].coef[3] = (1 << 29) / t;
 
 		joydev->abs[i] = joydev_correct(dev->abs[j], joydev->corr + i);
 	}

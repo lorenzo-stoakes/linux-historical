@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 4
 SUBLEVEL = 19
-EXTRAVERSION = -pre5
+EXTRAVERSION = -pre6
 
 KERNELRELEASE=$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
@@ -89,7 +89,10 @@ export MODLIB
 CPPFLAGS := -D__KERNEL__ -I$(HPATH)
 
 CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
-	  -fomit-frame-pointer -fno-strict-aliasing -fno-common
+	  -fno-strict-aliasing -fno-common
+ifndef CONFIG_FRAME_POINTER
+CFLAGS += -fomit-frame-pointer
+endif
 AFLAGS := -D__ASSEMBLY__ $(CPPFLAGS)
 
 #
@@ -242,6 +245,16 @@ MRPROPER_DIRS = \
 
 
 include arch/$(ARCH)/Makefile
+
+# Extra cflags for kbuild 2.4.  The default is to forbid includes by kernel code
+# from user space headers.  Some UML code requires user space headers, in the
+# UML Makefiles add 'kbuild_2_4_nostdinc :=' before include Rules.make.  No
+# other kernel code should include user space headers, if you need
+# 'kbuild_2_4_nostdinc :=' or -I/usr/include for kernel code and you are not UML
+# then your code is broken!  KAO.
+
+kbuild_2_4_nostdinc	:= -nostdinc $(shell $(CC) -print-search-dirs | sed -ne 's/install: \(.*\)/-I \1include/gp')
+export kbuild_2_4_nostdinc
 
 export	CPPFLAGS CFLAGS CFLAGS_KERNEL AFLAGS AFLAGS_KERNEL
 

@@ -336,14 +336,17 @@ void generic_unplug_device(void *data)
  */
 int blk_grow_request_list(request_queue_t *q, int nr_requests)
 {
-	spin_lock_irq(&io_request_lock);
+	unsigned long flags;
+	/* Several broken drivers assume that this function doesn't sleep,
+	 * this causes system hangs during boot.
+	 * As a temporary fix, make the the function non-blocking.
+	 */
+	spin_lock_irqsave(&io_request_lock, flags);
 	while (q->nr_requests < nr_requests) {
 		struct request *rq;
 		int rw;
 
-		spin_unlock_irq(&io_request_lock);
-		rq = kmem_cache_alloc(request_cachep, SLAB_KERNEL);
-		spin_lock_irq(&io_request_lock);
+		rq = kmem_cache_alloc(request_cachep, SLAB_ATOMIC);
 		if (rq == NULL)
 			break;
 		memset(rq, 0, sizeof(*rq));
@@ -356,7 +359,7 @@ int blk_grow_request_list(request_queue_t *q, int nr_requests)
 	q->batch_requests = q->nr_requests / 4;
 	if (q->batch_requests > 32)
 		q->batch_requests = 32;
-	spin_unlock_irq(&io_request_lock);
+	spin_unlock_irqrestore(&io_request_lock, flags);
 	return q->nr_requests;
 }
 
@@ -591,6 +594,121 @@ inline void drive_stat_acct (kdev_t dev, int rw,
 		printk(KERN_ERR "drive_stat_acct: cmd not R/W?\n");
 }
 
+/* Return up to two hd_structs on which to do IO accounting for a given
+ * request.  On a partitioned device, we want to account both against
+ * the partition and against the whole disk.  */
+static void locate_hd_struct(struct request *req, 
+			     struct hd_struct **hd1,
+			     struct hd_struct **hd2)
+{
+	struct gendisk *gd;
+
+	*hd1 = NULL;
+	*hd2 = NULL;
+	
+	gd = get_gendisk(req->rq_dev);
+	if (gd && gd->part) {
+		/* Mask out the partition bits: account for the entire disk */
+		int devnr = MINOR(req->rq_dev) >> gd->minor_shift;
+		int whole_minor = devnr << gd->minor_shift;
+		*hd1 = &gd->part[whole_minor];
+		if (whole_minor != MINOR(req->rq_dev))
+			*hd2= &gd->part[MINOR(req->rq_dev)];
+	}
+}
+
+/* Round off the performance stats on an hd_struct.  The average IO
+ * queue length and utilisation statistics are maintained by observing
+ * the current state of the queue length and the amount of time it has
+ * been in this state for.  Normally, that accounting is done on IO
+ * completion, but that can result in more than a second's worth of IO
+ * being accounted for within any one second, leading to >100%
+ * utilisation.  To deal with that, we do a round-off before returning
+ * the results when reading /proc/partitions, accounting immediately for
+ * all queue usage up to the current jiffies and restarting the counters
+ * again. */
+void disk_round_stats(struct hd_struct *hd)
+{
+	unsigned long now = jiffies;
+	
+	hd->aveq += (hd->ios_in_flight * (jiffies - hd->last_queue_change));
+	hd->last_queue_change = now;
+
+	if (hd->ios_in_flight)
+		hd->io_ticks += (now - hd->last_idle_time);
+	hd->last_idle_time = now;	
+}
+
+
+static inline void down_ios(struct hd_struct *hd)
+{
+	disk_round_stats(hd);	
+	--hd->ios_in_flight;
+}
+
+static inline void up_ios(struct hd_struct *hd)
+{
+	disk_round_stats(hd);
+	++hd->ios_in_flight;
+}
+
+static void account_io_start(struct hd_struct *hd, struct request *req,
+			     int merge, int sectors)
+{
+	switch (req->cmd) {
+	case READ:
+		if (merge)
+			hd->rd_merges++;
+		hd->rd_sectors += sectors;
+		break;
+	case WRITE:
+		if (merge)
+			hd->wr_merges++;
+		hd->wr_sectors += sectors;
+		break;
+	default:
+	}
+	if (!merge)
+		up_ios(hd);
+}
+
+static void account_io_end(struct hd_struct *hd, struct request *req)
+{
+	unsigned long duration = jiffies - req->start_time;
+	switch (req->cmd) {
+	case READ:
+		hd->rd_ticks += duration;
+		hd->rd_ios++;
+		break;
+	case WRITE:
+		hd->wr_ticks += duration;
+		hd->wr_ios++;
+		break;
+	default:
+	}
+	down_ios(hd);
+}
+
+void req_new_io(struct request *req, int merge, int sectors)
+{
+	struct hd_struct *hd1, *hd2;
+	locate_hd_struct(req, &hd1, &hd2);
+	if (hd1)
+		account_io_start(hd1, req, merge, sectors);
+	if (hd2)
+		account_io_start(hd2, req, merge, sectors);
+}
+
+void req_finished_io(struct request *req)
+{
+	struct hd_struct *hd1, *hd2;
+	locate_hd_struct(req, &hd1, &hd2);
+	if (hd1)
+		account_io_end(hd1, req);
+	if (hd2)	
+		account_io_end(hd2, req);
+}
+
 /*
  * add-request adds a request to the linked list.
  * io_request_lock is held and interrupts disabled, as we muck with the
@@ -648,6 +766,7 @@ static void attempt_merge(request_queue_t * q,
 			  int max_segments)
 {
 	struct request *next;
+	struct hd_struct *hd1, *hd2;
   
 	next = blkdev_next_request(req);
 	if (req->sector + req->nr_sectors != next->sector)
@@ -671,6 +790,15 @@ static void attempt_merge(request_queue_t * q,
 	req->bhtail = next->bhtail;
 	req->nr_sectors = req->hard_nr_sectors += next->hard_nr_sectors;
 	list_del(&next->queue);
+
+	/* One last thing: we have removed a request, so we now have one
+	   less expected IO to complete for accounting purposes. */
+
+	locate_hd_struct(req, &hd1, &hd2);
+	if (hd1)
+		down_ios(hd1);
+	if (hd2)	
+		down_ios(hd2);
 	blkdev_release_request(next);
 }
 
@@ -778,6 +906,7 @@ again:
 			req->nr_sectors = req->hard_nr_sectors += count;
 			blk_started_io(count);
 			drive_stat_acct(req->rq_dev, req->cmd, count, 0);
+			req_new_io(req, 1, count);
 			attempt_back_merge(q, req, max_sectors, max_segments);
 			goto out;
 
@@ -795,6 +924,7 @@ again:
 			req->nr_sectors = req->hard_nr_sectors += count;
 			blk_started_io(count);
 			drive_stat_acct(req->rq_dev, req->cmd, count, 0);
+			req_new_io(req, 1, count);
 			attempt_front_merge(q, head, req, max_sectors, max_segments);
 			goto out;
 
@@ -856,6 +986,8 @@ get_rq:
 	req->bh = bh;
 	req->bhtail = bh;
 	req->rq_dev = bh->b_rdev;
+	req->start_time = jiffies;
+	req_new_io(req, 0, count);
 	blk_started_io(count);
 	add_request(q, req, insert_here);
 out:
@@ -1169,6 +1301,7 @@ void end_that_request_last(struct request *req)
 {
 	if (req->waiting != NULL)
 		complete(req->waiting);
+	req_finished_io(req);
 
 	blkdev_release_request(req);
 }
@@ -1196,9 +1329,6 @@ int __init blk_dev_init(void)
 #endif
 #ifdef CONFIG_STRAM_SWAP
 	stram_device_init();
-#endif
-#ifdef CONFIG_BLK_DEV_RAM
-	rd_init();
 #endif
 #ifdef CONFIG_ISP16_CDI
 	isp16_init();
@@ -1309,4 +1439,5 @@ EXPORT_SYMBOL(blk_queue_headactive);
 EXPORT_SYMBOL(blk_queue_make_request);
 EXPORT_SYMBOL(generic_make_request);
 EXPORT_SYMBOL(blkdev_release_request);
+EXPORT_SYMBOL(req_finished_io);
 EXPORT_SYMBOL(generic_unplug_device);

@@ -2181,35 +2181,6 @@ static void serial_console_write(struct console *co, const char *s,
 	sio_reg(info)->dicr = ier;
 }
 
-/*
- *	Receive character from the serial port
- */
-static int serial_console_wait_key(struct console *co)
-{
-	static struct async_struct *info = &async_sercons;
-	int ier;
-	int c;
-
-	/*
-	 *	First save the IER then disable the interrupts so
-	 *	that the real driver for the port does not get the
-	 *	character.
-	 */
-	ier = sio_reg(info)->dicr;
-	sio_reg(info)->dicr = 0;
-
-	while (sio_reg(info)->disr & TXx927_SIDISR_UVALID)
-		;
-	c = sio_reg(info)->rfifo;
-
-	/*
-	 *	Restore the interrupts
-	 */
-	sio_reg(info)->dicr = ier;
-
-	return c;
-}
-
 static kdev_t serial_console_device(struct console *c)
 {
 	return MKDEV(TXX927_TTY_MAJOR, TXX927_TTY_MINOR_START + c->index);
@@ -2343,7 +2314,6 @@ static struct console sercons = {
 	name:           TXX927_TTY_NAME,
 	write:          serial_console_write,
 	device:	        serial_console_device,
-	wait_key:	serial_console_wait_key,
 	setup:	        serial_console_setup,
 	flags:	        CON_PRINTBUFFER,
 	index:	        -1,

@@ -177,18 +177,11 @@ comment 'Watchdog Cards'
 bool 'Watchdog Timer Support'	CONFIG_WATCHDOG
 if [ "$CONFIG_WATCHDOG" != "n" ]; then
    bool '  Disable watchdog shutdown on close' CONFIG_WATCHDOG_NOWAYOUT
-   tristate '  Software Watchdog' CONFIG_SOFT_WATCHDOG
-   tristate '  WDT Watchdog timer' CONFIG_WDT
-   tristate '  WDT PCI Watchdog timer' CONFIG_WDTPCI
-   if [ "$CONFIG_WDT" != "n" ]; then
-      bool '    WDT501 features' CONFIG_WDT_501
-      if [ "$CONFIG_WDT_501" = "y" ]; then
-         bool '      Fan Tachometer' CONFIG_WDT_501_FAN
-      fi
-   fi
-   tristate '  Berkshire Products PC Watchdog' CONFIG_PCWATCHDOG
    tristate '  Acquire SBC Watchdog Timer' CONFIG_ACQUIRE_WDT
    tristate '  Advantech SBC Watchdog Timer' CONFIG_ADVANTECH_WDT
+   tristate '  ALi M7101 PMU Watchdog Timer' CONFIG_ALIM7101_WDT
+   tristate '  AMD "Elan" SC520 Watchdog Timer' CONFIG_SC520_WDT
+   tristate '  Berkshire Products PC Watchdog' CONFIG_PCWATCHDOG
    if [ "$CONFIG_FOOTBRIDGE" = "y" ]; then
       tristate '  DC21285 watchdog' CONFIG_21285_WATCHDOG
       if [ "$CONFIG_ARCH_NETWINDER" = "y" ]; then
@@ -197,14 +190,25 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
    fi
    tristate '  Eurotech CPU-1220/1410 Watchdog Timer' CONFIG_EUROTECH_WDT
    tristate '  IB700 SBC Watchdog Timer' CONFIG_IB700_WDT
+   tristate '  ICP ELectronics Wafer 5823 Watchdog' CONFIG_WAFER_WDT
+   if [ "$CONFIG_SGI_IP22" = "y" ]; then
+      dep_tristate '  Indy/I2 Hardware Watchdog' CONFIG_INDYDOG $CONFIG_SGI_IP22
+   fi
    tristate '  Intel i810 TCO timer / Watchdog' CONFIG_I810_TCO
    tristate '  Mixcom Watchdog' CONFIG_MIXCOMWD 
    tristate '  SBC-60XX Watchdog Timer' CONFIG_60XX_WDT
+   dep_tristate '  SC1200 Watchdog Timer (EXPERIMENTAL)' CONFIG_SC1200_WDT $CONFIG_EXPERIMENTAL
+   tristate '  Software Watchdog' CONFIG_SOFT_WATCHDOG
    tristate '  W83877F (EMACS) Watchdog Timer' CONFIG_W83877F_WDT
-   tristate '  ZF MachZ Watchdog' CONFIG_MACHZ_WDT
-   if [ "$CONFIG_SGI_IP22" = "y" ]; then
-      tristate '  Indy/I2 Hardware Watchdog' CONFIG_INDYDOG
+   tristate '  WDT Watchdog timer' CONFIG_WDT
+   tristate '  WDT PCI Watchdog timer' CONFIG_WDTPCI
+   if [ "$CONFIG_WDT" != "n" ]; then
+      bool '    WDT501 features' CONFIG_WDT_501
+      if [ "$CONFIG_WDT_501" = "y" ]; then
+         bool '      Fan Tachometer' CONFIG_WDT_501_FAN
+      fi
    fi
+   tristate '  ZF MachZ Watchdog' CONFIG_MACHZ_WDT
 fi
 endmenu
 
@@ -217,8 +221,12 @@ if [ "$CONFIG_ARCH_NETWINDER" = "y" ]; then
    tristate 'NetWinder flash support' CONFIG_NWFLASH
 fi
 
-dep_tristate 'AMD 768 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI
-dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
+if [ "$CONFIG_X86" = "y" -o "$CONFIG_X86_64" = "y" ]; then
+   dep_tristate 'AMD 768 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI
+fi
+if [ "$CONFIG_X86" = "y" -o "$CONFIG_IA64" = "y" ]; then
+   dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
+fi
 tristate '/dev/nvram support' CONFIG_NVRAM
 tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
 if [ "$CONFIG_IA64" = "y" ]; then
@@ -277,4 +285,9 @@ fi
 if [ "$CONFIG_MIPS_ITE8172" = "y" ]; then
   tristate ' ITE GPIO' CONFIG_ITE_GPIO
 fi
+
+if [ "$CONFIG_X86" = "y" ]; then
+   tristate 'ACP Modem (Mwave) support' CONFIG_MWAVE
+fi
+
 endmenu

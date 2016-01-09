@@ -1348,7 +1348,7 @@ static int rme96xx_ioctl(struct inode *in, struct file *file, unsigned int cmd, 
 			dma->readptr &= s->fragsize<<1;
 		spin_unlock_irqrestore(&s->lock,flags);
 
-                return copy_to_user((void *)arg, &cinfo, sizeof(cinfo));
+                return copy_to_user((void *)arg, &cinfo, sizeof(cinfo)) ? -EFAULT : 0;
 
         case SNDCTL_DSP_GETOPTR:
 		if (!(file->f_mode & FMODE_READ))
@@ -1365,7 +1365,7 @@ static int rme96xx_ioctl(struct inode *in, struct file *file, unsigned int cmd, 
 		if (dma->mmapped)
 			dma->writeptr &= s->fragsize<<1;
 		spin_unlock_irqrestore(&s->lock,flags);
-                return copy_to_user((void *)arg, &cinfo, sizeof(cinfo));
+                return copy_to_user((void *)arg, &cinfo, sizeof(cinfo)) ? -EFAULT : 0;
         case SNDCTL_DSP_GETBLKSIZE:
 	     return put_user(s->fragsize, (int *)arg);
 

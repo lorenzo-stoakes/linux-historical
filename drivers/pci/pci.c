@@ -889,7 +889,7 @@ pdev_set_mwi(struct pci_dev *dev)
 }
 
 /**
- * pci_set_mwi - enables memory-write-validate PCI transaction
+ * pci_set_mwi - enables memory-write-invalidate PCI transaction
  * @dev: the PCI device for which MWI is enabled
  *
  * Enables the Memory-Write-Invalidate transaction in %PCI_COMMAND,

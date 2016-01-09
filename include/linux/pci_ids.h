@@ -806,6 +806,7 @@
 #define PCI_DEVICE_ID_AL_M1621          0x1621
 #define PCI_DEVICE_ID_AL_M1631          0x1631
 #define PCI_DEVICE_ID_AL_M1641          0x1641
+#define PCI_DEVICE_ID_AL_M1644          0x1644
 #define PCI_DEVICE_ID_AL_M1647          0x1647
 #define PCI_DEVICE_ID_AL_M1651          0x1651
 #define PCI_DEVICE_ID_AL_M1543		0x1543

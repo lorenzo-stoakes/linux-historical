@@ -233,8 +233,7 @@ static inline int swap_out_vma(struct mm_struct * mm, struct vm_area_struct * vm
 	pgdir = pgd_offset(mm, address);
 
 	end = vma->vm_end;
-	if (address >= end)
-		BUG();
+	BUG_ON(address >= end);
 	do {
 		count = swap_out_pgd(mm, vma, pgdir, address, end, count, classzone);
 		if (!count)
@@ -353,10 +352,8 @@ static int shrink_cache(int nr_pages, zone_t * classzone, unsigned int gfp_mask,
 
 		page = list_entry(entry, struct page, lru);
 
-		if (unlikely(!PageLRU(page)))
-			BUG();
-		if (unlikely(PageActive(page)))
-			BUG();
+		BUG_ON(!PageLRU(page));
+		BUG_ON(PageActive(page));
 
 		list_del(entry);
 		list_add(entry, &inactive_list);

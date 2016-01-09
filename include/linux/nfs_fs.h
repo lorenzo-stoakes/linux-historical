@@ -276,6 +276,9 @@ extern int  nfs_scan_lru_read_timeout(struct nfs_server *, struct list_head *);
 extern int  nfs_mount(struct sockaddr_in *, char *, struct nfs_fh *);
 extern int  nfs3_mount(struct sockaddr_in *, char *, struct nfs_fh *);
 
+/* linux/net/ipv4/ipconfig.c: trims ip addr off front of name, too. */
+extern u32 root_nfs_parse_addr(char *name); /*__init*/
+
 /*
  * inline functions
  */
