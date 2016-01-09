@@ -59,6 +59,8 @@
 #include "usb-uhci.h"
 #include "usb-uhci-debug.h"
 
+#include "hcd.h"
+
 /*
  * Version Information
  */
@@ -2952,6 +2954,7 @@ _static int __devinit alloc_uhci (struct pci_dev *dev, int irq, unsigned int io_
 	}
 
 	s->bus = bus;
+	bus->bus_name = dev->slot_name;
 	bus->hcpriv = s;
 
 	/* UHCI specs says devices must have 2 ports, but goes on to say */

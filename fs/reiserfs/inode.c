@@ -774,69 +774,36 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	       pointer to 'block'-th block use block, which is already
 	       allocated */
 	    struct cpu_key tmp_key;
-	    unp_t unf_single=0; // We use this in case we need to allocate only
-				// one block which is a fastpath
-	    unp_t *un;
-	    __u64 max_to_insert=MAX_ITEM_LEN(inode->i_sb->s_blocksize)/UNFM_P_SIZE;
-	    __u64 blocks_needed;
+	    struct unfm_nodeinfo un = {0, 0};
 
 	    RFALSE( pos_in_item != ih_item_len(ih) / UNFM_P_SIZE,
 		    "vs-804: invalid position for append");
-	    
 	    /* indirect item has to be appended, set up key of that position */
 	    make_cpu_key (&tmp_key, inode,
 			  le_key_k_offset (version, &(ih->ih_key)) + op_bytes_number (ih, inode->i_sb->s_blocksize),
 			  //pos_in_item * inode->i_sb->s_blocksize,
 			  TYPE_INDIRECT, 3);// key type is unimportant
-
-	    blocks_needed = 1 + ((cpu_key_k_offset (&key) - cpu_key_k_offset (&tmp_key)) >> inode->i_sb->s_blocksize_bits);
-	    RFALSE( blocks_needed < 0, "green-805: invalid offset");
-
-	    if ( blocks_needed == 1 ) {
-		un = &unf_single;
-	    } else {
-		un=kmalloc( min(blocks_needed,max_to_insert)*UNFM_P_SIZE,
-			    GFP_ATOMIC); // We need to avoid scheduling.
-		if ( !un) {
-		    un = &unf_single;
-		    blocks_needed = 1;
-		    max_to_insert = 0;
-		} else 
-		    memset(un, 0, UNFM_P_SIZE * min(blocks_needed,max_to_insert));
-	    }
-	    if ( blocks_needed <= max_to_insert) {
+		  
+	    if (cpu_key_k_offset (&tmp_key) == cpu_key_k_offset (&key)) {
 		/* we are going to add target block to the file. Use allocated
 		   block for that */
-		un[blocks_needed-1] = cpu_to_le32 (allocated_block_nr);
+		un.unfm_nodenum = cpu_to_le32 (allocated_block_nr);
 		set_block_dev_mapped (bh_result, allocated_block_nr, inode);
 		bh_result->b_state |= (1UL << BH_New);
 		done = 1;
 	    } else {
 		/* paste hole to the indirect item */
-		// If kmalloc failed, max_to_insert becomes zero and it means we
-		// only have space for one block
-		blocks_needed=max_to_insert?max_to_insert:1;
 	    }
-	    retval = reiserfs_paste_into_item (&th, &path, &tmp_key, (char *)un, UNFM_P_SIZE * blocks_needed);
-
-	    if (blocks_needed != 1)
-		kfree(un);
-
+	    retval = reiserfs_paste_into_item (&th, &path, &tmp_key, (char *)&un, UNFM_P_SIZE);
 	    if (retval) {
 		reiserfs_free_block (&th, allocated_block_nr);
 		goto failure;
 	    }
-	    if (done) {
+	    if (un.unfm_nodenum)
 		inode->i_blocks += inode->i_sb->s_blocksize / 512;
-	    } else {
-		// We need to mark new file size in case this function will be
-		// interrupted/aborted later on. And we may do this only for
-		// holes.
-		inode->i_size += inode->i_sb->s_blocksize * blocks_needed;
-	    }
 	    //mark_tail_converted (inode);
 	}
-
+		
 	if (done == 1)
 	    break;
 	 
@@ -913,7 +880,7 @@ static void init_inode (struct inode * inode, struct path * path)
 
 
     copy_key (INODE_PKEY (inode), &(ih->ih_key));
-    inode->i_blksize = PAGE_SIZE*32;
+    inode->i_blksize = PAGE_SIZE;
 
     INIT_LIST_HEAD(&inode->u.reiserfs_i.i_prealloc_list) ;
 
@@ -1605,7 +1572,7 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
 
     // these do not go to on-disk stat data
     inode->i_ino = le32_to_cpu (ih.ih_key.k_objectid);
-    inode->i_blksize = PAGE_SIZE*32;
+    inode->i_blksize = PAGE_SIZE;
     inode->i_dev = sb->s_dev;
   
     // store in in-core inode the key of stat data and version all

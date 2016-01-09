@@ -25,7 +25,7 @@
 /*
  * BlueZ L2CAP core and sockets.
  *
- * $Id: l2cap.c,v 1.13 2002/07/27 19:04:15 maxk Exp $
+ * $Id: l2cap.c,v 1.15 2002/09/09 01:14:52 maxk Exp $
  */
 #define VERSION "2.1"
 
@@ -1933,8 +1933,8 @@ static int l2cap_recv_acldata(struct hci_conn *hcon, struct sk_buff *skb, __u16 
 	BT_DBG("conn %p len %d flags 0x%x", conn, skb->len, flags);
 
 	if (flags & ACL_START) {
-		int flen, tlen, size;
-		l2cap_hdr *lh;
+		l2cap_hdr *hdr;
+		int len;
 
 		if (conn->rx_len) {
 			BT_ERR("Unexpected start frame (len %d)", skb->len);
@@ -1943,30 +1943,28 @@ static int l2cap_recv_acldata(struct hci_conn *hcon, struct sk_buff *skb, __u16 
 			conn->rx_len = 0;
 		}
 
-		if (skb->len < L2CAP_HDR_SIZE) {
+		if (skb->len < 2) {
 			BT_ERR("Frame is too small (len %d)", skb->len);
 			goto drop;
 		}
 
-		lh = (l2cap_hdr *)skb->data;
-		tlen = __le16_to_cpu(lh->len);
-		flen = skb->len - L2CAP_HDR_SIZE;
+		hdr = (l2cap_hdr *) skb->data;
+		len = __le16_to_cpu(hdr->len) + L2CAP_HDR_SIZE;
 
-		BT_DBG("Start: total len %d, frag len %d", tlen, flen);
+		BT_DBG("Start: total len %d, frag len %d", len, skb->len);
 
-		if (flen == tlen) {
+		if (len == skb->len) {
 			/* Complete frame received */
 			l2cap_recv_frame(conn, skb);
 			return 0;
 		}
 
 		/* Allocate skb for the complete frame (with header) */
-		size = L2CAP_HDR_SIZE + tlen;
-		if (!(conn->rx_skb = bluez_skb_alloc(size, GFP_ATOMIC)))
+		if (!(conn->rx_skb = bluez_skb_alloc(len, GFP_ATOMIC)))
 			goto drop;
 
 		memcpy(skb_put(conn->rx_skb, skb->len), skb->data, skb->len);
-		conn->rx_len = tlen - flen;
+		conn->rx_len = len - skb->len;
 	} else {
 		BT_DBG("Cont: frag len %d (expecting %d)", skb->len, conn->rx_len);
 

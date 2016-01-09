@@ -1159,6 +1159,30 @@ _GLOBAL(sys_call_table)
 	.long sys_mincore
 	.long sys_gettid
 	.long sys_tkill
+	.long sys_setxattr
+	.long sys_lsetxattr	/* 210 */
+	.long sys_fsetxattr
+	.long sys_getxattr
+	.long sys_lgetxattr
+	.long sys_fgetxattr
+	.long sys_listxattr	/* 215 */
+	.long sys_llistxattr
+	.long sys_flistxattr
+	.long sys_removexattr
+	.long sys_lremovexattr
+	.long sys_fremovexattr	/* 220  */
+	.long sys_ni_syscall 	/*	reserved for sys_futex */
+	.long sys_ni_syscall 	/*	reserved for sys_sched_setaffinity */
+	.long sys_ni_syscall 	/*	reserved for sys_sched_getaffinity */
+	.long sys_ni_syscall 	/*	reserved for sys_security */
+	.long sys_ni_syscall 	/* 225	reserved for Tux */
+	.long sys_ni_syscall 	/*	reserved for sys_sendfile64 */
+	.long sys_ni_syscall 	/*	reserved for sys_io_setup */
+	.long sys_ni_syscall 	/*	reserved for sys_io_destroy */
+	.long sys_ni_syscall 	/*	reserved for sys_io_getevents */
+	.long sys_ni_syscall 	/* 230	reserved for sys_io_submit */
+	.long sys_ni_syscall 	/*	reserved for sys_io_cancel */
+
 	.rept NR_syscalls-(.-sys_call_table)/4
 		.long sys_ni_syscall
 	.endr

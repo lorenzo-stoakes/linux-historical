@@ -1162,6 +1162,7 @@ static hci_t *__devinit hc_alloc_hci (void)
 	}
 
 	hci->bus = bus;
+	bus->bus_name = "sl811";
 	bus->hcpriv = (void *) hci;
 
 	return hci;

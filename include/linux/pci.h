@@ -382,6 +382,9 @@ struct pci_dev {
 	int		ro;		/* ISAPnP: read only */
 	unsigned short	regs;		/* ISAPnP: supported registers */
 
+	/* These fields are used by common fixups */
+	unsigned short	transparent:1;	/* Transparent PCI bridge */
+
 	int (*prepare)(struct pci_dev *dev);	/* ISAPnP hooks */
 	int (*activate)(struct pci_dev *dev);
 	int (*deactivate)(struct pci_dev *dev);

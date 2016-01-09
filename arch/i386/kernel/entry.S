@@ -639,6 +639,16 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_ni_syscall)	/* 240 reserved for futex */
 	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for sched_setaffinity */
 	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for sched_getaffinity */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_set_thread_area */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_get_thread_area */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* 245 sys_io_setup */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_destroy */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_getevents */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_submit */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_io_cancel */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* 250 sys_alloc_hugepages */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_free_hugepages */
+	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_exit_group */
 
 	.rept NR_syscalls-(.-sys_call_table)/4
 		.long SYMBOL_NAME(sys_ni_syscall)

@@ -2008,7 +2008,6 @@ void reiserfs_discard_all_prealloc (struct reiserfs_transaction_handle *th);
 #endif
 void reiserfs_claim_blocks_to_be_allocated( struct super_block *sb, int blocks);
 void reiserfs_release_claimed_blocks( struct super_block *sb, int blocks);
-int reiserfs_can_fit_pages(struct super_block *sb);
 
 /* hashes.c */
 __u32 keyed_hash (const signed char *msg, int len);

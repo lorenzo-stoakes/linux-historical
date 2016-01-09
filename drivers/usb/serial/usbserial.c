@@ -814,7 +814,7 @@ static int serial_read_proc (char *page, char **start, off_t off, int count, int
 	int length = 0;
 	int i;
 	off_t begin = 0;
-//	char tmp[40];
+	char tmp[40];
 
 	dbg("%s", __FUNCTION__);
 	length += sprintf (page, "usbserinfo:1.0 driver:%s\n", DRIVER_VERSION);
@@ -831,8 +831,8 @@ static int serial_read_proc (char *page, char **start, off_t off, int count, int
 		length += sprintf (page+length, " num_ports:%d", serial->num_ports);
 		length += sprintf (page+length, " port:%d", i - serial->minor + 1);
 
-//		usb_make_path(serial->dev, tmp, sizeof(tmp));
-//		length += sprintf (page+length, " path:%s", tmp);
+		usb_make_path(serial->dev, tmp, sizeof(tmp));
+		length += sprintf (page+length, " path:%s", tmp);
 			
 		length += sprintf (page+length, "\n");
 		if ((length + begin) > (off + count))

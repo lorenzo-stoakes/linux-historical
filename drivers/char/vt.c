@@ -90,7 +90,7 @@ unsigned int video_scan_lines;
  * comments - KDMKTONE doesn't put the process to sleep.
  */
 
-#if defined(__i386__) || defined(__alpha__) || defined(__powerpc__) \
+#if defined(__i386__) || defined(__alpha__) || defined(CONFIG_PPC_ISATIMER) \
     || (defined(__mips__) && defined(CONFIG_ISA)) \
     || (defined(__arm__) && defined(CONFIG_HOST_FOOTBRIDGE)) \
     || defined(__x86_64__)

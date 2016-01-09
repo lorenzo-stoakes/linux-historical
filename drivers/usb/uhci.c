@@ -57,6 +57,8 @@
 
 #include <linux/pm.h>
 
+#include "hcd.h"
+
 /*
  * Version Information
  */
@@ -2797,6 +2799,7 @@ static int alloc_uhci(struct pci_dev *dev, unsigned int io_addr, unsigned int io
 	}
 
 	uhci->bus = bus;
+	bus->bus_name = dev->slot_name;
 	bus->hcpriv = uhci;
 
 	usb_register_bus(uhci->bus);

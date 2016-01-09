@@ -466,7 +466,6 @@ struct reiserfs_sb_info
     reiserfs_proc_info_data_t s_proc_info_data;
     struct proc_dir_entry *procdir;
     int reserved_blocks; /* amount of blocks reserved for further allocations */
-    spinlock_t bitmap_lock; /* this lock on now only used to protect reserved_blocks variable */
 };
 
 /* Definitions of reiserfs on-disk properties: */

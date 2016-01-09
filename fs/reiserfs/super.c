@@ -1266,7 +1266,6 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
     reiserfs_proc_register( s, "oidmap", reiserfs_oidmap_in_proc );
     reiserfs_proc_register( s, "journal", reiserfs_journal_in_proc );
     init_waitqueue_head (&(s->u.reiserfs_sb.s_wait));
-    s->u.reiserfs_sb.bitmap_lock = SPIN_LOCK_UNLOCKED;
 
     printk("%s\n", reiserfs_get_version_string()) ;
     return s;

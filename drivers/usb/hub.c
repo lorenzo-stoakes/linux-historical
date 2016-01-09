@@ -678,7 +678,6 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 	struct usb_device *dev;
 	unsigned int delay = HUB_SHORT_RESET_TIME;
 	int i;
-	char *portstr, *tempstr;
 
 	dbg("port %d, portstatus %x, change %x, %s",
 		port + 1, portstatus, portchange, portspeed (portstatus));
@@ -706,11 +705,9 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 
 	down(&usb_address0_sem);
 
-	tempstr = kmalloc(1024, GFP_KERNEL);
-	portstr = kmalloc(1024, GFP_KERNEL);
-
 	for (i = 0; i < HUB_PROBE_TRIES; i++) {
-		struct usb_device *pdev, *cdev;
+		struct usb_device *pdev;
+		int len;
 
 		/* Allocate a new device struct */
 		dev = usb_alloc_dev(hub, hub->bus);
@@ -740,32 +737,28 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 			dev->ttport = port + 1;
 		}
 
-		/* Create a readable topology string */
-		cdev = dev;
+		/* Save readable and stable topology id, distinguishing
+		 * devices by location for diagnostics, tools, etc.  The
+		 * string is a path along hub ports, from the root.  Each
+		 * device's id will be stable until USB is re-cabled, and
+		 * hubs are often labeled with these port numbers.
+		 *
+		 * Initial size: ".NN" times five hubs + NUL = 16 bytes max
+		 * (quite rare, since most hubs have 4-6 ports).
+		 */
 		pdev = dev->parent;
-		if (portstr && tempstr) {
-			portstr[0] = 0;
-			while (pdev) {
-				int port;
-
-				for (port = 0; port < pdev->maxchild; port++)
-					if (pdev->children[port] == cdev)
-						break;
-
-				strcpy(tempstr, portstr);
-				if (!strlen(tempstr))
-					sprintf(portstr, "%d", port + 1);
-				else
-					sprintf(portstr, "%d/%s", port + 1, tempstr);
-
-				cdev = pdev;
-				pdev = pdev->parent;
-			}
-			info("USB new device connect on bus%d/%s, assigned device number %d",
-				dev->bus->busnum, portstr, dev->devnum);
-		} else
-			info("USB new device connect on bus%d, assigned device number %d",
-				dev->bus->busnum, dev->devnum);
+		if (pdev->devpath [0] != '0')	/* parent not root? */
+			len = snprintf (dev->devpath, sizeof dev->devpath,
+				"%s.%d", pdev->devpath, port + 1);
+		/* root == "0", root port 2 == "2", port 3 that hub "2.3" */
+		else
+			len = snprintf (dev->devpath, sizeof dev->devpath,
+				"%d", port + 1);
+		if (len == sizeof dev->devpath)
+			warn ("devpath size! usb/%03d/%03d path %s",
+				dev->bus->busnum, dev->devnum, dev->devpath);
+		info("new USB device %s-%s, assigned address %d",
+			dev->bus->bus_name, dev->devpath, dev->devnum);
 
 		/* Run it through the hoops (find a driver, etc) */
 		if (!usb_new_device(dev))
@@ -782,10 +775,6 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 	usb_hub_port_disable(hub, port);
 done:
 	up(&usb_address0_sem);
-	if (portstr)
-		kfree(portstr);
-	if (tempstr)
-		kfree(tempstr);
 }
 
 static void usb_hub_events(void)

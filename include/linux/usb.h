@@ -437,6 +437,7 @@ struct usb_driver {
  * urb->transfer_flags:
  */
 #define USB_DISABLE_SPD		0x0001
+#define URB_SHORT_NOT_OK	USB_DISABLE_SPD
 #define USB_ISO_ASAP		0x0002
 #define USB_ASYNC_UNLINK	0x0008
 #define USB_QUEUE_BULK		0x0010
@@ -454,6 +455,8 @@ struct iso_packet_descriptor
 	unsigned int status;
 };
 
+#define usb_iso_packet_descriptor	iso_packet_descriptor
+
 struct urb;
 typedef void (*usb_complete_t)(struct urb *);
 
@@ -468,10 +471,12 @@ struct urb
 	int status;			// returned status
 	unsigned int transfer_flags;	// USB_DISABLE_SPD | USB_ISO_ASAP | etc.
 	void *transfer_buffer;		// associated data buffer
+	dma_addr_t transfer_dma;	// dma addr for transfer_buffer
 	int transfer_buffer_length;	// data buffer length
 	int actual_length;              // actual data buffer length	
 	int bandwidth;			// bandwidth for this transfer request (INT or ISO)
 	unsigned char *setup_packet;	// setup packet (control only)
+	dma_addr_t setup_dma;		// dma addr for setup_packet
 	//
 	int start_frame;		// start frame (iso/irq only)
 	int number_of_packets;		// number of packets in this request (iso)
@@ -723,6 +728,7 @@ struct usb_operations {
  */
 struct usb_bus {
 	int busnum;			/* Bus number (in order of reg) */
+	char *bus_name;			/* stable id (PCI slot_name etc) */
 
 #ifdef DEVNUM_ROUND_ROBIN
 	int devnum_next;                /* Next open device number in round-robin allocation */
@@ -771,7 +777,8 @@ struct usb_tt {
 #define USB_MAXCHILDREN		(16)
 
 struct usb_device {
-	int devnum;			/* Device number on USB bus */
+	int		devnum;		/* Address on USB bus */
+	char		devpath [16];	/* Use in messages: /port/port/... */
 
 	enum {
 		USB_SPEED_UNKNOWN = 0,			/* enumerating */
@@ -846,10 +853,6 @@ extern void usb_free_dev(struct usb_device *);
 extern void usb_inc_dev_use(struct usb_device *);
 #define usb_dec_dev_use usb_free_dev
 
-extern int usb_check_bandwidth (struct usb_device *dev, struct urb *urb);
-extern void usb_claim_bandwidth (struct usb_device *dev, struct urb *urb, int bustime, int isoc);
-extern void usb_release_bandwidth(struct usb_device *dev, struct urb *urb, int isoc);
-
 extern int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u8 requesttype, __u16 value, __u16 index, void *data, __u16 size, int timeout);
 
 extern int usb_root_hub_string(int id, int serial, char *type, __u8 *data, int len);
@@ -859,6 +862,42 @@ extern void usb_disconnect(struct usb_device **);
 extern void usb_destroy_configuration(struct usb_device *dev);
 
 int usb_get_current_frame_number (struct usb_device *usb_dev);
+
+
+/**
+ * usb_make_path - returns stable device path in the usb tree
+ * @dev: the device whose path is being constructed
+ * @buf: where to put the string
+ * @size: how big is "buf"?
+ *
+ * Returns length of the string (> 0) or negative if size was too small.
+ *
+ * This identifier is intended to be "stable", reflecting physical paths in
+ * hardware such as physical bus addresses for host controllers or ports on
+ * USB hubs.  That makes it stay the same until systems are physically
+ * reconfigured, by re-cabling a tree of USB devices or by moving USB host
+ * controllers.  Adding and removing devices, including virtual root hubs
+ * in host controller driver modules, does not change these path identifers;
+ * neither does rebooting or re-enumerating.  These are more useful identifiers
+ * than changeable ("unstable") ones like bus numbers or device addresses.
+ * (The stability of the id depends on stability of the bus_name associated
+ * with the bus the device uses; that is normally stable.)
+ *
+ * With a partial exception for devices connected to USB 2.0 root hubs, these
+ * identifiers are also predictable.  So long as the device tree isn't changed,
+ * plugging any USB device into a given hub port always gives it the same path.
+ * Because of the use of "companion" controllers, devices connected to ports on
+ * USB 2.0 root hubs (EHCI host controllers) will get one path ID if they are
+ * high speed, and a different one if they are full or low speed.
+ */
+static inline int usb_make_path (struct usb_device *dev, char *buf, size_t size)
+{
+	int actual;
+	actual = snprintf (buf, size, "usb-%s-%s",
+		dev->bus->bus_name, dev->devpath);
+	return (actual >= size) ? -1 : actual;
+}
+
 
 /*
  * Calling this entity a "pipe" is glorifying it. A USB pipe
@@ -984,26 +1023,6 @@ void usb_set_maxpacket(struct usb_device *dev);
 
 #define usb_get_extra_descriptor(ifpoint,type,ptr)\
 	__usb_get_extra_descriptor((ifpoint)->extra,(ifpoint)->extralen,type,(void**)ptr)
-
-/*
- * Some USB bandwidth allocation constants.
- */
-#define BW_HOST_DELAY	1000L		/* nanoseconds */
-#define BW_HUB_LS_SETUP	333L		/* nanoseconds */
-                        /* 4 full-speed bit times (est.) */
-
-#define FRAME_TIME_BITS         12000L		/* frame = 1 millisecond */
-#define FRAME_TIME_MAX_BITS_ALLOC	(90L * FRAME_TIME_BITS / 100L)
-#define FRAME_TIME_USECS	1000L
-#define FRAME_TIME_MAX_USECS_ALLOC	(90L * FRAME_TIME_USECS / 100L)
-
-#define BitTime(bytecount)  (7 * 8 * bytecount / 6)  /* with integer truncation */
-		/* Trying not to use worst-case bit-stuffing
-                   of (7/6 * 8 * bytecount) = 9.33 * bytecount */
-		/* bytecount = data payload byte count */
-
-#define NS_TO_US(ns)	((ns + 500L) / 1000L)
-			/* convert & round nanoseconds to microseconds */
 
 /*
  * Debugging helpers..

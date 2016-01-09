@@ -771,7 +771,7 @@ ioctl_scanner(struct inode *inode, struct file *file,
  		if (copy_from_user(&cmsg, (void *)arg, sizeof(cmsg)))
  			return -EFAULT;
 
- 		nb = le16_to_cpup(&cmsg.req.wLength);
+ 		nb = cmsg.req.wLength;
 
  		if (nb > sizeof(buf))
  			return -EINVAL;
@@ -786,8 +786,8 @@ ioctl_scanner(struct inode *inode, struct file *file,
 
  		ret = usb_control_msg(dev, pipe, cmsg.req.bRequest,
  				      cmsg.req.bRequestType,
- 				      le16_to_cpup(&cmsg.req.wValue),
- 				      le16_to_cpup(&cmsg.req.wIndex),
+ 				      cmsg.req.wValue,
+ 				      cmsg.req.wIndex,
  				      buf, nb, HZ);
 
  		if (ret < 0) {

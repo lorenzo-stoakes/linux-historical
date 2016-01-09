@@ -114,8 +114,8 @@ extern void swap_setup(void);
 
 /* linux/mm/vmscan.c */
 extern wait_queue_head_t kswapd_wait;
-extern int FASTCALL(try_to_free_pages(zone_t *, unsigned int, unsigned int));
-extern int FASTCALL(try_to_free_pages_nozone(unsigned int));
+extern int FASTCALL(try_to_free_pages_zone(zone_t *, unsigned int));
+extern int FASTCALL(try_to_free_pages(unsigned int));
 
 /* linux/mm/page_io.c */
 extern void rw_swap_page(int, struct page *);

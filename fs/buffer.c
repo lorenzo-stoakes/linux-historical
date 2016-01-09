@@ -731,7 +731,7 @@ static void free_more_memory(void)
 {
 	balance_dirty();
 	wakeup_bdflush();
-	try_to_free_pages_nozone(GFP_NOIO);
+	try_to_free_pages(GFP_NOIO);
 	run_task_queue(&tq_disk);
 	yield();
 }

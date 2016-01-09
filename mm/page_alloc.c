@@ -263,7 +263,7 @@ static struct page * balance_classzone(zone_t * classzone, unsigned int gfp_mask
 	current->allocation_order = order;
 	current->flags |= PF_MEMALLOC | PF_FREE_PAGES;
 
-	__freed = try_to_free_pages(classzone, gfp_mask, order);
+	__freed = try_to_free_pages_zone(classzone, gfp_mask);
 
 	current->flags &= ~(PF_MEMALLOC | PF_FREE_PAGES);
 
@@ -510,25 +510,6 @@ unsigned int nr_free_highpages (void)
 	return pages;
 }
 #endif
-
-int try_to_free_pages_nozone(unsigned int gfp_mask)
-{
-	pg_data_t *pgdat;
-	zonelist_t *zonelist;
-	unsigned long pf_free_pages;
-	int error = 0;
-
-	pf_free_pages = current->flags & PF_FREE_PAGES;
-	current->flags &= ~PF_FREE_PAGES;
-
-	for_each_pgdat(pgdat) {
-		zonelist = pgdat->node_zonelists + (gfp_mask & GFP_ZONEMASK);
-		error |= try_to_free_pages(zonelist->zones[0], gfp_mask, 0);
-	}
-
-	current->flags |= pf_free_pages;
-	return error;
-}
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
 

@@ -584,7 +584,7 @@ static int shrink_caches(zone_t * classzone, int priority, unsigned int gfp_mask
 	return nr_pages;
 }
 
-int try_to_free_pages(zone_t *classzone, unsigned int gfp_mask, unsigned int order)
+int try_to_free_pages_zone(zone_t *classzone, unsigned int gfp_mask)
 {
 	int priority = DEF_PRIORITY;
 	int nr_pages = SWAP_CLUSTER_MAX;
@@ -602,6 +602,25 @@ int try_to_free_pages(zone_t *classzone, unsigned int gfp_mask, unsigned int ord
 	 */
 	out_of_memory();
 	return 0;
+}
+
+int try_to_free_pages(unsigned int gfp_mask)
+{
+	pg_data_t *pgdat;
+	zonelist_t *zonelist;
+	unsigned long pf_free_pages;
+	int error = 0;
+
+	pf_free_pages = current->flags & PF_FREE_PAGES;
+	current->flags &= ~PF_FREE_PAGES;
+
+	for_each_pgdat(pgdat) {
+		zonelist = pgdat->node_zonelists + (gfp_mask & GFP_ZONEMASK);
+		error |= try_to_free_pages_zone(zonelist->zones[0], gfp_mask);
+	}
+
+	current->flags |= pf_free_pages;
+	return error;
 }
 
 DECLARE_WAIT_QUEUE_HEAD(kswapd_wait);
@@ -630,7 +649,7 @@ static int kswapd_balance_pgdat(pg_data_t * pgdat)
 			schedule();
 		if (!zone->need_balance)
 			continue;
-		if (!try_to_free_pages(zone, GFP_KSWAPD, 0)) {
+		if (!try_to_free_pages_zone(zone, GFP_KSWAPD)) {
 			zone->need_balance = 0;
 			__set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout(HZ);

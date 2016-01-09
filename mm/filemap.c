@@ -1029,15 +1029,6 @@ struct page * find_or_create_page(struct address_space *mapping, unsigned long i
 }
 
 /*
- * Returns locked page at given index in given cache, creating it if needed.
- */
-struct page *grab_cache_page(struct address_space *mapping, unsigned long index)
-{
-	return find_or_create_page(mapping, index, mapping->gfp_mask);
-}
-
-
-/*
  * Same as grab_cache_page, but do not wait if the page is unavailable.
  * This is intended for speculative data generators, where the data can
  * be regenerated if the page couldn't be grabbed.  This routine should
@@ -2906,7 +2897,7 @@ repeat:
 	return page;
 }
 
-void remove_suid(struct inode *inode)
+inline void remove_suid(struct inode *inode)
 {
 	unsigned int mode;
 

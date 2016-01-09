@@ -78,6 +78,7 @@
 
 #include "usb-ohci.h"
 
+#include "hcd.h"
 
 #ifdef CONFIG_PMAC_PBOOK
 #include <asm/machdep.h>
@@ -2413,6 +2414,7 @@ static ohci_t * __devinit hc_alloc_ohci (struct pci_dev *dev, void * mem_base)
 		kfree (ohci);
 		return NULL;
 	}
+	ohci->bus->bus_name = dev->slot_name;
 	ohci->bus->hcpriv = (void *) ohci;
 
 	return ohci;
@@ -2440,8 +2442,9 @@ static void hc_release_ohci (ohci_t * ohci)
 	}
 	pci_set_drvdata(ohci->ohci_dev, NULL);
 	if (ohci->bus) {
-		if (ohci->bus->busnum)
+		if (ohci->bus->busnum != -1)
 			usb_deregister_bus (ohci->bus);
+
 		usb_free_bus (ohci->bus);
 	}
 
@@ -2470,7 +2473,6 @@ hc_found_ohci (struct pci_dev *dev, int irq,
 	void *mem_base, const struct pci_device_id *id)
 {
 	ohci_t * ohci;
-	u8 latency, limit;
 	char buf[8], *bufp = buf;
 	int ret;
 
@@ -2509,20 +2511,6 @@ hc_found_ohci (struct pci_dev *dev, int irq,
 		printk (KERN_INFO __FILE__ ": Using NSC SuperIO setup\n");
 	if (ohci->flags & OHCI_QUIRK_AMD756)
 		printk (KERN_INFO __FILE__ ": AMD756 erratum 4 workaround\n");
-
-	/* bad pci latencies can contribute to overruns */ 
-	pci_read_config_byte (dev, PCI_LATENCY_TIMER, &latency);
-	if (latency) {
-		pci_read_config_byte (dev, PCI_MAX_LAT, &limit);
-		if (limit && limit < latency) {
-			dbg ("PCI latency reduced to max %d", limit);
-			pci_write_config_byte (dev, PCI_LATENCY_TIMER, limit);
-			ohci->pci_latency = limit;
-		} else {
-			/* it might already have been reduced */
-			ohci->pci_latency = latency;
-		}
-	}
 
 	if (hc_reset (ohci) < 0) {
 		hc_release_ohci (ohci);

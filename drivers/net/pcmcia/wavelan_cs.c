@@ -63,8 +63,7 @@
  *
  */
 
-#include <linux/ethtool.h>
-#include <asm/uaccess.h>
+/* Do *NOT* add other headers here, you are guaranteed to be wrong - Jean II */
 #include "wavelan_cs.h"		/* Private header */
 
 /************************* MISC SUBROUTINES **************************/

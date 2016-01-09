@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI Core.
  *
- * $Id: hci_core.c,v 1.11 2002/07/04 00:25:11 maxk Exp $
+ * $Id: hci_core.c,v 1.14 2002/08/26 16:57:57 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -1164,6 +1164,25 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 	return conn;
 }
 
+static inline void hci_acl_tx_to(struct hci_dev *hdev)
+{
+	struct conn_hash *h = &hdev->conn_hash;
+	struct list_head *p;
+	struct hci_conn  *c;
+
+	BT_ERR("%s ACL tx timeout", hdev->name);
+
+	/* Kill stalled connections */
+	list_for_each(p, &h->list) {
+		c = list_entry(p, struct hci_conn, list);
+		if (c->type == ACL_LINK && c->sent) {
+			BT_ERR("%s killing stalled ACL connection %s",
+				hdev->name, batostr(&c->dst));
+			hci_acl_disconn(c, 0x13);
+		}
+	}
+}
+
 static inline void hci_sched_acl(struct hci_dev *hdev)
 {
 	struct hci_conn *conn;
@@ -1174,10 +1193,8 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 
 	/* ACL tx timeout must be longer than maximum
 	 * link supervision timeout (40.9 seconds) */
-	if (!hdev->acl_cnt && (jiffies - hdev->acl_last_tx) > (HZ * 45)) {
-		BT_ERR("%s ACL tx timeout", hdev->name);
-		hdev->acl_cnt++;
-	}
+	if (!hdev->acl_cnt && (jiffies - hdev->acl_last_tx) > (HZ * 45))
+		hci_acl_tx_to(hdev);
 
 	while (hdev->acl_cnt && (conn = hci_low_sent(hdev, ACL_LINK, &quote))) {
 		while (quote-- && (skb = skb_dequeue(&conn->data_q))) {
