@@ -150,7 +150,7 @@ if [ "$CONFIG_PARPORT" != "n" ]; then
 fi
 
 if [ "$CONFIG_PPC64" ] ; then 
-bool 'pSeries Hypervisor Virtual Console support' CONFIG_HVC_CONSOLE
+   bool 'pSeries Hypervisor Virtual Console support' CONFIG_HVC_CONSOLE
 fi
 
 source drivers/i2c/Config.in
@@ -246,6 +246,7 @@ fi
 if [ "$CONFIG_X86" = "y" -o "$CONFIG_IA64" = "y" ]; then
    dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
 fi
+dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
 tristate '/dev/nvram support' CONFIG_NVRAM
 tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
 if [ "$CONFIG_IA64" = "y" ]; then

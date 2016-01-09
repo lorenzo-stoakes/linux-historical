@@ -2346,8 +2346,8 @@ D: implemented kmod
 D: modularized BSD Unix domain sockets
 
 N: Martin Kasper Petersen
-E: mkp@linuxcare.com
 E: mkp@mkp.net
+D: forte FM801 audio driver
 D: PA-RISC port
 D: XFS file system
 D: kiobuf based block I/O work

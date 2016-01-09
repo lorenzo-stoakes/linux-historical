@@ -1491,6 +1491,8 @@ void do_div0(struct pt_regs *regs)
 {
 	siginfo_t info;
 
+	if (regs->tstate & TSTATE_PRIV)
+		die_if_kernel("TL0: Kernel divide by zero.", regs);
 	if ((current->thread.flags & SPARC_FLAG_32BIT) != 0) {
 		regs->tpc &= 0xffffffff;
 		regs->tnpc &= 0xffffffff;

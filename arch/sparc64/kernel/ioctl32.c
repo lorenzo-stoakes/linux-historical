@@ -3217,7 +3217,7 @@ static int do_lvm_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 }
 #endif
 
-#if defined(CONFIG_DRM) || defined(CONFIG_DRM_MODULE)
+#if defined(CONFIG_DRM_NEW) || defined(CONFIG_DRM_NEW_MODULE)
 /* This really belongs in include/linux/drm.h -DaveM */
 #include "../../../drivers/char/drm/drm.h"
 
@@ -4930,7 +4930,7 @@ COMPATIBLE_IOCTL(LE_REMAP)
 COMPATIBLE_IOCTL(LV_BMAP)
 COMPATIBLE_IOCTL(LV_SNAPSHOT_USE_RATE)
 #endif /* LVM */
-#if defined(CONFIG_DRM) || defined(CONFIG_DRM_MODULE)
+#if defined(CONFIG_DRM_NEW) || defined(CONFIG_DRM_NEW_MODULE)
 COMPATIBLE_IOCTL(DRM_IOCTL_GET_MAGIC)
 COMPATIBLE_IOCTL(DRM_IOCTL_IRQ_BUSID)
 COMPATIBLE_IOCTL(DRM_IOCTL_AUTH_MAGIC)
@@ -5189,7 +5189,7 @@ HANDLE_IOCTL(LV_STATUS_BYDEV, do_lvm_ioctl)
 HANDLE_IOCTL(PV_CHANGE, do_lvm_ioctl)
 HANDLE_IOCTL(PV_STATUS, do_lvm_ioctl)
 #endif /* LVM */
-#if defined(CONFIG_DRM) || defined(CONFIG_DRM_MODULE)
+#if defined(CONFIG_DRM_NEW) || defined(CONFIG_DRM_NEW_MODULE)
 HANDLE_IOCTL(DRM32_IOCTL_VERSION, drm32_version)
 HANDLE_IOCTL(DRM32_IOCTL_GET_UNIQUE, drm32_getsetunique)
 HANDLE_IOCTL(DRM32_IOCTL_SET_UNIQUE, drm32_getsetunique)

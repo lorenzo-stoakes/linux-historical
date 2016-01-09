@@ -1226,10 +1226,10 @@ static __u32 sun4c_get_scsi_one(char *bufptr, unsigned long len, struct sbus_bus
 
 static void sun4c_get_scsi_sgl(struct scatterlist *sg, int sz, struct sbus_bus *sbus)
 {
-	while (sz >= 0) {
+	while (sz != 0) {
+		sz--;
 		sg[sz].dvma_address = (__u32)sun4c_lockarea(sg[sz].address, sg[sz].length);
 		sg[sz].dvma_length = sg[sz].length;
-		sz--;
 	}
 }
 
@@ -1242,9 +1242,9 @@ static void sun4c_release_scsi_one(__u32 bufptr, unsigned long len, struct sbus_
 
 static void sun4c_release_scsi_sgl(struct scatterlist *sg, int sz, struct sbus_bus *sbus)
 {
-	while (sz >= 0) {
+	while (sz != 0) {
+		--sz;
 		sun4c_unlockarea((char *)sg[sz].dvma_address, sg[sz].length);
-		sz--;
 	}
 }
 

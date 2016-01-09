@@ -168,7 +168,7 @@ EXPORT_SYMBOL(iopa);
 EXPORT_SYMBOL(mm_ptov);
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE) \
-	defined(CONFIG_USB_STORAGE) || defined(CONFIG_USB_STORAGE_MODULE)
+	|| defined(CONFIG_USB_STORAGE) || defined(CONFIG_USB_STORAGE_MODULE)
 EXPORT_SYMBOL(ppc_ide_md);
 EXPORT_SYMBOL(ppc_generic_ide_fix_driveid);
 #endif

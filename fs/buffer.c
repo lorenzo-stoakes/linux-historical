@@ -749,6 +749,7 @@ static void end_buffer_io_async(struct buffer_head * bh, int uptodate)
 	unsigned long flags;
 	struct buffer_head *tmp;
 	struct page *page;
+	int fullup = 1;
 
 	mark_buffer_uptodate(bh, uptodate);
 
@@ -775,8 +776,11 @@ static void end_buffer_io_async(struct buffer_head * bh, int uptodate)
 	unlock_buffer(bh);
 	tmp = bh->b_this_page;
 	while (tmp != bh) {
-		if (buffer_async(tmp) && buffer_locked(tmp))
-			goto still_busy;
+		if (buffer_locked(tmp)) {
+			if (buffer_async(tmp))
+				goto still_busy;
+		} else if (!buffer_uptodate(tmp))
+			fullup = 0;
 		tmp = tmp->b_this_page;
 	}
 
@@ -784,10 +788,10 @@ static void end_buffer_io_async(struct buffer_head * bh, int uptodate)
 	spin_unlock_irqrestore(&page_uptodate_lock, flags);
 
 	/*
-	 * if none of the buffers had errors then we can set the
-	 * page uptodate:
+	 * If none of the buffers had errors and all were uptodate
+	 * then we can set the page uptodate:
 	 */
-	if (!PageError(page))
+	if (fullup && !PageError(page))
 		SetPageUptodate(page);
 
 	UnlockPage(page);
