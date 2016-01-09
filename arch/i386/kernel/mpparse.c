@@ -66,8 +66,6 @@ static unsigned int num_processors;
 /* Bitmask of physically existing CPUs */
 unsigned long phys_cpu_present_map;
 
-unsigned int int_dest_addr_mode = APIC_DEST_LOGICAL;
-unsigned char int_delivery_mode = dest_LowestPrio;
 unsigned char esr_disable = 0;
 
 /*

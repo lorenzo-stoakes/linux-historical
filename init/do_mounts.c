@@ -244,7 +244,8 @@ static struct dev_name_struct {
 
 kdev_t __init name_to_kdev_t(char *line)
 {
-	int base = 0;
+	int base = 0, offs;
+	char *end;
 
 	if (strncmp(line,"/dev/",5) == 0) {
 		struct dev_name_struct *dev = root_dev_names;
@@ -259,7 +260,10 @@ kdev_t __init name_to_kdev_t(char *line)
 			dev++;
 		} while (dev->name);
 	}
-	return to_kdev_t(base + simple_strtoul(line,NULL,base?10:16));
+	offs = simple_strtoul(line, &end, base?10:16);
+	if (*end)
+		offs = 0;
+	return to_kdev_t(base + offs);
 }
 
 static int __init root_dev_setup(char *line)

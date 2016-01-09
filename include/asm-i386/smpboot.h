@@ -26,16 +26,20 @@ static inline int target_cpus(void)
 	}
 	return cpu_online_map;
 }
+#ifdef CONFIG_X86_IO_APIC
 extern unsigned char int_delivery_mode;
 extern unsigned int int_dest_addr_mode;
 #define	INT_DEST_ADDR_MODE (int_dest_addr_mode)
 #define	INT_DELIVERY_MODE (int_delivery_mode)
-#else
+#endif /* CONFIG_X86_IO_APIC */
+#else /* CONFIG_X86_LOCAL_APIC */
 #define esr_disable (0)
 #define target_cpus() (0x01)
+#ifdef CONFIG_X86_IO_APIC
 #define INT_DEST_ADDR_MODE (APIC_DEST_LOGICAL)	/* logical delivery */
 #define INT_DELIVERY_MODE (dest_LowestPrio)
-#endif
+#endif /* CONFIG_X86_IO_APIC */
+#endif /* CONFIG_X86_LOCAL_APIC */
 
 #define TRAMPOLINE_LOW phys_to_virt((clustered_apic_mode == CLUSTERED_APIC_NUMAQ)?0x8:0x467)
 #define TRAMPOLINE_HIGH phys_to_virt((clustered_apic_mode == CLUSTERED_APIC_NUMAQ)?0xa:0x469)

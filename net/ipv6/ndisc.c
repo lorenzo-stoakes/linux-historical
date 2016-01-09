@@ -1235,9 +1235,6 @@ int ndisc_rcv(struct sk_buff *skb)
 					struct rt6_info *rt;
 					rt = rt6_get_dflt_router(saddr, skb->dev);
 					if (rt) {
-						/* It is safe only because
-						   we aer in BH */
-						dst_release(&rt->u.dst);
 						ip6_del_rt(rt);
 					}
 				}

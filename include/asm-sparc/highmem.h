@@ -20,14 +20,15 @@
 
 #ifdef __KERNEL__
 
-#include <linux/init.h>
 #include <linux/interrupt.h>
-#include <asm/vaddrs.h>
 #include <asm/kmap_types.h>
-#include <asm/pgtable.h>
 
 /* undef for production */
 #define HIGHMEM_DEBUG 1
+
+/* in mm/highmem.c */
+extern void *kmap_high(struct page *page);
+extern void kunmap_high(struct page *page);
 
 /* declarations for highmem.c */
 extern unsigned long highstart_pfn, highend_pfn;
@@ -51,12 +52,13 @@ extern void kmap_init(void) __init;
  */
 #define LAST_PKMAP 1024
 
-#define LAST_PKMAP_MASK (LAST_PKMAP - 1)
-#define PKMAP_NR(virt)  ((virt - pkmap_base) >> PAGE_SHIFT)
-#define PKMAP_ADDR(nr)  (pkmap_base + ((nr) << PAGE_SHIFT))
+#define LAST_PKMAP_MASK		(LAST_PKMAP - 1)
+#define PKMAP_NR(virt)		((virt - pkmap_base) >> PAGE_SHIFT)
+#define PKMAP_ADDR(nr)		(pkmap_base + ((nr) << PAGE_SHIFT))
 
-extern void *kmap_high(struct page *page);
-extern void kunmap_high(struct page *page);
+/* in arch/sparc/mm/highmem.c */
+void *kmap_atomic(struct page *page, enum km_type type);
+void kunmap_atomic(void *kvaddr, enum km_type type);
 
 static inline void *kmap(struct page *page)
 {
@@ -74,78 +76,6 @@ static inline void kunmap(struct page *page)
 	if (page < highmem_start_page)
 		return;
 	kunmap_high(page);
-}
-
-/*
- * The use of kmap_atomic/kunmap_atomic is discouraged - kmap/kunmap
- * gives a more generic (and caching) interface. But kmap_atomic can
- * be used in IRQ contexts, so in some (very limited) cases we need
- * it.
- */
-static inline void *kmap_atomic(struct page *page, enum km_type type)
-{
-	unsigned long idx;
-	unsigned long vaddr;
-
-	if (page < highmem_start_page)
-		return page_address(page);
-
-	idx = type + KM_TYPE_NR*smp_processor_id();
-	vaddr = fix_kmap_begin + idx * PAGE_SIZE;
-
-/* XXX Fix - Anton */
-#if 0
-	__flush_cache_one(vaddr);
-#else
-	flush_cache_all();
-#endif
-
-#if HIGHMEM_DEBUG
-	if (!pte_none(*(kmap_pte+idx)))
-		BUG();
-#endif
-	set_pte(kmap_pte+idx, mk_pte(page, kmap_prot));
-/* XXX Fix - Anton */
-#if 0
-	__flush_tlb_one(vaddr);
-#else
-	flush_tlb_all();
-#endif
-
-	return (void*) vaddr;
-}
-
-static inline void kunmap_atomic(void *kvaddr, enum km_type type)
-{
-	unsigned long vaddr = (unsigned long) kvaddr;
-	unsigned long idx = type + KM_TYPE_NR*smp_processor_id();
-
-	if (vaddr < fix_kmap_begin) // FIXME
-		return;
-
-	if (vaddr != fix_kmap_begin + idx * PAGE_SIZE)
-		BUG();
-
-/* XXX Fix - Anton */
-#if 0
-	__flush_cache_one(vaddr);
-#else
-	flush_cache_all();
-#endif
-
-#ifdef HIGHMEM_DEBUG
-	/*
-	 * force other mappings to Oops if they'll try to access
-	 * this pte without first remap it
-	 */
-	pte_clear(kmap_pte+idx);
-/* XXX Fix - Anton */
-#if 0
-	__flush_tlb_one(vaddr);
-#else
-	flush_tlb_all();
-#endif
-#endif
 }
 
 #endif /* __KERNEL__ */

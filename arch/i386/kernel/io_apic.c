@@ -40,6 +40,10 @@
 
 static spinlock_t ioapic_lock = SPIN_LOCK_UNLOCKED;
 
+unsigned int int_dest_addr_mode = APIC_DEST_LOGICAL;
+unsigned char int_delivery_mode = dest_LowestPrio;
+
+
 /*
  * # of IRQ routing registers
  */

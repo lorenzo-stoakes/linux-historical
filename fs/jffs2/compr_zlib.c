@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: compr_zlib.c,v 1.15 2002/03/04 09:35:48 dwmw2 Exp $
+ * $Id: compr_zlib.c,v 1.8.2.1 2002/10/11 09:04:44 dwmw2 Exp $
  *
  */
 
@@ -65,28 +65,28 @@ int __init jffs2_zlib_init(void)
 {
 	deflate_workspace = vmalloc(zlib_deflate_workspacesize());
 	if (!deflate_workspace) {
-		printk("Failed to allocate %d bytes for deflate workspace\n", zlib_deflate_workspacesize());
+		printk(KERN_WARNING "Failed to allocate %d bytes for deflate workspace\n", zlib_deflate_workspacesize());
 		return -ENOMEM;
 	}
-	D1(printk("Allocated %d bytes for deflate workspace\n", zlib_deflate_workspacesize()));
+	D1(printk(KERN_DEBUG "Allocated %d bytes for deflate workspace\n", zlib_deflate_workspacesize()));
 	inflate_workspace = vmalloc(zlib_inflate_workspacesize());
 	if (!inflate_workspace) {
-		printk("Failed to allocate %d bytes for inflate workspace\n", zlib_inflate_workspacesize());
+		printk(KERN_WARNING "Failed to allocate %d bytes for inflate workspace\n", zlib_inflate_workspacesize());
 		vfree(deflate_workspace);
 		return -ENOMEM;
 	}
-	D1(printk("Allocated %d bytes for inflate workspace\n", zlib_inflate_workspacesize()));
+	D1(printk(KERN_DEBUG "Allocated %d bytes for inflate workspace\n", zlib_inflate_workspacesize()));
 	return 0;
 }
 
-void __exit jffs2_zlib_exit(void)
+void jffs2_zlib_exit(void)
 {
 	vfree(deflate_workspace);
 	vfree(inflate_workspace);
 }
 
 int zlib_compress(unsigned char *data_in, unsigned char *cpage_out, 
-		   uint32_t *sourcelen, uint32_t *dstlen)
+		   __u32 *sourcelen, __u32 *dstlen)
 {
 	z_stream strm;
 	int ret;
@@ -146,7 +146,7 @@ int zlib_compress(unsigned char *data_in, unsigned char *cpage_out,
 }
 
 void zlib_decompress(unsigned char *data_in, unsigned char *cpage_out,
-		      uint32_t srclen, uint32_t destlen)
+		      __u32 srclen, __u32 destlen)
 {
 	z_stream strm;
 	int ret;

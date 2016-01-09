@@ -31,8 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: nodelist.h,v 1.46.2.2 2002/05/27 09:27:50 dwmw2 Exp $
- * + zlib_init calls from v1.65
+ * $Id: nodelist.h,v 1.46.2.3 2002/10/11 09:04:44 dwmw2 Exp $
  *
  */
 

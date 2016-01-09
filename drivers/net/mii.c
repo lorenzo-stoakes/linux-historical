@@ -192,9 +192,12 @@ int mii_nway_restart (struct mii_if_info *mii)
 
 void mii_check_link (struct mii_if_info *mii)
 {
-	if (mii_link_ok(mii))
+	int cur_link = mii_link_ok(mii);
+	int prev_link = netif_carrier_ok(mii->dev);
+
+	if (cur_link && !prev_link)
 		netif_carrier_on(mii->dev);
-	else
+	else if (prev_link && !cur_link)
 		netif_carrier_off(mii->dev);
 }
 
@@ -299,9 +302,9 @@ int generic_mii_ioctl(struct mii_if_info *mii_if,
 			case MII_BMCR: {
 				unsigned int new_duplex = 0;
 				if (val & (BMCR_RESET|BMCR_ANENABLE))
-					mii_if->force_media = 1;
-				else
 					mii_if->force_media = 0;
+				else
+					mii_if->force_media = 1;
 				if (mii_if->force_media &&
 				    (val & BMCR_FULLDPLX))
 					new_duplex = 1;

@@ -11,8 +11,8 @@
 
     Copyright (C) 2001 David A. Hinds -- dahinds@users.sourceforge.net
 
-    axnet_cs.c 1.24 2001/11/18 02:46:51
-    
+    axnet_cs.c 1.28 2002/06/29 06:27:37
+
     The network driver code is based on Donald Becker's NE2000 code:
 
     Written 1992,1993 by Donald Becker.
@@ -55,11 +55,16 @@
 #define AXNET_DATAPORT	0x10	/* NatSemi-defined port window offset. */
 #define AXNET_RESET	0x1f	/* Issue a read to reset, a write to clear. */
 #define AXNET_MII_EEP	0x14	/* Offset of MII access port */
+#define AXNET_TEST	0x15	/* Offset of TEST Register port */
+#define AXNET_GPIO	0x17	/* Offset of General Purpose Register Port */
 
 #define AXNET_START_PG	0x40	/* First page of TX buffer */
 #define AXNET_STOP_PG	0x80	/* Last page +1 of RX ring */
 
 #define AXNET_RDC_TIMEOUT 0x02	/* Max wait in jiffies for Tx RDC */
+
+#define IS_AX88190	0x0001
+#define IS_AX88790	0x0002
 
 /*====================================================================*/
 
@@ -80,7 +85,7 @@ MODULE_PARM(irq_list, "1-4i");
 INT_MODULE_PARM(pc_debug, PCMCIA_DEBUG);
 #define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args)
 static char *version =
-"axnet_cs.c 1.24 2001/11/18 02:46:51 (David Hinds)";
+"axnet_cs.c 1.28 2002/06/29 06:27:37 (David Hinds)";
 #else
 #define DEBUG(n, args...)
 #endif
@@ -117,6 +122,7 @@ static dev_link_t *dev_list;
 static int axdev_init(struct net_device *dev);
 static void AX88190_init(struct net_device *dev, int startp);
 static int ax_open(struct net_device *dev);
+static int ax_close(struct net_device *dev);
 static void ax_interrupt(int irq, void *dev_id, struct pt_regs *regs);
 
 /*====================================================================*/
@@ -131,6 +137,7 @@ typedef struct axnet_dev_t {
     u_short		link_status;
     u_char		duplex_flag;
     int			phy_id;
+    int			flags;
 } axnet_dev_t;
 
 /*======================================================================
@@ -475,17 +482,37 @@ static void axnet_config(dev_link_t *link)
 
     strcpy(info->node.dev_name, dev->name);
     link->dev = &info->node;
-    link->state &= ~DEV_CONFIG_PENDING;
 
-    printk(KERN_INFO "%s: Asix AX88190: io %#3lx, irq %d, hw_addr ",
-	   dev->name, dev->base_addr, dev->irq);
+    if (inb(dev->base_addr + AXNET_TEST) != 0)
+	info->flags |= IS_AX88790;
+    else
+	info->flags |= IS_AX88190;
+
+    printk(KERN_INFO "%s: Asix AX88%d90: io %#3lx, irq %d, hw_addr ",
+	   dev->name, ((info->flags & IS_AX88790) ? 7 : 1),
+	   dev->base_addr, dev->irq);
     for (i = 0; i < 6; i++)
 	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+
+    if (info->flags & IS_AX88790)
+	outb(0x10, dev->base_addr + AXNET_GPIO);  /* select Internal PHY */
 
     for (i = 0; i < 32; i++) {
 	j = mdio_read(dev->base_addr + AXNET_MII_EEP, i, 1);
 	if ((j != 0) && (j != 0xffff)) break;
     }
+
+    /* Maybe PHY is in power down mode. (PPD_SET = 1) 
+       Bit 2 of CCSR is active low. */ 
+    if (i == 32) {
+	conf_reg_t reg = { 0, CS_WRITE, CISREG_CCSR, 0x04 };
+ 	CardServices(AccessConfigurationRegister, link->handle, &reg);
+	for (i = 0; i < 32; i++) {
+	    j = mdio_read(dev->base_addr + AXNET_MII_EEP, i, 1);
+	    if ((j != 0) && (j != 0xffff)) break;
+	}
+    }
+
     info->phy_id = (i < 32) ? i : -1;
     if (i < 32) {
 	DEBUG(0, "  MII transceiver at index %d, status %x.\n", i, j);
@@ -493,12 +520,14 @@ static void axnet_config(dev_link_t *link)
 	printk(KERN_NOTICE "  No MII transceivers found!\n");
     }
 
+    link->state &= ~DEV_CONFIG_PENDING;
     return;
 
 cs_failed:
     cs_error(link->handle, last_fn, last_ret);
 failed:
     axnet_release((u_long)link);
+    link->state &= ~DEV_CONFIG_PENDING;
     return;
 } /* axnet_config */
 
@@ -557,7 +586,7 @@ static int axnet_event(event_t event, int priority,
 	}
 	break;
     case CS_EVENT_CARD_INSERTION:
-	link->state |= DEV_PRESENT;
+	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
 	axnet_config(link);
 	break;
     case CS_EVENT_PM_SUSPEND:
@@ -680,6 +709,7 @@ static int axnet_close(struct net_device *dev)
 
     DEBUG(2, "axnet_close('%s')\n", dev->name);
 
+    ax_close(dev);
     free_irq(dev->irq, dev);
     
     link->open--;
@@ -912,7 +942,7 @@ static int __init init_axnet_cs(void)
     if (serv.Revision != CS_RELEASE_CODE) {
 	printk(KERN_NOTICE "axnet_cs: Card Services release "
 	       "does not match!\n");
-	return -1;
+	return -EINVAL;
     }
     register_pccard_driver(&dev_info, &axnet_attach, &axnet_detach);
     return 0;
@@ -1100,6 +1130,29 @@ static int ax_open(struct net_device *dev)
 	netif_start_queue(dev);
       	spin_unlock_irqrestore(&ei_local->page_lock, flags);
 	ei_local->irqlock = 0;
+	return 0;
+}
+
+#define dev_lock(dev) (((struct ei_device *)(dev)->priv)->page_lock)
+
+/**
+ * ax_close - shut down network device
+ * @dev: network device to close
+ *
+ * Opposite of ax_open(). Only used when "ifconfig <devname> down" is done.
+ */
+int ax_close(struct net_device *dev)
+{
+	unsigned long flags;
+
+	/*
+	 *      Hold the page lock during close
+	 */
+
+	spin_lock_irqsave(&dev_lock(dev), flags);
+	AX88190_init(dev, 0);
+	spin_unlock_irqrestore(&dev_lock(dev), flags);
+	netif_stop_queue(dev);
 	return 0;
 }
 
@@ -1757,8 +1810,6 @@ static void do_set_multicast_list(struct net_device *dev)
  *	be parallel to just about everything else. Its also fairly quick and
  *	not called too often. Must protect against both bh and irq users
  */
-
-#define dev_lock(dev) (((struct ei_device *)(dev)->priv)->page_lock)
 
 static void set_multicast_list(struct net_device *dev)
 {

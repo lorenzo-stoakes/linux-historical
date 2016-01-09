@@ -1493,17 +1493,21 @@ nfsd_permission(struct svc_export *exp, struct dentry *dentry, int acc)
 		inode->i_uid, inode->i_gid, current->fsuid, current->fsgid);
 #endif
 
-	/* only care about readonly exports for files and
-	 * directories. links don't have meaningful write access,
-	 * and all else is local to the client
-	 */
-	if (S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode)) 
-		if (acc & (MAY_WRITE | MAY_SATTR | MAY_TRUNC)) {
-			if (EX_RDONLY(exp) || IS_RDONLY(inode))
-				return nfserr_rofs;
-			if (/* (acc & MAY_WRITE) && */ IS_IMMUTABLE(inode))
-				return nfserr_perm;
-		}
+	/* The following code is here to make IRIX happy, which
+	 * does a permission check every time a user does
+	 *	echo yaddayadda > special-file
+	 * by sending a CREATE request.
+	 * The original code would check read-only export status
+	 * only for regular files and directories, allowing
+	 * clients to chown/chmod device files and fifos even
+	 * on volumes exported read-only. */
+	if (!(acc & _NFSD_IRIX_BOGOSITY)
+	 && (acc & (MAY_WRITE | MAY_SATTR | MAY_TRUNC))) {
+		if (EX_RDONLY(exp) || IS_RDONLY(inode))
+			return nfserr_rofs;
+		if (/* (acc & MAY_WRITE) && */ IS_IMMUTABLE(inode))
+			return nfserr_perm;
+	}
 	if ((acc & MAY_TRUNC) && IS_APPEND(inode))
 		return nfserr_perm;
 

@@ -127,7 +127,6 @@ int nfs_readdir_filler(nfs_readdir_descriptor_t *desc, struct page *page)
 	return 0;
  error:
 	SetPageError(page);
-	kunmap(page);
 	UnlockPage(page);
 	invalidate_inode_pages(inode);
 	desc->error = error;

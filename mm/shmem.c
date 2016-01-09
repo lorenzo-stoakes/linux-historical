@@ -615,6 +615,7 @@ repeat:
 		if (!page)
 			return ERR_PTR(-ENOMEM);
 		clear_highpage(page);
+		flush_dcache_page(page);
 		inode->i_blocks += BLOCKS_PER_PAGE;
 		add_to_page_cache (page, mapping, idx);
 	}

@@ -167,7 +167,8 @@ EXPORT_SYMBOL(iounmap);
 EXPORT_SYMBOL(iopa);
 EXPORT_SYMBOL(mm_ptov);
 
-#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
+#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE) \
+	defined(CONFIG_USB_STORAGE) || defined(CONFIG_USB_STORAGE_MODULE)
 EXPORT_SYMBOL(ppc_ide_md);
 EXPORT_SYMBOL(ppc_generic_ide_fix_driveid);
 #endif
@@ -265,6 +266,10 @@ EXPORT_SYMBOL(pci_resource_to_bus);
 EXPORT_SYMBOL(pci_phys_to_bus);
 EXPORT_SYMBOL(pci_bus_to_phys);
 EXPORT_SYMBOL(pmac_newworld);
+EXPORT_SYMBOL(nvram_read_byte);
+EXPORT_SYMBOL(nvram_write_byte);
+EXPORT_SYMBOL(pmac_xpram_read);
+EXPORT_SYMBOL(pmac_xpram_write);
 #endif /* defined(CONFIG_ALL_PPC) */
 #if defined(CONFIG_BOOTX_TEXT)
 EXPORT_SYMBOL(btext_update_display);
@@ -275,12 +280,6 @@ EXPORT_SYMBOL(note_scsi_host);
 #ifdef CONFIG_VT
 EXPORT_SYMBOL(kd_mksound);
 #endif
-#ifdef CONFIG_NVRAM
-EXPORT_SYMBOL(nvram_read_byte);
-EXPORT_SYMBOL(nvram_write_byte);
-EXPORT_SYMBOL(pmac_xpram_read);
-EXPORT_SYMBOL(pmac_xpram_write);
-#endif /* CONFIG_NVRAM */
 EXPORT_SYMBOL(to_tm);
 
 EXPORT_SYMBOL_NOVERS(__ashrdi3);

@@ -799,6 +799,11 @@ struct in6_rtmsg32 {
 
 extern struct socket *sockfd_lookup(int fd, int *err);
 
+extern __inline__ void sockfd_put(struct socket *sock)
+{
+	fput(sock->file);
+}
+
 static int routing_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
 	int ret;
@@ -847,6 +852,9 @@ static int routing_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)
 	ret = sys_ioctl (fd, cmd, (long) r);
 	set_fs (old_fs);
 
+	if (mysock)
+		sockfd_put(mysock);
+
 	return ret;
 }
 
@@ -867,10 +875,39 @@ static int hdio_getgeo(unsigned int fd, unsigned int cmd, unsigned long arg)
 	err = sys_ioctl(fd, HDIO_GETGEO, (unsigned long)&geo);
 	set_fs (old_fs);
 	if (!err) {
-		err = copy_to_user ((struct hd_geometry32 *)arg, &geo, 4);
-		err |= __put_user (geo.start, &(((struct hd_geometry32 *)arg)->start));
+		if (copy_to_user ((struct hd_geometry32 *)arg, &geo, 4) ||
+		    __put_user (geo.start, &(((struct hd_geometry32 *)arg)->start)))
+			err = -EFAULT;
 	}
-	return err ? -EFAULT : 0;
+	return err;
+}
+
+struct hd_big_geometry32 {
+	unsigned char heads;
+	unsigned char sectors;
+	unsigned int cylinders;
+	u32 start;
+};
+                        
+static int hdio_getgeo_big(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	mm_segment_t old_fs = get_fs();
+	struct hd_big_geometry geo;
+	int err;
+	
+	set_fs (KERNEL_DS);
+	err = sys_ioctl(fd, cmd, (unsigned long)&geo);
+	set_fs (old_fs);
+	if (!err) {
+		struct hd_big_geometry32 *up = (struct hd_big_geometry32 *) arg;
+
+		if (put_user(geo.heads, &up->heads) ||
+		    __put_user(geo.sectors, &up->sectors) ||
+		    __put_user(geo.cylinders, &up->cylinders) ||
+		    __put_user(((u32) geo.start), &up->start))
+			err = -EFAULT;
+	}
+	return err;
 }
 
 struct  fbcmap32 {
@@ -4216,6 +4253,39 @@ static int mtd_rw_oob(unsigned int fd, unsigned int cmd, unsigned long arg)
 	return ((0 == ret) ? 0 : -EFAULT);
 }	
 
+/* Fix sizeof(sizeof()) breakage */
+#define BLKELVGET_32	_IOR(0x12,106,int)
+#define BLKELVSET_32	_IOW(0x12,107,int)
+#define BLKBSZGET_32	_IOR(0x12,112,int)
+#define BLKBSZSET_32	_IOW(0x12,113,int)
+#define BLKGETSIZE64_32	_IOR(0x12,114,int)
+
+static int do_blkelvget(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKELVGET, arg);
+}
+
+static int do_blkelvset(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKELVSET, arg);
+}
+
+static int do_blkbszget(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKBSZGET, arg);
+}
+
+static int do_blkbszset(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	return sys_ioctl(fd, BLKBSZSET, arg);
+}
+
+static int do_blkgetsize64(unsigned int fd, unsigned int cmd,
+			   unsigned long arg)
+{
+	return sys_ioctl(fd, BLKGETSIZE64, arg);
+}
+
 struct ioctl_trans {
 	unsigned int cmd;
 	unsigned int handler;
@@ -4342,10 +4412,6 @@ COMPATIBLE_IOCTL(BLKRASET)
 COMPATIBLE_IOCTL(BLKFRASET)
 COMPATIBLE_IOCTL(BLKSECTSET)
 COMPATIBLE_IOCTL(BLKSSZGET)
-COMPATIBLE_IOCTL(BLKBSZGET)
-COMPATIBLE_IOCTL(BLKBSZSET)
-COMPATIBLE_IOCTL(BLKGETSIZE64)
-
 /* RAID */
 COMPATIBLE_IOCTL(RAID_VERSION)
 COMPATIBLE_IOCTL(GET_ARRAY_INFO)
@@ -4885,9 +4951,6 @@ COMPATIBLE_IOCTL(DRM_IOCTL_LOCK)
 COMPATIBLE_IOCTL(DRM_IOCTL_UNLOCK)
 COMPATIBLE_IOCTL(DRM_IOCTL_FINISH)
 #endif /* DRM */
-/* elevator */
-COMPATIBLE_IOCTL(BLKELVGET)
-COMPATIBLE_IOCTL(BLKELVSET)
 /* Big W */
 /* WIOC_GETSUPPORT not yet implemented -E */
 COMPATIBLE_IOCTL(WDIOC_GETSTATUS)
@@ -5007,6 +5070,8 @@ HANDLE_IOCTL(SIOCDELRT, routing_ioctl)
 HANDLE_IOCTL(SIOCRTMSG, ret_einval)
 HANDLE_IOCTL(SIOCGSTAMP, do_siocgstamp)
 HANDLE_IOCTL(HDIO_GETGEO, hdio_getgeo)
+HANDLE_IOCTL(HDIO_GETGEO_BIG, hdio_getgeo_big)
+HANDLE_IOCTL(HDIO_GETGEO_BIG_RAW, hdio_getgeo_big)
 HANDLE_IOCTL(BLKRAGET, w_long)
 HANDLE_IOCTL(BLKGETSIZE, w_long)
 HANDLE_IOCTL(0x1260, broken_blkgetsize)
@@ -5147,6 +5212,14 @@ HANDLE_IOCTL(USBDEVFS_BULK32, do_usbdevfs_bulk)
 HANDLE_IOCTL(USBDEVFS_REAPURB32, do_usbdevfs_reapurb)
 HANDLE_IOCTL(USBDEVFS_REAPURBNDELAY32, do_usbdevfs_reapurb)
 HANDLE_IOCTL(USBDEVFS_DISCSIGNAL32, do_usbdevfs_discsignal)
+/* take care of sizeof(sizeof()) breakage */
+/* elevator */
+HANDLE_IOCTL(BLKELVGET_32, do_blkelvget)
+HANDLE_IOCTL(BLKELVSET_32, do_blkelvset)
+/* block stuff */
+HANDLE_IOCTL(BLKBSZGET_32, do_blkbszget)
+HANDLE_IOCTL(BLKBSZSET_32, do_blkbszset)
+HANDLE_IOCTL(BLKGETSIZE64_32, do_blkgetsize64)
 IOCTL_TABLE_END
 
 unsigned int ioctl32_hash_table[1024];

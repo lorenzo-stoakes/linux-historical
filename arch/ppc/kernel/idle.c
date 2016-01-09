@@ -33,12 +33,12 @@
 #include <asm/cache.h>
 #include <asm/cputable.h>
 
-unsigned long zero_paged_on = 0;
-unsigned long powersave_nap = 0;
+unsigned long zero_paged_on;
+unsigned long powersave_nap;
+unsigned long powersave_lowspeed;
 
 #ifdef CONFIG_6xx
 extern void power_save_6xx(void);
-unsigned long powersave_lowspeed = 0;
 #endif
 
 int idled(void)

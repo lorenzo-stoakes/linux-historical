@@ -23,7 +23,8 @@ CFLAGS_prom_init.o	+= -mrelocatable-lib
 CFLAGS_btext.o		+= -mrelocatable-lib
 
 # Start off with 'head.o', change as needed.
-HEAD-y				:= head.o idle_6xx.o
+HEAD-y				:= head.o
+HEAD-$(CONFIG_6xx)		+= idle_6xx.o
 HEAD-$(CONFIG_4xx)		:= head_4xx.o
 HEAD-$(CONFIG_8xx)		:= head_8xx.o
 

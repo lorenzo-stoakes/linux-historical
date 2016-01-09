@@ -148,7 +148,10 @@ if [ "$CONFIG_PARPORT" != "n" ]; then
    fi
    dep_tristate 'Support for user-space parallel port device drivers' CONFIG_PPDEV $CONFIG_PARPORT
 fi
-dep_bool 'pSeries Hypervisor Virtual Console support' CONFIG_HVC_CONSOLE $CONFIG_PPC64
+
+if [ "$CONFIG_PPC64" ] ; then 
+bool 'pSeries Hypervisor Virtual Console support' CONFIG_HVC_CONSOLE
+fi
 
 source drivers/i2c/Config.in
 

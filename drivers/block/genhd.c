@@ -155,13 +155,14 @@ walk_gendisk(int (*walk)(struct gendisk *, void *), void *data)
 
 #ifdef CONFIG_PROC_FS
 /* iterator */
-static void *part_start(struct seq_file *s, loff_t *pos)
+static void *part_start(struct seq_file *s, loff_t *ppos)
 {
 	struct gendisk *gp;
+	loff_t pos = *ppos;
 
 	read_lock(&gendisk_lock);
 	for (gp = gendisk_head; gp; gp = gp->next)
-		if (!*pos--)
+		if (!pos--)
 			return gp;
 	return NULL;
 }
