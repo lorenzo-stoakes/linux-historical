@@ -37,8 +37,7 @@
 				       */
 #define DEVFS_FL_REMOVABLE      0x010 /* This is a removable media device    */
 #define DEVFS_FL_WAIT           0x020 /* Wait for devfsd to finish           */
-#define DEVFS_FL_NO_PERSISTENCE 0x040 /* Forget changes after unregister     */
-#define DEVFS_FL_CURRENT_OWNER  0x080 /* Set initial ownership to current    */
+#define DEVFS_FL_CURRENT_OWNER  0x040 /* Set initial ownership to current    */
 #define DEVFS_FL_DEFAULT        DEVFS_FL_NONE
 
 
