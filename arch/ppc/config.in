@@ -270,6 +270,9 @@ if [ "$CONFIG_ADVANCED_OPTIONS" = "y" ]; then
   if [ "$CONFIG_TASK_SIZE_BOOL" = "y" ]; then
     hex "  Size of user task space" CONFIG_TASK_SIZE 0x80000000
   fi
+  if [ "$CONFIG_8xx" = "y" ]; then
+    bool "Pinned Kernel TLBs (86x ONLY)" CONFIG_PIN_TLB
+  fi
 fi
 
 if [ "$CONFIG_HIGHMEM_START_BOOL" != "y" ]; then

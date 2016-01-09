@@ -63,6 +63,7 @@ extern int fpu_emulator_cop1Handler(int xcptno, struct pt_regs *xcp,
 
 void (*board_be_init)(void);
 int (*board_be_handler)(struct pt_regs *regs, int is_fixup);
+void (*board_nmi_handler_setup)(void) = NULL;
 
 int kstack_depth_to_print = 24;
 
@@ -523,6 +524,8 @@ static inline int simulate_llsc(struct pt_regs *regs)
 		simulate_sc(regs, opcode);
 		return 0;
 	}
+
+	return -EFAULT;			/* Strange things going on ... */
 }
 
 asmlinkage void do_ov(struct pt_regs *regs)
@@ -583,6 +586,8 @@ asmlinkage void do_bp(struct pt_regs *regs)
 {
 	unsigned int opcode, bcode;
 	siginfo_t info;
+
+	die_if_kernel("Break instruction in kernel code", regs);
 
 	if (get_insn_opcode(regs, &opcode))
 		return;
@@ -896,8 +901,7 @@ void __init per_cpu_trap_init(void)
 
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
-	if (current->mm)
-		BUG();
+	BUG_ON(current->mm);
 	enter_lazy_tlb(&init_mm, current, cpu);
 }
 
@@ -1006,6 +1010,9 @@ void __init trap_init(void)
 		save_fp_context = fpu_emulator_save_context;
 		restore_fp_context = fpu_emulator_restore_context;
 	}
+
+	if (board_nmi_handler_setup)
+		board_nmi_handler_setup();
 
 	flush_icache_range(KSEG0, KSEG0 + 0x400);
 

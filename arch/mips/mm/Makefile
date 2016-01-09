@@ -24,6 +24,7 @@ obj-$(CONFIG_CPU_R5000)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_NEVADA)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R5432)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_RM7000)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_RM9000)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R10000)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_MIPS32)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-mips32.o
 obj-$(CONFIG_CPU_MIPS64)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
@@ -31,7 +32,7 @@ obj-$(CONFIG_CPU_SB1)		+= pg-sb1.o c-sb1.o tlb-sb1.o tlbex-r4k.o \
 				   cex-sb1.o cerr-sb1.o
 
 obj-$(CONFIG_64BIT_PHYS_ADDR)	+= remap.o
-obj-$(CONFIG_CPU_RM7000)	+= sc-rm7k.o
+obj-$(CONFIG_RM7000_CPU_SCACHE)	+= sc-rm7k.o
 obj-$(CONFIG_R5000_CPU_SCACHE)	+= sc-r5k.o
 obj-$(CONFIG_SGI_IP22)		+= sc-ip22.o
 

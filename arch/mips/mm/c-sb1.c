@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  * Copyright (C) 1997, 2001 Ralf Baechle (ralf@gnu.org)
- * Copyright (C) 2000, 2001 Broadcom Corporation
+ * Copyright (C) 2000, 2001, 2002, 2003 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -596,7 +596,6 @@ void ld_mmu_sb1(void)
 	 * occur
 	 */
 	_flush_cache_range = (void *) sb1_nop;
-	_flush_cache_page = sb1_flush_cache_page;
 	_flush_cache_mm = (void (*)(struct mm_struct *))sb1_nop;
 	_flush_cache_all = sb1_nop;
 
@@ -604,6 +603,9 @@ void ld_mmu_sb1(void)
 	_flush_icache_range = sb1_flush_icache_range;
 	_flush_icache_page = sb1_flush_icache_page;
 	_flush_icache_all = __sb1_flush_icache_all; /* local only */
+
+	/* This implies an Icache flush too, so can't be nop'ed */
+	_flush_cache_page = sb1_flush_cache_page;
 
 	_flush_cache_sigtramp = sb1_flush_cache_sigtramp;
 	_flush_data_cache_page = (void *) sb1_nop;

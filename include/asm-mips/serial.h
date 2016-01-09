@@ -269,8 +269,8 @@
 #define OCELOT_SERIAL1_BASE	0xe0001020
 
 #define _OCELOT_SERIAL_INIT(int, base)					\
-	{ .baud_base = OCELOT_BASE_BAUD, .irq = int, .flags = STD_COM_FLAGS,	\
-	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,			\
+	{ .baud_base = OCELOT_BASE_BAUD, .irq = int, .flags = STD_COM_FLAGS, \
+	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,		\
 	  .io_type = SERIAL_IO_MEM }
 #define MOMENCO_OCELOT_SERIAL_PORT_DEFNS				\
 	_OCELOT_SERIAL_INIT(OCELOT_SERIAL1_IRQ, OCELOT_SERIAL1_BASE)
@@ -291,7 +291,7 @@
 
 #define _OCELOT_G_SERIAL_INIT(int, base)				\
 	{ .baud_base = OCELOT_G_BASE_BAUD, .irq = int, .flags = STD_COM_FLAGS,\
-	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,			\
+	  .iomem_base = (u8 *) base, .iomem_reg_shift = 2,		\
 	  .io_type = SERIAL_IO_MEM }
 #define MOMENCO_OCELOT_G_SERIAL_PORT_DEFNS				\
 	_OCELOT_G_SERIAL_INIT(OCELOT_G_SERIAL1_IRQ, OCELOT_G_SERIAL1_BASE)
@@ -318,6 +318,24 @@
 	_OCELOT_C_SERIAL_INIT(OCELOT_C_SERIAL2_IRQ, OCELOT_C_SERIAL2_BASE)
 #else
 #define MOMENCO_OCELOT_C_SERIAL_PORT_DEFNS
+#endif
+
+#ifdef CONFIG_MOMENCO_JAGUAR_ATX
+/* Ordinary NS16552 duart with a 20MHz crystal.  */
+#define JAGUAR_ATX_BASE_BAUD ( 20000000 / 16 )
+
+#define JAGUAR_ATX_SERIAL1_IRQ	7
+#define JAGUAR_ATX_SERIAL1_BASE	0xfffffffffd000020
+
+#define _JAGUAR_ATX_SERIAL_INIT(int, base)				\
+	{ baud_base: JAGUAR_ATX_BASE_BAUD, irq: int,			\
+	  flags: (ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST),		\
+	  iomem_base: (u8 *) base, iomem_reg_shift: 2,			\
+	  io_type: SERIAL_IO_MEM }
+#define MOMENCO_JAGUAR_ATX_SERIAL_PORT_DEFNS				\
+	_JAGUAR_ATX_SERIAL_INIT(JAGUAR_ATX_SERIAL1_IRQ, JAGUAR_ATX_SERIAL1_BASE)
+#else
+#define MOMENCO_JAGUAR_ATX_SERIAL_PORT_DEFNS
 #endif
 
 #ifdef CONFIG_DDB5477
@@ -347,6 +365,7 @@
 	MOMENCO_OCELOT_SERIAL_PORT_DEFNS	\
 	MOMENCO_OCELOT_G_SERIAL_PORT_DEFNS	\
 	MOMENCO_OCELOT_C_SERIAL_PORT_DEFNS	\
+	MOMENCO_JAGUAR_ATX_SERIAL_PORT_DEFNS	\
 	AU1000_SERIAL_PORT_DEFNS		\
 	TXX927_SERIAL_PORT_DEFNS        	\
 	DDB5477_SERIAL_PORT_DEFNS
