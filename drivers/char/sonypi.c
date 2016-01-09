@@ -109,25 +109,29 @@ static inline int sonypi_emptyq(void) {
         return result;
 }
 
-static void sonypi_ecrset(u16 addr, u16 value) {
+static void sonypi_ecrset(u8 addr, u8 value) {
 
-	wait_on_command(1, inw_p(SONYPI_CST_IOPORT) & 3);
-	outw_p(0x81, SONYPI_CST_IOPORT);
-	wait_on_command(0, inw_p(SONYPI_CST_IOPORT) & 2);
-	outw_p(addr, SONYPI_DATA_IOPORT);
-	wait_on_command(0, inw_p(SONYPI_CST_IOPORT) & 2);
-	outw_p(value, SONYPI_DATA_IOPORT);
-	wait_on_command(0, inw_p(SONYPI_CST_IOPORT) & 2);
+	wait_on_command(1, inb_p(SONYPI_CST_IOPORT) & 3);
+	outb_p(0x81, SONYPI_CST_IOPORT);
+	wait_on_command(0, inb_p(SONYPI_CST_IOPORT) & 2);
+	outb_p(addr, SONYPI_DATA_IOPORT);
+	wait_on_command(0, inb_p(SONYPI_CST_IOPORT) & 2);
+	outb_p(value, SONYPI_DATA_IOPORT);
+	wait_on_command(0, inb_p(SONYPI_CST_IOPORT) & 2);
 }
 
-static u16 sonypi_ecrget(u16 addr) {
+static u8 sonypi_ecrget(u8 addr) {
 
-	wait_on_command(1, inw_p(SONYPI_CST_IOPORT) & 3);
-	outw_p(0x80, SONYPI_CST_IOPORT);
-	wait_on_command(0, inw_p(SONYPI_CST_IOPORT) & 2);
-	outw_p(addr, SONYPI_DATA_IOPORT);
-	wait_on_command(0, inw_p(SONYPI_CST_IOPORT) & 2);
-	return inw_p(SONYPI_DATA_IOPORT);
+	wait_on_command(1, inb_p(SONYPI_CST_IOPORT) & 3);
+	outb_p(0x80, SONYPI_CST_IOPORT);
+	wait_on_command(0, inb_p(SONYPI_CST_IOPORT) & 2);
+	outb_p(addr, SONYPI_DATA_IOPORT);
+	wait_on_command(0, inb_p(SONYPI_CST_IOPORT) & 2);
+	return inb_p(SONYPI_DATA_IOPORT);
+}
+
+static u16 sonypi_ecrget16(u8 addr) {
+	return sonypi_ecrget(addr) | (sonypi_ecrget(addr + 1) << 8);
 }
 
 /* Initializes the device - this comes from the AML code in the ACPI bios */
@@ -510,24 +514,60 @@ static unsigned int sonypi_misc_poll(struct file *file, poll_table * wait) {
 static int sonypi_misc_ioctl(struct inode *ip, struct file *fp, 
 			     unsigned int cmd, unsigned long arg) {
 	int ret = 0;
-	u8 val;
+	u8 val8;
+	u16 val16;
 
 	down(&sonypi_device.lock);
 	switch (cmd) {
-		case SONYPI_IOCGBRT:
-			val = sonypi_ecrget(0x96) & 0xff;
-			if (copy_to_user((u8 *)arg, &val, sizeof(val))) {
-				ret = -EFAULT;
-				goto out;
-			}
-			break;
-		case SONYPI_IOCSBRT:
-			if (copy_from_user(&val, (u8 *)arg, sizeof(val))) {
-				ret = -EFAULT;
-				goto out;
-			}
-			sonypi_ecrset(0x96, val);
-			break;
+	case SONYPI_IOCGBRT:
+		val8 = sonypi_ecrget(0x96);
+		if (copy_to_user((u8 *)arg, &val8, sizeof(val8))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
+	case SONYPI_IOCSBRT:
+		if (copy_from_user(&val8, (u8 *)arg, sizeof(val8))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		sonypi_ecrset(0x96, val8);
+		break;
+	case SONYPI_IOCGBAT1CAP:
+		val16 = sonypi_ecrget16(0xb2);
+		if (copy_to_user((u16 *)arg, &val16, sizeof(val16))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
+	case SONYPI_IOCGBAT1REM:
+		val16 = sonypi_ecrget16(0xa2);
+		if (copy_to_user((u16 *)arg, &val16, sizeof(val16))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
+	case SONYPI_IOCGBAT2CAP:
+		val16 = sonypi_ecrget16(0xba);
+		if (copy_to_user((u16 *)arg, &val16, sizeof(val16))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
+	case SONYPI_IOCGBAT2REM:
+		val16 = sonypi_ecrget16(0xaa);
+		if (copy_to_user((u16 *)arg, &val16, sizeof(val16))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
+	case SONYPI_IOCGBATFLAGS:
+		val8 = sonypi_ecrget(0x81) & 0x07;
+		if (copy_to_user((u8 *)arg, &val8, sizeof(val8))) {
+			ret = -EFAULT;
+			goto out;
+		}
+		break;
 	default:
 		ret = -EINVAL;
 	}

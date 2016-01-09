@@ -324,6 +324,7 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 	case PPCLAIM:
 	    {
 		struct ieee1284_info *info;
+		int ret;
 
 		if (pp->flags & PP_CLAIMED) {
 			printk (KERN_DEBUG CHRDEV
@@ -339,7 +340,10 @@ static int pp_ioctl(struct inode *inode, struct file *file,
 			}
 		}
 
-		parport_claim_or_block (pp->pdev);
+		ret = parport_claim_or_block (pp->pdev);
+		if (ret < 0)
+			return ret;
+
 		pp->flags |= PP_CLAIMED;
 
 		/* For interrupt-reporting to work, we need to be

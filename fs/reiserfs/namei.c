@@ -309,9 +309,10 @@ static int reiserfs_find_entry (struct inode * dir, const char * name, int namel
 
     while (1) {
 	retval = search_by_entry_key (dir->i_sb, &key_to_search, path_to_entry, de);
-	if (retval == IO_ERROR)
-	    // FIXME: still has to be dealt with
-	    reiserfs_panic (dir->i_sb, "zam-7001: io error in " __FUNCTION__ "\n");
+	if (retval == IO_ERROR) {
+	    reiserfs_warning ("zam-7001: io error in " __FUNCTION__ "\n");
+	    return IO_ERROR;
+	}
 
 	/* compare names for all entries having given hash value */
 	retval = linear_search_in_dir_item (&key_to_search, de, name, namelen);

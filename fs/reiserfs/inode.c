@@ -325,6 +325,16 @@ research:
     */
     if (buffer_uptodate(bh_result)) {
         goto finished ;
+    } else 
+	/*
+	** grab_tail_page can trigger calls to reiserfs_get_block on up to date
+	** pages without any buffers.  If the page is up to date, we don't want
+	** read old data off disk.  Set the up to date bit on the buffer instead
+	** and jump to the end
+	*/
+	    if (Page_Uptodate(bh_result->b_page)) {
+		mark_buffer_uptodate(bh_result, 1);
+		goto finished ;
     }
 
     // read file tail into part of page
@@ -833,7 +843,7 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	}
 	if (retval == POSITION_FOUND) {
 	    reiserfs_warning ("vs-825: reiserfs_get_block: "
-			      "%k should not be found\n", &key);
+			      "%K should not be found\n", &key);
 	    retval = -EEXIST;
 	    if (allocated_block_nr)
 	        reiserfs_free_block (&th, allocated_block_nr);

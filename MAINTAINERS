@@ -1150,8 +1150,8 @@ L:	linux-scsi@vger.rutgers.edu
 S:	Maintained
 
 OPL3-SA2, SA3, and SAx DRIVER
-P:	Scott Murray
-M:	scott@spiteful.org
+P:	Zwane Mwaikambo
+M:	zwane@commfireservices.com
 L:	linux-sound@vger.kernel.org
 S:	Maintained
 
@@ -1259,6 +1259,12 @@ M:	al@alarsen.net
 L:	linux-kernel@vger.kernel.org
 W:	http://www.alarsen.net/linux/qnx4fs/
 S:	Maintained
+
+RADEON FRAMEBUFFER DISPLAY DRIVER
+P:	Ani Joshi
+M:	ajoshi@shell.unixbox.com
+L:      linux-fbdev-devel@lists.sourceforge.net
+S:      Maintained
 
 RAGE128 FRAMEBUFFER DISPLAY DRIVER
 P:	Ani Joshi

@@ -407,7 +407,7 @@ struct reiserfs_sb_info
 				/* To be obsoleted soon by per buffer seals.. -Hans */
     atomic_t s_generation_counter; // increased by one every time the
     // tree gets re-balanced
-    unsigned int s_properties;    /* File system properties. Currently holds
+    unsigned long s_properties;    /* File system properties. Currently holds
 				     on-disk FS format */
     
     /* session statistics */

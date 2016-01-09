@@ -517,11 +517,13 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 				set_personality(PER_SVR4);
 				interpreter = open_exec(elf_interpreter);
 
+				task_lock(current);
 				new_domain = current->exec_domain;
 				new_fs = current->fs;
 				current->personality = old_pers;
 				current->exec_domain = old_domain;
 				current->fs = old_fs;
+				task_unlock(current);
 				put_exec_domain(new_domain);
 				put_fs_struct(new_fs);
 			} else
@@ -1049,6 +1051,23 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 
 	}
 
+	memset(&prstatus, 0, sizeof(prstatus));
+	/*
+	 * This transfers the registers from regs into the standard
+	 * coredump arrangement, whatever that is.
+	 */
+#ifdef ELF_CORE_COPY_REGS
+	ELF_CORE_COPY_REGS(prstatus.pr_reg, regs)
+#else
+	if (sizeof(elf_gregset_t) != sizeof(struct pt_regs))
+	{
+		printk("sizeof(elf_gregset_t) (%ld) != sizeof(struct pt_regs) (%ld)\n",
+			(long)sizeof(elf_gregset_t), (long)sizeof(struct pt_regs));
+	}
+	else
+		*(struct pt_regs *)&prstatus.pr_reg = *regs;
+#endif
+
 	/* now stop all vm operations */
 	down_write(&current->mm->mmap_sem);
 	segs = current->mm->map_count;
@@ -1092,7 +1111,6 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 	 * Set up the notes in similar form to SVR4 core dumps made
 	 * with info from their /proc.
 	 */
-	memset(&prstatus, 0, sizeof(prstatus));
 
 	notes[0].name = "CORE";
 	notes[0].type = NT_PRSTATUS;
@@ -1113,22 +1131,6 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 	prstatus.pr_cutime.tv_usec = CT_TO_USECS(current->times.tms_cutime);
 	prstatus.pr_cstime.tv_sec = CT_TO_SECS(current->times.tms_cstime);
 	prstatus.pr_cstime.tv_usec = CT_TO_USECS(current->times.tms_cstime);
-
-	/*
-	 * This transfers the registers from regs into the standard
-	 * coredump arrangement, whatever that is.
-	 */
-#ifdef ELF_CORE_COPY_REGS
-	ELF_CORE_COPY_REGS(prstatus.pr_reg, regs)
-#else
-	if (sizeof(elf_gregset_t) != sizeof(struct pt_regs))
-	{
-		printk("sizeof(elf_gregset_t) (%ld) != sizeof(struct pt_regs) (%ld)\n",
-			(long)sizeof(elf_gregset_t), (long)sizeof(struct pt_regs));
-	}
-	else
-		*(struct pt_regs *)&prstatus.pr_reg = *regs;
-#endif
 
 #ifdef DEBUG
 	dump_regs("Passed in regs", (elf_greg_t *)regs);
@@ -1225,9 +1227,11 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 
 		if (!maydump(vma))
 			continue;
+
 #ifdef DEBUG
-		printk("elf_core_dump: writing %08lx %lx\n", addr, len);
+		printk("elf_core_dump: writing %08lx-%08lx\n", vma->vm_start, vma->vm_end);
 #endif
+
 		for (addr = vma->vm_start;
 		     addr < vma->vm_end;
 		     addr += PAGE_SIZE) {
