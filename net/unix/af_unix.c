@@ -1053,8 +1053,12 @@ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
 	 */
 
 	skb = skb_recv_datagram(sk, 0, flags&O_NONBLOCK, &err);
-	if (!skb)
+	if (!skb) {
+		/* This means receive shutdown. */
+		if (err == 0)
+			err = -EINVAL;
 		goto out;
+	}
 
 	tsk = skb->sk;
 	skb_free_datagram(sk, skb);

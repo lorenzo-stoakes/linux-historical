@@ -1282,6 +1282,13 @@ D: Natsemi ethernet
 D: Cobalt Networks (x86) support
 D: This-and-That
 
+N: Tim Hockin
+E: thockin@hockin.org
+W: http://www.hockin.org/~thockin
+D: Natsemi ethernet
+D: Cobalt Networks (x86) support
+D: This-and-That
+
 N: Dirk Hohndel
 E: hohndel@suse.de
 D: The XFree86[tm] Project

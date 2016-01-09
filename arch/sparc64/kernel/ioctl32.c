@@ -1,4 +1,4 @@
-/* $Id: ioctl32.c,v 1.133 2001/11/14 06:14:29 davem Exp $
+/* $Id: ioctl32.c,v 1.133.2.1 2002/01/04 21:06:49 davem Exp $
  * ioctl32.c: Conversion between 32bit and 64bit native ioctls.
  *
  * Copyright (C) 1997-2000  Jakub Jelinek  (jakub@redhat.com)
@@ -472,6 +472,7 @@ static int dev_ifname32(unsigned int fd, unsigned int cmd, unsigned long arg)
 		return -ENODEV;
 
 	strcpy(ifr32.ifr_name, dev->name);
+	dev_put(dev);
 
 	err = copy_to_user((struct ifreq32 *)arg, &ifr32, sizeof(struct ifreq32));
 	return (err ? -EFAULT : 0);

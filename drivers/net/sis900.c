@@ -1783,6 +1783,40 @@ sis900_close(struct net_device *net_dev)
 }
 
 /**
+ *	netdev_ethtool_ioctl: - For the basic support of ethtool
+ *	@net_dev: the net device to command for
+ *	@useraddr: start address of interface request
+ *
+ *	Process ethtool command such as "ehtool -i" to show information
+ */
+
+static int netdev_ethtool_ioctl (struct net_device *net_dev, void *useraddr)
+{
+ 	struct sis900_private *sis_priv = net_dev->priv;
+ 	u32 ethcmd;
+
+	if (copy_from_user (&ethcmd, useraddr, sizeof (ethcmd)))
+		return -EFAULT;
+	
+	switch (ethcmd) {
+	case ETHTOOL_GDRVINFO:
+		{
+			struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
+			strcpy (info.driver, SIS900_MODULE_NAME);
+			strcpy (info.version, SIS900_DRV_VERSION);
+			strcpy (info.bus_info, sis_priv->pci_dev->slot_name);
+			if (copy_to_user (useraddr, &info, sizeof (info)))
+				return -EFAULT;
+			return 0;
+		}
+	default:
+		break;
+	}
+
+	return -EOPNOTSUPP;
+}
+
+/**
  *	mii_ioctl: - process MII i/o control command 
  *	@net_dev: the net device to command for
  *	@rq: parameter for command
@@ -1797,6 +1831,9 @@ static int mii_ioctl(struct net_device *net_dev, struct ifreq *rq, int cmd)
 	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&rq->ifr_data;
 
 	switch(cmd) {
+	case SIOCETHTOOL:
+		return netdev_ethtool_ioctl(net_dev, (void *) rq->ifr_data);
+
 	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
 	case SIOCDEVPRIVATE:		/* for binary compat, remove in 2.5 */
 		data->phy_id = sis_priv->mii->phy_addr;

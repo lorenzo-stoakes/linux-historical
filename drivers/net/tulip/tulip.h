@@ -197,8 +197,8 @@ enum t21041_csr13_bits {
 	csr13_cac = (1<<2), /* CSR13/14/15 autoconfiguration */
 	csr13_srl = (1<<0), /* When reset, resets all SIA functions, machines */
 
-	csr13_mask_auibnc = (csr13_eng | csr13_aui | csr13_srl),
-	csr13_mask_10bt = (csr13_eng | csr13_srl),
+	csr13_mask_auibnc = (csr13_eng | csr13_aui | csr13_srl | csr13_cac),
+	csr13_mask_10bt = (csr13_eng | csr13_srl | csr13_cac),
 };
 
 enum t21143_csr6_bits {

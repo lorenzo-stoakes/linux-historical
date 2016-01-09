@@ -318,6 +318,10 @@ static const char *qnx4_checkroot(struct super_block *sb)
 					if (!strncmp(rootdir->di_fname, QNX4_BMNAME, sizeof QNX4_BMNAME)) {
 						found = 1;
 						sb->u.qnx4_sb.BitMap = kmalloc( sizeof( struct qnx4_inode_entry ), GFP_KERNEL );
+						if (!sb->u.qnx4_sb.BitMap) {
+							brelse (bh);
+							return "not enough memory for bitmap inode";
+						}
 						memcpy( sb->u.qnx4_sb.BitMap, rootdir, sizeof( struct qnx4_inode_entry ) );	/* keep bitmap inode known */
 						break;
 					}

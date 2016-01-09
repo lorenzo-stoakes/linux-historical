@@ -1910,11 +1910,8 @@ static int cs_midi_release(struct inode *inode, struct file *file)
                                 break;
                         if (signal_pending(current))
                                 break;
-                        if (file->f_flags & O_NONBLOCK) {
-                                remove_wait_queue(&card->midi.owait, &wait);
-                                current->state = TASK_RUNNING;
-                                return -EBUSY;
-                        }                      
+                        if (file->f_flags & O_NONBLOCK)
+                        	break;
                         tmo = (count * HZ) / 3100;
                         if (!schedule_timeout(tmo ? : 1) && tmo)
                                 printk(KERN_DEBUG "cs46xx: midi timed out??\n");
@@ -5249,6 +5246,8 @@ static struct cs_card_type cards[]={
 	{0x1681, 0x0052, "Hercules Game Theatre XP", amp_hercules, NULL, NULL},
 	{0x1681, 0x0053, "Hercules Game Theatre XP", amp_hercules, NULL, NULL},
 	{0x1681, 0x0054, "Hercules Game Theatre XP", amp_hercules, NULL, NULL},
+	{0x1681, 0xa010, "Hercules Fortissimo II", amp_none, NULL, NULL},
+	
 	/* Not sure if the 570 needs the clkrun hack */
 	{PCI_VENDOR_ID_IBM, 0x0132, "Thinkpad 570", amp_none, NULL, clkrun_hack},
 	{PCI_VENDOR_ID_IBM, 0x0153, "Thinkpad 600X/A20/T20", amp_none, NULL, clkrun_hack},

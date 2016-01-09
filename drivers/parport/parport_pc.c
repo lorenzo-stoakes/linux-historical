@@ -128,7 +128,6 @@ static void __inline__ frob_set_mode (struct parport *p, int mode)
 static int change_mode(struct parport *p, int m)
 {
 	const struct parport_pc_private *priv = p->physport->private_data;
-	int ecr = ECONTROL(p);
 	unsigned char oecr;
 	int mode;
 
@@ -140,7 +139,7 @@ static int change_mode(struct parport *p, int m)
 	}
 
 	/* Bits <7:5> contain the mode. */
-	oecr = inb (ecr);
+	oecr = inb (ECONTROL (p));
 	mode = (oecr >> 5) & 0x7;
 	if (mode == m) return 0;
 
@@ -631,7 +630,7 @@ static size_t parport_pc_fifo_write_block_pio (struct parport *port,
 			/* FIFO is full. Wait for interrupt. */
 
 			/* Clear serviceIntr */
-			outb (ecrval & ~(1<<2), ECONTROL (port));
+			ECR_WRITE (port, ecrval & ~(1<<2));
 		false_alarm:
 			ret = parport_wait_event (port, HZ);
 			if (ret < 0) break;
@@ -859,7 +858,7 @@ size_t parport_pc_compat_write_block_pio (struct parport *port,
 		printk (KERN_DEBUG "%s: FIFO is stuck\n", port->name);
 
 		/* Prevent further data transfer. */
-		frob_econtrol (port, 0xe0, ECR_TST << 5);
+		frob_set_mode (port, ECR_TST);
 
 		/* Adjust for the contents of the FIFO. */
 		for (written -= priv->fifo_depth; ; written++) {
@@ -956,7 +955,7 @@ size_t parport_pc_ecp_write_block_pio (struct parport *port,
 		printk (KERN_DEBUG "%s: FIFO is stuck\n", port->name);
 
 		/* Prevent further data transfer. */
-		frob_econtrol (port, 0xe0, ECR_TST << 5);
+		frob_set_mode (port, ECR_TST);
 
 		/* Adjust for the contents of the FIFO. */
 		for (written -= priv->fifo_depth; ; written++) {
@@ -1135,7 +1134,7 @@ dump_parport_state ("FIFO empty", port);
 			}
 
 			/* Clear serviceIntr */
-			outb (ecrval & ~(1<<2), ECONTROL (port));
+			ECR_WRITE (port, ecrval & ~(1<<2));
 		false_alarm:
 dump_parport_state ("waiting", port);
 			ret = parport_wait_event (port, HZ);
@@ -1738,7 +1737,7 @@ static int __devinit parport_ECR_present(struct parport *pb)
 	if ((inb (ECONTROL (pb)) & 0x3 ) != 0x1)
 		goto no_reg;
 
-	outb (0x34, ECONTROL (pb));
+	ECR_WRITE (pb, 0x34);
 	if (inb (ECONTROL (pb)) != 0x35)
 		goto no_reg;
 
@@ -1816,8 +1815,8 @@ static int __devinit parport_ECP_supported(struct parport *pb)
 		return 0;
 
 	/* Find out FIFO depth */
-	frob_set_mode (pb, ECR_SPP); /* Reset FIFO */
-	frob_set_mode (pb, ECR_TST); /* TEST FIFO */
+	ECR_WRITE (pb, ECR_SPP << 5); /* Reset FIFO */
+	ECR_WRITE (pb, ECR_TST << 5); /* TEST FIFO */
 	for (i=0; i < 1024 && !(inb (ECONTROL (pb)) & 0x02); i++)
 		outb (0xaa, FIFO (pb));
 
@@ -1826,7 +1825,7 @@ static int __devinit parport_ECP_supported(struct parport *pb)
 	 * it doesn't support ECP or FIFO MODE
 	 */
 	if (i == 1024) {
-		frob_set_mode (pb, ECR_SPP);
+		ECR_WRITE (pb, ECR_SPP << 5);
 		return 0;
 	}
 
@@ -1877,8 +1876,8 @@ static int __devinit parport_ECP_supported(struct parport *pb)
 
 	priv->readIntrThreshold = i;
 
-	frob_set_mode (pb, ECR_SPP); /* Reset FIFO */
-	outb (0xf4, ECONTROL (pb)); /* Configuration mode */
+	ECR_WRITE (pb, ECR_SPP << 5); /* Reset FIFO */
+	ECR_WRITE (pb, 0xf4); /* Configuration mode */
 	config = inb (CONFIGA (pb));
 	pword = (config >> 4) & 0x7;
 	switch (pword) {
@@ -1939,7 +1938,7 @@ static int __devinit parport_ECPPS2_supported(struct parport *pb)
 		return 0;
 
 	oecr = inb (ECONTROL (pb));
-	frob_set_mode (pb, ECR_PS2);
+	ECR_WRITE (pb, ECR_PS2 << 5);
 	result = parport_PS2_supported(pb);
 	ECR_WRITE (pb, oecr);
 	return result;
@@ -1972,8 +1971,8 @@ static int __devinit parport_EPP_supported(struct parport *pb)
 	/* Check for Intel bug. */
 	if (priv->ecr) {
 		unsigned char i;
-		for (i = 0; i < 4; i++) {
-			frob_set_mode (pb, i);
+		for (i = 0x00; i < 0x80; i += 0x20) {
+			ECR_WRITE (pb, i);
 			if (clear_epp_timeout (pb)) {
 				/* Phony EPP in ECP. */
 				return 0;
@@ -2004,7 +2003,7 @@ static int __devinit parport_ECPEPP_supported(struct parport *pb)
 
 	oecr = inb (ECONTROL (pb));
 	/* Search for SMC style EPP+ECP mode */
-	frob_set_mode (pb, ECR_EPP);
+	ECR_WRITE (pb, 0x80);
 	outb (0x04, CONTROL (pb));
 	result = parport_EPP_supported(pb);
 
@@ -2045,7 +2044,7 @@ static int __devinit programmable_irq_support(struct parport *pb)
 		PARPORT_IRQ_NONE, 7, 9, 10, 11, 14, 15, 5
 	};
 
-	frob_set_mode (pb, ECR_CNF); /* Configuration MODE */
+	ECR_WRITE (pb, ECR_CNF << 5); /* Configuration MODE */
 
 	intrLine = (inb (CONFIGB (pb)) >> 3) & 0x07;
 	irq = lookup[intrLine];
@@ -2062,16 +2061,16 @@ static int __devinit irq_probe_ECP(struct parport *pb)
 	sti();
 	irqs = probe_irq_on();
 		
-	frob_set_mode (pb, ECR_SPP); /* Reset FIFO */
-	frob_econtrol (pb, ECR_MODE_MASK | 0x04, (ECR_TST << 5) | 0x04);
-	frob_set_mode (pb, ECR_TST);
+	ECR_WRITE (pb, ECR_SPP << 5); /* Reset FIFO */
+	ECR_WRITE (pb, (ECR_TST << 5) | 0x04);
+	ECR_WRITE (pb, ECR_TST << 5);
 
 	/* If Full FIFO sure that writeIntrThreshold is generated */
 	for (i=0; i < 1024 && !(inb (ECONTROL (pb)) & 0x02) ; i++) 
 		outb (0xaa, FIFO (pb));
 		
 	pb->irq = probe_irq_off(irqs);
-	frob_set_mode (pb, ECR_SPP);
+	ECR_WRITE (pb, ECR_SPP << 5);
 
 	if (pb->irq <= 0)
 		pb->irq = PARPORT_IRQ_NONE;

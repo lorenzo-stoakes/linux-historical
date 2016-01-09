@@ -697,8 +697,13 @@ static inline ssize_t do_tty_write(
 {
 	ssize_t ret = 0, written = 0;
 	
-	if (down_interruptible(&tty->atomic_write)) {
-		return -ERESTARTSYS;
+	if (file->f_flags & O_NONBLOCK) {
+		if (down_trylock(&tty->atomic_write))
+			return -EAGAIN;
+	}
+	else {
+		if (down_interruptible(&tty->atomic_write))
+			return -ERESTARTSYS;
 	}
 	if ( test_bit(TTY_NO_WRITE_SPLIT, &tty->flags) ) {
 		lock_kernel();
