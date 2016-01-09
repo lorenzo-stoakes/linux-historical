@@ -478,9 +478,9 @@ _GLOBAL(invalidate_dcache_range)
  * snoop from the data cache.
  * This is a no-op on the 601 which has a unified cache.
  *
- *	void __flush_page_to_ram(void *page)
+ *	void __flush_dcache_icache(void *page)
  */
-_GLOBAL(__flush_page_to_ram)
+_GLOBAL(__flush_dcache_icache)
 	mfspr	r5,PVR
 	rlwinm	r5,r5,16,16,31
 	cmpi	0,r5,1
@@ -496,28 +496,6 @@ _GLOBAL(__flush_page_to_ram)
 	mtctr	r4
 1:	icbi	0,r6
 	addi	r6,r6,L1_CACHE_LINE_SIZE
-	bdnz	1b
-	sync
-	isync
-	blr
-
-/*
- * Flush a particular page from the instruction cache.
- * Note: this is necessary because the instruction cache does *not*
- * snoop from the data cache.
- * This is a no-op on the 601 which has a unified cache.
- *
- *	void __flush_icache_page(void *page)
- */
-_GLOBAL(__flush_icache_page)
-	mfspr	r5,PVR
-	rlwinm	r5,r5,16,16,31
-	cmpi	0,r5,1
-	beqlr					/* for 601, do nothing */
-	li	r4,4096/L1_CACHE_LINE_SIZE	/* Number of lines in a page */
-	mtctr	r4
-1:	icbi	0,r3
-	addi	r3,r3,L1_CACHE_LINE_SIZE
 	bdnz	1b
 	sync
 	isync
@@ -1122,6 +1100,7 @@ _GLOBAL(sys_call_table)
 	.long sys_madvise	/* 205 */
 	.long sys_mincore
 	.long sys_gettid
+	.long sys_tkill
 	.rept NR_syscalls-(.-sys_call_table)/4
 		.long sys_ni_syscall
 	.endr

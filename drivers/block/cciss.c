@@ -631,6 +631,7 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 		char 	*buff = NULL;
 		u64bit	temp64;
 		unsigned long flags;
+		DECLARE_COMPLETION(wait);
 
 		if (!arg) return -EINVAL;
 	
@@ -696,6 +697,8 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 			c->SG[0].Len = iocommand.buf_size;
 			c->SG[0].Ext = 0;  // we are not chaining
 		}
+		c->waiting = &wait;
+
 		/* Put the request on the tail of the request queue */
 		spin_lock_irqsave(&io_request_lock, flags);
 		addQ(&h->reqQ, c);
@@ -703,9 +706,7 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 		start_io(h);
 		spin_unlock_irqrestore(&io_request_lock, flags);
 
-		/* Wait for completion */
-		while(c->cmd_type != CMD_IOCTL_DONE)
-			schedule_timeout(1);
+		wait_for_completion(&wait);
 
 		/* unlock the buffers from DMA */
 		temp64.val32.lower = c->SG[0].Addr.lower;
@@ -1512,7 +1513,7 @@ static void do_cciss_intr(int irq, void *dev_id, struct pt_regs *regs)
 					complete_command(c, 0);
 					cmd_free(h, c, 1);
 				} else if (c->cmd_type == CMD_IOCTL_PEND) {
-					c->cmd_type = CMD_IOCTL_DONE;
+					complete(c->waiting);
 				}
 #				ifdef CONFIG_CISS_SCSI_TAPE
 				else if (c->cmd_type == CMD_SCSI) {
@@ -2126,7 +2127,7 @@ static void __devexit cciss_remove_one (struct pci_dev *pdev)
  	/* sendcmd will turn off interrupt, and send the flush...
  	 * To write all data in the battery backed cache to disks */
  	memset(flush_buf, 0, 4);
- 	return_code = sendcmd(CCISS_CACHE_FLUSH, i, flush_buf, 4,0,0,0);
+ 	return_code = sendcmd(CCISS_CACHE_FLUSH, i, flush_buf, 4,0,0,0, NULL);
  	if (return_code != IO_OK) {
  		printk(KERN_WARNING 
 			"Error Flushing cache on controller %d\n", i);

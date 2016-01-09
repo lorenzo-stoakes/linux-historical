@@ -52,6 +52,7 @@
 
 unsigned long max_mapnr;
 unsigned long num_physpages;
+unsigned long num_mappedpages;
 void * high_memory;
 struct page *highmem_start_page;
 

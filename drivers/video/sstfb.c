@@ -5,12 +5,16 @@
  *
  *     Created 15 Jan 2000 by Ghozlane Toumi
  *
+ *     NOTE: I have been unable to reach Ghozlane through the eMail-address
+ *     given above for more than 3 months, same with another address of him
+ *     which I found on the web. - Urs
+ *
  * Contributions (and many thanks) :
  *
  * 03/2001 James Simmons   <jsimmons@linux-fbdev.org>
  * 04/2001 Paul Mundt      <lethal@chaoticdreams.org>
- * 05/2001 Urs Ganse       <urs.ganse@t-online.de>
- *     (initial work on voodoo2 port)
+ * 05/2001 Urs Ganse       <ursg@uni.de>
+ *     (initial work on voodoo2 port, added interlace support)
  *
  *
  * $Id: sstfb.c,v 1.26.4.1 2001/08/29 01:30:37 ghoz Exp $
@@ -59,6 +63,8 @@ Notes
 -TODO: change struct sst_info fb_info from static to array/dynamic
   TTT comments is for code i've put there for debuging the "weird peinguin 
   	syndrome", it should disapear soon
+-FIXME: Some uninitialized variable causes sporadic crashes when setting a video
+       mode for the first time.
 
  *
  */
@@ -208,7 +214,7 @@ static struct display disp;
 
 /********/
 
-/* Interface to ze oueurld  */
+/* Interface to the world  */
 int sstfb_init(void);
 int sstfb_setup(char *options);
 
@@ -599,9 +605,8 @@ static int sstfb_decode_var (const struct fb_var_screeninfo *var,
 		         var->xres, var->yres);
 		return -EINVAL;
 	}
-	if ((var->vmode & FB_VMODE_MASK) !=  FB_VMODE_NONINTERLACED) {
-		eprintk("Interlace non supported %#x\n",
-			(var->vmode & FB_VMODE_MASK));
+	if((var->vmode & FB_VMODE_MASK) && !sst_info->is_voodoo2 ){
+		eprintk ("Interlace modes not supported on Voodoo 1 hardware.\n");
 		return -EINVAL;
 	}
 
@@ -615,7 +620,17 @@ static int sstfb_decode_var (const struct fb_var_screeninfo *var,
 	par->vSyncOn    = var->vsync_len;
 	par->vSyncOff   = var->yres + var->lower_margin + var->upper_margin;
 	par->vBackPorch = var->upper_margin;
-
+	
+	par->flags      = 0;
+	if (var->vmode & FB_VMODE_INTERLACED) {
+//		printk(KERN_DEBUG "sstfb: This is an interlace mode.\n");
+		par->flags|=FB_VMODE_INTERLACED;
+	}
+	if(var->vmode & FB_VMODE_DOUBLE) {
+//		printk(KERN_DEBUG "sstfb: This is a doublescan mode.\n");
+		par->flags|=FB_VMODE_DOUBLE;
+	}
+		
 	switch (var->bits_per_pixel) {
 	case 0 ... 16 :
 		par->bpp = 16;
@@ -685,7 +700,7 @@ static int sstfb_encode_var (struct fb_var_screeninfo *var,
 	var->lower_margin   = par->vSyncOff - par->yDim - par->vBackPorch;
 	var->hsync_len      = par->hSyncOn;
 	var->vsync_len      = par->vSyncOn;
-	var->vmode          = FB_VMODE_NONINTERLACED;
+	var->vmode          = par->flags;
 
 	/*
 	 * correct the color bit fields
@@ -1375,6 +1390,17 @@ static int sstfb_set_par(const struct sstfb_par * par, struct sstfb_info * sst_i
 	sst_write(HSYNC,         (par->hSyncOff-1) << 16 | (par->hSyncOn-1));
 	sst_write(VSYNC,             par->vSyncOff << 16 | par->vSyncOn);
 
+	/* Interlace or Doublescan */
+	if(par->flags & FB_VMODE_INTERLACED)
+		sst_set_bits(FBIINIT5,1>>26);
+	else
+		sst_unset_bits(FBIINIT5,1>>26);
+	
+	if(par->flags & FB_VMODE_DOUBLE)
+		sst_set_bits(FBIINIT5,1>>20);
+	else
+		sst_unset_bits(FBIINIT5,1>>20);
+	
 	fbiinit2=sst_read(FBIINIT2);
 	fbiinit3=sst_read(FBIINIT3);
 

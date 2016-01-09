@@ -51,7 +51,9 @@ dep_tristate '  S3 SonicVibes' CONFIG_SOUND_SONICVIBES $CONFIG_SOUND
 if [ "$CONFIG_VISWS" = "y" ]; then
     dep_tristate '  SGI Visual Workstation sound' CONFIG_SOUND_VWSND $CONFIG_SOUND
 fi
-dep_tristate '  SGI HAL2 sound (EXPERIMENTAL)' CONFIG_SOUND_HAL2 $CONFIG_SOUND $CONFIG_SGI_IP22 $CONFIG_EXPERIMENTAL
+if [ "$CONFIG_SGI_IP22" = "y" ] ; then
+   dep_tristate '  SGI HAL2 sound (EXPERIMENTAL)' CONFIG_SOUND_HAL2 $CONFIG_SOUND $CONFIG_SGI_IP22 $CONFIG_EXPERIMENTAL
+fi
 
 if [ "$CONFIG_MIPS_ITE8172" = "y" -o "$CONFIG_MIPS_IVR" = "y" ]; then
     dep_tristate '  IT8172G Sound' CONFIG_SOUND_IT8172 $CONFIG_SOUND

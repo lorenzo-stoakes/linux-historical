@@ -238,8 +238,7 @@ static int kaweth_control(struct kaweth_device *kaweth,
 		return -EBUSY;
 	}
 
-	dr = kmalloc(sizeof(devrequest), 
-                     in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	dr = kmalloc(sizeof(devrequest), GFP_ATOMIC);
 
 	if(!dr)
 	{
@@ -587,14 +586,10 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
 {
 	struct kaweth_device *kaweth = urb->context;
 
-	spin_lock(&kaweth->device_lock);
-
 	if (urb->status)
 		kaweth_dbg("%s: TX status %d.", kaweth->net->name, urb->status);
 
 	netif_wake_queue(kaweth->net);
-
-	spin_unlock(&kaweth->device_lock);
 }
 
 /****************************************************************
@@ -722,6 +717,7 @@ static void kaweth_tx_timeout(struct net_device *net)
 	kaweth->stats.tx_errors++;
 	net->trans_start = jiffies;
 
+	kaweth->tx_urb->transfer_flags |= USB_ASYNC_UNLINK;
 	usb_unlink_urb(kaweth->tx_urb);
 }
 
@@ -825,6 +821,7 @@ static void *kaweth_probe(
 
 		/* Device will now disappear for a moment...  */
 		kaweth_info("Firmware loaded.  I'll be back...");
+		kfree(kaweth);
 		return NULL;
 	}
 
@@ -926,6 +923,9 @@ static void kaweth_disconnect(struct usb_device *dev, void *ptr)
 		kaweth_warn("unregistering non-existant device");
 		return;
 	}
+
+	usb_unlink_urb(kaweth->rx_urb);
+	usb_unlink_urb(kaweth->tx_urb);
 
 	if(kaweth->net) {
 		if(kaweth->net->flags & IFF_UP) {

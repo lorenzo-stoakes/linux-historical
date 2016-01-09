@@ -204,7 +204,7 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext *sc)
 #define restore_gp_reg(i) do {						\
 	err |= __get_user(reg, &sc->sc_regs[i]);			\
 	regs->regs[i] = reg;						\
-} while(0);
+} while(0)
 	restore_gp_reg( 1); restore_gp_reg( 2); restore_gp_reg( 3);
 	restore_gp_reg( 4); restore_gp_reg( 5); restore_gp_reg( 6);
 	restore_gp_reg( 7); restore_gp_reg( 8); restore_gp_reg( 9);
@@ -661,10 +661,7 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs *regs)
 				/* FALLTHRU */
 
 			default:
-				sigaddset(&current->pending.signal, signr);
-				recalc_sigpending(current);
-				current->flags |= PF_SIGNALED;
-				do_exit(exit_code);
+				sig_exit(signr, exit_code, &info);
 				/* NOTREACHED */
 			}
 		}

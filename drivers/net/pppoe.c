@@ -5,7 +5,7 @@
  * PPPoE --- PPP over Ethernet (RFC 2516)
  *
  *
- * Version:    0.6.9
+ * Version:    0.6.10
  *
  * 030700 :     Fixed connect logic to allow for disconnect.
  * 270700 :	Fixed potential SMP problems; we must protect against
@@ -31,6 +31,9 @@
  *		a memory leak.
  * 081001 :     Misc. cleanup (licence string, non-blocking, prevent
  *              reference of device on close).
+ * 121301 :     New ppp channels interface; cannot unregister a channel
+ *              from interrupts.  Thus, we mark the socket as a ZOMBIE
+ *              and do the unregistration later.
  *
  * Author:	Michal Ostrowski <mostrows@speakeasy.net>
  * Contributors:
@@ -273,10 +276,10 @@ static void pppoe_flush_dev(struct net_device *dev)
 
 				lock_sock(sk);
 
-				if (sk->state & (PPPOX_CONNECTED | PPPOX_BOUND)) {
+				if (sk->state & (PPPOX_CONNECTED|PPPOX_BOUND)){
 					pppox_unbind_sock(sk);
 					dev_put(dev);
-					sk->state = PPPOX_DEAD;
+					sk->state = PPPOX_ZOMBIE;
 					sk->state_change(sk);
 				}
 
@@ -439,8 +442,10 @@ static int pppoe_disc_rcv(struct sk_buff *skb,
 		 * one socket family type, we cannot (easily) distinguish
 		 * what kind of SKB it is during backlog rcv.
 		 */
-		if (sk->lock.users == 0)
+		if (sk->lock.users == 0) {
+			sk->state = PPPOX_ZOMBIE;
 			pppox_unbind_sock(sk);
+		}
 
 		bh_unlock_sock(sk);
 		sock_put(sk);
@@ -722,7 +727,7 @@ int pppoe_ioctl(struct socket *sock, unsigned int cmd,
 		struct pppox_opt *relay_po;
 
 		err = -EBUSY;
-		if (sk->state & PPPOX_BOUND)
+		if (sk->state & (PPPOX_BOUND|PPPOX_ZOMBIE|PPPOX_DEAD))
 			break;
 
 		err = -ENOTCONN;

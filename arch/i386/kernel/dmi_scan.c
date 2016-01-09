@@ -9,6 +9,7 @@
 #include <linux/pm.h>
 #include <asm/keyboard.h>
 #include <asm/system.h>
+#include <linux/bootmem.h>
 
 unsigned long dmi_broken;
 int is_sony_vaio_laptop;
@@ -51,7 +52,7 @@ static int __init dmi_table(u32 base, int len, int num, void (*decode)(struct dm
 	u8 *data;
 	int i=1;
 		
-	buf = ioremap(base, len);
+	buf = bt_ioremap(base, len);
 	if(buf==NULL)
 		return -1;
 
@@ -83,7 +84,7 @@ static int __init dmi_table(u32 base, int len, int num, void (*decode)(struct dm
 		data+=2;
 		i++;
 	}
-	iounmap(buf);
+	bt_iounmap(buf, len);
 	return 0;
 }
 
@@ -155,7 +156,7 @@ static void __init dmi_save_ident(struct dmi_header *dm, int slot, int string)
 		return;
 	if (dmi_ident[slot])
 		return;
-	dmi_ident[slot] = kmalloc(strlen(p)+1, GFP_KERNEL);
+	dmi_ident[slot] = alloc_bootmem(strlen(p)+1);
 	if(dmi_ident[slot])
 		strcpy(dmi_ident[slot], p);
 	else
@@ -504,6 +505,12 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_BIOS_VENDOR,"SystemSoft"),
 			MATCH(DMI_BIOS_VERSION,"Version R2.08")
 			} },
+	{ apm_is_horked, "Dell Inspiron 2500", { /* APM crashes */
+			MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
+			MATCH(DMI_PRODUCT_NAME, "Inspiron 2500"),
+			MATCH(DMI_BIOS_VENDOR,"Phoenix Technologies LTD"),
+			MATCH(DMI_BIOS_VERSION,"A11")
+			} },
 	{ sony_vaio_laptop, "Sony Vaio", { /* This is a Sony Vaio laptop */
 			MATCH(DMI_SYS_VENDOR, "Sony Corporation"),
 			MATCH(DMI_PRODUCT_NAME, "PCG-"),
@@ -736,12 +743,9 @@ static void __init dmi_decode(struct dmi_header *dm)
 	}
 }
 
-static int __init dmi_scan_machine(void)
+void __init dmi_scan_machine(void)
 {
 	int err = dmi_iterate(dmi_decode);
 	if(err == 0)
 		dmi_check_blacklist();
-	return err;
 }
-
-module_init(dmi_scan_machine);

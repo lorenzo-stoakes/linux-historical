@@ -56,6 +56,8 @@ extern void (*_flush_icache_all)(void);
 
 #define flush_icache_range(start, end)	_flush_icache_range(start,end)
 #define flush_icache_page(vma, page) 	_flush_icache_page(vma, page)
+#define flush_icache_user_range(vma, page, addr, len)	\
+					_flush_icache_page((vma), (page))
 
 #define flush_cache_sigtramp(addr)	_flush_cache_sigtramp(addr)
 #ifdef CONFIG_VTAG_ICACHE

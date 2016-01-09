@@ -1145,7 +1145,7 @@ sys_call_table:
 	data8 ia64_ni_syscall
 	data8 ia64_ni_syscall
 	data8 ia64_ni_syscall
-	data8 ia64_ni_syscall
+	data8 sys_tkill
 	data8 ia64_ni_syscall			// 1230
 	data8 ia64_ni_syscall
 	data8 ia64_ni_syscall

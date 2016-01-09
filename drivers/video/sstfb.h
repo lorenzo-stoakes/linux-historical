@@ -317,6 +317,7 @@ struct sstfb_par {
 	unsigned int vSyncOn;
 	unsigned int vSyncOff;
 	unsigned int vBackPorch;
+	unsigned int flags;	/* Doublescan, Interlace etc. */
 	unsigned int freq;	/* freq in picoseconds */
 	unsigned int tiles_in_X; /* num of tiles in X res */
 };

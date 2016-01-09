@@ -1979,7 +1979,7 @@ static int  get_neighbors(
     return CARRY_ON;
 }
 
-
+#ifdef CONFIG_REISERFS_CHECK
 void * reiserfs_kmalloc (size_t size, int flags, struct super_block * s)
 {
     void * vp;
@@ -2007,6 +2007,7 @@ void reiserfs_kfree (const void * vp, size_t size, struct super_block * s)
 	reiserfs_warning ("vs-8302: reiserfs_kfree: allocated memory %d\n", s->u.reiserfs_sb.s_kmallocs);
 
 }
+#endif
 
 
 static int get_virtual_node_size (struct super_block * sb, struct buffer_head * bh)
@@ -2356,7 +2357,6 @@ int fix_nodes (int n_op_mode,
     for ( n_h = 0; n_h < MAX_HEIGHT && p_s_tb->insert_size[n_h]; n_h++ ) { 
 	if ( (n_ret_value = get_direct_parent(p_s_tb, n_h)) != CARRY_ON ) {
 	    goto repeat;
-	    return n_ret_value;
 	}
 
 	if ( (n_ret_value = check_balance (n_op_mode, p_s_tb, n_h, n_item_num,
@@ -2365,7 +2365,6 @@ int fix_nodes (int n_op_mode,
 		/* No balancing for higher levels needed. */
 		if ( (n_ret_value = get_neighbors(p_s_tb, n_h)) != CARRY_ON ) {
 		    goto repeat;
-		    return n_ret_value;
 		}
 		if ( n_h != MAX_HEIGHT - 1 )  
 		    p_s_tb->insert_size[n_h + 1] = 0;
@@ -2373,17 +2372,14 @@ int fix_nodes (int n_op_mode,
 		break;
 	    }
 	    goto repeat;
-	    return n_ret_value;
 	}
 
 	if ( (n_ret_value = get_neighbors(p_s_tb, n_h)) != CARRY_ON ) {
 	    goto repeat;
-	    return n_ret_value;
 	}
 
 	if ( (n_ret_value = get_empty_nodes(p_s_tb, n_h)) != CARRY_ON ) {
-	    goto repeat;
-	    return n_ret_value; /* No disk space, or schedule occurred and
+	    goto repeat;        /* No disk space, or schedule occurred and
 				   analysis may be invalid and needs to be redone. */
 	}
     

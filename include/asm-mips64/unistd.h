@@ -252,11 +252,12 @@
 #define __NR_Linux32_removexattr	(__NR_Linux32 + 233)
 #define __NR_Linux32_lremovexattr	(__NR_Linux32 + 234)
 #define __NR_Linux32_fremovexattr	(__NR_Linux32 + 235)
+#define __NR_Linux32_tkill		(__NR_Linux32 + 236)
 
 /*
  * Offset of the last Linux o32 flavoured syscall
  */
-#define __NR_Linux32_syscalls		235
+#define __NR_Linux32_syscalls		236
 
 /*
  * Linux 64-bit syscalls are in the range from 5000 to 5999.
@@ -491,11 +492,12 @@
 #define __NR_removexattr		(__NR_Linux + 226)
 #define __NR_lremovexattr		(__NR_Linux + 227)
 #define __NR_fremovexattr		(__NR_Linux + 228)
+#define __NR_tkill			(__NR_Linux + 229)
 
 /*
  * Offset of the last Linux flavoured syscall
  */
-#define __NR_Linux_syscalls		228
+#define __NR_Linux_syscalls		229
 
 #ifndef _LANGUAGE_ASSEMBLY
 

@@ -596,23 +596,43 @@ void __init reserve_phys_mem(unsigned long start, unsigned long size)
 	mem_pieces_remove(&phys_avail, start, size, 1);
 }
 
-void flush_page_to_ram(struct page *page)
+/*
+ * This is called when a page has been modified by the kernel.
+ * It just marks the page as not i-cache clean.  We do the i-cache
+ * flush later when the page is given to a user process, if necessary.
+ */
+void flush_dcache_page(struct page *page)
 {
-	unsigned long vaddr = (unsigned long) kmap(page);
-	__flush_page_to_ram(vaddr);
-	kunmap(page);
+	clear_bit(PG_arch_1, &page->flags);
 }
 
-/*
- * set_pte stores a linux PTE into the linux page table.
- * On machines which use an MMU hash table we avoid changing the
- * _PAGE_HASHPTE bit.
- */
-void set_pte(pte_t *ptep, pte_t pte)
+void flush_icache_page(struct vm_area_struct *vma, struct page *page)
 {
-#if _PAGE_HASHPTE != 0
-	pte_update(ptep, ~_PAGE_HASHPTE, pte_val(pte) & ~_PAGE_HASHPTE);
-#else
-	*ptep = pte;
-#endif
+	if (page->mapping && !PageReserved(page)
+	    && !test_bit(PG_arch_1, &page->flags)) {
+		__flush_dcache_icache(kmap(page));
+		kunmap(page);
+		set_bit(PG_arch_1, &page->flags);
+	}
+}
+
+void clear_user_page(void *page, unsigned long vaddr)
+{
+	clear_page(page);
+}
+
+void copy_user_page(void *vto, void *vfrom, unsigned long vaddr)
+{
+	copy_page(vto, vfrom);
+	__flush_dcache_icache(vto);
+}
+
+void flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+			     unsigned long addr, int len)
+{
+	unsigned long maddr;
+
+	maddr = (unsigned long) kmap(page) + (addr & ~PAGE_MASK);
+	flush_icache_range(maddr, maddr + len);
+	kunmap(page);
 }

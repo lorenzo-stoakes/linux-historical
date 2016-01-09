@@ -597,7 +597,7 @@ struct super_block * ufs_read_super (struct super_block * sb, void * data,
 	}
 	
 again:	
-	if (!set_blocksize (sb->s_dev, block_size)) {
+	if (set_blocksize (sb->s_dev, block_size)) {
 		printk(KERN_ERR "UFS: failed to set blocksize\n");
 		goto failed;
 	}

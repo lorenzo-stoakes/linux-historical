@@ -719,6 +719,8 @@ const struct consw newport_con = {
 };
 
 #ifdef MODULE
+MODULE_LICENSE("GPL");
+
 int init_module(void)
 {
 	if (!newport_startup())

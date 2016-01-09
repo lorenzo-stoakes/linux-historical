@@ -28,21 +28,21 @@
  * For historical reasons, these macros are grossly misnamed.
  */
 
-#define MAKE_MM_SEG(s,a)  ((mm_segment_t) { (s),(a) })
+#define MAKE_MM_SEG(a)  ((mm_segment_t) { (a) })
 
 
-#define KERNEL_DS       MAKE_MM_SEG(0x7FFFFFFF,0)
-#define USER_DS         MAKE_MM_SEG(PAGE_OFFSET,1)
+#define KERNEL_DS       MAKE_MM_SEG(0)
+#define USER_DS         MAKE_MM_SEG(1)
 
 #define get_ds()        (KERNEL_DS)
-#define get_fs()        (current->thread.fs)
-#define set_fs(x)       ({asm volatile("sar   4,%0"::"a" (x.acc4)); \
-                         current->thread.fs = (x);})
+#define get_fs()        (current->addr_limit)
+#define set_fs(x)       ({asm volatile("sar   4,%0"::"a" ((x).ar4)); \
+                         current->addr_limit = (x);})
 
-#define segment_eq(a,b) ((a).acc4 == (b).acc4)
+#define segment_eq(a,b) ((a).ar4 == (b).ar4)
 
 
-#define __access_ok(addr,size) ((((long) addr + size)&0x7FFFFFFFL) < current->addr_limit.seg)
+#define __access_ok(addr,size) (1)
 
 #define access_ok(type,addr,size) __access_ok(addr,size)
 

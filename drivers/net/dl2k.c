@@ -86,7 +86,6 @@ static int rio_close (struct net_device *dev);
 static int find_miiphy (struct net_device *dev);
 static int parse_eeprom (struct net_device *dev);
 static int read_eeprom (long ioaddr, int eep_addr);
-static unsigned get_crc (unsigned char *p, int len);
 static int mii_wait_link (struct net_device *dev, int wait);
 static int mii_set_media (struct net_device *dev);
 static int mii_get_media (struct net_device *dev);
@@ -341,7 +340,7 @@ parse_eeprom (struct net_device *dev)
 	}
 
 	/* Check CRC */
-	crc = ~get_crc (sromdata, 256 - 4);
+ 	crc = ~ether_crc_le(256-4, sromdata);
 	if (psrom->crc != crc) {
 		printk (KERN_ERR "%s: EEPROM data CRC error.\n", dev->name);
 		return -1;
@@ -993,23 +992,6 @@ change_mtu (struct net_device *dev, int new_mtu)
 	return 0;
 }
 
-#define CRC_POLY 0xedb88320
-static unsigned
-get_crc (unsigned char *p, int len)
-{
-	int bit;
-	unsigned char byte;
-	unsigned crc = 0xffffffff;
-
-	while (--len >= 0) {
-		byte = *p++;
-		for (bit = 0; bit < 8; bit++, byte >>= 1) {
-			crc = (crc >> 1) ^ (((crc ^ byte) & 1) ? CRC_POLY : 0);
-		}
-	}
-	return crc;
-}
-
 static void
 set_multicast (struct net_device *dev)
 {
@@ -1039,7 +1021,7 @@ set_multicast (struct net_device *dev)
 		    ReceiveBroadcast | ReceiveMulticastHash | ReceiveUnicast;
 		for (i=0, mclist = dev->mc_list; mclist && i < dev->mc_count; 
 				i++, mclist=mclist->next) {
-			crc = get_crc (mclist->dmi_addr, ETH_ALEN);
+			crc = ether_crc_le (ETH_ALEN, mclist->dmi_addr);
 			for (index=0, bit=0; bit<6; bit++, crc<<=1) {
 				if (crc & 0x80000000) index |= 1 << bit;
 			}

@@ -69,9 +69,7 @@ disabling it first.  This will then cause a reboot.
 
 The ioctl API:
 
-Some drivers also support an ioctl API.  I belive this API was first
-used in the Berkshire PC Watchdog driver and has been adopted by the
-other drivers.  
+All conforming drivers also support an ioctl API.
 
 Pinging the watchdog using an ioctl:
 
@@ -111,9 +109,9 @@ current timeout using the GETTIMEOUT ioctl.
 
 Envinronmental monitoring:
 
-Some watchdog drivers can return more information about the system,
+All watchdog drivers are required return more information about the system,
 some do temperature, fan and power level monitoring, some can tell you
-the reason for the last reebot of the system.  The GETSUPPORT ioctl is
+the reason for the last reboot of the system.  The GETSUPPORT ioctl is
 available to ask what the device can do:
 
 	struct watchdog_info ident;
@@ -130,17 +128,44 @@ kind of information that the GET_STATUS and GET_BOOT_STATUS ioctls can
 return.   [FIXME -- Is this correct?]
 
 	WDIOF_OVERHEAT		Reset due to CPU overheat
+
+The machine was last rebooted by the watchdog because the thermal limit was
+exceeded
+
 	WDIOF_FANFAULT		Fan failed
+
+A system fan monitored by the watchdog card has failed
+
 	WDIOF_EXTERN1		External relay 1
+
+External monitoring relay/source 1 was triggered. Controllers intended for
+real world applications include external monitoring pins that will trigger
+a reset.
+
 	WDIOF_EXTERN2		External relay 2
+
+External monitoring relay/source 2 was triggered
+
 	WDIOF_POWERUNDER	Power bad/power fault
+
+The machine is showing an undervoltage status
+
 	WDIOF_CARDRESET		Card previously reset the CPU
+
+The last reboot was caused by the watchdog card
+
 	WDIOF_POWEROVER		Power over voltage
+
+The machine is showing an overvoltage status. Note that if one level is
+under and one over both bits will be set - this may seem odd but makes
+sense.
+
 	WDIOF_KEEPALIVEPING	Keep alive ping reply
+
+The watchdog saw a keepalive ping since it was last queried.
+
 	WDIOF_SETTIMEOUT	Can set/get the timeout
 
-[FIXME -- Can somebody explain what the flags mean in more detail,
-especially KEEPALIVEPING?]
 
 For those drivers that return any bits set in the option field, the
 GETSTATUS and GETBOOTSTATUS ioctls can be used to ask for the current
@@ -219,7 +244,7 @@ eurotechwdt.c -- Eurotech CPU-1220/1410
 
 i810-tco.c -- Intel 810 chipset
 
-	Also has support for a lot of other i810 stuff, but the
+	Also has support for a lot of other i8x0 stuff, but the
 	watchdog is one of the things.
 
 	The timeout is set using the module parameter "i810_margin",
@@ -292,6 +317,18 @@ sbc60xxwdt.c -- 60xx Single Board Computer
 
 	No bits set in GETSUPPORT
 
+scx200.c -- National SCx200 CPUs
+
+	Not in the kernel yet.
+
+	The timeout is set using a module parameter "margin" which
+	defaults to 60 seconds.  The timeout can also be set using
+	SETTIMEOUT and read using GETTIMEOUT.
+
+	Supports a module parameter "nowayout" that is initialized
+	with the value of CONFIG_WATCHDOG_NOWAYOUT.  Also supports the
+	magic character 'V' handling.
+
 shwdt.c -- SuperH 3/4 processors
 
 	[FIXME -- I'm unable to tell what the timeout is]
@@ -329,10 +366,9 @@ wdt_pci.c -- ICS WDT500/501 PCI
 
 	Supports CONFIG_WATCHDOG_NOWAYOUT
 
-	GETSUPPORT returns with a lot of bits set, it seems that the
-	driver can check for overheating, power failure, fan failure
-	and a two external relay inputs.  GETSTATUS can be used to
-	read these flags.
+	GETSUPPORT returns with bits set depending on the actual
+	card. The WDT501 supports a lot of external monitoring, the
+	WDT500 much less.
 
 wdt285.c -- Footbridge watchdog
 
@@ -352,14 +388,3 @@ wdt977.c -- Netwinder W83977AF chip
 
 	Does not support any ioctls at all.
 
-scx200.c -- National SCx200 CPUs
-
-	Not in the kernel yet.
-
-	The timeout is set using a module parameter "margin" which
-	defaults to 60 seconds.  The timeout can also be set using
-	SETTIMEOUT and read using GETTIMEOUT.
-
-	Supports a module parameter "nowayout" that is initialized
-	with the value of CONFIG_WATCHDOG_NOWAYOUT.  Also supports the
-	magic character 'V' handling.

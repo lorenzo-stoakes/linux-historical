@@ -128,7 +128,6 @@ extern char __init_begin, __init_end;
 static inline void set_pte_phys (unsigned long vaddr,
 			unsigned long phys, pgprot_t flags)
 {
-	pgprot_t prot;
 	pgd_t *pgd;
 	pmd_t *pmd;
 	pte_t *pte;
@@ -144,10 +143,8 @@ static inline void set_pte_phys (unsigned long vaddr,
 		return;
 	}
 	pte = pte_offset(pmd, vaddr);
-	if (pte_val(*pte))
-		pte_ERROR(*pte);
-	pgprot_val(prot) = pgprot_val(PAGE_KERNEL) | pgprot_val(flags);
-	set_pte(pte, mk_pte_phys(phys, prot));
+	/* <phys,flags> stored as-is, to permit clearing entries */
+	set_pte(pte, mk_pte_phys(phys, flags));
 
 	/*
 	 * It's enough to flush this one mapping.
@@ -462,8 +459,9 @@ void __init mem_init(void)
 #ifdef CONFIG_HIGHMEM
 	highmem_start_page = mem_map + highstart_pfn;
 	max_mapnr = num_physpages = highend_pfn;
+	num_mappedpages = max_low_pfn;
 #else
-	max_mapnr = num_physpages = max_low_pfn;
+	max_mapnr = num_mappedpages = num_physpages = max_low_pfn;
 #endif
 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
 

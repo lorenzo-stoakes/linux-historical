@@ -362,3 +362,4 @@ sys_call_table:
 	PTR	sys_ni_syscall			/* reserved for removexattr */
 	PTR	sys_ni_syscall			/* reserved for lremovexattr */
 	PTR	sys_ni_syscall			/* reserved for fremovexattr */
+	PTR	sys_tkill

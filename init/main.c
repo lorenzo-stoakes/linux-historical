@@ -348,7 +348,6 @@ static void rest_init(void)
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
-	unsigned long mempages;
 	extern char saved_command_line[];
 /*
  * Interrupts are still disabled. Do necessary setups, then
@@ -399,13 +398,21 @@ asmlinkage void __init start_kernel(void)
 	kmem_cache_sizes_init();
 	pgtable_cache_init();
 
-	mempages = num_physpages;
-
-	fork_init(mempages);
+	/*
+	 * For architectures that have highmem, num_mappedpages represents
+	 * the amount of memory the kernel can use.  For other architectures
+	 * it's the same as the total pages.  We need both numbers because
+	 * some subsystems need to initialize based on how much memory the
+	 * kernel can use.
+	 */
+	if (num_mappedpages == 0)
+		num_mappedpages = num_physpages;
+  
+	fork_init(num_mappedpages);
 	proc_caches_init();
-	vfs_caches_init(mempages);
-	buffer_init(mempages);
-	page_cache_init(mempages);
+	vfs_caches_init(num_physpages);
+	buffer_init(num_physpages);
+	page_cache_init(num_physpages);
 #if defined(CONFIG_ARCH_S390)
 	ccwcache_init();
 #endif

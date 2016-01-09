@@ -588,7 +588,7 @@ static inline struct sk_buff *__skb_dequeue(struct sk_buff_head *list)
 
 static inline struct sk_buff *skb_dequeue(struct sk_buff_head *list)
 {
-	long flags;
+	unsigned long flags;
 	struct sk_buff *result;
 
 	spin_lock_irqsave(&list->lock, flags);
@@ -737,7 +737,7 @@ static inline struct sk_buff *__skb_dequeue_tail(struct sk_buff_head *list)
 
 static inline struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list)
 {
-	long flags;
+	unsigned long flags;
 	struct sk_buff *result;
 
 	spin_lock_irqsave(&list->lock, flags);

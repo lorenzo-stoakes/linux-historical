@@ -13035,9 +13035,10 @@ CONFIG_USB_SERIAL_VISOR
 
 USB Compaq iPAQ Driver
 CONFIG_USB_SERIAL_IPAQ
-  Say Y here if you want to connect to your Compaq iPAQ running
-  Windows CE 3.0 using a USB autosync cable. For information on using
-  the driver, read <file:Documentation/usb/usb-serial.txt>.
+  Say Y here if you want to connect to your Compaq iPAQ or HP Jornada
+  548/568 running Windows CE 3.0 or PocketPC 2002 using a USB
+  cradle/cable. For information on using the driver,
+  read <file:Documentation/usb/usb-serial.txt>.
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -13669,6 +13670,16 @@ CONFIG_USB_RIO500
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called rio500.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
+
+USB Auerswald ISDN device support
+CONFIG_USB_AUERSWALD
+  Say Y here if you want to connect an Auerswald USB ISDN Device
+  to your computer's USB port.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called auerswald.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
 D-Link DSB-R100 FM radio support
@@ -17666,8 +17677,12 @@ CONFIG_X86_MCE
   ranging from a warning message on the console, to halting the machine.
   Your processor must be a Pentium or newer to support this - check the 
   flags in /proc/cpuinfo for mce.  Note that some older Pentium systems
-  have a design flaw which leads to false MCE events - for these and
-  old non-MCE processors (386, 486), say N.  Otherwise say Y.
+  have a design flaw which leads to false MCE events - hence MCE is
+  disabled on all P5 processors, unless explicitly enabled with "mce"
+  as a boot argument.  Similarly, if MCE is built in and creates a
+  problem on some new non-standard machine, you can boot with "nomce" 
+  to disable it.  MCE support simply ignores non-MCE processors like
+  the 386 and 486, so nearly everyone can say Y here.
 
 Toshiba Laptop support
 CONFIG_TOSHIBA

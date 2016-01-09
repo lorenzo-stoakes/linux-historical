@@ -74,6 +74,8 @@ extern int atyfb_init(void);
 extern int atyfb_setup(char*);
 extern int aty128fb_init(void);
 extern int aty128fb_setup(char*);
+extern int neofb_init(void);
+extern int neofb_setup(char*);
 extern int igafb_init(void);
 extern int igafb_setup(char*);
 extern int imsttfb_init(void);
@@ -182,6 +184,9 @@ static struct {
 #endif
 #ifdef CONFIG_FB_ATY128
 	{ "aty128fb", aty128fb_init, aty128fb_setup },
+#endif
+#ifdef CONFIG_FB_NEOMAGIC
+	{ "neo", neofb_init, neofb_setup },
 #endif
 #ifdef CONFIG_FB_VIRGE
 	{ "virge", virgefb_init, virgefb_setup },
@@ -571,6 +576,8 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 		lock_kernel();
 		res = fb->fb_mmap(info, file, vma);
 		unlock_kernel();
+		/* This is an IO map - tell maydump to skip this VMA */
+		vma->vm_flags |= VM_IO;
 		return res;
 	}
 
@@ -604,12 +611,13 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 		return -EINVAL;
 	off += start;
 	vma->vm_pgoff = off >> PAGE_SHIFT;
+	/* This is an IO map - tell maydump to skip this VMA */
+	vma->vm_flags |= VM_IO;
 #if defined(__sparc_v9__)
 	vma->vm_flags |= (VM_SHM | VM_LOCKED);
 	if (io_remap_page_range(vma->vm_start, off,
 				vma->vm_end - vma->vm_start, vma->vm_page_prot, 0))
 		return -EAGAIN;
-	vma->vm_flags |= VM_IO;
 #else
 #if defined(__mc68000__)
 #if defined(CONFIG_SUN3)
@@ -632,8 +640,6 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 		pgprot_val(vma->vm_page_prot) |= _PAGE_PCD;
 #elif defined(__arm__) || defined(__mips__)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	/* This is an IO map - tell maydump to skip this VMA */
-	vma->vm_flags |= VM_IO;
 #elif defined(__sh__)
 	pgprot_val(vma->vm_page_prot) &= ~_PAGE_CACHABLE;
 #elif defined(__ia64__)

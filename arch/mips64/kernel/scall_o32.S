@@ -482,6 +482,7 @@ bad_alignment:
 	sys	sys_ni_syscall	0		/* reserved for removexattr */
 	sys	sys_ni_syscall	0		/* reserved for lremovexattr */
 	sys	sys_ni_syscall	0		/* 4235 res. for fremovexattr */
+	sys	sys32_tkill	2
 
 	.endm
 

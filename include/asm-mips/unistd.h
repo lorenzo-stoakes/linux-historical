@@ -245,11 +245,12 @@
 #define __NR_removexattr		(__NR_Linux + 233)
 #define __NR_lremovexattr		(__NR_Linux + 234)
 #define __NR_fremovexattr		(__NR_Linux + 235)
+#define __NR_tkill			(__NR_Linux + 236)
 
 /*
  * Offset of the last Linux flavoured syscall
  */
-#define __NR_Linux_syscalls		235
+#define __NR_Linux_syscalls		236
 
 #ifndef _LANGUAGE_ASSEMBLY
 

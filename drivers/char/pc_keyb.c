@@ -1215,3 +1215,26 @@ static int __init psaux_init(void)
 }
 
 #endif /* CONFIG_PSMOUSE */
+
+
+/* Tell the user who may be running in X and not see the console that we have 
+   panic'ed. This is to distingush panics from "real" lockups. 
+   Could in theory send the panic message as morse, but that is left as an
+   exercise for the reader.  */ 
+void panic_blink(void)
+{ 
+	static unsigned long last_jiffie;
+	static char led;
+	/* Roughly 1/2s frequency. KDB uses about 1s. Make sure it is 
+	   different. */
+	if (jiffies - last_jiffie > HZ/2) {
+		led ^= 0x01 | 0x04;
+		while (kbd_read_status() & KBD_STAT_IBF) mdelay(1); 
+		kbd_write_output(KBD_CMD_SET_LEDS);
+		mdelay(1); 
+		while (kbd_read_status() & KBD_STAT_IBF) mdelay(1); 
+		mdelay(1); 
+		kbd_write_output(led);
+		last_jiffie = jiffies;
+	}
+}  

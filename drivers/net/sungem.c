@@ -37,6 +37,7 @@
 #include <linux/skbuff.h>
 #include <linux/mii.h>
 #include <linux/ethtool.h>
+#include <linux/crc32.h>
 
 #include <asm/system.h>
 #include <asm/bitops.h>
@@ -1729,8 +1730,6 @@ static void gem_init_dma(struct gem *gp)
 		       gp->regs + RXDMA_BLANK);
 }
 
-#define CRC_POLYNOMIAL_LE 0xedb88320UL  /* Ethernet CRC, little endian */
-
 static u32
 gem_setup_multicast(struct gem *gp)
 {
@@ -1746,9 +1745,9 @@ gem_setup_multicast(struct gem *gp)
 		rxcfg |= MAC_RXCFG_PROM;
 	} else {
 		u16 hash_table[16];
-		u32 crc, poly = CRC_POLYNOMIAL_LE;
+		u32 crc;
 		struct dev_mc_list *dmi = gp->dev->mc_list;
-		int i, j, bit, byte;
+		int i;
 
 		for (i = 0; i < 16; i++)
 			hash_table[i] = 0;
@@ -1761,17 +1760,7 @@ gem_setup_multicast(struct gem *gp)
 			if (!(*addrs & 1))
 				continue;
 
-			crc = 0xffffffffU;
-			for (byte = 0; byte < 6; byte++) {
-				for (bit = *addrs++, j = 0; j < 8; j++, bit >>= 1) {
-					int test;
-
-					test = ((bit ^ crc) & 0x01);
-					crc >>= 1;
-					if (test)
-						crc = crc ^ poly;
-				}
-			}
+ 			crc = ether_crc_le(6, addrs);
 			crc >>= 24;
 			hash_table[crc >> 4] |= 1 << (15 - (crc & 0xf));
 		}

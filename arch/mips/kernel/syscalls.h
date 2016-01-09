@@ -250,3 +250,5 @@ SYS(sys_ni_syscall, 0)				/* reserved for flistxattr */
 SYS(sys_ni_syscall, 0)				/* reserved for removexattr */
 SYS(sys_ni_syscall, 0)				/* reserved for lremovexattr */
 SYS(sys_ni_syscall, 0)				/* 4235 res. for fremovexattr */
+SYS(sys_gettid, 0)
+SYS(sys_tkill, 2)

@@ -98,6 +98,8 @@
 #endif
 #include <linux/highmem.h>
 #include <linux/bootmem.h>
+#include <linux/pci.h>
+#include <linux/pci_ids.h>
 #include <linux/seq_file.h>
 #include <asm/processor.h>
 #include <linux/console.h>
@@ -155,6 +157,7 @@ struct e820map e820;
 unsigned char aux_device_present;
 
 extern void mcheck_init(struct cpuinfo_x86 *c);
+extern void dmi_scan_machine(void);
 extern int root_mountflags;
 extern char _text, _etext, _edata, _end;
 
@@ -1042,6 +1045,7 @@ void __init setup_arch(char **cmdline_p)
 	conswitchp = &dummy_con;
 #endif
 #endif
+	dmi_scan_machine();
 }
 
 static int cachesize_override __initdata = -1;
@@ -1306,7 +1310,7 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 }
 
 /*
- * Read Cyrix DEVID registers (DIR) to get more detailed info. about the CPU
+ * Read NSC/Cyrix DEVID registers (DIR) to get more detailed info. about the CPU
  */
 static void __init do_cyrix_devid(unsigned char *dir0, unsigned char *dir1)
 {
@@ -1468,11 +1472,6 @@ static void __init init_cyrix(struct cpuinfo_x86 *c)
 		break;
 
 	case 4: /* MediaGX/GXm */
-		/*
-		 *	Life sometimes gets weiiiiiiiird if we use this
-		 *	on the MediaGX. So we turn it off for now. 
-		 */
-		
 #ifdef CONFIG_PCI
 		/* It isnt really a PCI quirk directly, but the cure is the
 		   same. The MediaGX has deep magic SMM stuff that handles the
@@ -1494,14 +1493,22 @@ static void __init init_cyrix(struct cpuinfo_x86 *c)
 		/* GXm supports extended cpuid levels 'ala' AMD */
 		if (c->cpuid_level == 2) {
 			get_model_name(c);  /* get CPU marketing name */
-			clear_bit(X86_FEATURE_TSC, c->x86_capability);
+			/*
+	 		 *	The 5510/5520 companion chips have a funky PIT
+			 *	that breaks the TSC synchronizing, so turn it off
+			 */
+			if(pci_find_device(PCI_VENDOR_ID_CYRIX, PCI_DEVICE_ID_CYRIX_5510, NULL) ||
+			   pci_find_device(PCI_VENDOR_ID_CYRIX, PCI_DEVICE_ID_CYRIX_5520, NULL))
+				clear_bit(X86_FEATURE_TSC, c->x86_capability);
 			return;
 		}
 		else {  /* MediaGX */
 			Cx86_cb[2] = (dir0_lsn & 1) ? '3' : '4';
 			p = Cx86_cb+2;
 			c->x86_model = (dir1 & 0x20) ? 1 : 2;
-			clear_bit(X86_FEATURE_TSC, &c->x86_capability);
+			if(pci_find_device(PCI_VENDOR_ID_CYRIX, PCI_DEVICE_ID_CYRIX_5510, NULL) ||
+			   pci_find_device(PCI_VENDOR_ID_CYRIX, PCI_DEVICE_ID_CYRIX_5520, NULL))
+				clear_bit(X86_FEATURE_TSC, &c->x86_capability);
 		}
 		break;
 
@@ -2270,6 +2277,8 @@ void __init get_cpu_vendor(struct cpuinfo_x86 *c)
 		c->x86_vendor = X86_VENDOR_AMD;
 	else if (!strcmp(v, "CyrixInstead"))
 		c->x86_vendor = X86_VENDOR_CYRIX;
+	else if (!strcmp(v, "Geode by NSC"))
+		c->x86_vendor = X86_VENDOR_NSC;
 	else if (!strcmp(v, "UMC UMC UMC "))
 		c->x86_vendor = X86_VENDOR_UMC;
 	else if (!strcmp(v, "CentaurHauls"))
@@ -2613,6 +2622,10 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 		init_cyrix(c);
 		break;
 
+	case X86_VENDOR_NSC:
+	        init_cyrix(c);
+		break;
+
 	case X86_VENDOR_AMD:
 		init_amd(c);
 		break;
@@ -2713,14 +2726,17 @@ void __init dodgy_tsc(void)
 {
 	get_cpu_vendor(&boot_cpu_data);
 
-	if ( boot_cpu_data.x86_vendor == X86_VENDOR_CYRIX )
+	if ( boot_cpu_data.x86_vendor == X86_VENDOR_CYRIX ||
+	     boot_cpu_data.x86_vendor == X86_VENDOR_NSC )
 		init_cyrix(&boot_cpu_data);
 }
 
 
 /* These need to match <asm/processor.h> */
 static char *cpu_vendor_names[] __initdata = {
-	"Intel", "Cyrix", "AMD", "UMC", "NexGen", "Centaur", "Rise", "Transmeta" };
+	"Intel", "Cyrix", "AMD", "UMC", "NexGen", 
+	"Centaur", "Rise", "Transmeta", "NSC"
+};
 
 
 void __init print_cpu_info(struct cpuinfo_x86 *c)
