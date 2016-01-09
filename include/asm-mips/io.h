@@ -15,6 +15,7 @@
 #include <linux/pagemap.h>
 #include <linux/types.h>
 #include <asm/addrspace.h>
+#include <asm/pgtable-bits.h>
 #include <asm/byteorder.h>
 
 /*
@@ -93,13 +94,35 @@ extern const unsigned long mips_io_port_base;
 #endif
 
 /*
- * Change virtual addresses to physical addresses and vv.
- * These are trivial on the 1:1 Linux/MIPS mapping
+ *     virt_to_phys    -       map virtual addresses to physical
+ *     @address: address to remap
+ *
+ *     The returned physical address is the physical (CPU) mapping for
+ *     the memory address given. It is only valid to use this function on
+ *     addresses directly mapped or allocated via kmalloc. 
+ *
+ *     This function does not give bus mappings for DMA transfers. In
+ *     almost all conceivable cases a device driver should not be using
+ *     this function
  */
+
 static inline unsigned long virt_to_phys(volatile void * address)
 {
 	return PHYSADDR(address);
 }
+
+/*
+ *     phys_to_virt    -       map physical address to virtual
+ *     @address: address to remap
+ *
+ *     The returned virtual address is a current CPU mapping for
+ *     the memory address given. It is only valid to use this function on
+ *     addresses that have a kernel mapping
+ *
+ *     This function does not handle bus mappings for DMA transfers. In
+ *     almost all conceivable cases a device driver should not be using
+ *     this function
+ */
 
 static inline void * phys_to_virt(unsigned long address)
 {
@@ -130,19 +153,55 @@ extern unsigned long isa_slot_offset;
 /*
  * Change "struct page" to physical address.
  */
+#ifdef CONFIG_64BIT_PHYS_ADDR
+#define page_to_phys(page)	((u64)(page - mem_map) << PAGE_SHIFT)
+#else
 #define page_to_phys(page)	((page - mem_map) << PAGE_SHIFT)
+#endif
+
 
 extern void * __ioremap(phys_t offset, phys_t size, unsigned long flags);
 
-static inline void *ioremap(phys_t offset, unsigned long size)
-{
-	return __ioremap(offset, size, _CACHE_UNCACHED);
-}
+/*
+ *     ioremap         -       map bus memory into CPU space
+ *     @offset:        bus address of the memory
+ *     @size:          size of the resource to map
+ *
+ *     ioremap performs a platform specific sequence of operations to
+ *     make bus memory CPU accessible via the readb/readw/readl/writeb/
+ *     writew/writel functions and the other mmio helpers. The returned
+ *     address is not guaranteed to be usable directly as a virtual
+ *     address. 
+ */
 
-static inline void *ioremap_nocache(phys_t offset, unsigned long size)
-{
-	return __ioremap(offset, size, _CACHE_UNCACHED);
-}
+#define ioremap(offset, size)						\
+	__ioremap((offset), (size), _CACHE_UNCACHED)
+
+/*
+ *     ioremap_nocache         -       map bus memory into CPU space
+ *     @offset:        bus address of the memory
+ *     @size:          size of the resource to map
+ *
+ *     ioremap_nocache performs a platform specific sequence of operations to
+ *     make bus memory CPU accessible via the readb/readw/readl/writeb/
+ *     writew/writel functions and the other mmio helpers. The returned
+ *     address is not guaranteed to be usable directly as a virtual
+ *     address. 
+ *
+ *     This version of ioremap ensures that the memory is marked uncachable
+ *     on the CPU as well as honouring existing caching rules from things like
+ *     the PCI bus. Note that there are other caches and buffers on many 
+ *     busses. In paticular driver authors should read up on PCI writes
+ *
+ *     It's useful if some control registers are in such an area and
+ *     write combining or read caching is not desirable:
+ */
+#define ioremap_nocache(offset, size)					\
+	__ioremap((offset), (size), _CACHE_UNCACHED)
+#define ioremap_cacheable_cow(offset, size)				\
+	__ioremap((offset), (size), _CACHE_CACHABLE_COW)
+#define ioremap_uncached_accelerated(offset, size)			\
+	__ioremap((offset), (size), _CACHE_UNCACHED_ACCELERATED)
 
 extern void iounmap(void *addr);
 
@@ -198,6 +257,16 @@ extern void iounmap(void *addr);
 #define eth_io_copy_and_sum(skb,src,len,unused) memcpy_fromio((skb)->data,(src),(len))
 #define isa_eth_io_copy_and_sum(a,b,c,d) eth_copy_and_sum((a),(b),(c),(d))
 
+/*
+ *     check_signature         -       find BIOS signatures
+ *     @io_addr: mmio address to check 
+ *     @signature:  signature block
+ *     @length: length of signature
+ *
+ *     Perform a signature comparison with the mmio address io_addr. This
+ *     address should have been obtained by ioremap.
+ *     Returns 1 on a match.
+ */
 static inline int check_signature(unsigned long io_addr,
                                   const unsigned char *signature, int length)
 {
@@ -213,7 +282,37 @@ static inline int check_signature(unsigned long io_addr,
 out:
 	return retval;
 }
-#define isa_check_signature(io, s, l) check_signature(i,s,l)
+
+/*
+ *     isa_check_signature             -       find BIOS signatures
+ *     @io_addr: mmio address to check 
+ *     @signature:  signature block
+ *     @length: length of signature
+ *
+ *     Perform a signature comparison with the ISA mmio address io_addr.
+ *     Returns 1 on a match.
+ *
+ *     This function is deprecated. New drivers should use ioremap and
+ *     check_signature.
+ */
+
+static inline int isa_check_signature(unsigned long io_addr,
+	const unsigned char *signature, int length)
+{
+	int retval = 0;
+	do {
+		if (isa_readb(io_addr) != *signature)
+			goto out;
+		io_addr++;
+		signature++;
+		length--;
+	} while (length);
+	retval = 1;
+out:
+	return retval;
+}
+
+
 
 
 #define outb(val,port)							\
@@ -249,22 +348,29 @@ do {									\
 	SLOW_DOWN_IO;							\
 } while(0)
 
-static inline unsigned char inb(unsigned long port)
+#define inb(port) __inb(port)
+#define inw(port) __inw(port)
+#define inl(port) __inl(port)
+#define inb_p(port) __inb_p(port)
+#define inw_p(port) __inw_p(port)
+#define inl_p(port) __inl_p(port)
+
+static inline unsigned char __inb(unsigned long port)
 {
 	return __ioswab8(*(volatile u8 *)(mips_io_port_base + port));
 }
 
-static inline unsigned short inw(unsigned long port)
+static inline unsigned short __inw(unsigned long port)
 {
 	return __ioswab16(*(volatile u16 *)(mips_io_port_base + port));
 }
 
-static inline unsigned int inl(unsigned long port)
+static inline unsigned int __inl(unsigned long port)
 {
 	return __ioswab32(*(volatile u32 *)(mips_io_port_base + port));
 }
 
-static inline unsigned char inb_p(unsigned long port)
+static inline unsigned char __inb_p(unsigned long port)
 {
 	u8 __val;
 
@@ -274,7 +380,7 @@ static inline unsigned char inb_p(unsigned long port)
 	return __ioswab8(__val);
 }
 
-static inline unsigned short inw_p(unsigned long port)
+static inline unsigned short __inw_p(unsigned long port)
 {
 	u16 __val;
 
@@ -284,7 +390,7 @@ static inline unsigned short inw_p(unsigned long port)
 	return __ioswab16(__val);
 }
 
-static inline unsigned int inl_p(unsigned long port)
+static inline unsigned int __inl_p(unsigned long port)
 {
 	u32 __val;
 
@@ -293,7 +399,14 @@ static inline unsigned int inl_p(unsigned long port)
 	return __ioswab32(__val);
 }
 
-static inline void outsb(unsigned long port, void *addr, unsigned int count)
+#define outsb(port, addr, count) __outsb(port, addr, count)
+#define insb(port, addr, count) __insb(port, addr, count)
+#define outsw(port, addr, count) __outsw(port, addr, count)
+#define insw(port, addr, count) __insw(port, addr, count)
+#define outsl(port, addr, count) __outsl(port, addr, count)
+#define insl(port, addr, count) __insl(port, addr, count)
+
+static inline void __outsb(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
 		outb(*(u8 *)addr, port);
@@ -301,7 +414,7 @@ static inline void outsb(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void insb(unsigned long port, void *addr, unsigned int count)
+static inline void __insb(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
 		*(u8 *)addr = inb(port);
@@ -309,7 +422,7 @@ static inline void insb(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void outsw(unsigned long port, void *addr, unsigned int count)
+static inline void __outsw(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
 		outw(*(u16 *)addr, port);
@@ -317,7 +430,7 @@ static inline void outsw(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void insw(unsigned long port, void *addr, unsigned int count)
+static inline void __insw(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
 		*(u16 *)addr = inw(port);
@@ -325,7 +438,7 @@ static inline void insw(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void outsl(unsigned long port, void *addr, unsigned int count)
+static inline void __outsl(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
 		outl(*(u32 *)addr, port);
@@ -333,7 +446,7 @@ static inline void outsl(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void insl(unsigned long port, void *addr, unsigned int count)
+static inline void __insl(unsigned long port, void *addr, unsigned int count)
 {
 	while (count--) {
 		*(u32 *)addr = inl(port);

@@ -245,6 +245,9 @@ int set_transfer (ide_drive_t *drive, ide_task_t *args)
  */
 byte eighty_ninty_three (ide_drive_t *drive)
 {
+	if (HWIF(drive)->pci_devid.vid==0x105a)
+	    return(HWIF(drive)->udma_four);
+	/* PDC202XX: that's because some HDD will return wrong info */
 	return ((byte) ((HWIF(drive)->udma_four) &&
 #ifndef CONFIG_IDEDMA_IVB
 			(drive->id->hw_config & 0x4000) &&

@@ -246,13 +246,17 @@
 #define __NR_lremovexattr		(__NR_Linux + 234)
 #define __NR_fremovexattr		(__NR_Linux + 235)
 #define __NR_tkill			(__NR_Linux + 236)
+#define __NR_sendfile64			(__NR_Linux + 237)
+#define __NR_futex			(__NR_Linux + 238)
+#define __NR_sched_setaffinity		(__NR_Linux + 239)
+#define __NR_sched_getaffinity		(__NR_Linux + 240)
 
 /*
  * Offset of the last Linux flavoured syscall
  */
-#define __NR_Linux_syscalls		236
+#define __NR_Linux_syscalls		240
 
-#ifndef _LANGUAGE_ASSEMBLY
+#ifndef __ASSEMBLY__
 
 /* XXX - _foo needs to be __foo, while __NR_bar could be _NR_bar. */
 #define _syscall0(type,name) \
@@ -505,7 +509,7 @@ static inline pid_t wait(int * wait_stat)
 	return waitpid(-1,wait_stat,0);
 }
 
-#endif /* !defined (__KERNEL_SYSCALLS__) */
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* __KERNEL_SYSCALLS__ */
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_UNISTD_H */

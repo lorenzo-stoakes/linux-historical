@@ -41,7 +41,6 @@ static struct super_operations shmem_ops;
 static struct address_space_operations shmem_aops;
 static struct file_operations shmem_file_operations;
 static struct inode_operations shmem_inode_operations;
-static struct file_operations shmem_dir_operations;
 static struct inode_operations shmem_dir_inode_operations;
 static struct vm_operations_struct shmem_vm_ops;
 
@@ -738,7 +737,7 @@ struct inode *shmem_get_inode(struct super_block *sb, int mode, int dev)
 		case S_IFDIR:
 			inode->i_nlink++;
 			inode->i_op = &shmem_dir_inode_operations;
-			inode->i_fop = &shmem_dir_operations;
+			inode->i_fop = &dcache_dir_ops;
 			break;
 		case S_IFLNK:
 			break;
@@ -1394,14 +1393,6 @@ static struct file_operations shmem_file_operations = {
 
 static struct inode_operations shmem_inode_operations = {
 	truncate:	shmem_truncate,
-};
-
-static struct file_operations shmem_dir_operations = {
-	read:		generic_read_dir,
-	readdir:	dcache_readdir,
-#ifdef CONFIG_TMPFS
-	fsync:		shmem_sync_file,
-#endif
 };
 
 static struct inode_operations shmem_dir_inode_operations = {

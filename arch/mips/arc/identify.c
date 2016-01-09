@@ -7,6 +7,7 @@
  * 
  * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  */
+#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -89,7 +90,7 @@ void __init prom_identify_arch(void)
 	} else
 		iname = (char *) (long) p->iname;
 
-	printk("ARCH: %s\n", iname);
+	printk(KERN_INFO "ARCH: %s\n", iname);
 	mach = string_to_mach(iname);
 	system_type = mach->liname;
 

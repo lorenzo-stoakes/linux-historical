@@ -17,6 +17,7 @@
 
 #include <asm/addrspace.h>
 #include <asm/bcache.h>
+#include <asm/bootinfo.h>
 #include <asm/keyboard.h>
 #include <asm/irq.h>
 #include <asm/reboot.h>
@@ -27,6 +28,7 @@
 #include <asm/sgi/sgint23.h>
 #include <asm/time.h>
 #include <asm/gdb-stub.h>
+#include <asm/traps.h>
 
 #ifdef CONFIG_REMOTE_DEBUG
 extern void rs_kgdb_hook(int);
@@ -40,13 +42,17 @@ extern void console_setup(char *);
 
 extern void sgitime_init(void);
 
+extern struct hpc3_miscregs *hpc3mregs;
 extern struct rtc_ops indy_rtc_ops;
 extern void indy_reboot_setup(void);
 extern void sgi_volume_set(unsigned char);
+extern void create_gio_proc_entry(void);
 
-#define sgi_kh ((struct hpc_keyb *) (KSEG1 + 0x1fbd9800 + 64))
+#define sgi_kh ((struct hpc_keyb *) &(hpc3mregs->kbdmouse0))
 
 #define KBD_STAT_IBF		0x02	/* Keyboard input buffer full */
+
+unsigned long sgi_gfxaddr;
 
 static void sgi_request_region(void)
 {
@@ -56,11 +62,17 @@ static void sgi_request_region(void)
 static int sgi_request_irq(void (*handler)(int, void *, struct pt_regs *))
 {
 	/* Dirty hack, this get's called as a callback from the keyboard
-	   driver.  We piggyback the initialization of the front panel
-	   button handling on it even though they're technically not
-	   related with the keyboard driver in any way.  Doing it from
-	   indy_setup wouldn't work since kmalloc isn't initialized yet.  */
+	 * driver.  We piggyback the initialization of the front panel
+	 * button handling on it even though they're technically not
+	 * related with the keyboard driver in any way.  Doing it from
+	 * ip22_setup wouldn't work since kmalloc isn't initialized yet.
+	 */
 	indy_reboot_setup();
+
+	/* Ehm, well... once David used hack above, let's add yet another.
+	 * Register GIO bus proc entry here.
+	 */
+	create_gio_proc_entry();
 
 	return request_irq(SGI_KEYBD_IRQ, handler, 0, "keyboard", NULL);
 }
@@ -119,10 +131,6 @@ struct kbd_ops sgi_kbd_ops = {
 	sgi_read_status
 };
 
-void __init bus_error_init(void)
-{
-}
-
 void __init ip22_setup(void)
 {
 #ifdef CONFIG_SERIAL_CONSOLE
@@ -141,8 +149,11 @@ void __init ip22_setup(void)
 	/* Init INDY memory controller. */
 	sgimc_init();
 
+#ifdef CONFIG_BOARD_SCACHE
 	/* Now enable boardcaches, if any. */
 	indy_sc_init();
+#endif
+	conswitchp = NULL;
 
 #ifdef CONFIG_SERIAL_CONSOLE
 	/* ARCS console environment variable is set to "g?" for
@@ -185,21 +196,32 @@ void __init ip22_setup(void)
  
 	sgi_volume_set(simple_strtoul(ArcGetEnvironmentVariable("volume"), NULL, 10));
 
+	{
+	  unsigned long *gfxinfo;
+	  long (*__vec)(void) = (void *) *(long *)((PROMBLOCK)->pvector + 0x20);
+	  gfxinfo = (unsigned long *)__vec();
+	  sgi_gfxaddr = gfxinfo[1] >= 0xa0000000 && gfxinfo[1] <= 0xc0000000 ? gfxinfo[1] - 0xa0000000 : 0;
+	}
 #ifdef CONFIG_VT
 #ifdef CONFIG_SGI_NEWPORT_CONSOLE
-	conswitchp = &newport_con;
+	/* newport addresses? */
+	if (sgi_gfxaddr == 0x1f0f0000 || sgi_gfxaddr == 0x1f4f0000) {
+		conswitchp = &newport_con;
 
-	screen_info = (struct screen_info) {
-		0, 0,		/* orig-x, orig-y */
-		0,		/* unused */
-		0,		/* orig_video_page */
-		0,		/* orig_video_mode */
-		160,		/* orig_video_cols */
-		0, 0, 0,	/* unused, ega_bx, unused */
-		64,		/* orig_video_lines */
-		0,		/* orig_video_isVGA */
-		16		/* orig_video_points */
-	};
+		screen_info = (struct screen_info) {
+			0, 0,		/* orig-x, orig-y */
+			0,		/* unused */
+			0,		/* orig_video_page */
+			0,		/* orig_video_mode */
+			160,		/* orig_video_cols */
+			0, 0, 0,	/* unused, ega_bx, unused */
+			64,		/* orig_video_lines */
+			0,		/* orig_video_isVGA */
+			16		/* orig_video_points */
+		};
+	} else {
+		conswitchp = &dummy_con;
+	}
 #else
 	conswitchp = &dummy_con;
 #endif

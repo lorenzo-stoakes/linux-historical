@@ -17,12 +17,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */ 
-
+#include <linux/config.h>
 #include <linux/init.h>
 #include <asm/mmu_context.h>
 #include <asm/bootinfo.h>
 #include <asm/cacheops.h>
 #include <asm/cpu.h>
+#include <asm/uaccess.h>
 
 /* These are probed at ld_mmu time */
 static unsigned int icache_size;
@@ -209,7 +210,7 @@ static void local_sb1_flush_icache_range(unsigned long start, unsigned long end)
 		".set pop                   \n"
 		:
 		: "r" (start & ~(icache_line_size - 1)),
-		  "r" ((end - 1) & ~(dcache_line_size - 1)),
+		  "r" ((end - 1) & ~(icache_line_size - 1)),
 		  "r" (icache_line_size),
 		  "i" (Index_Invalidate_I));
 }
@@ -245,11 +246,11 @@ asm("sb1_flush_icache_range = local_sb1_flush_icache_range");
  * If there's no context yet, or the page isn't executable, no icache flush
  * is needed
  */
-static void sb1_flush_icache_page(struct vm_area_struct *vma, struct page *page)
+static void sb1_flush_icache_page(struct vm_area_struct *vma,
+	struct page *page)
 {
-	if ((vma->vm_mm->context == 0) || !(vma->vm_flags & VM_EXEC)) {
+	if (!(vma->vm_flags & VM_EXEC))
 		return;
-	}
 
 	/*
 	 * We're not sure of the virtual address(es) involved here, so
@@ -322,32 +323,43 @@ static inline void protected_writeback_dcache_line(unsigned long addr)
 }
 
 /*
- * XXX - Still need to really understand this.  This is mostly just
- * derived from the r10k and r4k implementations, and seems to work
- * but things that "seem to work" when I don't understand *why* they
- * "seem to work" disturb me greatly...JDC
+ * A signal trampoline must fit into a single cacheline.
  */
 static void local_sb1_flush_cache_sigtramp(unsigned long addr)
 {
 	unsigned long daddr, iaddr;
-	
+
 	daddr = addr & ~(dcache_line_size - 1);
 	protected_writeback_dcache_line(daddr);
-	protected_writeback_dcache_line(daddr + dcache_line_size);
 	iaddr = addr & ~(icache_line_size - 1);
 	protected_flush_icache_line(iaddr);
-	protected_flush_icache_line(iaddr + icache_line_size);
 }
 
 #ifdef CONFIG_SMP
-extern void sb1_flush_cache_sigtramp_ipi(void *ignored);
-asm("sb1_flush_cache_sigtramp_ipi = local_sb1_flush_cache_sigtramp");
+
+static void sb1_flush_cache_sigtramp_ipi(void *info)
+{
+	unsigned long iaddr = (unsigned long) info;
+
+	iaddr = iaddr & ~(icache_line_size - 1);
+	protected_flush_icache_line(iaddr);
+}
 
 static void sb1_flush_cache_sigtramp(unsigned long addr)
 {
-	smp_call_function(sb1_flush_cache_sigtramp_ipi, (void *) addr, 1, 1);
+	unsigned long tmp;
+
+	/*
+	 * Flush the local dcache, then load the instruction back into a
+	 * register.  That will make sure that any remote CPU also has
+	 * written back it's data cache to memory.
+	 */
 	local_sb1_flush_cache_sigtramp(addr);
+	__get_user(tmp, (unsigned long *)addr);
+
+	smp_call_function(sb1_flush_cache_sigtramp_ipi, (void *) addr, 1, 1);
 }
+
 #else
 void sb1_flush_cache_sigtramp(unsigned long addr);
 asm("sb1_flush_cache_sigtramp = local_sb1_flush_cache_sigtramp");

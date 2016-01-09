@@ -1,13 +1,8 @@
-.S.s:
-	$(CPP) $(AFLAGS) $< -o $@
-.S.o:
-	$(CC) $(AFLAGS) -c $< -o $@
-
-EXTRA_AFLAGS = -mips3 -mcpu=r4000
+USE_STANDARD_AS_RULE := true
 
 all: sbswarm.a
 
-OBJS-y                   = setup.o cmdline.o rtc.o time.o memory.o cfe_api.o 
+OBJS-y                   = setup.o cmdline.o memory.o cfe_api.o rtc_xicor1241.o
 
 OBJS-$(CONFIG_SMP)      += smp.o
 

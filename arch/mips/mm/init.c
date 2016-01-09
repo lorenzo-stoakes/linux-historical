@@ -206,6 +206,12 @@ void __init pagetable_init(void)
 
 #ifdef CONFIG_HIGHMEM
 	/*
+	 * Fixed mappings:
+	 */
+	vaddr = __fix_to_virt(__end_of_fixed_addresses - 1) & PMD_MASK;
+	fixrange_init(vaddr, 0, pgd_base);
+
+	/*
 	 * Permanent kmaps:
 	 */
 	vaddr = PKMAP_BASE;
@@ -280,15 +286,17 @@ void __init mem_init(void)
 	unsigned long codesize, reservedpages, datasize, initsize;
 	unsigned long tmp, ram;
 
+#if defined(CONFIG_DISCONTIGMEM) && defined(CONFIG_HIGHMEM)
+#error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
+#endif
+
 #ifdef CONFIG_HIGHMEM
 	highstart_pfn = (KSEG1 - KSEG0) >> PAGE_SHIFT;
 	highmem_start_page = mem_map + highstart_pfn;
-#ifdef CONFIG_DISCONTIGMEM
-#error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
-#endif
 	max_mapnr = num_physpages = highend_pfn;
+	num_mappedpages = max_low_pfn;
 #else
-	max_mapnr = num_physpages = max_low_pfn;
+	max_mapnr = num_mappedpages = num_physpages = max_low_pfn;
 #endif
 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
 
@@ -324,8 +332,8 @@ void __init mem_init(void)
 	datasize =  (unsigned long) &_edata - (unsigned long) &_fdata;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
 
-	printk("Memory: %luk/%luk available (%ldk kernel code, %ldk reserved, "
-	       "%ldk data, %ldk init, %ldk highmem)\n",
+	printk(KERN_INFO "Memory: %luk/%luk available (%ldk kernel code, "
+	       "%ldk reserved, %ldk data, %ldk init, %ldk highmem)\n",
 	       (unsigned long) nr_free_pages() << (PAGE_SHIFT-10),
 	       ram << (PAGE_SHIFT-10),
 	       codesize >> 10,
@@ -339,7 +347,7 @@ void __init mem_init(void)
 void free_initrd_mem(unsigned long start, unsigned long end)
 {
 	if (start < end)
-		printk("Freeing initrd memory: %ldk freed\n",
+		printk(KERN_INFO "Freeing initrd memory: %ldk freed\n",
 		       (end - start) >> 10);
 
 	for (; start < end; start += PAGE_SIZE) {

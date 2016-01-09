@@ -76,13 +76,13 @@ atomic_t irq_err_count;
 
 int get_irq_list(char *buf)
 {
+	int i, j;
 	struct irqaction * action;
 	char *p = buf;
-	int i;
 
 	p += sprintf(p, "           ");
-	for (i=0; i < 1 /*smp_num_cpus*/; i++)
-		p += sprintf(p, "CPU%d       ", i);
+	for (j=0; j<smp_num_cpus; j++)
+		p += sprintf(p, "CPU%d       ",j);
 	*p++ = '\n';
 
 	for (i = 0 ; i < NR_IRQS ; i++) {
@@ -90,7 +90,13 @@ int get_irq_list(char *buf)
 		if (!action) 
 			continue;
 		p += sprintf(p, "%3d: ",i);
+#ifndef CONFIG_SMP
 		p += sprintf(p, "%10u ", kstat_irqs(i));
+#else
+		for (j = 0; j < smp_num_cpus; j++)
+			p += sprintf(p, "%10u ",
+				kstat.irqs[cpu_logical_map(j)][i]);
+#endif
 		p += sprintf(p, " %14s", irq_desc[i].handler->typename);
 		p += sprintf(p, "  %s", action->name);
 
@@ -98,7 +104,8 @@ int get_irq_list(char *buf)
 			p += sprintf(p, ", %s", action->name);
 		*p++ = '\n';
 	}
-	p += sprintf(p, "ERR: %10lu\n", irq_err_count);
+	p += sprintf(p, "\n");
+	p += sprintf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
 	return p - buf;
 }
 

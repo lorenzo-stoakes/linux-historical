@@ -273,7 +273,12 @@ EXPORT_SYMBOL(__get_lease);
 EXPORT_SYMBOL(lease_get_mtime);
 EXPORT_SYMBOL(lock_may_read);
 EXPORT_SYMBOL(lock_may_write);
+EXPORT_SYMBOL(dcache_dir_open);
+EXPORT_SYMBOL(dcache_dir_close);
+EXPORT_SYMBOL(dcache_dir_lseek);
+EXPORT_SYMBOL(dcache_dir_fsync);
 EXPORT_SYMBOL(dcache_readdir);
+EXPORT_SYMBOL(dcache_dir_ops);
 
 /* for stackable file systems (lofs, wrapfs, cryptfs, etc.) */
 EXPORT_SYMBOL(default_llseek);

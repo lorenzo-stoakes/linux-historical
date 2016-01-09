@@ -25,9 +25,9 @@
 /*
  * BlueZ Bluetooth address family and sockets.
  *
- * $Id: af_bluetooth.c,v 1.3 2002/04/17 17:37:15 maxk Exp $
+ * $Id: af_bluetooth.c,v 1.6 2002/06/25 22:03:39 maxk Exp $
  */
-#define VERSION "2.0"
+#define VERSION "2.1"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -57,7 +57,7 @@
 #endif
 
 /* Bluetooth sockets */
-#define BLUEZ_MAX_PROTO	4
+#define BLUEZ_MAX_PROTO	5
 static struct net_proto_family *bluez_proto[BLUEZ_MAX_PROTO];
 
 int bluez_sock_register(int proto, struct net_proto_family *ops)
@@ -86,7 +86,7 @@ int bluez_sock_unregister(int proto)
 
 static int bluez_sock_create(struct socket *sock, int proto)
 {
-	if (proto > BLUEZ_MAX_PROTO)
+	if (proto >= BLUEZ_MAX_PROTO)
 		return -EINVAL;
 
 #if defined(CONFIG_KMOD)

@@ -21,7 +21,6 @@
 #include <linux/stddef.h>
 #include <linux/string.h>
 #include <linux/unistd.h>
-#include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/user.h>
 #include <linux/utsname.h>
@@ -37,11 +36,8 @@
 #include <asm/cachectl.h>
 #include <asm/cpu.h>
 #include <asm/io.h>
-#include <asm/stackframe.h>
+#include <asm/ptrace.h>
 #include <asm/system.h>
-#ifdef CONFIG_SGI_IP22
-#include <asm/sgialib.h>
-#endif
 
 #ifndef CONFIG_SMP
 struct cpuinfo_mips cpu_data[1];
@@ -150,6 +146,11 @@ static inline void check_wait(void)
 	case CPU_NEVADA:
 	case CPU_RM7000:
 	case CPU_TX49XX:
+	case CPU_4KC:
+	case CPU_4KEC:
+	case CPU_4KSC:
+	case CPU_5KC:
+/*	case CPU_20KC:*/
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -224,9 +225,26 @@ int *cpuoptions = &mips_cpu.options;
 static inline void cpu_probe(void)
 {
 #ifdef CONFIG_CPU_MIPS32
+	unsigned long config0 = read_32bit_cp0_register(CP0_CONFIG);
 	unsigned long config1;
-#endif
 
+        if (config0 & (1 << 31)) {
+		/* MIPS32 compliant CPU. Read Config 1 register. */
+		mips_cpu.isa_level = MIPS_CPU_ISA_M32;
+		mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
+			MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | MIPS_CPU_DIVEC;
+		config1 = read_mips32_cp0_config1();
+		if (config1 & (1 << 3))
+			mips_cpu.options |= MIPS_CPU_WATCH;
+		if (config1 & (1 << 2))
+			mips_cpu.options |= MIPS_CPU_MIPS16;
+		if (config1 & (1 << 1))
+			mips_cpu.options |= MIPS_CPU_EJTAG;
+		if (config1 & 1)
+			mips_cpu.options |= MIPS_CPU_FPU;
+		mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
+	}
+#endif
 	mips_cpu.processor_id = read_32bit_cp0_register(CP0_PRID);
 	switch (mips_cpu.processor_id & 0xff0000) {
 	case PRID_COMP_LEGACY:
@@ -234,7 +252,7 @@ static inline void cpu_probe(void)
 		case PRID_IMP_R2000:
 			mips_cpu.cputype = CPU_R2000;
 			mips_cpu.isa_level = MIPS_CPU_ISA_I;
-			mips_cpu.options = MIPS_CPU_TLB;
+			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_NOFPUEX;
 			if (cpu_has_fpu())
 				mips_cpu.options |= MIPS_CPU_FPU;
 			mips_cpu.tlbsize = 64;
@@ -248,7 +266,7 @@ static inline void cpu_probe(void)
 			else
 				mips_cpu.cputype = CPU_R3000;
 			mips_cpu.isa_level = MIPS_CPU_ISA_I;
-			mips_cpu.options = MIPS_CPU_TLB;
+			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_NOFPUEX;
 			if (cpu_has_fpu())
 				mips_cpu.options |= MIPS_CPU_FPU;
 			mips_cpu.tlbsize = 64;
@@ -273,7 +291,8 @@ static inline void cpu_probe(void)
 		case PRID_IMP_R4300:
 			mips_cpu.cputype = CPU_R4300;
 			mips_cpu.isa_level = MIPS_CPU_ISA_III;
-			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU | MIPS_CPU_32FPR;
+			mips_cpu.options = R4K_OPTS | MIPS_CPU_FPU |
+					   MIPS_CPU_32FPR;
 			mips_cpu.tlbsize = 32;
 			break;
 		case PRID_IMP_R4600:
@@ -410,6 +429,14 @@ static inline void cpu_probe(void)
 				           MIPS_CPU_COUNTER | MIPS_CPU_WATCH;
 			mips_cpu.tlbsize = 64;
 			break;
+		case PRID_IMP_R12000:
+			mips_cpu.cputype = CPU_R12000;
+			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
+			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
+				           MIPS_CPU_FPU | MIPS_CPU_32FPR | 
+				           MIPS_CPU_COUNTER | MIPS_CPU_WATCH;
+			mips_cpu.tlbsize = 64;
+			break;
 		default:
 			mips_cpu.cputype = CPU_UNKNOWN;
 			break;
@@ -420,47 +447,20 @@ static inline void cpu_probe(void)
 		switch (mips_cpu.processor_id & 0xff00) {
 		case PRID_IMP_4KC:
 			mips_cpu.cputype = CPU_4KC;
-			goto cpu_4kc;
+			break;
 		case PRID_IMP_4KEC:
 			mips_cpu.cputype = CPU_4KEC;
-			goto cpu_4kc;
+			break;
 		case PRID_IMP_4KSC:
 			mips_cpu.cputype = CPU_4KSC;
-cpu_4kc:
-			/*
-			 * Why do we set all these options by default, THEN
-			 * query them??
-			 */
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
-				           MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | 
-				           MIPS_CPU_DIVEC | MIPS_CPU_WATCH |
-			                   MIPS_CPU_MCHECK;
-			config1 = read_mips32_cp0_config1();
-			if (config1 & (1 << 3))
-				mips_cpu.options |= MIPS_CPU_WATCH;
-			if (config1 & (1 << 2))
-				mips_cpu.options |= MIPS_CPU_MIPS16;
-			if (config1 & 1)
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
 			break;
 		case PRID_IMP_5KC:
 			mips_cpu.cputype = CPU_5KC;
 			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
-			/* See comment above about querying options */
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
-				           MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | 
-				           MIPS_CPU_DIVEC | MIPS_CPU_WATCH |
-			                   MIPS_CPU_MCHECK;
-			config1 = read_mips32_cp0_config1();
-			if (config1 & (1 << 3))
-				mips_cpu.options |= MIPS_CPU_WATCH;
-			if (config1 & (1 << 2))
-				mips_cpu.options |= MIPS_CPU_MIPS16;
-			if (config1 & 1)
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
+			break;
+		case PRID_IMP_20KC:
+			mips_cpu.cputype = CPU_20KC;
+			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
 			break;
 		default:
 			mips_cpu.cputype = CPU_UNKNOWN;
@@ -475,18 +475,6 @@ cpu_4kc:
 				mips_cpu.cputype = CPU_AU1500;
 			else
 				mips_cpu.cputype = CPU_AU1000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
-					   MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | 
-					   MIPS_CPU_DIVEC | MIPS_CPU_WATCH;
-			config1 = read_mips32_cp0_config1();
-			if (config1 & (1 << 3))
-				mips_cpu.options |= MIPS_CPU_WATCH;
-			if (config1 & (1 << 2))
-				mips_cpu.options |= MIPS_CPU_MIPS16;
-			if (config1 & 1)
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
 			break;
 		default:
 			mips_cpu.cputype = CPU_UNKNOWN;
@@ -549,11 +537,9 @@ init_arch(int argc, char **argv, char **envp, int *prom_vec)
 	 */
 	loadmmu();
 
-	/* Disable coprocessors and set FPU for 16 FPRs */
-	s = read_32bit_cp0_register(CP0_STATUS);
-	s &= ~(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX|ST0_FR);
-	s |= ST0_CU0;
-	write_32bit_cp0_register(CP0_STATUS, s);
+	/* Disable coprocessors and set FPU for 16/32 FPR register model */
+	clear_cp0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX|ST0_FR);
+	set_cp0_status(ST0_CU0);
 
 	start_kernel();
 }
@@ -580,8 +566,9 @@ static void __init print_memory_map(void)
 
 	for (i = 0; i < boot_mem_map.nr_map; i++) {
 		printk(" memory: %08Lx @ %08Lx ",
-			(unsigned long long) boot_mem_map.map[i].size,
-			(unsigned long long) boot_mem_map.map[i].addr);
+			(u64) boot_mem_map.map[i].size,
+		        (u64) boot_mem_map.map[i].addr);
+
 		switch (boot_mem_map.map[i].type) {
 		case BOOT_MEM_RAM:
 			printk("(usable)\n");
@@ -1045,7 +1032,7 @@ void r4k_wait(void)
 		".set\tmips0");
 }
 
-int __init fpu_disable(char *s)
+static int __init fpu_disable(char *s)
 {
 	mips_cpu.options &= ~MIPS_CPU_FPU;
 	return 1;

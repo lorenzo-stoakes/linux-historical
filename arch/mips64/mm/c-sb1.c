@@ -17,12 +17,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */ 
-
+#include <linux/config.h>
 #include <linux/init.h>
 #include <asm/mmu_context.h>
 #include <asm/bootinfo.h>
 #include <asm/cacheops.h>
 #include <asm/cpu.h>
+#include <asm/uaccess.h>
 
 /* These are probed at ld_mmu time */
 static unsigned long icache_size;
@@ -202,7 +203,7 @@ static void local_sb1_flush_icache_range(unsigned long start,
 		".set pop                   \n"
 		:
 		: "r" (start & ~(icache_line_size - 1)),
-		  "r" ((end - 1) & ~(dcache_line_size - 1)),
+		  "r" ((end - 1) & ~(icache_line_size - 1)),
 		  "r" (icache_line_size),
 		  "i" (Index_Invalidate_I));
 }
@@ -244,10 +245,7 @@ asm("sb1_flush_icache_range = local_sb1_flush_icache_range");
 static void sb1_flush_icache_page(struct vm_area_struct *vma,
 	struct page *page)
 {
-	unsigned int cpu = smp_processor_id();
-
 	if (!(vma->vm_flags & VM_EXEC)) {
-//		printk("sb1_flush_icache_page(): not exec\n");
 		return;
 	}
 
@@ -258,7 +256,6 @@ static void sb1_flush_icache_page(struct vm_area_struct *vma,
 	 *
 	 * Bumping the ASID may well be cheaper, need to experiment ...
 	 */
-//printk("sb1_flush_icache_page(): flushing exec page\n");
 	sb1___flush_cache_all();
 }
 
@@ -329,7 +326,7 @@ static inline void protected_writeback_dcache_line(unsigned long addr)
 /*
  * A signal trampoline must fit into a single cacheline.
  */
-static inline void local_sb1_flush_cache_sigtramp(unsigned long addr)
+static void local_sb1_flush_cache_sigtramp(unsigned long addr)
 {
 	unsigned long daddr, iaddr;
 
@@ -340,46 +337,27 @@ static inline void local_sb1_flush_cache_sigtramp(unsigned long addr)
 }
 
 #ifdef CONFIG_SMP
-struct flush_cache_sigtramp_args {
-	unsigned long addr;
-	struct mm_struct *mm;
-};
-
-static void sb1_flush_icache_range_ipi(void *info)
+static void sb1_flush_cache_sigtramp_ipi(void *info)
 {
-	struct flush_cache_sigtramp_args *args = info;
-	struct mm_struct *mm = args->mm;
-	unsigned long old_context, context = CPU_CONTEXT(cpu, mm);
+	unsigned long iaddr = (unsigned long) info;
 
-	if (!context)
-		return;
-
-	/*
-	 * Urgs...  Briefly switch the MMU context to the flushing process's
-	 * context, do the flush and back to the previous context.
-	 */
-	old_context = get_context();
-	set_context(context);
-	TLBMISS_HANDLER_SETUP_PGD(mm->pgd);
-	local_sb1_flush_cache_sigtramp(args->addr);
-	set_context(old_context);
-	TLBMISS_HANDLER_SETUP_PGD(current->active_mm->pgd);
-
-	XXX This is racing with switch_mm() XXX
+	iaddr = iaddr & ~(icache_line_size - 1);
+	protected_flush_icache_line(iaddr);
 }
-
-extern void sb1_flush_cache_sigtramp_ipi(void *ignored);
-asm("sb1_flush_cache_sigtramp_ipi = local_sb1_flush_cache_sigtramp");
 
 static void sb1_flush_cache_sigtramp(unsigned long addr)
 {
-	struct flush_cache_sigtramp_args args;
+	unsigned long tmp;
 
+	/*
+	 * Flush the local dcache, then load the instruction back into a
+	 * register.  That will make sure that any remote CPU also has
+	 * written back it's data cache to memory.
+	 */
 	local_sb1_flush_cache_sigtramp(addr);
+	__get_user(tmp, (unsigned long *)addr);
 
-	args.mm = current->mm;
-	args.addr = addr;
-	smp_call_function(sb1_flush_cache_sigtramp_ipi, &args, 1, 1);
+	smp_call_function(sb1_flush_cache_sigtramp_ipi, (void *) addr, 1, 1);
 }
 #else
 void sb1_flush_cache_sigtramp(unsigned long addr);

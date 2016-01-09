@@ -39,6 +39,11 @@ static struct smatch mach_table[] = {
 		MACH_GROUP_SGI,
 		MACH_SGI_IP27,
 		PROM_FLAG_ARCS
+	}, {	"SGI-IP28",
+		"SGI IP28",
+		MACH_GROUP_SGI,
+		MACH_SGI_IP28,
+		PROM_FLAG_ARCS
 	}, {	"SGI-IP32",
 		"SGI IP32",
 		MACH_GROUP_SGI,
@@ -102,7 +107,7 @@ void __init prom_identify_arch(void)
 	} else
 		iname = (char *) (long) p->iname;
 
-	printk("ARCH: %s\n", iname);
+	printk(KERN_INFO "ARCH: %s\n", iname);
 	mach = string_to_mach(iname);
 	system_type = mach->liname;
 

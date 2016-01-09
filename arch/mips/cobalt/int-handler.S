@@ -9,8 +9,6 @@
  * Copyright (C) 2001 by Liam Davies (ldavies@agile.tv)
  *
  */
-
-#include <linux/config.h>
 #include <asm/asm.h>
 #include <asm/mipsregs.h>
 #include <asm/cobalt/cobalt.h>

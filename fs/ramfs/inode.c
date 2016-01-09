@@ -37,7 +37,6 @@
 
 static struct super_operations ramfs_ops;
 static struct address_space_operations ramfs_aops;
-static struct file_operations ramfs_dir_operations;
 static struct file_operations ramfs_file_operations;
 static struct inode_operations ramfs_dir_inode_operations;
 
@@ -120,7 +119,7 @@ struct inode *ramfs_get_inode(struct super_block *sb, int mode, int dev)
 			break;
 		case S_IFDIR:
 			inode->i_op = &ramfs_dir_inode_operations;
-			inode->i_fop = &ramfs_dir_operations;
+			inode->i_fop = &dcache_dir_ops;
 			break;
 		case S_IFLNK:
 			inode->i_op = &page_symlink_inode_operations;
@@ -276,12 +275,6 @@ static struct file_operations ramfs_file_operations = {
 	read:		generic_file_read,
 	write:		generic_file_write,
 	mmap:		generic_file_mmap,
-	fsync:		ramfs_sync_file,
-};
-
-static struct file_operations ramfs_dir_operations = {
-	read:		generic_read_dir,
-	readdir:	dcache_readdir,
 	fsync:		ramfs_sync_file,
 };
 

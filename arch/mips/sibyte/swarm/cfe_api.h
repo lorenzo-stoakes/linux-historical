@@ -35,7 +35,7 @@
 #define CFE_APIENTRY 0x9FC00500
 #define CFE_APISEAL  0x9FC00508
 
-#ifndef __ASSEMBLER__
+#ifndef __ASSEMBLY__
 int cfe_init(cfe_xuint_t handle);
 int cfe_open(char *name);
 int cfe_close(int handle);
@@ -54,6 +54,7 @@ int cfe_exit(int warm, int status);
 int cfe_flushcache(int flg);
 int cfe_getstdhandle(int flg);
 int cfe_start_cpu(int cpu, void (*fn)(void), long sp, long gp, long a1);
+int cfe_stop_cpu(int cpu);
 
 void cfe_open_console(void);
 void cfe_console_print(char *);

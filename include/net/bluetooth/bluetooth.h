@@ -23,7 +23,7 @@
 */
 
 /*
- *  $Id: bluetooth.h,v 1.8 2002/04/17 17:37:20 maxk Exp $
+ *  $Id: bluetooth.h,v 1.9 2002/05/06 21:11:55 maxk Exp $
  */
 
 #ifndef __BLUETOOTH_H
@@ -50,6 +50,7 @@
 #define BTPROTO_HCI     1
 #define BTPROTO_SCO   	2
 #define BTPROTO_RFCOMM	3
+#define BTPROTO_BNEP	4
 
 #define SOL_HCI     0
 #define SOL_L2CAP   6

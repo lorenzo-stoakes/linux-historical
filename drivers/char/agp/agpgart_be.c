@@ -1402,6 +1402,12 @@ static int intel_8xx_fetch_size(void)
 	aper_size_info_8 *values;
 
 	pci_read_config_byte(agp_bridge.dev, INTEL_APSIZE, &temp);
+
+        /* Intel 815 chipsets have a _weird_ APSIZE register with only
+         * one non-reserved bit, so mask the others out ... */
+        if (agp_bridge.type == INTEL_I815) 
+          temp &= (1 << 3);
+        
 	values = A_SIZE_8(agp_bridge.aperture_sizes);
 
 	for (i = 0; i < agp_bridge.num_aperture_sizes; i++) {

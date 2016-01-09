@@ -12,13 +12,6 @@
  *  configuration of all PCI IDE interfaces present in a system.  
  */
 
-/*
- * Chipsets that are on the IDE_IGNORE list because of problems of not being
- * set at compile time.
- *
- * CONFIG_BLK_DEV_PDC202XX
- */
-
 #include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -56,7 +49,7 @@
 #define DEVID_PDC20265	((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20265})
 #define DEVID_PDC20267	((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20267})
 #define DEVID_PDC20268  ((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20268})
-#define DEVID_PDC20268R ((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20268R})
+#define DEVID_PDC20270  ((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20270})
 #define DEVID_PDC20269	((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20269})
 #define DEVID_PDC20275	((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20275})
 #define DEVID_PDC20276	((ide_pci_devid_t){PCI_VENDOR_ID_PROMISE, PCI_DEVICE_ID_PROMISE_20276})
@@ -257,9 +250,9 @@ extern void ide_init_pdc202xx(ide_hwif_t *);
 #define ATA66_PDC202XX	&ata66_pdc202xx
 #define INIT_PDC202XX	&ide_init_pdc202xx
 #else
-#define PCI_PDC202XX	IDE_IGNORE
-#define ATA66_PDC202XX	IDE_IGNORE
-#define INIT_PDC202XX	IDE_IGNORE
+#define PCI_PDC202XX	NULL
+#define ATA66_PDC202XX	NULL
+#define INIT_PDC202XX	NULL
 #endif
 
 #ifdef CONFIG_BLK_DEV_PIIX
@@ -424,7 +417,7 @@ static ide_pci_device_t ide_pci_chipsets[] __initdata = {
 	/* Promise used a different PCI ident for the raid card apparently to try and
 	   prevent Linux detecting it and using our own raid code. We want to detect
 	   it for the ataraid drivers, so we have to list both here.. */
-	{DEVID_PDC20268R,"PDC20270",	PCI_PDC202XX,	ATA66_PDC202XX,	INIT_PDC202XX,	NULL,		{{0x00,0x00,0x00}, {0x00,0x00,0x00}},	OFF_BOARD,	0 },
+	{DEVID_PDC20270,"PDC20270",	PCI_PDC202XX,	ATA66_PDC202XX,	INIT_PDC202XX,	NULL,		{{0x00,0x00,0x00}, {0x00,0x00,0x00}},	OFF_BOARD,	0 },
 	{DEVID_PDC20269,"PDC20269",	PCI_PDC202XX,	ATA66_PDC202XX,	 INIT_PDC202XX,	NULL,		{{0x00,0x00,0x00}, {0x00,0x00,0x00}},	OFF_BOARD,	0 },
 	{DEVID_PDC20275,"PDC20275",	PCI_PDC202XX,	ATA66_PDC202XX,	INIT_PDC202XX,	NULL,		{{0x00,0x00,0x00}, {0x00,0x00,0x00}},	OFF_BOARD,	0 },
 	{DEVID_PDC20276,"PDC20276",	PCI_PDC202XX,	ATA66_PDC202XX,	INIT_PDC202XX,	NULL,		{{0x00,0x00,0x00}, {0x00,0x00,0x00}},	OFF_BOARD,	0 },
@@ -486,7 +479,7 @@ static unsigned int __init ide_special_settings (struct pci_dev *dev, const char
 		case PCI_DEVICE_ID_PROMISE_20265:
 		case PCI_DEVICE_ID_PROMISE_20267:
 		case PCI_DEVICE_ID_PROMISE_20268:
-		case PCI_DEVICE_ID_PROMISE_20268R:
+		case PCI_DEVICE_ID_PROMISE_20270:
 		case PCI_DEVICE_ID_PROMISE_20269:
 		case PCI_DEVICE_ID_PROMISE_20275:
 		case PCI_DEVICE_ID_PROMISE_20276:
@@ -676,25 +669,18 @@ check_if_enabled:
 	 */
 	pciirq = dev->irq;
 	
-	if (dev->class >> 8 == PCI_CLASS_STORAGE_RAID)
-	{
-		/* By rights we want to ignore these, but the Promise Fastrak
-		   people have some strange ideas about proprietary so we have
-		   to act otherwise on those. The supertrak however we need
-		   to skip */
-		if (IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20265))
-		{
-			printk(KERN_INFO "ide: Found promise 20265 in RAID mode.\n");
-			if(dev->bus->self && dev->bus->self->vendor == PCI_VENDOR_ID_INTEL &&
-				dev->bus->self->device == PCI_DEVICE_ID_INTEL_I960)
-			{
-				printk(KERN_INFO "ide: Skipping Promise PDC20265 attached to I2O RAID controller.\n");
-				return;
-			}
+#ifdef CONFIG_PDC202XX_FORCE
+	if (dev->class >> 8 == PCI_CLASS_STORAGE_RAID) {
+		/*
+		 * By rights we want to ignore Promise FastTrak and SuperTrak
+		 * series here, those use own driver.
+		 */
+		if (dev->vendor == PCI_VENDOR_ID_PROMISE) {
+			printk(KERN_INFO "ide: Skipping Promise RAID controller.\n");
+			return;
 		}
-		/* Its attached to something else, just a random bridge. 
-		   Suspect a fastrak and fall through */
 	}
+#endif /* CONFIG_PDC202XX_FORCE */
 	if ((dev->class & ~(0xfa)) != ((PCI_CLASS_STORAGE_IDE << 8) | 5)) {
 		printk("%s: not 100%% native mode: will probe irqs later\n", d->name);
 		/*
@@ -816,7 +802,7 @@ controller_ok:
 		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20265) ||
 		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20267) ||
 		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20268) ||
-		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20268R) ||
+		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20270) ||
 		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20269) ||
 		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20275) ||
 		    IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20276) ||
@@ -989,7 +975,7 @@ void __init ide_scan_pcidev (struct pci_dev *dev)
 		return;	/* UM8886A/BF pair */
 	else if (IDE_PCI_DEVID_EQ(d->devid, DEVID_HPT366))
 		hpt366_device_order_fixup(dev, d);
-	else if (IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20268R))
+	else if (IDE_PCI_DEVID_EQ(d->devid, DEVID_PDC20270))
 		pdc20270_device_order_fixup(dev, d);
 	else if (!IDE_PCI_DEVID_EQ(d->devid, IDE_PCI_DEVID_NULL) || (dev->class >> 8) == PCI_CLASS_STORAGE_IDE) {
 		if (IDE_PCI_DEVID_EQ(d->devid, IDE_PCI_DEVID_NULL))

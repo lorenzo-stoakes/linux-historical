@@ -5,7 +5,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1996, 1998, 1999 by Ralf Baechle
+ * Copyright (C) 1996, 1998, 1999, 2002 by Ralf Baechle
  * Copyright (C) 1999 Silicon Graphics, Inc.
  *
  * This file contains exception handler for address error exception with the
@@ -351,7 +351,7 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 
 fault:
 	/* Did we have an exception handler installed? */
-	fixup = search_exception_table(regs->cp0_epc);
+	fixup = search_exception_table(exception_epc(regs));
 	if (fixup) {
 		long new_epc;
 		new_epc = fixup_exception(dpf_reg, fixup, regs->cp0_epc);
@@ -381,10 +381,24 @@ unsigned long unaligned_instructions;
 asmlinkage void do_ade(struct pt_regs *regs)
 {
 	unsigned long pc;
+	extern int do_dsemulret(struct pt_regs *);
+
 #if 0
         printk("ade: Cpu%d[%s:%d:%0lx:%0lx]\n", smp_processor_id(),
                 current->comm, current->pid, regs->cp0_badvaddr, regs->cp0_epc);
 #endif
+
+	/*
+	 * Address errors may be deliberately induced
+	 * by the FPU emulator to take retake control
+	 * of the CPU after executing the instruction
+	 * in the delay slot of an emulated branch.
+	 */
+	/* Terminate if exception was recognized as a delay slot return */
+	if (do_dsemulret(regs))
+		return;
+
+        /* Otherwise handle as normal */
 
 	/*
 	 * Did we catch a fault trying to load an instruction?

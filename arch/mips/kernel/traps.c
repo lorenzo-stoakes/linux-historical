@@ -10,6 +10,7 @@
  *
  * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000, 01 MIPS Technologies, Inc.
+ * Copyright (C) 2002  Maciej W. Rozycki
  */
 #include <linux/config.h>
 #include <linux/init.h>
@@ -32,6 +33,7 @@
 #include <asm/siginfo.h>
 #include <asm/watch.h>
 #include <asm/system.h>
+#include <asm/traps.h>
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 
@@ -66,8 +68,7 @@ extern int fpu_emulator_cop1Handler(struct pt_regs *);
 
 char watch_available = 0;
 
-void (*ibe_board_handler)(struct pt_regs *regs);
-void (*dbe_board_handler)(struct pt_regs *regs);
+int (*be_board_handler)(struct pt_regs *regs, int is_fixup);
 
 int kstack_depth_to_print = 24;
 
@@ -417,20 +418,35 @@ search_dbe_table(unsigned long addr)
 #endif
 }
 
-static void default_be_board_handler(struct pt_regs *regs)
+asmlinkage void do_be(struct pt_regs *regs)
 {
 	unsigned long new_epc;
-	unsigned long fixup;
+	unsigned long fixup = 0;
 	int data = regs->cp0_cause & 4;
+	int action = MIPS_BE_FATAL;
 
-	if (data && !user_mode(regs)) {
+	if (data && !user_mode(regs))
 		fixup = search_dbe_table(regs->cp0_epc);
+
+	if (fixup)
+		action = MIPS_BE_FIXUP;
+
+	if (be_board_handler)
+		action = be_board_handler(regs, fixup != 0);
+
+	switch (action) {
+	case MIPS_BE_DISCARD:
+		return;
+	case MIPS_BE_FIXUP:
 		if (fixup) {
 			new_epc = fixup_exception(dpf_reg, fixup,
 						  regs->cp0_epc);
 			regs->cp0_epc = new_epc;
 			return;
 		}
+		break;
+	default:
+		break;
 	}
 
 	/*
@@ -441,16 +457,6 @@ static void default_be_board_handler(struct pt_regs *regs)
 	       regs->cp0_epc, regs->regs[31]);
 	die_if_kernel("Oops", regs);
 	force_sig(SIGBUS, current);
-}
-
-asmlinkage void do_ibe(struct pt_regs *regs)
-{
-	ibe_board_handler(regs);
-}
-
-asmlinkage void do_dbe(struct pt_regs *regs)
-{
-	dbe_board_handler(regs);
 }
 
 asmlinkage void do_ov(struct pt_regs *regs)
@@ -487,24 +493,30 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		sig = fpu_emulator_cop1Handler(regs);
 
 		/* 
-		 * We can't allow the emulated instruction to leave the
-		 * Unimplemented Operation bit set in $fcr31.
+		 * We can't allow the emulated instruction to leave any of 
+		 * the cause bit set in $fcr31.
 		 */
-		current->thread.fpu.soft.sr &= ~FPU_CSR_UNI_X;
+		current->thread.fpu.soft.sr &= ~FPU_CSR_ALL_X;
 
 		/* Restore the hardware register state */
 		restore_fp(current);
 
 		/* If something went wrong, signal */
 		if (sig)
+		{
+			/* 
+			 * Return EPC is not calculated in the FPU emulator, 
+			 * if a signal is being send. So we calculate it here.
+			 */
+			compute_return_epc(regs);
 			force_sig(sig, current);
+		}
 
 		return;
 	}
 
 	if (compute_return_epc(regs))
 		return;
-
 	force_sig(SIGFPE, current);
 }
 
@@ -687,7 +699,14 @@ fp_emul:
 	sig = fpu_emulator_cop1Handler(regs);
 	last_task_used_math = current;
 	if (sig)
+	{
+		/* 
+		 * Return EPC is not calculated in the FPU emulator, if 
+		 * a signal is being send. So we calculate it here.
+		 */
+		compute_return_epc(regs);
 		force_sig(sig, current);
+	}
 	return;
 
 bad_cid:
@@ -797,6 +816,50 @@ asmlinkage void cache_parity_error(void)
 	panic("Can't handle the cache error!");
 }
 
+/*
+ * SDBBP EJTAG debug exception handler.
+ * We skip the instruction and return to the next instruction.
+ */
+void ejtag_exception_handler(struct pt_regs *regs)
+{
+        unsigned int depc, old_epc, debug;
+
+        printk("SDBBP EJTAG debug exception - not handled yet, just ignored!\n");
+        depc = read_32bit_cp0_register(CP0_DEPC);
+        debug = read_32bit_cp0_register(CP0_DEBUG);
+        printk("DEPC = %08x, DEBUG = %08x\n", depc, debug); 
+        if (debug & 0x80000000) {
+                /* 
+                 * In branch delay slot.
+                 * We cheat a little bit here and use EPC to calculate the
+                 * debug return address (DEPC). EPC is restored after the
+                 * calculation.
+                 */
+                old_epc = regs->cp0_epc;
+                regs->cp0_epc = depc;
+                __compute_return_epc(regs);
+                depc = regs->cp0_epc;
+                regs->cp0_epc = old_epc;
+        } else
+                depc += 4;
+        write_32bit_cp0_register(CP0_DEPC, depc);
+
+#if 0
+	printk("\n\n----- Enable EJTAG single stepping ----\n\n");
+	write_32bit_cp0_register(CP0_DEBUG, debug | 0x100);
+#endif
+}
+
+/*
+ * NMI exception handler.
+ */
+void nmi_exception_handler(struct pt_regs *regs)
+{
+        printk("NMI taken!!!!\n");
+        die("NMI", regs);
+        while(1) ;  /* We die here. */
+}
+
 unsigned long exception_handlers[32];
 
 /*
@@ -852,11 +915,13 @@ void __init trap_init(void)
 	extern char except_vec_ejtag_debug;
 	unsigned long i;
 
+	per_cpu_trap_init();
+
 	/* Copy the generic exception handler code to it's final destination. */
 	memcpy((void *)(KSEG0 + 0x80), &except_vec1_generic, 0x80);
 	memcpy((void *)(KSEG0 + 0x100), &except_vec2_generic, 0x80);
 	memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic, 0x80);
-	flush_icache_range(KSEG0 + 0x80, KSEG0 + 0x200);
+
 	/*
 	 * Setup default vectors
 	 */
@@ -868,7 +933,7 @@ void __init trap_init(void)
 	 * destination.
 	 */
 	if (mips_cpu.options & MIPS_CPU_EJTAG)
-		memcpy((void *)(KSEG0 + 0x200), &except_vec_ejtag_debug, 0x80);
+		memcpy((void *)(KSEG0 + 0x300), &except_vec_ejtag_debug, 0x80);
 
 	/*
 	 * Only some CPUs have the watch exceptions or a dedicated
@@ -891,21 +956,21 @@ void __init trap_init(void)
 	 */
 	parity_protection_init();
 
+	/*
+	 * The Data Bus Errors / Instruction Bus Errors are signaled
+	 * by external hardware.  Therefore these two exceptions
+	 * may have board specific handlers.
+	 */
+	bus_error_init();
+
 	set_except_vector(1, handle_mod);
 	set_except_vector(2, handle_tlbl);
 	set_except_vector(3, handle_tlbs);
 	set_except_vector(4, handle_adel);
 	set_except_vector(5, handle_ades);
 
-	/*
-	 * The Data Bus Error/ Instruction Bus Errors are signaled
-	 * by external hardware.  Therefore these two expection have
-	 * board specific handlers.
-	 */
 	set_except_vector(6, handle_ibe);
 	set_except_vector(7, handle_dbe);
-	ibe_board_handler = default_be_board_handler;
-	dbe_board_handler = default_be_board_handler;
 
 	set_except_vector(8, handle_sys);
 	set_except_vector(9, handle_bp);
@@ -914,7 +979,8 @@ void __init trap_init(void)
 	set_except_vector(12, handle_ov);
 	set_except_vector(13, handle_tr);
 
-	if (mips_cpu.options & MIPS_CPU_FPU)
+	if ((mips_cpu.options & MIPS_CPU_FPU) &&
+	    !(mips_cpu.options & MIPS_CPU_NOFPUEX))
 		set_except_vector(15, handle_fpe);
 	if (mips_cpu.options & MIPS_CPU_MCHECK)
 		set_except_vector(24, handle_mcheck);
@@ -929,17 +995,6 @@ void __init trap_init(void)
 		if (mips_cpu.options & MIPS_CPU_VCE) {
 			memcpy((void *)(KSEG0 + 0x180), &except_vec3_r4000,
 			       0x80);
-		} else {
-			memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic,
-			       0x80);
-		}
-
-		if (mips_cpu.options & MIPS_CPU_FPU) {
-		        save_fp_context = _save_fp_context;
-			restore_fp_context = _restore_fp_context;
-		} else {
-		        save_fp_context = fpu_emulator_save_context;
-			restore_fp_context = fpu_emulator_restore_context;
 		}
 	} else switch (mips_cpu.cputype) {
 	case CPU_SB1:
@@ -949,14 +1004,13 @@ void __init trap_init(void)
 		 */
 		memcpy((void *)(KSEG0 + 0x180), &except_vec3_r4000, 0x80);
 #ifdef CONFIG_SB1_CACHE_ERROR
+		{
 		/* Special cache error handler for SB1 */
 		extern char except_vec2_sb1;
 		memcpy((void *)(KSEG0 + 0x100), &except_vec2_sb1, 0x80);
 		memcpy((void *)(KSEG1 + 0x100), &except_vec2_sb1, 0x80);
+		}
 #endif
-
-		save_fp_context = _save_fp_context;
-		restore_fp_context = _restore_fp_context;
 
 		/* Enable timer interrupt and scd mapped interrupt */
 		clear_cp0_status(0xf000);
@@ -964,9 +1018,6 @@ void __init trap_init(void)
 		break;
 	case CPU_R6000:
 	case CPU_R6000A:
-	        save_fp_context = _save_fp_context;
-		restore_fp_context = _restore_fp_context;
-
 		/*
 		 * The R6000 is the only R-series CPU that features a machine
 		 * check exception (similar to the R4000 cache error) and
@@ -989,8 +1040,6 @@ void __init trap_init(void)
 	case CPU_TX3922:
 	case CPU_TX3927:
 	case CPU_TX39XX:
-	        save_fp_context = _save_fp_context;
-		restore_fp_context = _restore_fp_context;
 		memcpy((void *)(KSEG0 + 0x80), &except_vec3_generic, 0x80);
 		break;
 
@@ -998,12 +1047,16 @@ void __init trap_init(void)
 	default:
 		panic("Unknown CPU type");
 	}
-	if (!(mips_cpu.options & MIPS_CPU_FPU)) {
+
+	flush_icache_range(KSEG0, KSEG0 + 0x400);
+
+	if (mips_cpu.options & MIPS_CPU_FPU) {
+	        save_fp_context = _save_fp_context;
+		restore_fp_context = _restore_fp_context;
+	} else {
 		save_fp_context = fpu_emulator_save_context;
 		restore_fp_context = fpu_emulator_restore_context;
 	}
-
-	flush_icache_range(KSEG0, KSEG0 + 0x200);
 
 	if (mips_cpu.isa_level == MIPS_CPU_ISA_IV)
 		set_cp0_status(ST0_XX);

@@ -7,6 +7,7 @@
  * Copyright (C) 1995, 1996 Paul M. Antoine
  * Copyright (C) 1998 Ulf Carlsson
  * Copyright (C) 1999 Silicon Graphics, Inc.
+ * Copyright (C) 2002  Maciej W. Rozycki
  */
 #include <linux/config.h>
 #include <linux/init.h>
@@ -23,10 +24,10 @@
 #include <asm/module.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
-#include <asm/paccess.h>
 #include <asm/ptrace.h>
 #include <asm/watch.h>
 #include <asm/system.h>
+#include <asm/traps.h>
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 #include <asm/cachectl.h>
@@ -49,8 +50,13 @@ extern asmlinkage void handle_watch(void);
 extern asmlinkage void handle_mcheck(void);
 extern asmlinkage void handle_reserved(void);
 
+extern int fpu_emulator_cop1Handler(struct pt_regs *);
+void fpu_emulator_init_fpu(void);
+
 char watch_available = 0;
 char dedicated_iv_available = 0;
+
+int (*be_board_handler)(struct pt_regs *regs, int is_fixup);
 
 int kstack_depth_to_print = 24;
 
@@ -111,7 +117,7 @@ void show_trace(unsigned long *sp)
 
 	printk("\nCall Trace:");
 
-	while ((unsigned long) stack & (PAGE_SIZE -1)) {
+	while ((unsigned long) stack & (PAGE_SIZE - 1)) {
 		unsigned long addr;
 
 		if (__get_user(addr, stack++)) {
@@ -269,7 +275,8 @@ search_one_table(const struct exception_table_entry *first,
 
 extern spinlock_t modlist_lock;
 
-unsigned long search_dbe_table(unsigned long addr)
+static inline unsigned long
+search_dbe_table(unsigned long addr)
 {
 	unsigned long ret = 0;
 
@@ -305,26 +312,45 @@ unsigned long search_dbe_table(unsigned long addr)
 #endif
 }
 
-/* Default data and instruction bus error handlers.  */
-void do_ibe(struct pt_regs *regs)
+asmlinkage void do_be(struct pt_regs *regs)
 {
-	die("Got ibe\n", regs);
-}
+	unsigned long new_epc;
+	unsigned long fixup = 0;
+	int data = regs->cp0_cause & 4;
+	int action = MIPS_BE_FATAL;
 
-void do_dbe(struct pt_regs *regs)
-{
-	unsigned long fixup;
+	if (data && !user_mode(regs))
+		fixup = search_dbe_table(regs->cp0_epc);
 
-	fixup = search_dbe_table(regs->cp0_epc);
-	if (fixup) {
-		long new_epc;
+	if (fixup)
+		action = MIPS_BE_FIXUP;
 
-		new_epc = fixup_exception(dpf_reg, fixup, regs->cp0_epc);
-		regs->cp0_epc = new_epc;
+	if (be_board_handler)
+		action = be_board_handler(regs, fixup != 0);
+
+	switch (action) {
+	case MIPS_BE_DISCARD:
 		return;
+	case MIPS_BE_FIXUP:
+		if (fixup) {
+			new_epc = fixup_exception(dpf_reg, fixup,
+						  regs->cp0_epc);
+			regs->cp0_epc = new_epc;
+			return;
+		}
+		break;
+	default:
+		break;
 	}
 
-	die("Got dbe\n", regs);
+	/*
+	 * Assume it would be too dangerous to continue ...
+	 */
+	printk(KERN_ALERT "%s bus error, epc == %08lx, ra == %08lx\n",
+	       data ? "Data" : "Instruction",
+	       regs->cp0_epc, regs->regs[31]);
+	die_if_kernel("Oops", regs);
+	force_sig(SIGBUS, current);
 }
 
 void do_ov(struct pt_regs *regs)
@@ -334,69 +360,55 @@ void do_ov(struct pt_regs *regs)
 	force_sig(SIGFPE, current);
 }
 
-#ifdef CONFIG_MIPS_FPE_MODULE
-static void (*fpe_handler)(struct pt_regs *regs, unsigned int fcr31);
-
-/*
- * Register_fpe/unregister_fpe are for debugging purposes only.  To make
- * this hack work a bit better there is no error checking.
- */
-int register_fpe(void (*handler)(struct pt_regs *regs, unsigned int fcr31))
-{
-	fpe_handler = handler;
-	return 0;
-}
-
-int unregister_fpe(void (*handler)(struct pt_regs *regs, unsigned int fcr31))
-{
-	fpe_handler = NULL;
-	return 0;
-}
-#endif
-
 /*
  * XXX Delayed fp exceptions when doing a lazy ctx switch XXX
  */
-void do_fpe(struct pt_regs *regs, unsigned long fcr31)
+asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
-	unsigned long pc;
-	unsigned int insn;
-	extern void simfp(unsigned int);
+	if (fcr31 & FPU_CSR_UNI_X) {
+		int sig;
 
-#ifdef CONFIG_MIPS_FPE_MODULE
-	if (fpe_handler != NULL) {
-		fpe_handler(regs, fcr31);
+		/*
+	 	 * Unimplemented operation exception.  If we've got the full
+		 * software emulator on-board, let's use it...
+		 *
+		 * Force FPU to dump state into task/thread context.  We're
+		 * moving a lot of data here for what is probably a single
+		 * instruction, but the alternative is to pre-decode the FP
+		 * register operands before invoking the emulator, which seems
+		 * a bit extreme for what should be an infrequent event.
+		 */
+		save_fp(current);
+
+		/* Run the emulator */
+		sig = fpu_emulator_cop1Handler(regs);
+
+		/* 
+		 * We can't allow the emulated instruction to leave any of 
+		 * the cause bit set in $fcr31.
+		 */
+		current->thread.fpu.soft.sr &= ~FPU_CSR_ALL_X;
+
+		/* Restore the hardware register state */
+		restore_fp(current);
+
+		/* If something went wrong, signal */
+		if (sig)
+		{
+			/* 
+			 * Return EPC is not calculated in the FPU emulator, 
+			 * if a signal is being send. So we calculate it here.
+			 */
+			compute_return_epc(regs);
+			force_sig(sig, current);
+		}
+
 		return;
-	}
-#endif
-	if (fcr31 & 0x20000) {
-		/* Retry instruction with flush to zero ...  */
-		if (!(fcr31 & (1<<24))) {
-			printk("Setting flush to zero for %s.\n",
-			       current->comm);
-			fcr31 &= ~0x20000;
-			fcr31 |= (1<<24);
-			__asm__ __volatile__(
-				"ctc1\t%0,$31"
-				: /* No outputs */
-				: "r" (fcr31));
-			return;
-		}
-		pc = regs->cp0_epc + ((regs->cp0_cause & CAUSEF_BD) ? 4 : 0);
-		if (get_user(insn, (unsigned int *)pc)) {
-			/* XXX Can this happen?  */
-			force_sig(SIGSEGV, current);
-		}
-
-		printk(KERN_DEBUG "Unimplemented exception for insn %08x at 0x%08lx in %s.\n",
-		       insn, regs->cp0_epc, current->comm);
-		simfp(insn);
 	}
 
 	if (compute_return_epc(regs))
 		return;
-	//force_sig(SIGFPE, current);
-	printk(KERN_DEBUG "Should send SIGFPE to %s\n", current->comm);
+	force_sig(SIGFPE, current);
 }
 
 void do_bp(struct pt_regs *regs)
@@ -497,10 +509,14 @@ void do_ri(struct pt_regs *regs)
 void do_cpu(struct pt_regs *regs)
 {
 	u32 cpid;
+	int sig;
 
 	cpid = (regs->cp0_cause >> CAUSEB_CE) & 3;
 	if (cpid != 1)
 		goto bad_cid;
+
+	if (!(mips_cpu.options & MIPS_CPU_FPU))
+		goto fp_emul;
 
 	regs->cp0_status |= ST0_CU1;
 
@@ -525,6 +541,23 @@ void do_cpu(struct pt_regs *regs)
 	}
 	last_task_used_math = current;
 #endif
+	return;
+
+fp_emul:
+	if (!current->used_math) {
+		fpu_emulator_init_fpu();
+		current->used_math = 1;
+	}
+	sig = fpu_emulator_cop1Handler(regs);
+	if (sig)
+	{
+		/* 
+		 * Return EPC is not calculated in the FPU emulator, if 
+		 * a signal is being send. So we calculate it here.
+		 */
+		compute_return_epc(regs);
+		force_sig(sig, current);
+	}
 	return;
 
 bad_cid:
@@ -613,7 +646,7 @@ void __init per_cpu_trap_init(void)
 		set_cp0_cause(CAUSEF_IV);
 
 	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
-	set_context(cpu << 23);
+	set_context(((long)(&pgd_current[cpu])) << 23);
 	set_wired(0);
 }
 
@@ -621,10 +654,9 @@ void __init trap_init(void)
 {
 	extern char except_vec0;
 	extern char except_vec1_r10k;
-	extern char except_vec2_generic, except_vec2_sb1;
+	extern char except_vec2_generic;
 	extern char except_vec3_generic, except_vec3_r4000;
 	extern char except_vec4;
-	extern void bus_error_init(void);
 	unsigned long i;
 	int dummy;
 
@@ -656,20 +688,30 @@ void __init trap_init(void)
 		set_except_vector(24, handle_mcheck);
 
 	/*
+	 * The Data Bus Errors / Instruction Bus Errors are signaled
+	 * by external hardware.  Therefore these two exceptions
+	 * may have board specific handlers.
+	 */
+	bus_error_init();
+
+	/*
 	 * Handling the following exceptions depends mostly of the cpu type
 	 */
 	switch(mips_cpu.cputype) {
         case CPU_SB1:
 #ifdef CONFIG_SB1_CACHE_ERROR
+		{
 		/* Special cache error handler for SB1 */
+		extern char except_vec2_sb1;
 		memcpy((void *)(KSEG0 + 0x100), &except_vec2_sb1, 0x80);
 		memcpy((void *)(KSEG1 + 0x100), &except_vec2_sb1, 0x80);
+		}
 #endif
 		/* Enable timer interrupt and scd mapped interrupt */
 		clear_cp0_status(0xf000);
 		set_cp0_status(0xc00);
-		goto nocache;
 
+		/* Fall through. */
 	case CPU_R10000:
 	case CPU_R4000MC:
 	case CPU_R4400MC:
@@ -682,10 +724,6 @@ void __init trap_init(void)
 	case CPU_R4600:
 	case CPU_R5000:
 	case CPU_NEVADA:
-		/* Cache error vector  */
-		memcpy((void *)(KSEG0 + 0x100), (void *) KSEG0, 0x80);
-
-nocache:
 		/* Debug TLB refill handler.  */
 		memcpy((void *)KSEG0, &except_vec0, 0x80);
 		memcpy((void *)KSEG0 + 0x080, &except_vec1_r10k, 0x80);
@@ -706,18 +744,6 @@ nocache:
 
 		set_except_vector(6, handle_ibe);
 		set_except_vector(7, handle_dbe);
-
-		/*
-		 * If nothing uses the DBE protection mechanism this is
-		 * necessary to get the kernel to link.
-		 */
-		get_dbe(dummy, (int *)KSEG0);
-
-		/*
-		 * DBE / IBE handlers may be overridden by system specific
-		 * handlers.
-		 */
-		bus_error_init();
 
 		set_except_vector(8, handle_sys);
 		set_except_vector(9, handle_bp);

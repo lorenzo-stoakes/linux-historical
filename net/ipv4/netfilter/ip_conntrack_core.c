@@ -497,9 +497,11 @@ init_conntrack(const struct ip_conntrack_tuple *tuple,
 		/* Try dropping from random chain, or else from the
                    chain about to put into (in case they're trying to
                    bomb one hash chain). */
-		if (drop_next >= ip_conntrack_htable_size)
+		if (drop_next == ip_conntrack_htable_size-1)
 			drop_next = 0;
-		if (!early_drop(&ip_conntrack_hash[drop_next++])
+		else
+			drop_next++;
+		if (!early_drop(&ip_conntrack_hash[drop_next])
 		    && !early_drop(&ip_conntrack_hash[hash])) {
 			if (net_ratelimit())
 				printk(KERN_WARNING

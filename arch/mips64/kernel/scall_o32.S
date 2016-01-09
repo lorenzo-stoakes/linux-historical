@@ -240,10 +240,10 @@ bad_alignment:
 	jr	ra
 	END(mips_atomic_set)
 
-	LEAF(sys_sysmips)
+	LEAF(sys32_sysmips)
 	beq	a0, MIPS_ATOMIC_SET, mips_atomic_set
-	j	_sys_sysmips
-	END(sys_sysmips)
+	j	sys_sysmips
+	END(sys32_sysmips)
 
 	.macro	syscalltable
 	sys	sys_syscall	0			/* 4000 */
@@ -376,7 +376,7 @@ bad_alignment:
 	sys	sys_create_module 2
 	sys	sys_init_module	5
 	sys	sys_delete_module 1
-	sys	sys_get_kernel_syms 1			/* 4130 */
+	sys	sys32_get_kernel_syms 1			/* 4130 */
 	sys	sys_quotactl	0
 	sys	sys_getpgid	1
 	sys	sys_fchdir	1
@@ -395,7 +395,7 @@ bad_alignment:
 	sys	sys32_writev	3
 	sys	sys_cacheflush	3
 	sys	sys_cachectl	3
-	sys	sys_sysmips	4
+	sys	sys32_sysmips	4
 	sys	sys_ni_syscall	0			/* 4150 */
 	sys	sys_getsid	1
 	sys	sys_fdatasync	0
@@ -482,7 +482,11 @@ bad_alignment:
 	sys	sys_ni_syscall	0		/* reserved for removexattr */
 	sys	sys_ni_syscall	0		/* reserved for lremovexattr */
 	sys	sys_ni_syscall	0		/* 4235 res. for fremovexattr */
-	sys	sys32_tkill	2
+	sys	sys_tkill, 2
+	sys	sys_ni_syscall, 0		/* res. for sendfile64 */
+	sys	sys_ni_syscall, 0		/* res. for futex */
+	sys	sys_ni_syscall, 0		/* res. for sched_setaffinity */
+	sys	sys_ni_syscall, 0		/* 4240 res. for sched_getaffinity */
 
 	.endm
 

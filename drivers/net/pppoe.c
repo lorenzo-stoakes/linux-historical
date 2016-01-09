@@ -5,7 +5,7 @@
  * PPPoE --- PPP over Ethernet (RFC 2516)
  *
  *
- * Version:    0.6.10
+ * Version:    0.6.11
  *
  * 030700 :     Fixed connect logic to allow for disconnect.
  * 270700 :	Fixed potential SMP problems; we must protect against
@@ -34,6 +34,9 @@
  * 121301 :     New ppp channels interface; cannot unregister a channel
  *              from interrupts.  Thus, we mark the socket as a ZOMBIE
  *              and do the unregistration later.
+ * 071502 :     When a connection is being torn down, we must remember that
+ *              ZOMBIE state connections are still connected and thus
+ *              pppox_unbind_sock must unbind them (in pppoe_release).
  *
  * Author:	Michal Ostrowski <mostrows@speakeasy.net>
  * Contributors:
@@ -443,8 +446,10 @@ static int pppoe_disc_rcv(struct sk_buff *skb,
 		 * what kind of SKB it is during backlog rcv.
 		 */
 		if (sk->lock.users == 0) {
+			/* We're no longer connect at the PPPOE layer,
+			 * and must wait for ppp channel to disconnect us.
+			 */
 			sk->state = PPPOX_ZOMBIE;
-			pppox_unbind_sock(sk);
 		}
 
 		bh_unlock_sock(sk);

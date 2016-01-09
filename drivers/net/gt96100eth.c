@@ -32,18 +32,7 @@
  *                gt96100_cleanup_module(), and other general code cleanups
  *                <stevel@mvista.com>.
  */
-
-#ifndef __OPTIMIZE__
-#error You must compile this file with the correct options!
-#error See the last lines of the source file.
-#error You must compile this driver with "-O".
-#endif
-
-#ifndef __mips__
-#error This driver only works with MIPS architectures!
-#endif
-
-
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>

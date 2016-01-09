@@ -191,6 +191,9 @@ static inline unsigned int cpuid_edx(unsigned int op)
 #define X86_CR4_OSFXSR		0x0200	/* enable fast FPU save and restore */
 #define X86_CR4_OSXMMEXCPT	0x0400	/* enable unmasked SSE exceptions */
 
+#define load_cr3(pgdir) \
+	asm volatile("movl %0,%%cr3": :"r" (__pa(pgdir)));
+
 /*
  * Save the cr4 feature set we're using (ie
  * Pentium 4MB enable and PPro Global page

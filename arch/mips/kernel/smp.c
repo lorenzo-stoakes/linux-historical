@@ -18,7 +18,6 @@
  * Copyright (C) 2000, 2001 Silicon Graphics, Inc.
  * Copyright (C) 2000, 2001 Broadcom Corporation
  */ 
-#include <linux/config.h>
 #include <linux/cache.h>
 #include <linux/init.h>
 #include <linux/spinlock.h>
@@ -43,8 +42,11 @@
 /* Ze Big Kernel Lock! */
 spinlock_t kernel_flag __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
 int smp_threads_ready;
+atomic_t smp_commenced = ATOMIC_INIT(0);
 int smp_num_cpus = 1;			/* Number that came online.  */
 cpumask_t cpu_online_map;		/* Bitmask of currently online CPUs */
+int __cpu_number_map[NR_CPUS];
+int __cpu_logical_map[NR_CPUS];
 struct cpuinfo_mips cpu_data[NR_CPUS];
 void (*volatile smp_cpu0_finalize)(void);
 
@@ -101,12 +103,14 @@ asmlinkage void start_secondary(void)
 	printk("Slave cpu booted successfully\n");
 	CPUMASK_SETB(cpu_online_map, cpu);
 	atomic_inc(&cpus_booted);
+	while (!atomic_read(&smp_commenced));
 	cpu_idle();
 }
 
 void __init smp_commence(void)
 {
-	/* Not sure what to do here yet */
+	wmb();
+	atomic_set(&smp_commenced, 1);
 }
 
 void smp_send_reschedule(int cpu)
@@ -140,7 +144,7 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	if (wait)
 		atomic_set(&data.finished, 0);
 
-	spin_lock_bh(&call_lock);
+	spin_lock(&call_lock);
 	call_data = &data;
 
 	/* Send a message to all other CPUs and wait for them to respond */
@@ -156,7 +160,7 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	if (wait)
 		while (atomic_read(&data.finished) != cpus)
 			barrier();
-	spin_unlock_bh(&call_lock);
+	spin_unlock(&call_lock);
 
 	return 0;
 }
@@ -308,6 +312,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 	local_flush_tlb_page(vma, page);
 }
 
+EXPORT_SYMBOL(smp_num_cpus);
 EXPORT_SYMBOL(flush_tlb_page);
 EXPORT_SYMBOL(cpu_data);
 EXPORT_SYMBOL(synchronize_irq);

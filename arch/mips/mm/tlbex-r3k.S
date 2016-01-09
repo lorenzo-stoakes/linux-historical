@@ -19,7 +19,7 @@
 #include <asm/fpregdef.h>
 #include <asm/mipsregs.h>
 #include <asm/page.h>
-#include <asm/pgtable.h>
+#include <asm/pgtable-bits.h>
 #include <asm/processor.h>
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
@@ -90,7 +90,7 @@
 	.set	macro; \
 	SAVE_ALL; \
 	mfc0	a2, CP0_BADVADDR; \
-	STI; \
+	KMODE; \
 	.set	at; \
 	move	a0, sp; \
 	jal	do_page_fault; \

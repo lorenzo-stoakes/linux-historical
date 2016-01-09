@@ -8,6 +8,7 @@
  * Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 Ralf Baechle
  * Copyright (C) 1996 Stoned Elipot
  * Copyright (C) 1999 Silicon Graphics, Inc.
+ * Copyright (C) 2002  Maciej W. Rozycki
  */
 #include <linux/config.h>
 #include <linux/errno.h>
@@ -15,6 +16,7 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/module.h>
 #include <linux/stddef.h>
 #include <linux/string.h>
 #include <linux/unistd.h>
@@ -24,6 +26,7 @@
 #include <linux/utsname.h>
 #include <linux/a.out.h>
 #include <linux/tty.h>
+#include <linux/bootmem.h>
 #ifdef CONFIG_BLK_DEV_RAM
 #include <linux/blk.h>
 #endif
@@ -140,6 +143,11 @@ static inline void check_wait(void)
 	case CPU_NEVADA:
 	case CPU_RM7000:
 	case CPU_TX49XX:
+	case CPU_4KC:
+	case CPU_4KEC:
+	case CPU_4KSC:
+	case CPU_5KC:
+/*	case CPU_20KC:*/
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -176,6 +184,20 @@ static inline int cpu_has_confreg(void)
 #endif
 }
 
+/*
+ * Get the FPU Implementation/Revision.
+ */
+static inline unsigned long cpu_get_fpu_id(void)
+{
+	unsigned long tmp, fpu_id;
+
+	tmp = read_32bit_cp0_register(CP0_STATUS);
+	__enable_fpu();
+	fpu_id = read_32bit_cp1_register(CP1_REVISION);
+	write_32bit_cp0_register(CP0_STATUS, tmp);
+	return fpu_id;
+}
+
 /* declaration of the global struct */
 struct mips_cpu mips_cpu = {
     processor_id:	PRID_IMP_UNKNOWN,
@@ -189,9 +211,26 @@ struct mips_cpu mips_cpu = {
 static inline void cpu_probe(void)
 {
 #ifdef CONFIG_CPU_MIPS32
+	unsigned long config0 = read_32bit_cp0_register(CP0_CONFIG);
 	unsigned long config1;
-#endif
 
+        if (config0 & (1 << 31)) {
+		/* MIPS32 compliant CPU. Read Config 1 register. */
+		mips_cpu.isa_level = MIPS_CPU_ISA_M32;
+		mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
+			MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | MIPS_CPU_DIVEC;
+		config1 = read_mips32_cp0_config1();
+		if (config1 & (1 << 3))
+			mips_cpu.options |= MIPS_CPU_WATCH;
+		if (config1 & (1 << 2))
+			mips_cpu.options |= MIPS_CPU_MIPS16;
+		if (config1 & (1 << 1))
+			mips_cpu.options |= MIPS_CPU_EJTAG;
+		if (config1 & 1)
+			mips_cpu.options |= MIPS_CPU_FPU;
+		mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
+	}
+#endif
 	mips_cpu.processor_id = read_32bit_cp0_register(CP0_PRID);
 	switch (mips_cpu.processor_id & 0xff0000) {
 	case PRID_COMP_LEGACY:
@@ -371,6 +410,14 @@ static inline void cpu_probe(void)
 				           MIPS_CPU_COUNTER | MIPS_CPU_WATCH;
 			mips_cpu.tlbsize = 64;
 			break;
+		case PRID_IMP_R12000:
+			mips_cpu.cputype = CPU_R12000;
+			mips_cpu.isa_level = MIPS_CPU_ISA_IV;
+			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
+				           MIPS_CPU_FPU | MIPS_CPU_32FPR | 
+				           MIPS_CPU_COUNTER | MIPS_CPU_WATCH;
+			mips_cpu.tlbsize = 64;
+			break;
 		default:
 			mips_cpu.cputype = CPU_UNKNOWN;
 			break;
@@ -381,48 +428,20 @@ static inline void cpu_probe(void)
 		switch (mips_cpu.processor_id & 0xff00) {
 		case PRID_IMP_4KC:
 			mips_cpu.cputype = CPU_4KC;
-			goto cpu_4kc;
+			break;
 		case PRID_IMP_4KEC:
 			mips_cpu.cputype = CPU_4KEC;
-			goto cpu_4kc;
+			break;
 		case PRID_IMP_4KSC:
 			mips_cpu.cputype = CPU_4KSC;
-cpu_4kc:
-			/*
-			 * Why do we set all these options by default, THEN
-			 * query them??
-			 */
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
-				           MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | 
-				           MIPS_CPU_DIVEC | MIPS_CPU_WATCH |
-			                   MIPS_CPU_MCHECK;
-			config1 = read_mips32_cp0_config1();
-			if (config1 & (1 << 3))
-				mips_cpu.options |= MIPS_CPU_WATCH;
-			if (config1 & (1 << 2))
-				mips_cpu.options |= MIPS_CPU_MIPS16;
-			if (config1 & 1)
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
 			break;
 		case PRID_IMP_5KC:
 			mips_cpu.cputype = CPU_5KC;
 			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
-			/* See comment above about querying options */
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
-				           MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | 
-				           MIPS_CPU_DIVEC | MIPS_CPU_WATCH |
-			                   MIPS_CPU_MCHECK;
-			config1 = read_mips32_cp0_config1();
-			if (config1 & (1 << 3))
-				mips_cpu.options |= MIPS_CPU_WATCH;
-			if (config1 & (1 << 2))
-				mips_cpu.options |= MIPS_CPU_MIPS16;
-			if (config1 & 1)
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
 			break;
+		case PRID_IMP_20KC:
+			mips_cpu.cputype = CPU_20KC;
+			mips_cpu.isa_level = MIPS_CPU_ISA_M64;
 		default:
 			mips_cpu.cputype = CPU_UNKNOWN;
 			break;
@@ -432,19 +451,10 @@ cpu_4kc:
 		switch (mips_cpu.processor_id & 0xff00) {
 		case PRID_IMP_AU1_REV1:
 		case PRID_IMP_AU1_REV2:
-			mips_cpu.cputype = CPU_AU1000;
-			mips_cpu.isa_level = MIPS_CPU_ISA_M32;
-			mips_cpu.options = MIPS_CPU_TLB | MIPS_CPU_4KEX | 
-					   MIPS_CPU_4KTLB | MIPS_CPU_COUNTER | 
-					   MIPS_CPU_DIVEC | MIPS_CPU_WATCH;
-			config1 = read_mips32_cp0_config1();
-			if (config1 & (1 << 3))
-				mips_cpu.options |= MIPS_CPU_WATCH;
-			if (config1 & (1 << 2))
-				mips_cpu.options |= MIPS_CPU_MIPS16;
-			if (config1 & 1)
-				mips_cpu.options |= MIPS_CPU_FPU;
-			mips_cpu.scache.flags = MIPS_CACHE_NOT_PRESENT;
+			if (mips_cpu.processor_id & 0xff000000)
+				mips_cpu.cputype = CPU_AU1500;
+			else
+				mips_cpu.cputype = CPU_AU1000;
 			break;
 		default:
 			mips_cpu.cputype = CPU_UNKNOWN;
@@ -473,6 +483,8 @@ cpu_4kc:
 	default:
 		mips_cpu.cputype = CPU_UNKNOWN;
 	}
+	if (mips_cpu.options & MIPS_CPU_FPU)
+		mips_cpu.fpu_id = cpu_get_fpu_id();
 }
 
 static inline void cpu_report(void)
@@ -730,16 +742,8 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_SGI_IP32
 	ip32_setup();
 #endif
-#ifdef CONFIG_SGI_IP32
-	ip32_setup();
-#endif
 #ifdef CONFIG_SIBYTE_SWARM
 	swarm_setup();
-	bootmem_init();		/* XXX */
-#endif
-
-#ifdef CONFIG_ARC_MEMORY
-	bootmem_init();
 #endif
 
 	strncpy(command_line, arcs_cmdline, CL_SIZE);
@@ -749,6 +753,8 @@ void __init setup_arch(char **cmdline_p)
 	*cmdline_p = command_line;
 
 	parse_mem_cmdline();
+
+	bootmem_init();
 
 	paging_init();
 }

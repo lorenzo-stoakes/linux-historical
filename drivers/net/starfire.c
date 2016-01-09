@@ -128,17 +128,14 @@ TODO:
  * firmware files) does not allow one to redistribute them. Thus, we can't
  * include the firmware with this driver.
  *
- * However, an end-user is allowed to download and use it, after
- * converting it to C header files using starfire_firmware.pl.
+ * However, should a legal-to-use firmware become available,
+ * the driver developer would need only to obtain the firmware in the
+ * form of a C header file.
  * Once that's done, the #undef below must be changed into a #define
  * for this driver to really use the firmware. Note that Rx/Tx
  * hardware TCP checksumming is not possible without the firmware.
  *
- * If Adaptec could allow redistribution of the firmware (even in binary
- * format), life would become a lot easier. Unfortunately, I've lost my
- * Adaptec contacts, so progress on this front is rather unlikely to
- * occur. If anybody from Adaptec reads this and can help with this matter,
- * please let me know...
+ * WANTED: legal firmware to include with this GPL'd driver.
  */
 #undef HAS_FIRMWARE
 /*

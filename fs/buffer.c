@@ -850,6 +850,15 @@ int fsync_buffers_list(struct list_head *list)
 			if (buffer_dirty(bh)) {
 				get_bh(bh);
 				spin_unlock(&lru_list_lock);
+			/*
+			 * Wait I/O completion before submitting
+			 * the buffer, to be sure the write will
+			 * be effective on the latest data in
+			 * the buffer. (otherwise - if there's old
+			 * I/O in flight - write_buffer would become
+			 * a noop)
+			 */
+				wait_on_buffer(bh);
 				ll_rw_block(WRITE, 1, &bh);
 				brelse(bh);
 				spin_lock(&lru_list_lock);

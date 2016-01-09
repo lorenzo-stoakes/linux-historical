@@ -13,8 +13,6 @@
 #include <asm/addrspace.h>
 #include <asm/page.h>
 
-#ifndef _LANGUAGE_ASSEMBLY
-
 #include <linux/linkage.h>
 #include <asm/cachectl.h>
 #include <asm/fixmap.h>
@@ -55,9 +53,9 @@ extern void (*_flush_icache_all)(void);
 #define flush_page_to_ram(page)		_flush_page_to_ram(page)
 
 #define flush_icache_range(start, end)	_flush_icache_range(start,end)
-#define flush_icache_page(vma, page) 	_flush_icache_page(vma, page)
-#define flush_icache_user_range(vma, page, addr, len)	\
+#define flush_icache_user_range(vma, page, addr, len) \
 					_flush_icache_page((vma), (page))
+#define flush_icache_page(vma, page) 	_flush_icache_page(vma, page)
 
 #define flush_cache_sigtramp(addr)	_flush_cache_sigtramp(addr)
 #ifdef CONFIG_VTAG_ICACHE
@@ -89,8 +87,6 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
  * tlb refill handling mechanism, but for now it is a bit slower but
  * works even with the cache aliasing problem the R4k and above have.
  */
-
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
 
 /* PMD_SHIFT determines the size of the area a second-level page table can map */
 #ifdef CONFIG_64BIT_PHYS_ADDR
@@ -134,87 +130,7 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 # define VMALLOC_END	(FIXADDR_START-2*PAGE_SIZE)
 #endif
 
-/* Note that we shift the lower 32bits of each EntryLo[01] entry
- * 6 bits to the left. That way we can convert the PFN into the
- * physical address by a single 'and' operation and gain 6 additional
- * bits for storing information which isn't present in a normal
- * MIPS page table.
- *
- * Similar to the Alpha port, we need to keep track of the ref
- * and mod bits in software.  We have a software "yeah you can read
- * from this page" bit, and a hardware one which actually lets the
- * process read from the page.  On the same token we have a software
- * writable bit and the real hardware one which actually lets the
- * process write to the page, this keeps a mod bit via the hardware
- * dirty bit.
- *
- * Certain revisions of the R4000 and R5000 have a bug where if a
- * certain sequence occurs in the last 3 instructions of an executable
- * page, and the following page is not mapped, the cpu can do
- * unpredictable things.  The code (when it is written) to deal with
- * this problem will be in the update_mmu_cache() code for the r4k.
- */
-#define _PAGE_PRESENT               (1<<0)  /* implemented in software */
-#define _PAGE_READ                  (1<<1)  /* implemented in software */
-#define _PAGE_WRITE                 (1<<2)  /* implemented in software */
-#define _PAGE_ACCESSED              (1<<3)  /* implemented in software */
-#define _PAGE_MODIFIED              (1<<4)  /* implemented in software */
-
-#if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
-
-#define _PAGE_GLOBAL                (1<<8)
-#define _PAGE_VALID                 (1<<9)
-#define _PAGE_SILENT_READ           (1<<9)  /* synonym                 */
-#define _PAGE_DIRTY                 (1<<10) /* The MIPS dirty bit      */
-#define _PAGE_SILENT_WRITE          (1<<10)
-#define _CACHE_UNCACHED             (1<<11) /* R4[0246]00              */
-#define _CACHE_MASK                 (1<<11)
-#define _CACHE_CACHABLE_NONCOHERENT 0
-
-#else
-#define _PAGE_R4KBUG                (1<<5)  /* workaround for r4k bug  */
-#define _PAGE_GLOBAL                (1<<6)
-#define _PAGE_VALID                 (1<<7)
-#define _PAGE_SILENT_READ           (1<<7)  /* synonym                 */
-#define _PAGE_DIRTY                 (1<<8)  /* The MIPS dirty bit      */
-#define _PAGE_SILENT_WRITE          (1<<8)
-#define _CACHE_MASK                 (7<<9)
-
-#if defined(CONFIG_CPU_SB1)
-
-/* No penalty for being coherent on the SB1, so just
-   use it for "noncoherent" spaces, too.  Shouldn't hurt. */
-
-#define _CACHE_UNCACHED             (2<<9)  
-#define _CACHE_CACHABLE_COW         (5<<9)  
-#define _CACHE_CACHABLE_NONCOHERENT (5<<9)  
-
-#else
-
-#define _CACHE_CACHABLE_NO_WA       (0<<9)  /* R4600 only              */
-#define _CACHE_CACHABLE_WA          (1<<9)  /* R4600 only              */
-#define _CACHE_UNCACHED             (2<<9)  /* R4[0246]00              */
-#define _CACHE_CACHABLE_NONCOHERENT (3<<9)  /* R4[0246]00              */
-#define _CACHE_CACHABLE_CE          (4<<9)  /* R4[04]00 only           */
-#define _CACHE_CACHABLE_COW         (5<<9)  /* R4[04]00 only           */
-#define _CACHE_CACHABLE_CUW         (6<<9)  /* R4[04]00 only           */
-#define _CACHE_CACHABLE_ACCELERATED (7<<9)  /* R10000 only             */
-
-#endif
-#endif
-
-#define __READABLE	(_PAGE_READ | _PAGE_SILENT_READ | _PAGE_ACCESSED)
-#define __WRITEABLE	(_PAGE_WRITE | _PAGE_SILENT_WRITE | _PAGE_MODIFIED)
-
-#define _PAGE_CHG_MASK  (PAGE_MASK | _PAGE_ACCESSED | _PAGE_MODIFIED | _CACHE_MASK)
-
-#ifdef CONFIG_MIPS_UNCACHED
-#define PAGE_CACHABLE_DEFAULT	_CACHE_UNCACHED
-#elif CONFIG_CPU_SB1
-#define PAGE_CACHABLE_DEFAULT	_CACHE_CACHABLE_COW
-#else
-#define PAGE_CACHABLE_DEFAULT	_CACHE_CACHABLE_NONCOHERENT
-#endif
+#include <asm/pgtable-bits.h>
 
 #define PAGE_NONE	__pgprot(_PAGE_PRESENT | _CACHE_CACHABLE_NONCOHERENT)
 #define PAGE_SHARED     __pgprot(_PAGE_PRESENT | _PAGE_READ | _PAGE_WRITE | \
@@ -253,8 +169,6 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #define __S110	PAGE_SHARED
 #define __S111	PAGE_SHARED
 
-#if !defined (_LANGUAGE_ASSEMBLY)
-
 #ifdef CONFIG_64BIT_PHYS_ADDR
 #define pte_ERROR(e) \
 	printk("%s:%d: bad pte %016Lx.\n", __FILE__, __LINE__, pte_val(e))
@@ -291,7 +205,7 @@ static inline void pmd_set(pmd_t * pmdp, pte_t * ptep)
 	pmd_val(*pmdp) = (((unsigned long) ptep) & PAGE_MASK);
 }
 
-static inline int pte_none(pte_t pte)    { return !pte_val(pte); }
+static inline int pte_none(pte_t pte)    { return !(pte_val(pte) & ~_PAGE_GLOBAL); }
 static inline int pte_present(pte_t pte) { return pte_val(pte) & _PAGE_PRESENT; }
 
 /* Certain architectures need to do special things when pte's
@@ -301,11 +215,28 @@ static inline int pte_present(pte_t pte) { return pte_val(pte) & _PAGE_PRESENT; 
 static inline void set_pte(pte_t *ptep, pte_t pteval)
 {
 	*ptep = pteval;
+#if !defined(CONFIG_CPU_R3000) && !defined(CONFIG_CPU_TX39XX)
+	if (pte_val(pteval) & _PAGE_GLOBAL) {
+		pte_t *buddy = ptep_buddy(ptep);
+		/*
+		 * Make sure the buddy is global too (if it's !none,
+		 * it better already be global)
+		 */
+		if (pte_none(*buddy))
+			pte_val(*buddy) = pte_val(*buddy) | _PAGE_GLOBAL;
+	}
+#endif
 }
 
 static inline void pte_clear(pte_t *ptep)
 {
-	set_pte(ptep, __pte(0));
+#if !defined(CONFIG_CPU_R3000) && !defined(CONFIG_CPU_TX39XX)
+	/* Preserve global status for the pair */
+	if (pte_val(*ptep_buddy(ptep)) & _PAGE_GLOBAL)
+		set_pte(ptep, __pte(_PAGE_GLOBAL));
+	else
+#endif
+		set_pte(ptep, __pte(0));
 }
 
 /*
@@ -349,6 +280,10 @@ static inline int pgd_bad(pgd_t pgd)		{ return 0; }
 static inline int pgd_present(pgd_t pgd)	{ return 1; }
 static inline void pgd_clear(pgd_t *pgdp)	{ }
 
+/*
+ * Permanent address of a page.  Obviously must never be called on a highmem
+ * page.
+ */
 #ifdef CONFIG_CPU_VR41XX
 #define pte_page(x)             (mem_map+(unsigned long)((pte_val(x) >> (PAGE_SHIFT + 2))))
 #else
@@ -516,9 +451,19 @@ extern void paging_init(void);
 extern void update_mmu_cache(struct vm_area_struct *vma,
 				unsigned long address, pte_t pte);
 
-#define SWP_TYPE(x)		(((x).val >> 1) & 0x3f)
+/* Swap entries must have VALID and GLOBAL bits cleared. */
+#if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
+
+#define SWP_TYPE(x)		(((x).val >> 1) & 0x7f)
+#define SWP_OFFSET(x)		((x).val >> 10)
+#define SWP_ENTRY(type,offset)	((swp_entry_t) { ((type) << 1) | ((offset) << 10) })
+#else
+
+#define SWP_TYPE(x)		(((x).val >> 1) & 0x1f)
 #define SWP_OFFSET(x)		((x).val >> 8)
 #define SWP_ENTRY(type,offset)	((swp_entry_t) { ((type) << 1) | ((offset) << 8) })
+#endif
+
 #define pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
 #define swp_entry_to_pte(x)	((pte_t) { (x).val })
 
@@ -529,7 +474,11 @@ extern void update_mmu_cache(struct vm_area_struct *vma,
 
 #include <asm-generic/pgtable.h>
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+/*
+ * We provide our own get_unmapped area to cope with the virtual aliasing
+ * constraints placed on us by the cache architecture.
+ */
+#define HAVE_ARCH_UNMAPPED_AREA
 
 #define io_remap_page_range remap_page_range
 

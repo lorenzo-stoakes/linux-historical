@@ -13,11 +13,12 @@
 #include <asm/addrspace.h>
 #include <asm/page.h>
 
-#ifndef _LANGUAGE_ASSEMBLY
+#ifndef __ASSEMBLY__
 
 #include <linux/linkage.h>
 #include <linux/mmzone.h>
 #include <asm/cachectl.h>
+#include <asm/io.h>
 
 /* Cache flushing:
  *
@@ -66,24 +67,34 @@ extern void andes_flush_icache_page(unsigned long);
 #define flush_cache_page(vma,page)	do { } while(0)
 #define flush_page_to_ram(page)		do { } while(0)
 #define flush_icache_range(start, end)	_flush_cache_l1()
-#define flush_icache_user_range(vma, page, addr, len)	\
-					flush_icache_page((vma), (page))
+#define flush_icache_user_range(vma, page, addr, len) \
+	flush_icache_page((vma), (page))
 #define flush_icache_page(vma, page)					\
 do {									\
 	if ((vma)->vm_flags & VM_EXEC)					\
-		andes_flush_icache_page(page_address(page));		\
+		andes_flush_icache_page(phys_to_virt(page_to_phys(page))); \
 } while (0)
 
 #else
+
+extern void (*_flush_icache_all)(void);
+extern void (*_flush_icache_range)(unsigned long start, unsigned long end);
+extern void (*_flush_icache_page)(struct vm_area_struct *vma, struct page *page);
 
 #define flush_cache_mm(mm)		_flush_cache_mm(mm)
 #define flush_cache_range(mm,start,end)	_flush_cache_range(mm,start,end)
 #define flush_cache_page(vma,page)	_flush_cache_page(vma, page)
 #define flush_page_to_ram(page)		_flush_page_to_ram(page)
 #define flush_icache_range(start, end)	_flush_icache_range(start, end)
-#define flush_icache_user_range(vma, page, addr, len)	\
-					flush_icache_page((vma), (page))
+#define flush_icache_user_range(vma, page, addr, len) \
+	flush_icache_page((vma), (page))
 #define flush_icache_page(vma, page)	_flush_icache_page(vma, page)
+#ifdef CONFIG_VTAG_ICACHE
+#define flush_icache_all()		_flush_icache_all()
+#else
+#define flush_icache_all()		do { } while(0)
+#endif
+
 
 #endif /* !CONFIG_CPU_R10000 */
 
@@ -117,7 +128,7 @@ do {									\
  * vmalloc range translations, which the fault handler looks at.
  */
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 
 /* PMD_SHIFT determines the size of the area a second-level page table can map */
 #define PMD_SHIFT	(PAGE_SHIFT + (PAGE_SHIFT - 3))
@@ -181,7 +192,7 @@ do {									\
 #define _CACHE_CACHABLE_CE          (4<<9)  /* R4[04]00 only           */
 #define _CACHE_CACHABLE_COW         (5<<9)  /* R4[04]00 only           */
 #define _CACHE_CACHABLE_CUW         (6<<9)  /* R4[04]00 only           */
-#define _CACHE_CACHABLE_ACCELERATED (7<<9)  /* R10000 only             */
+#define _CACHE_UNCACHED_ACCELERATED (7<<9)  /* R10000 only             */
 #define _CACHE_MASK                 (7<<9)
 
 #define __READABLE	(_PAGE_READ | _PAGE_SILENT_READ | _PAGE_ACCESSED)
@@ -236,7 +247,7 @@ do {									\
 #define __S110	PAGE_SHARED
 #define __S111	PAGE_SHARED
 
-#if !defined (_LANGUAGE_ASSEMBLY)
+#ifndef __ASSEMBLY__
 
 #define pte_ERROR(e) \
 	printk("%s:%d: bad pte %016lx.\n", __FILE__, __LINE__, pte_val(e))
@@ -477,8 +488,8 @@ static inline pgprot_t pgprot_noncached(pgprot_t _prot)
 #define PAGE_TO_PA(page)	((page - mem_map) << PAGE_SHIFT)
 #else
 #define PAGE_TO_PA(page) \
-		((((page)-(page)->zone->zone_mem_map) << PAGE_SHIFT) \
-		+ ((page)->zone->zone_start_paddr))
+		((((page) - page_zone(page)->zone_mem_map) << PAGE_SHIFT) \
+		  + (page_zone(page)->zone_start_paddr))
 #endif
 #define mk_pte(page, pgprot)						\
 ({									\
@@ -566,6 +577,12 @@ static inline pte_t mk_swap_pte(unsigned long type, unsigned long offset)
 
 #include <asm-generic/pgtable.h>
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+/*
+ * We provide our own get_unmapped area to cope with the virtual aliasing
+ * constraints placed on us by the cache architecture.
+ */
+#define HAVE_ARCH_UNMAPPED_AREA
+
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_PGTABLE_H */

@@ -589,8 +589,8 @@ sys_call_table:
         .long  SYSCALL(sys_madvise,sys32_madvise_wrapper)
 	.long  SYSCALL(sys_getdents64,sys32_getdents64_wrapper)/* 220 */
 	.long  SYSCALL(sys_ni_syscall,sys32_fcntl64_wrapper)
-	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 222 - reserved for gettid */
-	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 223 - reserved for tkill */
+	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall)
+	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall)
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 224 - reserved for setxattr  */
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 225 - reserved for lsetxattr */
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 226 - reserved for fsetxattr */
@@ -603,10 +603,10 @@ sys_call_table:
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 233 - reserved for removexattr */
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 234 - reserved for lremovexattr */
 	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall) /* 235 - reserved for fremovexattr */
-	.rept  255-235
-	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall)
 	.long  SYSCALL(sys_gettid,sys_gettid)
 	.long  SYSCALL(sys_tkill,sys_tkill)
+	.rept  255-237
+	.long  SYSCALL(sys_ni_syscall,sys_ni_syscall)
 	.endr
 
 /*

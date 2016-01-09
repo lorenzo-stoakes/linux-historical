@@ -50,23 +50,23 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 
-//#define DEBUG				// Uncomment for debug output.
+//#define DEBUG				// Define for debug output.
 
 #ifdef DEBUG
 #   define DPRINTF(f, a...)						\
-	do {								\
-		printk ("%s%s, %d (DEBUG) %s(): ",			\
-			KERN_DEBUG, __FILE__, __LINE__, __func__);	\
-		printk (f, ##a);					\
-	} while (0)
+        do {								\
+            printk ("%s%s, %d (DEBUG) %s(): ",				\
+                KERN_DEBUG, __FILE__, __LINE__, __func__);		\
+            printk (f, ##a);						\
+        } while (0)
 #   define DASSERT(x)							\
-	do {								\
-		if (!x)							\
-			DPRINTF("Assertion failed at line %d.\n", __LINE__);\
-	} while (0)
+        do {								\
+            if (!x)							\
+                DPRINTF("Assertion failed at line %d.\n", __LINE__);	\
+        } while (0)
 #else
-#   define DPRINTF(...) do {} while(0)
-#   define DASSERT(...) do {} while(0)
+#   define DPRINTF(f, a...) do {} while(0)
+#   define DASSERT(f, a...) do {} while(0)
 #endif
 
 /*
@@ -1058,7 +1058,7 @@ static long w9966_v4l_read(struct video_device *vdev, char *buf, unsigned long c
 
 	// Why would anyone want more than this??
 	if (count > cam->width * cam->height * 2)
-		return -EINVAL;
+		count = cam->width * cam->height * 2;
 
 	w9966_wreg(cam, 0x00, 0x02);	// Reset ECP-FIFO buffer
 	w9966_wreg(cam, 0x00, 0x00);	// Return to normal operation

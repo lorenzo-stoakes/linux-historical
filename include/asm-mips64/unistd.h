@@ -253,11 +253,15 @@
 #define __NR_Linux32_lremovexattr	(__NR_Linux32 + 234)
 #define __NR_Linux32_fremovexattr	(__NR_Linux32 + 235)
 #define __NR_Linux32_tkill		(__NR_Linux32 + 236)
+#define __NR_Linux32_sendfile64		(__NR_Linux32 + 237)
+#define __NR_Linux32_futex		(__NR_Linux32 + 238)
+#define __NR_Linux32_sched_setaffinity	(__NR_Linux32 + 239)
+#define __NR_Linux32_sched_getaffinity	(__NR_Linux32 + 240)
 
 /*
  * Offset of the last Linux o32 flavoured syscall
  */
-#define __NR_Linux32_syscalls		236
+#define __NR_Linux32_syscalls		240
 
 /*
  * Linux 64-bit syscalls are in the range from 5000 to 5999.
@@ -493,13 +497,17 @@
 #define __NR_lremovexattr		(__NR_Linux + 227)
 #define __NR_fremovexattr		(__NR_Linux + 228)
 #define __NR_tkill			(__NR_Linux + 229)
+#define __NR_sendfile64			(__NR_Linux + 230)
+#define __NR_futex			(__NR_Linux + 231)
+#define __NR_sched_setaffinity		(__NR_Linux + 232)
+#define __NR_sched_getaffinity		(__NR_Linux + 233)
 
 /*
  * Offset of the last Linux flavoured syscall
  */
-#define __NR_Linux_syscalls		229
+#define __NR_Linux_syscalls		233
 
-#ifndef _LANGUAGE_ASSEMBLY
+#ifndef __ASSEMBLY__
 
 /* XXX - _foo needs to be __foo, while __NR_bar could be _NR_bar. */
 #define _syscall0(type,name) \
@@ -845,7 +853,7 @@ static inline pid_t wait(int * wait_stat)
 	return waitpid(-1,wait_stat,0);
 }
 
-#endif /* !defined (__KERNEL_SYSCALLS__) */
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* __KERNEL_SYSCALLS__ */
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_UNISTD_H */

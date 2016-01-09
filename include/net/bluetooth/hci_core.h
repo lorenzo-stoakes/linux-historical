@@ -23,7 +23,7 @@
 */
 
 /* 
- * $Id: hci_core.h,v 1.3 2002/04/17 18:55:21 maxk Exp $ 
+ * $Id: hci_core.h,v 1.4 2002/06/25 22:04:43 maxk Exp $ 
  */
 
 #ifndef __HCI_CORE_H
@@ -339,8 +339,8 @@ static inline void hci_sched_tx(struct hci_dev *hdev)
 /* ----- HCI protocols ----- */
 struct hci_proto {
 	char 		*name;
-	__u32		id;
-	__u32		flags;
+	unsigned int 	id;
+	unsigned long	flags;
 
 	void		*priv;
 

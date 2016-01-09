@@ -66,7 +66,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/sound.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/soundcard.h>
 #include <linux/ac97_codec.h>
 #include <linux/pci.h>
@@ -1526,6 +1526,15 @@ static int mixer_ioctl(struct cs4297a_state *s, unsigned int cmd,
 	}
 }
 
+
+// --------------------------------------------------------------------- 
+
+static loff_t cs4297a_llseek(struct file *file, loff_t offset, int origin)
+{
+	return -ESPIPE;
+}
+
+
 // --------------------------------------------------------------------- 
 
 static int cs4297a_open_mixdev(struct inode *inode, struct file *file)
@@ -1583,7 +1592,7 @@ static int cs4297a_ioctl_mixdev(struct inode *inode, struct file *file,
 //   Mixer file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4297a_mixer_fops = {
-	llseek:no_llseek,
+	llseek:cs4297a_llseek,
 	ioctl:cs4297a_ioctl_mixdev,
 	open:cs4297a_open_mixdev,
 	release:cs4297a_release_mixdev,
@@ -2250,7 +2259,7 @@ static int cs4297a_ioctl(struct inode *inode, struct file *file,
 		if (s->dma_adc.mapped)
 			s->dma_adc.count &= s->dma_adc.fragsize - 1;
 		spin_unlock_irqrestore(&s->lock, flags);
-		return copy_to_user((void *) arg, &cinfo, sizeof(cinfo))?-EFAULT:0;
+		return copy_to_user((void *) arg, &cinfo, sizeof(cinfo));
 
 	case SNDCTL_DSP_GETOPTR:
 		if (!(file->f_mode & FMODE_WRITE))
@@ -2274,7 +2283,7 @@ static int cs4297a_ioctl(struct inode *inode, struct file *file,
 		if (s->dma_dac.mapped)
 			s->dma_dac.count &= s->dma_dac.fragsize - 1;
 		spin_unlock_irqrestore(&s->lock, flags);
-		return copy_to_user((void *) arg, &cinfo, sizeof(cinfo))?-EFAULT:0;
+		return copy_to_user((void *) arg, &cinfo, sizeof(cinfo));
 
 	case SNDCTL_DSP_GETBLKSIZE:
 		if (file->f_mode & FMODE_WRITE) {
@@ -2501,7 +2510,7 @@ static int cs4297a_open(struct inode *inode, struct file *file)
 //   Wave (audio) file operations struct.
 // ******************************************************************************************
 static /*const */ struct file_operations cs4297a_audio_fops = {
-	llseek:no_llseek,
+	llseek:cs4297a_llseek,
 	read:cs4297a_read,
 	write:cs4297a_write,
 	poll:cs4297a_poll,

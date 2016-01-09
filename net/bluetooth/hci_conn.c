@@ -25,7 +25,7 @@
 /*
  * HCI Connection handling.
  *
- * $Id: hci_conn.c,v 1.2 2002/04/17 17:37:16 maxk Exp $
+ * $Id: hci_conn.c,v 1.3 2002/06/25 22:03:39 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -188,9 +188,6 @@ int hci_conn_del(struct hci_conn *conn)
 			acl->link = NULL;
 			hci_conn_put(acl);
 		}
-
-		/* Unacked frames */
-		hdev->sco_cnt += conn->sent;
 	} else {
 		struct hci_conn *sco = conn->link;
 		if (sco)

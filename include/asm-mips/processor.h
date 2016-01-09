@@ -21,7 +21,7 @@
  */
 #define current_text_addr() ({ __label__ _l; _l: &&_l;})
 
-#if !defined (_LANGUAGE_ASSEMBLY)
+#ifndef __ASSEMBLY__
 #include <linux/threads.h>
 #include <asm/cachectl.h>
 #include <asm/mipsregs.h>
@@ -151,7 +151,7 @@ struct thread_struct {
 	unsigned long irix_oldctx;
 };
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 
 #define INIT_THREAD  { \
         /* \
@@ -181,7 +181,7 @@ struct thread_struct {
 
 #define KERNEL_STACK_SIZE 8192
 
-#if !defined (_LANGUAGE_ASSEMBLY)
+#ifndef __ASSEMBLY__
 
 /* Free all resources held by a thread. */
 #define release_thread(thread) do { } while(0)
@@ -203,7 +203,7 @@ static inline unsigned long thread_saved_pc(struct thread_struct *t)
 	if (t->reg31 == (unsigned long) ret_from_fork)
 		return t->reg31;
 
-	return ((unsigned long *)t->reg29)[10];
+	return ((unsigned long *)t->reg29)[13];
 }
 
 /*
@@ -239,7 +239,7 @@ unsigned long get_wchan(struct task_struct *p);
 
 #define cpu_relax()	do { } while (0)
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
 
 /*

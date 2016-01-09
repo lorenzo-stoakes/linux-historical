@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI Core.
  *
- * $Id: hci_core.c,v 1.6 2002/04/17 17:37:16 maxk Exp $
+ * $Id: hci_core.c,v 1.7 2002/06/25 22:03:39 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -1103,14 +1103,13 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 {
 	struct conn_hash *h = &hdev->conn_hash;
 	struct hci_conn  *conn = NULL;
-	int num = 0, min = 0xffff;
+	int num = 0, min = ~0;
         struct list_head *p;
 
 	/* We don't have to lock device here. Connections are always 
 	 * added and removed with TX task disabled. */
 	list_for_each(p, &h->list) {
 		struct hci_conn *c;
-
 		c = list_entry(p, struct hci_conn, list);
 
 		if (c->type != type || c->state != BT_CONNECTED
@@ -1118,14 +1117,15 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 			continue;
 		num++;
 
-		if (c->sent < min || type == SCO_LINK) {
+		if (c->sent < min) {
 			min  = c->sent;
 			conn = c;
 		}
 	}
 
 	if (conn) {
-		int q = hdev->acl_cnt / num;
+		int cnt = (type == ACL_LINK ? hdev->acl_cnt : hdev->sco_cnt);
+		int q = cnt / num;
 		*quote = q ? q : 1;
 	} else
 		*quote = 0;
@@ -1142,21 +1142,21 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 
 	BT_DBG("%s", hdev->name);
 
-	if (!hdev->acl_cnt && (jiffies - hdev->acl_last_tx) > HZ*5) {
+	/* ACL tx timeout must be longer than maximum
+	 * link supervision timeout (40.9 seconds) */
+	if (!hdev->acl_cnt && (jiffies - hdev->acl_last_tx) > (HZ * 45)) {
 		BT_ERR("%s ACL tx timeout", hdev->name);
 		hdev->acl_cnt++;
 	}
-	
-	while (hdev->acl_cnt && (conn = hci_low_sent(hdev, ACL_LINK, &quote))) {
-		while (quote && (skb = skb_dequeue(&conn->data_q))) {
-			BT_DBG("skb %p len %d", skb, skb->len);
 
+	while (hdev->acl_cnt && (conn = hci_low_sent(hdev, ACL_LINK, &quote))) {
+		while (quote-- && (skb = skb_dequeue(&conn->data_q))) {
+			BT_DBG("skb %p len %d", skb, skb->len);
 			hci_send_frame(skb);
 			hdev->acl_last_tx = jiffies;
 
-			conn->sent++;
 			hdev->acl_cnt--;
-			quote--;
+			conn->sent++;
 		}
 	}
 }
@@ -1170,15 +1170,14 @@ static inline void hci_sched_sco(struct hci_dev *hdev)
 
 	BT_DBG("%s", hdev->name);
 
-	while ((conn = hci_low_sent(hdev, SCO_LINK, &quote))) {
-		while (quote && (skb = skb_dequeue(&conn->data_q))) {
+	while (hdev->sco_cnt && (conn = hci_low_sent(hdev, SCO_LINK, &quote))) {
+		while (quote-- && (skb = skb_dequeue(&conn->data_q))) {
 			BT_DBG("skb %p len %d", skb, skb->len);
-
 			hci_send_frame(skb);
 
-			//conn->sent++;
-			//hdev->sco_cnt--;
-			quote--;
+			conn->sent++;
+			if (conn->sent == ~0)
+				conn->sent = 0;
 		}
 	}
 }

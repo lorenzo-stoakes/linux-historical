@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.misc.S 1.41 04/09/02 21:01:58 paulus
+ * BK Id: SCCS/s.misc.S 1.44 06/25/02 17:24:30 benh
  */
 /*
  * This file contains miscellaneous low-level functions.
@@ -363,20 +363,15 @@ _GLOBAL(_tlbia)
 	stwcx.	r8,0,r9
 	bne-	10b
 #endif /* CONFIG_SMP */
-	sync
+	isync
 	tlbia
-#ifdef CONFIG_SMP
-BEGIN_FTR_SECTION
-	DSSALL
-END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	sync
+#ifdef CONFIG_SMP
 	TLBSYNC
 	li	r0,0
 	stw	r0,0(r9)		/* clear hash_table_lock */
 	mtmsr	r10
 	SYNC
-#else /* CONFIG_SMP */
-	sync
 #endif /* CONFIG_SMP */
 	blr	
 
@@ -399,8 +394,8 @@ _GLOBAL(_tlbie)
 	bne-	10b
 	stwcx.	r8,0,r9
 	bne-	10b
-	eieio
 #endif /* CONFIG_SMP */
+	isync
 	tlbie	r3
 	sync
 #ifdef CONFIG_SMP

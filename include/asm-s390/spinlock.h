@@ -84,7 +84,7 @@ typedef struct {
                      "   la    3,1(2)\n"     /* one more reader */ \
                      "   cs    2,3,0(%0)\n"  /* try to write new value */ \
                      "   jl    0b"       \
-                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" );
+                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" )
 
 #define read_unlock(rw) \
         asm volatile("   l     2,0(%0)\n"   \
@@ -94,7 +94,7 @@ typedef struct {
                      "   ahi   3,-1\n"    /* one less reader */ \
                      "   cs    2,3,0(%0)\n" \
                      "   jl    0b"       \
-                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" );
+                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" )
 
 #define write_lock(rw) \
         asm volatile("   lhi   3,1\n"    \
@@ -104,7 +104,7 @@ typedef struct {
                      "1: slr   2,2\n"     /* old lock value must be 0 */ \
                      "   cs    2,3,0(%0)\n" \
                      "   jl    0b"       \
-                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" );
+                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" )
 
 #define write_unlock(rw) \
         asm volatile("   slr   3,3\n"     /* new lock value = 0 */ \
@@ -114,6 +114,6 @@ typedef struct {
                      "   sll   2,31\n"    /* old lock value must be 0x80000000 */ \
                      "   cs    2,3,0(%0)\n" \
                      "   jl    0b"       \
-                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" );
+                     : : "a" (&(rw)->lock) : "2", "3", "cc", "memory" )
 
 #endif /* __ASM_SPINLOCK_H */

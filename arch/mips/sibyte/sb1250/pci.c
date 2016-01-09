@@ -44,7 +44,6 @@
 
 #include <asm/sibyte/sb1250_defs.h>
 #include <asm/sibyte/sb1250_regs.h>
-#include <asm/sibyte/sb1250_pci.h>
 #include <asm/io.h>
 
 #include "lib_hssubr.h"
@@ -238,10 +237,9 @@ void __init pcibios_init(void)
 	 * See if the PCI bus has been configured by the firmware.
 	 */
 
-	cmdreg = READCFG32((A_PCI_TYPE00_HEADER | MATCH_BITS) +
-			   R_PCI_TYPE0_CMDSTATUS);
+	cmdreg = READCFG32((A_PCI_TYPE00_HEADER | MATCH_BITS) + PCI_COMMAND);
 
-	if (!(cmdreg & M_PCI_CMD_MASTER_EN)) {
+	if (!(cmdreg & PCI_COMMAND_MASTER)) {
 		printk
 		    ("PCI: Skipping PCI probe.  Bus is not initialized.\n");
 		return;
@@ -262,10 +260,9 @@ void __init pcibios_init(void)
 	 * initialize that one.
 	 */
 
-	cmdreg = READCFG32((A_PCI_TYPE01_HEADER | MATCH_BITS) +
-			   R_PCI_TYPE0_CMDSTATUS);
+	cmdreg = READCFG32((A_PCI_TYPE01_HEADER | MATCH_BITS) + PCI_COMMAND);
 
-	if (cmdreg & M_PCI_CMD_MASTER_EN) {
+	if (cmdreg & PCI_COMMAND_MASTER) {
 		sb1250_bus_status |= LDT_BUS_ENABLED;
 	}
 
@@ -276,15 +273,14 @@ void __init pcibios_init(void)
 
 }
 
-int __init pcibios_enable_device(struct pci_dev *dev)
+int pcibios_enable_device(struct pci_dev *dev)
 {
 	/* Not needed, since we enable all devices at startup.  */
 	return 0;
 }
 
-void __init
-pcibios_align_resource(void *data, struct resource *res,
-		       unsigned long size)
+void pcibios_align_resource(void *data, struct resource *res,
+                            unsigned long size)
 {
 }
 
@@ -299,8 +295,7 @@ struct pci_fixup pcibios_fixups[] = {
 	{0}
 };
 
-void __init
-pcibios_update_resource(struct pci_dev *dev, struct resource *root,
+void pcibios_update_resource(struct pci_dev *dev, struct resource *root,
 			struct resource *res, int resource)
 {
 	unsigned long where, size;
@@ -317,12 +312,12 @@ pcibios_update_resource(struct pci_dev *dev, struct resource *root,
  *  Called after each bus is probed, but before its children
  *  are examined.
  */
-void __init pcibios_fixup_bus(struct pci_bus *b)
+void pcibios_fixup_bus(struct pci_bus *b)
 {
 	pci_read_bridge_bases(b);
 }
 
-unsigned __init int pcibios_assign_all_busses(void)
+unsigned int pcibios_assign_all_busses(void)
 {
 	return 1;
 }

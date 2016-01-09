@@ -602,7 +602,7 @@ static int __init cpqarray_init_one( struct pci_dev *pdev,
 static struct pci_driver cpqarray_pci_driver = {
         name:   "cpqarray",
         probe:  cpqarray_init_one,
-        remove:  cpqarray_remove_one,
+        remove:  __devexit_p(cpqarray_remove_one),
         id_table:  cpqarray_pci_device_id,
 };
 

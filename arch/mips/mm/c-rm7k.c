@@ -14,6 +14,7 @@
  *  - many of the bug workarounds are not efficient at all, but at
  *    least they are functional ...
  */
+#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -133,7 +134,6 @@ rm7k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	end = (addr + size) & ~(sc_lsize - 1);
 	while (1) {
 		flush_dcache_line(a);	/* Hit_Writeback_Inv_D */
-		flush_icache_line(a);	/* Hit_Invalidate_I */
 		flush_scache_line(a);	/* Hit_Writeback_Inv_SD */
 		if (a == end) break;
 		a += sc_lsize;
@@ -160,7 +160,6 @@ rm7k_dma_cache_inv(unsigned long addr, unsigned long size)
 	end = (addr + size) & ~(sc_lsize - 1);
 	while (1) {
 		invalidate_dcache_line(a);	/* Hit_Invalidate_D */
-		flush_icache_line(a);		/* Hit_Invalidate_I */
 		invalidate_scache_line(a);	/* Hit_Invalidate_SD */
 		if (a == end) break;
 		a += sc_lsize;

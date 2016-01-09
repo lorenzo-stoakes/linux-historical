@@ -46,6 +46,10 @@
 
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,5)
+#define pte_offset_kernel pte_offset
+#endif
+
 #ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #endif

@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: dir.c,v 1.45.2.5 2002/02/23 14:31:09 dwmw2 Exp $
+ * $Id: dir.c,v 1.45.2.6 2002/06/20 23:54:48 dwmw2 Exp $
  *
  */
 
@@ -939,6 +939,29 @@ static int jffs2_rename (struct inode *old_dir_i, struct dentry *old_dentry,
                         struct inode *new_dir_i, struct dentry *new_dentry)
 {
 	int ret;
+	struct jffs2_inode_info *victim_f = NULL;
+
+	/* The VFS will check for us and prevent trying to rename a 
+	 * file over a directory and vice versa, but if it's a directory,
+	 * the VFS can't check whether the victim is empty. The filesystem
+	 * needs to do that for itself.
+	 */
+	if (new_dentry->d_inode) {
+		victim_f = JFFS2_INODE_INFO(new_dentry->d_inode);
+		if (S_ISDIR(new_dentry->d_inode->i_mode)) {
+			struct jffs2_full_dirent *fd;
+
+			down(&victim_f->sem);
+			for (fd = victim_f->dents; fd; fd = fd->next) {
+				if (fd->ino) {
+					up(&victim_f->sem);
+					return -ENOTEMPTY;
+				}
+			}
+			up(&victim_f->sem);
+		}
+	}
+
 	/* XXX: We probably ought to alloc enough space for
 	   both nodes at the same time. Writing the new link, 
 	   then getting -ENOSPC, is quite bad :)
@@ -948,6 +971,18 @@ static int jffs2_rename (struct inode *old_dir_i, struct dentry *old_dentry,
 	ret = jffs2_do_link(old_dentry, new_dir_i, new_dentry, 1);
 	if (ret)
 		return ret;
+
+	if (victim_f) {
+		/* There was a victim. Kill it off nicely */
+		new_dentry->d_inode->i_nlink--;
+		/* Don't oops if the victim was a dirent pointing to an
+		   inode which didn't exist. */
+		if (victim_f->inocache) {
+			down(&victim_f->sem);
+			victim_f->inocache->nlink--;
+			up(&victim_f->sem);
+		}
+	}
 
 	/* Unlink the original */
 	ret = jffs2_do_unlink(old_dir_i, old_dentry, 1);

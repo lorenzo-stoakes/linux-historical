@@ -284,7 +284,7 @@ IPS_DEFINE_COMPAT_TABLE( Compatable );               /* Version Compatability Ta
        name:		ips_hot_plug_name,
        id_table:	ips_pci_table,
        probe:		ips_insert_device,
-       remove:		ips_remove_device,
+       remove:		__devexit_p(ips_remove_device),
    };
 #endif
 

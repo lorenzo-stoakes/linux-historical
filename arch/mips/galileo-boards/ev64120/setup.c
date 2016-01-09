@@ -51,6 +51,7 @@
 #include <asm/ptrace.h>
 #include <asm/reboot.h>
 #include <asm/mc146818rtc.h>
+#include <asm/traps.h>
 #include <linux/version.h>
 #include <linux/bootmem.h>
 
@@ -104,6 +105,10 @@ struct rtc_ops galileo_rtc_ops = {
 	&galileo_rtc_write_data,
 	&galileo_rtc_bcd_mode
 };
+
+
+void __init bus_error_init(void) { /* nothing */ }
+
 
 /********************************************************************
  *ev64120_setup -

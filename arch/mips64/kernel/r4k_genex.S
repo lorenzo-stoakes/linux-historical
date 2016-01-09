@@ -8,7 +8,6 @@
  *
  * Low level exception handling
  */
-#define __ASSEMBLY__
 #include <linux/init.h>
 #include <asm/asm.h>
 #include <asm/regdef.h>
@@ -20,8 +19,8 @@
 
 	BUILD_HANDLER adel ade ade silent		/* #4  */
 	BUILD_HANDLER ades ade ade silent		/* #5  */
-	BUILD_HANDLER ibe ibe cli silent		/* #6  */
-	BUILD_HANDLER dbe dbe cli silent		/* #7  */
+	BUILD_HANDLER ibe be cli silent			/* #6  */
+	BUILD_HANDLER dbe be cli silent			/* #7  */
 	BUILD_HANDLER bp bp sti silent			/* #9  */
 	BUILD_HANDLER ri ri sti silent			/* #10 */
 	BUILD_HANDLER cpu cpu sti silent		/* #11 */

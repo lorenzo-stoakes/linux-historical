@@ -1152,9 +1152,12 @@ static void raid1d (void *data)
 	struct raid1_bh *r1_bh;
 	struct buffer_head *bh;
 	unsigned long flags;
-	mddev_t *mddev;
+	raid1_conf_t *conf = data;
+	mddev_t *mddev = conf->mddev;
 	kdev_t dev;
 
+	if (mddev->sb_dirty)
+		md_update_sb(mddev);
 
 	for (;;) {
 		md_spin_lock_irqsave(&retry_list_lock, flags);
@@ -1165,8 +1168,6 @@ static void raid1d (void *data)
 		md_spin_unlock_irqrestore(&retry_list_lock, flags);
 
 		mddev = r1_bh->mddev;
-		if (mddev->sb_dirty)
-			md_update_sb(mddev);
 		bh = &r1_bh->bh_req;
 		switch(r1_bh->cmd) {
 		case SPECIAL:
@@ -1177,7 +1178,6 @@ static void raid1d (void *data)
 				int i, sum_bhs = 0;
 				int disks = MD_SB_DISKS;
 				struct buffer_head *bhl, *mbh;
-				raid1_conf_t *conf;
 				
 				conf = mddev_to_conf(mddev);
 				bhl = raid1_alloc_bh(conf, conf->raid_disks); /* don't really need this many */

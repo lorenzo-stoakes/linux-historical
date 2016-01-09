@@ -10,12 +10,17 @@ CONFIG_MIPS64=y
 CONFIG_EXPERIMENTAL=y
 
 #
+# Loadable module support
+#
+# CONFIG_MODULES is not set
+
+#
 # Machine selection
 #
 # CONFIG_MIPS_ATLAS is not set
 # CONFIG_MIPS_MALTA is not set
-# CONFIG_SGI_IP27 is not set
 # CONFIG_SGI_IP22 is not set
+# CONFIG_SGI_IP27 is not set
 CONFIG_SGI_IP32=y
 # CONFIG_SIBYTE_SB1250 is not set
 CONFIG_RWSEM_GENERIC_SPINLOCK=y
@@ -28,10 +33,6 @@ CONFIG_PCI=y
 CONFIG_NONCOHERENT_IO=y
 CONFIG_ARC_MEMORY=y
 CONFIG_L1_CACHE_SHIFT=5
-# CONFIG_ISA is not set
-# CONFIG_EISA is not set
-# CONFIG_MCA is not set
-# CONFIG_SBUS is not set
 
 #
 # CPU selection
@@ -50,26 +51,25 @@ CONFIG_CPU_HAS_LLDSCD=y
 # General setup
 #
 # CONFIG_CPU_LITTLE_ENDIAN is not set
-# CONFIG_MIPS_FPU_EMULATOR is not set
+CONFIG_ARC_CONSOLE=y
 CONFIG_NET=y
 CONFIG_PCI_NAMES=y
+# CONFIG_ISA is not set
+# CONFIG_EISA is not set
+# CONFIG_MCA is not set
+# CONFIG_SBUS is not set
 # CONFIG_HOTPLUG is not set
 # CONFIG_PCMCIA is not set
 # CONFIG_HOTPLUG_PCI is not set
 CONFIG_SYSVIPC=y
 CONFIG_BSD_PROCESS_ACCT=y
 CONFIG_SYSCTL=y
-CONFIG_ARC_CONSOLE=y
+CONFIG_KCORE_ELF=y
+# CONFIG_KCORE_AOUT is not set
 CONFIG_BINFMT_ELF=y
 CONFIG_MIPS32_COMPAT=y
 CONFIG_BINFMT_ELF32=y
 CONFIG_BINFMT_MISC=y
-
-#
-# Loadable module support
-#
-# CONFIG_MODULES is not set
-CONFIG_PCI_NAMES=y
 
 #
 # Memory Technology Devices (MTD)
@@ -82,6 +82,12 @@ CONFIG_PCI_NAMES=y
 # CONFIG_PARPORT is not set
 
 #
+# Plug and Play configuration
+#
+# CONFIG_PNP is not set
+# CONFIG_ISAPNP is not set
+
+#
 # Block devices
 #
 # CONFIG_BLK_DEV_FD is not set
@@ -89,7 +95,9 @@ CONFIG_PCI_NAMES=y
 # CONFIG_PARIDE is not set
 # CONFIG_BLK_CPQ_DA is not set
 # CONFIG_BLK_CPQ_CISS_DA is not set
+# CONFIG_CISS_SCSI_TAPE is not set
 # CONFIG_BLK_DEV_DAC960 is not set
+# CONFIG_BLK_DEV_UMEM is not set
 CONFIG_BLK_DEV_LOOP=y
 # CONFIG_BLK_DEV_NBD is not set
 # CONFIG_BLK_DEV_RAM is not set
@@ -138,6 +146,11 @@ CONFIG_IP_PNP_BOOTP=y
 #
 # CONFIG_IPX is not set
 # CONFIG_ATALK is not set
+
+#
+# Appletalk devices
+#
+# CONFIG_DEV_APPLETALK is not set
 # CONFIG_DECNET is not set
 # CONFIG_BRIDGE is not set
 # CONFIG_X25 is not set
@@ -153,6 +166,11 @@ CONFIG_IP_PNP_BOOTP=y
 # QoS and/or fair queueing
 #
 # CONFIG_NET_SCHED is not set
+
+#
+# Network testing
+#
+# CONFIG_NET_PKTGEN is not set
 
 #
 # Telephony Support
@@ -206,6 +224,7 @@ CONFIG_SCSI_LOGGING=y
 CONFIG_SCSI_AIC7XXX=y
 CONFIG_AIC7XXX_CMDS_PER_DEVICE=8
 CONFIG_AIC7XXX_RESET_DELAY_MS=15000
+# CONFIG_AIC7XXX_PROBE_EISA_VL is not set
 # CONFIG_AIC7XXX_BUILD_FIRMWARE is not set
 # CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ADVANSYS is not set
@@ -243,6 +262,16 @@ CONFIG_AIC7XXX_RESET_DELAY_MS=15000
 # CONFIG_SCSI_T128 is not set
 # CONFIG_SCSI_U14_34F is not set
 # CONFIG_SCSI_DEBUG is not set
+
+#
+# I2O device support
+#
+# CONFIG_I2O is not set
+# CONFIG_I2O_PCI is not set
+# CONFIG_I2O_BLOCK is not set
+# CONFIG_I2O_LAN is not set
+# CONFIG_I2O_SCSI is not set
+# CONFIG_I2O_PROC is not set
 
 #
 # Network device support
@@ -288,6 +317,7 @@ CONFIG_SGI_O2MACE_ETH=y
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
 # CONFIG_SK98LIN is not set
+# CONFIG_TIGON3 is not set
 # CONFIG_FDDI is not set
 # CONFIG_HIPPI is not set
 # CONFIG_PLIP is not set
@@ -328,11 +358,6 @@ CONFIG_SGI_O2MACE_ETH=y
 # CONFIG_ISDN is not set
 
 #
-# Old CD-ROM drivers (not SCSI, not IDE)
-#
-# CONFIG_CD_NO_IDESCSI is not set
-
-#
 # Character devices
 #
 # CONFIG_VT is not set
@@ -356,6 +381,7 @@ CONFIG_MOUSE=y
 CONFIG_PSMOUSE=y
 # CONFIG_82C710_MOUSE is not set
 # CONFIG_PC110_PAD is not set
+# CONFIG_MK712_MOUSE is not set
 
 #
 # Joysticks
@@ -375,7 +401,6 @@ CONFIG_PSMOUSE=y
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
-# CONFIG_INTEL_RNG is not set
 # CONFIG_NVRAM is not set
 # CONFIG_RTC is not set
 # CONFIG_DTLK is not set
@@ -420,7 +445,7 @@ CONFIG_PSMOUSE=y
 # CONFIG_JFFS2_FS is not set
 # CONFIG_CRAMFS is not set
 CONFIG_TMPFS=y
-# CONFIG_RAMFS is not set
+CONFIG_RAMFS=y
 # CONFIG_ISO9660_FS is not set
 # CONFIG_JOLIET is not set
 # CONFIG_ZISOFS is not set
@@ -486,7 +511,6 @@ CONFIG_SGI_PARTITION=y
 # CONFIG_SUN_PARTITION is not set
 # CONFIG_SMB_NLS is not set
 # CONFIG_NLS is not set
-CONFIG_KCORE_ELF=y
 
 #
 # Sound
@@ -499,103 +523,9 @@ CONFIG_KCORE_ELF=y
 # CONFIG_USB is not set
 
 #
-# USB Controllers
+# Bluetooth support
 #
-# CONFIG_USB_UHCI is not set
-# CONFIG_USB_UHCI_ALT is not set
-# CONFIG_USB_OHCI is not set
-
-#
-# USB Device Class drivers
-#
-# CONFIG_USB_AUDIO is not set
-# CONFIG_USB_BLUETOOTH is not set
-# CONFIG_USB_STORAGE is not set
-# CONFIG_USB_STORAGE_DEBUG is not set
-# CONFIG_USB_STORAGE_DATAFAB is not set
-# CONFIG_USB_STORAGE_FREECOM is not set
-# CONFIG_USB_STORAGE_ISD200 is not set
-# CONFIG_USB_STORAGE_DPCM is not set
-# CONFIG_USB_STORAGE_HP8200e is not set
-# CONFIG_USB_STORAGE_SDDR09 is not set
-# CONFIG_USB_STORAGE_JUMPSHOT is not set
-# CONFIG_USB_ACM is not set
-# CONFIG_USB_PRINTER is not set
-
-#
-# USB Human Interface Devices (HID)
-#
-
-#
-#   Input core support is needed for USB HID
-#
-
-#
-# USB Imaging devices
-#
-# CONFIG_USB_DC2XX is not set
-# CONFIG_USB_MDC800 is not set
-# CONFIG_USB_SCANNER is not set
-# CONFIG_USB_MICROTEK is not set
-# CONFIG_USB_HPUSBSCSI is not set
-
-#
-# USB Multimedia devices
-#
-
-#
-#   Video4Linux support is needed for USB Multimedia device support
-#
-
-#
-# USB Network adaptors
-#
-# CONFIG_USB_PEGASUS is not set
-# CONFIG_USB_KAWETH is not set
-# CONFIG_USB_CATC is not set
-# CONFIG_USB_CDCETHER is not set
-# CONFIG_USB_USBNET is not set
-
-#
-# USB port drivers
-#
-# CONFIG_USB_USS720 is not set
-
-#
-# USB Serial Converter support
-#
-# CONFIG_USB_SERIAL is not set
-# CONFIG_USB_SERIAL_GENERIC is not set
-# CONFIG_USB_SERIAL_BELKIN is not set
-# CONFIG_USB_SERIAL_WHITEHEAT is not set
-# CONFIG_USB_SERIAL_DIGI_ACCELEPORT is not set
-# CONFIG_USB_SERIAL_EMPEG is not set
-# CONFIG_USB_SERIAL_FTDI_SIO is not set
-# CONFIG_USB_SERIAL_VISOR is not set
-# CONFIG_USB_SERIAL_IPAQ is not set
-# CONFIG_USB_SERIAL_IR is not set
-# CONFIG_USB_SERIAL_EDGEPORT is not set
-# CONFIG_USB_SERIAL_KEYSPAN_PDA is not set
-# CONFIG_USB_SERIAL_KEYSPAN is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA28 is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA28X is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA28XA is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA28XB is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA19 is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA18X is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA19W is not set
-# CONFIG_USB_SERIAL_KEYSPAN_USA49W is not set
-# CONFIG_USB_SERIAL_MCT_U232 is not set
-# CONFIG_USB_SERIAL_KLSI is not set
-# CONFIG_USB_SERIAL_PL2303 is not set
-# CONFIG_USB_SERIAL_CYBERJACK is not set
-# CONFIG_USB_SERIAL_XIRCOM is not set
-# CONFIG_USB_SERIAL_OMNINET is not set
-
-#
-# USB Miscellaneous drivers
-#
-# CONFIG_USB_RIO500 is not set
+# CONFIG_BLUEZ is not set
 
 #
 # Input core support

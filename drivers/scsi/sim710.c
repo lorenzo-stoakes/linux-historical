@@ -44,7 +44,7 @@
  * and insmod parameters similar to
  *	sim710="addr:0x9000 irq:15"
  *
- * Multiple controllers can also be set up by comamnd line, provided the
+ * Multiple controllers can also be set up by command line, provided the
  * addr: parameter is specified first for each controller.  e.g.
  *      sim710="addr:0x9000 irq:15 addr:0x8000 irq:14"
  *

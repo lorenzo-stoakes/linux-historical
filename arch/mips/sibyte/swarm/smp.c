@@ -15,8 +15,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -38,13 +36,14 @@ extern void asmlinkage smp_bootstrap(void);
 int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp)
 {
 	int retval;
-
-	if ((retval = cfe_start_cpu(1, &smp_bootstrap, sp, gp, 0)) != 0) {
-		printk("cfe_start_cpu returned %i\n" , retval);
-		panic("secondary bootstrap failed");
+	
+	retval = cfe_start_cpu(cpu, &smp_bootstrap, sp, gp, 0);
+	if (retval != 0) {
+		printk("cfe_start_cpu(%i) returned %i\n" , cpu, retval);
+		return 0;
+	} else {
+		return 1;
 	}
-
-	return 1;
 }
 
 
@@ -66,23 +65,35 @@ void prom_init_secondary(void)
  */
 int prom_setup_smp(void)
 {
-	/* Nothing to do here */
-	return 2;
+	int i;
+	int num_cpus = 1;
+
+	/* Use CFE to find out how many CPUs are available */
+	for (i=1; i<NR_CPUS; i++) {
+		if (cfe_stop_cpu(i) == 0) {
+			num_cpus++;
+		}
+	}
+	printk("Detected %i available CPU(s)\n", num_cpus);
+	return num_cpus;
 }
 
 void prom_smp_finish(void)
 {
+	extern void sb1250_smp_finish(void);
 	sb1250_smp_finish();
 }
 
 /*
  * XXX This is really halfway portable code and halfway system specific code.
+ * XXX Seems like some of this is CPU-specific, too - rather than board/system.
  */
 extern atomic_t cpus_booted;
 
 void __init smp_boot_cpus(void)
 {
 	int i;
+	int cur_cpu = 0;
 
 	smp_num_cpus = prom_setup_smp();
 	init_new_context(current, &init_mm);
@@ -92,10 +103,18 @@ void __init smp_boot_cpus(void)
 	CPUMASK_CLRALL(cpu_online_map);
 	CPUMASK_SETB(cpu_online_map, 0);
 	atomic_set(&cpus_booted, 1);  /* Master CPU is already booted... */
+	__cpu_number_map[0] = 0;
+	__cpu_logical_map[0] = 0;
 	init_idle();
-	for (i = 1; i < smp_num_cpus; i++) {
+
+	/* 
+	 * This loop attempts to compensate for "holes" in the CPU
+	 * numbering.  It's overkill, but general.
+	 */
+	for (i = 1; i < smp_num_cpus; ) {
 		struct task_struct *p;
 		struct pt_regs regs;
+		int retval;
 		printk("Starting CPU %d... ", i);
 
 		/* Spawn a new process normally.  Grab a pointer to
@@ -115,9 +134,20 @@ void __init smp_boot_cpus(void)
 		del_from_runqueue(p);
 		unhash_process(p);
 
-		prom_boot_secondary(i,
-				    (unsigned long)p + KERNEL_STACK_SIZE - 32,
-				    (unsigned long)p);
+		do {
+			/* Iterate until we find a CPU that comes up */
+			cur_cpu++;
+			retval = prom_boot_secondary(cur_cpu,
+					    (unsigned long)p + KERNEL_STACK_SIZE - 32,
+					    (unsigned long)p);
+			__cpu_number_map[i] = i;
+			__cpu_logical_map[i] = i;
+		} while (!retval && (cur_cpu < NR_CPUS));
+		if (retval) {
+			i++;
+		} else {
+			panic("CPU discovery disaster");
+		}
 
 #if 0
 		/* This is copied from the ip-27 code in the mips64 tree */

@@ -22,15 +22,8 @@
  *  59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
  *
  * ########################################################################
- *
- * 
  */
-
-#ifndef __mips__
-#error This driver only works with MIPS architectures!
-#endif
-
-
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -47,7 +40,6 @@
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/delay.h>
-#include <linux/crc32.h>
 #include <asm/mipsregs.h>
 #include <asm/irq.h>
 #include <asm/bitops.h>
@@ -89,8 +81,8 @@ static void dump_mii(struct net_device *dev, int phy_id);
 // externs
 extern  void ack_rise_edge_irq(unsigned int);
 extern int get_ethernet_addr(char *ethernet_addr);
-static inline void str2eaddr(unsigned char *ea, unsigned char *str);
-static inline unsigned char str2hexnum(unsigned char c);
+extern inline void str2eaddr(unsigned char *ea, unsigned char *str);
+extern inline unsigned char str2hexnum(unsigned char c);
 extern char * __init prom_getcmdline(void);
 
 /*
@@ -1241,6 +1233,23 @@ static void au1000_tx_timeout(struct net_device *dev)
 	printk(KERN_ERR "%s: au1000_tx_timeout: dev=%p\n", dev->name, dev);
 	reset_mac(dev);
 	au1000_init(dev);
+}
+
+
+static unsigned const ethernet_polynomial = 0x04c11db7U;
+static inline u32 ether_crc(int length, unsigned char *data)
+{
+    int crc = -1;
+
+    while(--length >= 0) {
+		unsigned char current_octet = *data++;
+		int bit;
+		for (bit = 0; bit < 8; bit++, current_octet >>= 1)
+			crc = (crc << 1) ^
+				((crc < 0) ^ (current_octet & 1) ? 
+				 ethernet_polynomial : 0);
+    }
+    return crc;
 }
 
 static void set_rx_mode(struct net_device *dev)

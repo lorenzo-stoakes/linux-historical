@@ -222,6 +222,9 @@ good_area:
 		/* page not present, check vm flags */
 		if (!(vma->vm_flags & (VM_READ | VM_EXEC | VM_WRITE)))
 			goto bad_area;
+	} else {
+		if (!(vma->vm_flags & VM_WRITE))
+			goto bad_area;
 	}
 
 survive:

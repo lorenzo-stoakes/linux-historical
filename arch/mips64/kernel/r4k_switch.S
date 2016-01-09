@@ -8,7 +8,6 @@
  * Copyright (C) 1994, 1995, 1996, by Andreas Busse
  * Copyright (C) 1999 Silicon Graphics, Inc.
  */
-#include <linux/config.h>
 #include <asm/asm.h>
 #include <asm/cachectl.h>
 #include <asm/current.h>
@@ -67,7 +66,7 @@
 
 LEAF(lazy_fpu_switch)
 	mfc0	t0, CP0_STATUS			# enable cp1
-	li	t3, 0x20000000
+	li	t3, ST0_CU1
 	or	t0, t3
 	mtc0	t0, CP0_STATUS
 
@@ -115,6 +114,23 @@ LEAF(save_fp)
 	END(save_fp)
 
 /*
+ * Restore a thread's fp context.
+ */
+LEAF(restore_fp)
+	mfc0	t0, CP0_STATUS
+	sll	t1, t0, 5
+	bgez	t0, 1f				# 16 register mode?
+	 nop
+
+	fpu_restore_16odd $28
+1:
+	.set	reorder
+	fpu_restore_16even $28, t0		# clobbers t0
+
+	jr	ra
+	END(restore_fp)
+
+/*
  * Load the FPU with signalling NANS.  This bit pattern we're using has
  * the property that no matter whether considered as single or as double
  * precision represents signaling NANS.
@@ -126,7 +142,7 @@ LEAF(save_fp)
 
 LEAF(init_fpu)
 	mfc0	t0, CP0_STATUS
-	li	t1, 0x20000000
+	li	t1, ST0_CU1
 	or	t0, t1
 	mtc0	t0, CP0_STATUS
 	sll	t0, t0, 5

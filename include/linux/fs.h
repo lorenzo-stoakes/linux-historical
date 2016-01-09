@@ -1449,7 +1449,12 @@ extern int page_follow_link(struct dentry *, struct nameidata *);
 extern struct inode_operations page_symlink_inode_operations;
 
 extern int vfs_readdir(struct file *, filldir_t, void *);
+extern int dcache_dir_open(struct inode *, struct file *);
+extern int dcache_dir_close(struct inode *, struct file *);
+extern loff_t dcache_dir_lseek(struct file *, loff_t, int);
+extern int dcache_dir_fsync(struct file *, struct dentry *, int);
 extern int dcache_readdir(struct file *, void *, filldir_t);
+extern struct file_operations dcache_dir_ops;
 
 extern struct file_system_type *get_fs_type(const char *name);
 extern struct super_block *get_super(kdev_t);

@@ -1291,6 +1291,17 @@ M:	promise@pnd-pc.demon.co.uk
 W:	http://www.pnd-pc.demon.co.uk/promise/
 S:	Maintained
 
+PROMISE PDC202XX IDE CONTROLLER DRIVER
+P:	Hank Yang
+M:	support@promise.com.tw [TAIWAN]
+P:	Jordan Rhody
+M:	support@promise.com [U.S.A]
+P:	Jack Hu
+M:	support-china@promise.com [CHINA]
+W:	http://www.promise.com/support/linux_eng.asp
+W:	http://www.promise.com.tw/support/linux_eng.asp
+S:	Maintained
+
 QNX4 FILESYSTEM
 P:	Anders Larsen
 M:	al@alarsen.net

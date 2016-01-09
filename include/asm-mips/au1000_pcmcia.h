@@ -25,10 +25,10 @@
  *
  * 
  */
-
 #ifndef __ASM_AU1000_PCMCIA_H
 #define __ASM_AU1000_PCMCIA_H
 
+#include <linux/config.h>
 
 #define AU1000_PCMCIA_POLL_PERIOD    (2*HZ)
 #define AU1000_PCMCIA_IO_SPEED       (255)

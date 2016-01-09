@@ -264,7 +264,7 @@ void __init mem_init(void)
 	unsigned long codesize, reservedpages, datasize, initsize;
 	unsigned long tmp, ram;
 
-	max_mapnr = num_physpages = max_low_pfn;
+	max_mapnr = num_mappedpages = num_physpages = max_low_pfn;
 	high_memory = (void *) __va(max_mapnr << PAGE_SHIFT);
 
 	totalram_pages += free_all_bootmem();
@@ -282,8 +282,8 @@ void __init mem_init(void)
 	datasize =  (unsigned long) &_edata - (unsigned long) &_fdata;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
 
-	printk("Memory: %luk/%luk available (%ldk kernel code, %ldk reserved, "
-	       "%ldk data, %ldk init)\n",
+	printk(KERN_INFO "Memory: %luk/%luk available (%ldk kernel code, "
+	       "%ldk reserved, %ldk data, %ldk init)\n",
 	       (unsigned long) nr_free_pages() << (PAGE_SHIFT-10),
 	       ram << (PAGE_SHIFT-10),
 	       codesize >> 10,
@@ -302,7 +302,8 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 		free_page(start);
 		totalram_pages++;
 	}
-	printk ("Freeing initrd memory: %ldk freed\n", (end - start) >> 10);
+	printk(KERN_INFO "Freeing initrd memory: %ldk freed\n",
+	       (end - start) >> 10);
 }
 #endif
 

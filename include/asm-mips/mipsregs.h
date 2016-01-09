@@ -12,6 +12,7 @@
 #ifndef _ASM_MIPSREGS_H
 #define _ASM_MIPSREGS_H
 
+#include <linux/config.h>
 #include <linux/linkage.h>
 
 /*
@@ -52,12 +53,15 @@
 #define CP0_XCONTEXT $20
 #define CP0_FRAMEMASK $21
 #define CP0_DIAGNOSTIC $22
+#define CP0_DEBUG $23
+#define CP0_DEPC $24
 #define CP0_PERFORMANCE $25
 #define CP0_ECC $26
 #define CP0_CACHEERR $27
 #define CP0_TAGLO $28
 #define CP0_TAGHI $29
 #define CP0_ERROREPC $30
+#define CP0_DESAVE $31
 
 /*
  * R4640/R4650 cp0 register names.  These registers are listed
@@ -146,7 +150,6 @@
 /*
  * Values for PageMask register
  */
-#include <linux/config.h>
 #ifdef CONFIG_CPU_VR41XX
 
 /* Why doesn't stupidity hurt ... */
@@ -441,9 +444,34 @@
 #define CEB_KERNEL	2	/* Count events in kernel mode EXL = ERL = 0 */
 #define CEB_EXL		1	/* Count events with EXL = 1, ERL = 0 */
 
-#ifndef _LANGUAGE_ASSEMBLY
+#ifndef __ASSEMBLY__
 
-#include <asm/system.h>
+/*
+ * Functions to access the r10k performance counter and control registers
+ */
+#define read_r10k_perf_cntr(counter)                            \
+({ unsigned int __res;                                          \
+        __asm__ __volatile__(                                   \
+        "mfpc\t%0, "STR(counter)                                \
+        : "=r" (__res));                                        \
+        __res;})
+
+#define write_r10k_perf_cntr(counter,val)                       \
+        __asm__ __volatile__(                                   \
+        "mtpc\t%0, "STR(counter)                                \
+        : : "r" (val));
+
+#define read_r10k_perf_cntl(counter)                            \
+({ unsigned int __res;                                          \
+        __asm__ __volatile__(                                   \
+        "mfps\t%0, "STR(counter)                                \
+        : "=r" (__res));                                        \
+        __res;})
+
+#define write_r10k_perf_cntl(counter,val)                       \
+        __asm__ __volatile__(                                   \
+        "mtps\t%0, "STR(counter)                                \
+        : : "r" (val));
 
 /*
  * Macros to access the system control coprocessor
@@ -994,6 +1022,6 @@ do {									\
 		__disable_fpu();					\
 } while (0)
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_MIPSREGS_H */

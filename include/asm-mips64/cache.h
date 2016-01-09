@@ -9,7 +9,9 @@
 #ifndef _ASM_CACHE_H
 #define _ASM_CACHE_H
 
-#ifndef _LANGUAGE_ASSEMBLY
+#include <linux/config.h>
+
+#ifndef __ASSEMBLY__
 /*
  * Descriptor for a cache
  */
@@ -19,7 +21,7 @@ struct cache_desc {
 	int ways;
 	int flags;	/* Details like write thru/back, coherent, etc. */
 };
-#endif
+#endif /* !__ASSEMBLY__ */
 
 /* bytes per L1 cache line */
 #define L1_CACHE_BYTES		(1 << CONFIG_L1_CACHE_SHIFT)

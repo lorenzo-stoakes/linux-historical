@@ -1392,6 +1392,12 @@ static void __orinoco_ev_rx(struct orinoco_private *priv, hermes_t *hw)
 		   802.11 frame which we'll need to de-encapsulate to
 		   the original EthernetII frame. */
 
+		if (length < ENCAPS_OVERHEAD) {
+			stats->rx_length_errors++;
+			stats->rx_dropped++;
+			goto drop;
+		}
+
 		/* Remove SNAP header, reconstruct EthernetII frame */
 		data_len = length - ENCAPS_OVERHEAD;
 		data_off = HERMES_802_3_OFFSET + sizeof(hdr);

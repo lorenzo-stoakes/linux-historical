@@ -15,43 +15,27 @@
 
 /*
  * Return current * instruction pointer ("program counter").
- *
- * Two implementations.  The ``la'' version results in shorter code for
- * the kernel which we assume to reside in the 32-bit compat address space.
- * The  ``jal'' version is for use by modules which live in outer space.
- * This is just a single instruction unlike the long dla macro expansion.
  */
-#ifdef MODULE
 #define current_text_addr()						\
 ({									\
 	void *_a;							\
 									\
-	__asm__ ("jal\t1f, %0\n\t"					\
-		"1:"							\
-		: "=r" (_a));						\
+	__asm__ ("bal\t1f\t\t\t# current_text_addr\n"			\
+		"1:\tmove\t%0, $31"					\
+		: "=r" (_a)						\
+		:							\
+		: "$31");						\
 									\
 	_a;								\
 })
-#else
-#define current_text_addr()						\
-({									\
-	void *_a;							\
-									\
-	__asm__ ("dla\t%0, 1f\n\t"					\
-		"1:"							\
-		: "=r" (_a));						\
-									\
-	_a;								\
-})
-#endif
 
-#if !defined (_LANGUAGE_ASSEMBLY)
+#ifndef __ASSEMBLY__
 #include <asm/cachectl.h>
 #include <asm/mipsregs.h>
 #include <asm/reg.h>
 #include <asm/system.h>
 
-#if (defined(CONFIG_SGI_IP27))
+#if defined(CONFIG_SGI_IP27)
 #include <asm/sn/types.h>
 #include <asm/sn/intr_public.h>
 #endif
@@ -210,7 +194,7 @@ struct thread_struct {
 	unsigned long irix_oldctx;
 };
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 
 #define INIT_THREAD  { \
         /* \
@@ -240,7 +224,7 @@ struct thread_struct {
 
 #define KERNEL_STACK_SIZE 0x4000
 
-#if !defined (_LANGUAGE_ASSEMBLY)
+#ifndef __ASSEMBLY__
 
 /* Free all resources held by a thread. */
 #define release_thread(thread) do { } while(0)
@@ -306,7 +290,7 @@ unsigned long get_wchan(struct task_struct *p);
 
 #define cpu_relax()	do { } while (0)
 
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
 
 /*

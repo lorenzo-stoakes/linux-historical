@@ -59,7 +59,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/sound.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/soundcard.h>
 #include <linux/pci.h>
 #include <linux/init.h>
@@ -857,6 +857,12 @@ static void it8172_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 /* --------------------------------------------------------------------- */
 
+static loff_t it8172_llseek(struct file *file, loff_t offset, int origin)
+{
+	return -ESPIPE;
+}
+
+
 static int it8172_open_mixdev(struct inode *inode, struct file *file)
 {
 	int minor = MINOR(inode->i_rdev);
@@ -998,7 +1004,7 @@ static int it8172_ioctl_mixdev(struct inode *inode, struct file *file,
 
 static /*const*/ struct file_operations it8172_mixer_fops = {
 	owner:	THIS_MODULE,
-	llseek:	no_llseek,
+	llseek:	it8172_llseek,
 	ioctl:	it8172_ioctl_mixdev,
 	open:	it8172_open_mixdev,
 	release:	it8172_release_mixdev,
@@ -1647,7 +1653,7 @@ static int it8172_ioctl(struct inode *inode, struct file *file,
 		if (count < 0)
 			count = 0;
 		cinfo.blocks = count >> s->dma_adc.fragshift;
-		return copy_to_user((void *)arg, &cinfo, sizeof(cinfo))?-EFAULT:0;
+		return copy_to_user((void *)arg, &cinfo, sizeof(cinfo));
 
 	case SNDCTL_DSP_GETOPTR:
 		if (!(file->f_mode & FMODE_READ))
@@ -1670,7 +1676,7 @@ static int it8172_ioctl(struct inode *inode, struct file *file,
 		if (count < 0)
 			count = 0;
 		cinfo.blocks = count >> s->dma_dac.fragshift;
-		return copy_to_user((void *)arg, &cinfo, sizeof(cinfo))?-EFAULT:0;
+		return copy_to_user((void *)arg, &cinfo, sizeof(cinfo));
 
 	case SNDCTL_DSP_GETBLKSIZE:
 		if (file->f_mode & FMODE_WRITE)
@@ -1867,7 +1873,7 @@ static int it8172_release(struct inode *inode, struct file *file)
 
 static /*const*/ struct file_operations it8172_audio_fops = {
 	owner:	THIS_MODULE,
-	llseek:	no_llseek,
+	llseek:	it8172_llseek,
 	read:	it8172_read,
 	write:	it8172_write,
 	poll:	it8172_poll,

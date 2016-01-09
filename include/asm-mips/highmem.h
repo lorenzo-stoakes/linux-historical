@@ -20,7 +20,6 @@
 
 #ifdef __KERNEL__
 
-#include <linux/config.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <asm/kmap_types.h>
@@ -53,7 +52,7 @@ extern void kunmap_high(struct page *page);
 static inline void *kmap(struct page *page)
 {
 	if (in_interrupt())
-		BUG();
+		out_of_line_bug();
 	if (page < highmem_start_page)
 		return page_address(page);
 	return kmap_high(page);
@@ -62,7 +61,7 @@ static inline void *kmap(struct page *page)
 static inline void kunmap(struct page *page)
 {
 	if (in_interrupt())
-		BUG();
+		out_of_line_bug();
 	if (page < highmem_start_page)
 		return;
 	kunmap_high(page);

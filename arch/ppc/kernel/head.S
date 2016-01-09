@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.head.S 1.39 05/06/02 01:37:30 benh
+ * BK Id: SCCS/s.head.S 1.43 06/25/02 17:24:29 benh
  */
 /*
  *  PowerPC version 
@@ -325,11 +325,13 @@ DataAccess:
 	EXCEPTION_PROLOG
 #endif /* CONFIG_PPC64BRIDGE */
 	mfspr	r20,DSISR
+BEGIN_FTR_SECTION
 	andis.	r0,r20,0xa470		/* weird error? */
 	bne	1f			/* if not, try to put a PTE */
 	mfspr	r4,DAR			/* into the hash table */
 	rlwinm	r3,r20,32-15,21,21	/* DSISR_STORE -> _PAGE_RW */
 	bl	hash_page
+END_FTR_SECTION_IFSET(CPU_FTR_HPTE_TABLE)
 1:	stw	r20,_DSISR(r21)
 	mr	r5,r20
 	mfspr	r4,DAR
@@ -366,11 +368,13 @@ InstructionAccessCont:
 InstructionAccess:
 	EXCEPTION_PROLOG
 #endif /* CONFIG_PPC64BRIDGE */
+BEGIN_FTR_SECTION
 	andis.	r0,r23,0x4000		/* no pte found? */
 	beq	1f			/* if so, try to put a PTE */
 	li	r3,0			/* into the hash table */
 	mr	r4,r22			/* SRR0 is fault address */
 	bl	hash_page
+END_FTR_SECTION_IFSET(CPU_FTR_HPTE_TABLE)
 1:	addi	r3,r1,STACK_FRAME_OVERHEAD
 	mr	r4,r22
 	mr	r5,r23

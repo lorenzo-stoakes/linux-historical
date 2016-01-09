@@ -25,7 +25,7 @@
  * code to do general bookkeeping (e.g. update jiffies, run
  * bottom halves, etc.)
  */
-
+#include <linux/config.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
@@ -33,15 +33,13 @@
 #include <asm/irq.h>
 #include <asm/ptrace.h>
 #include <asm/addrspace.h>
+#include <asm/time.h>
+
 #include <asm/sibyte/sb1250.h>
 #include <asm/sibyte/sb1250_regs.h>
 #include <asm/sibyte/sb1250_int.h>
 #include <asm/sibyte/sb1250_scd.h>
 #include <asm/sibyte/64bit.h>
-
-
-void timer_interrupt(int irq, void *dev_id, struct pt_regs *regs);
-
 
 
 #define IMR_IP2_VAL	K_INT_MAP_I0
@@ -89,10 +87,6 @@ void sb1250_time_init(void)
 	 */
 }
 
-extern int set_rtc_mmss(unsigned long nowtime);
-extern rwlock_t xtime_lock;
-static long last_rtc_update = 0;
-
 void sb1250_timer_interrupt(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
@@ -102,37 +96,14 @@ void sb1250_timer_interrupt(struct pt_regs *regs)
 	      KSEG1 + A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG));  
 
 	/*
-	 * Need to do some stuff here with xtime, too, but that looks like
-	 * it should be architecture independent...does it really belong here?
+	 * CPU 0 handles the global timer interrupt job
 	 */
-	if (!cpu) {
-		do_timer(regs);
-
-		read_lock(&xtime_lock);
-		if ((time_status & STA_UNSYNC) == 0 
-		    && xtime.tv_sec > last_rtc_update + 660 
-		    && xtime.tv_usec >= 500000 - (tick >> 1) 
-		    && xtime.tv_usec <= 500000 + (tick >> 1)) {
-			if (set_rtc_mmss(xtime.tv_sec) == 0)
-				last_rtc_update = xtime.tv_sec;
-			else
-				/* do it again in 60 s */
-				last_rtc_update = xtime.tv_sec - 600; 
-		}
-		read_unlock(&xtime_lock);
+	if (cpu == 0) {
+		ll_timer_interrupt(0, regs);
 	}
 
-#ifdef CONFIG_SMP
 	/*
-	 * We need to make like a normal interrupt -- otherwise timer
-	 * interrupts ignore the global interrupt lock, which would be
-	 * a Bad Thing.
+	 * every CPU should do profiling and process accouting
 	 */
-	irq_enter(cpu, 0);
-	update_process_times(user_mode(regs));
-	irq_exit(cpu, 0);
-
-	if (softirq_pending(cpu))
-		do_softirq();
-#endif /* CONFIG_SMP */
+	ll_local_timer_interrupt(0, regs);
 }

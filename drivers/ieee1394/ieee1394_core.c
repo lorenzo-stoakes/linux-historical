@@ -906,17 +906,16 @@ static int ieee1394_dispatch_open(struct inode *inode, struct file *file)
 
 	/* printk("ieee1394_dispatch_open(%d)", blocknum); */
 
-	/* lock the whole kernel here, to prevent a driver from
-	   being unloaded between the file_ops lookup and the open */
-
-	lock_kernel();
-
 	read_lock(&ieee1394_chardevs_lock);
-	file_ops = ieee1394_chardevs[blocknum].file_ops;
 	module = ieee1394_chardevs[blocknum].module;
+	/* bump the reference count of the driver that
+	   will receive the open() */
+	INCREF(module);
+	file_ops = ieee1394_chardevs[blocknum].file_ops;
 	read_unlock(&ieee1394_chardevs_lock);
 
 	if(file_ops == NULL) {
+		DECREF(module);
 		goto out_fail;
 	}
 
@@ -924,10 +923,6 @@ static int ieee1394_dispatch_open(struct inode *inode, struct file *file)
 	   own file_operations */
 	file->f_op = file_ops;
 
-	/* bump the reference count of the driver that
-	   will receive the open() */
-	INCREF(module);
-	
 	/* at this point BOTH ieee1394 and the task-specific driver have
 	   an extra reference */
 
@@ -956,7 +951,6 @@ static int ieee1394_dispatch_open(struct inode *inode, struct file *file)
 		   and will be dropped by the VFS when the file is
 		   released. */
 		
-		unlock_kernel();
 		return 0;
 	}
 	       
@@ -966,7 +960,6 @@ out_fail:
 	   function returns. */
 	
 	file->f_op = &ieee1394_chardev_ops;
-	unlock_kernel();
 	return retval;
 
 #undef INCREF

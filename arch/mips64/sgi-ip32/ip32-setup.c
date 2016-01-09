@@ -7,6 +7,7 @@
  *
  * Copyright (C) 2000 Harald Koerfgen
  */
+#include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/mc146818rtc.h>
@@ -58,10 +59,6 @@ static inline void str2eaddr(unsigned char *ea, unsigned char *str)
 #endif
 
 extern void ip32_time_init(void);
-
-void __init bus_error_init(void)
-{
-}
 
 void __init ip32_setup(void)
 {

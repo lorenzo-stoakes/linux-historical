@@ -120,9 +120,9 @@ __asm__(".macro\t__restore_flags flags\n\t"
 	"xori\t$1, 1\n\t"
 	"or\t\\flags, $1\n\t"
 	"mtc0\t\\flags, $12\n\t"
-	"nop\n\t"
-	"nop\n\t"
-	"nop\n\t"
+	"sll\t$0, $0, 1\t\t\t# nop\n\t"
+	"sll\t$0, $0, 1\t\t\t# nop\n\t"
+	"sll\t$0, $0, 1\t\t\t# nop\n\t"
 	".set\tat\n\t"
 	".set\treorder\n\t"
 	".endm");
@@ -209,13 +209,13 @@ do { var = value; mb(); } while (0)
 #define set_wmb(var, value) \
 do { var = value; wmb(); } while (0)
 
-#if !defined (_LANGUAGE_ASSEMBLY)
+#ifndef __ASSEMBLY__
 /*
  * switch_to(n) should switch tasks to task nr n, first
  * checking that n isn't the current task, in which case it does nothing.
  */
 extern asmlinkage void *resume(void *last, void *next);
-#endif /* !defined (_LANGUAGE_ASSEMBLY) */
+#endif /* !__ASSEMBLY__ */
 
 #define prepare_to_switch()	do { } while(0)
 #define switch_to(prev,next,last) \

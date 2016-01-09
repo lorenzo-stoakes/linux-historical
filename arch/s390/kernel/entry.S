@@ -556,8 +556,8 @@ sys_call_table:
         .long  sys_madvise
 	.long  sys_getdents64		 /* 220 */
         .long  sys_fcntl64 
-	.long  sys_ni_syscall		 /* 222 - reserved for gettid */
-	.long  sys_ni_syscall		 /* 223 - reserved for tkill */
+	.long  sys_ni_syscall
+	.long  sys_ni_syscall
 	.long  sys_ni_syscall		 /* 224 - reserved for setxattr  */
 	.long  sys_ni_syscall            /* 225 - reserved for lsetxattr */
 	.long  sys_ni_syscall		 /* 226 - reserved for fsetxattr */
@@ -570,10 +570,10 @@ sys_call_table:
 	.long  sys_ni_syscall		 /* 233 - reserved for removexattr */
 	.long  sys_ni_syscall		 /* 234 - reserved for lremovexattr */
 	.long  sys_ni_syscall		 /* 235 - reserved for fremovexattr */
-	.rept  255-235
+	.long  sys_gettid
+	.long  sys_tkill
+	.rept  255-237
 	.long  sys_ni_syscall
-	.long  sys_gettid		/* 226 */
-	.long  sys_tkill		/* 227 */
 	.endr
 
 /*

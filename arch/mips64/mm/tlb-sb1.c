@@ -17,6 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */ 
+#include <linux/config.h>
 #include <asm/mmu_context.h>
 #include <asm/bootinfo.h>
 #include <asm/cpu.h>
@@ -67,7 +68,7 @@ void sb1_dump_tlb(void)
 	       "--------------------------------------------------------------------\n");
 	dump_cur_tlb_regs();
 	printk(" %08X\n", read_32bit_cp0_register(CP0_INDEX));
-	printk("\n\nFull TLB Dump:"
+	printk("\n\nFull TLB Dump:\n"
 	       "Idx      EntryHi       EntryLo0          EntryLo1     PageMask\n"
 	       "--------------------------------------------------------------\n");
 	for (entry = 0; entry < mips_cpu.tlbsize; entry++) {
