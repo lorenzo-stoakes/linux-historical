@@ -45,7 +45,6 @@
 #include <linux/mc146818rtc.h> /* CMOS defines */
 #include <linux/init.h>
 #include <linux/blkpg.h>
-#include <linux/ide.h>
 
 #define REALLY_SLOW_IO
 #include <asm/system.h>

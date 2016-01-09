@@ -230,7 +230,6 @@ struct e1000_option {
 	} arg;
 };
 
-
 static int __devinit
 e1000_validate_option(int *value, struct e1000_option *opt)
 {
@@ -273,7 +272,7 @@ e1000_validate_option(int *value, struct e1000_option *opt)
 	default:
 		BUG();
 	}
-		
+
 	printk(KERN_INFO "Invalid %s specified (%i) %s\n",
 	       opt->name, *value, opt->err);
 	*value = opt->def;
@@ -298,7 +297,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 {
 	int bd = adapter->bd_number;
 	if(bd >= E1000_MAX_NIC) {
-		printk(KERN_NOTICE 
+		printk(KERN_NOTICE
 		       "Warning: no configuration for board #%i\n", bd);
 		printk(KERN_NOTICE "Using defaults for all values\n");
 		bd = E1000_MAX_NIC;
@@ -310,11 +309,11 @@ e1000_check_options(struct e1000_adapter *adapter)
 			.name = "Transmit Descriptors",
 			.err  = "using default of " __MODULE_STRING(DEFAULT_TXD),
 			.def  = DEFAULT_TXD,
-			.arg  = { r: { min: MIN_TXD }}
+			.arg  = { .r = { .min = MIN_TXD }}
 		};
 		struct e1000_desc_ring *tx_ring = &adapter->tx_ring;
 		e1000_mac_type mac_type = adapter->hw.mac_type;
-		opt.arg.r.max = mac_type < e1000_82544 ? 
+		opt.arg.r.max = mac_type < e1000_82544 ?
 			MAX_TXD : MAX_82544_TXD;
 
 		tx_ring->count = TxDescriptors[bd];
@@ -327,7 +326,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 			.name = "Receive Descriptors",
 			.err  = "using default of " __MODULE_STRING(DEFAULT_RXD),
 			.def  = DEFAULT_RXD,
-			.arg  = { r: { min: MIN_RXD }}
+			.arg  = { .r = { .min = MIN_RXD }}
 		};
 		struct e1000_desc_ring *rx_ring = &adapter->rx_ring;
 		e1000_mac_type mac_type = adapter->hw.mac_type;
@@ -344,13 +343,13 @@ e1000_check_options(struct e1000_adapter *adapter)
 			.err  = "defaulting to Enabled",
 			.def  = OPTION_ENABLED
 		};
-		
+
 		int rx_csum = XsumRX[bd];
 		e1000_validate_option(&rx_csum, &opt);
 		adapter->rx_csum = rx_csum;
 	}
 	{ /* Flow Control */
-		
+
 		struct e1000_opt_list fc_list[] =
 			{{ e1000_fc_none,    "Flow Control Disabled" },
 			 { e1000_fc_rx_pause,"Flow Control Receive Only" },
@@ -363,7 +362,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 			.name = "Flow Control",
 			.err  = "reading default settings from EEPROM",
 			.def  = e1000_fc_default,
-			.arg  = { l: { nr: ARRAY_SIZE(fc_list), p: fc_list }}
+			.arg  = { .l = { .nr = ARRAY_SIZE(fc_list), .p = fc_list }}
 		};
 
 		int fc = FlowControl[bd];
@@ -375,7 +374,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 		struct e1000_option opt = {
 			.type = range_option,
 			.name = "Transmit Interrupt Delay",
-			.arg  = { r: { min: MIN_TXDELAY, max: MAX_TXDELAY }}
+			.arg  = { .r = { .min = MIN_TXDELAY, .max = MAX_TXDELAY }}
 		};
 		opt.def = DEFAULT_TIDV;
 		opt.err = tidv;
@@ -388,7 +387,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 		struct e1000_option opt = {
 			.type = range_option,
 			.name = "Transmit Absolute Interrupt Delay",
-			.arg  = { r: { min: MIN_TXABSDELAY, max: MAX_TXABSDELAY }}
+			.arg  = { .r = { .min = MIN_TXABSDELAY, .max = MAX_TXABSDELAY }}
 		};
 		opt.def = DEFAULT_TADV;
 		opt.err = tadv;
@@ -401,7 +400,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 		struct e1000_option opt = {
 			.type = range_option,
 			.name = "Receive Interrupt Delay",
-			.arg  = { r: { min: MIN_RXDELAY, max: MAX_RXDELAY }}
+			.arg  = { .r = { .min = MIN_RXDELAY, .max = MAX_RXDELAY }}
 		};
 		opt.def = DEFAULT_RDTR;
 		opt.err = rdtr;
@@ -414,7 +413,7 @@ e1000_check_options(struct e1000_adapter *adapter)
 		struct e1000_option opt = {
 			.type = range_option,
 			.name = "Receive Absolute Interrupt Delay",
-			.arg  = { r: { min: MIN_RXABSDELAY, max: MAX_RXABSDELAY }}
+			.arg  = { .r = { .min = MIN_RXABSDELAY, .max = MAX_RXABSDELAY }}
 		};
 		opt.def = DEFAULT_RADV;
 		opt.err = radv;
@@ -478,15 +477,16 @@ e1000_check_copper_options(struct e1000_adapter *adapter)
 
 	{ /* Speed */
 		struct e1000_opt_list speed_list[] = {{          0, "" },
-		                                      {   SPEED_10, "" },
-		                                      {  SPEED_100, "" },
-		                                      { SPEED_1000, "" }};
+						      {   SPEED_10, "" },
+						      {  SPEED_100, "" },
+						      { SPEED_1000, "" }};
+
 		struct e1000_option opt = {
 			.type = list_option,
 			.name = "Speed",
 			.err  = "parameter ignored",
 			.def  = 0,
-			.arg  = { l: { nr: ARRAY_SIZE(speed_list), p: speed_list }}
+			.arg  = { .l = { .nr = ARRAY_SIZE(speed_list), .p = speed_list }}
 		};
 
 		speed = Speed[bd];
@@ -494,14 +494,15 @@ e1000_check_copper_options(struct e1000_adapter *adapter)
 	}
 	{ /* Duplex */
 		struct e1000_opt_list dplx_list[] = {{           0, "" },
-		                                     { HALF_DUPLEX, "" },
-		                                     { FULL_DUPLEX, "" }};
+						     { HALF_DUPLEX, "" },
+						     { FULL_DUPLEX, "" }};
+
 		struct e1000_option opt = {
 			.type = list_option,
 			.name = "Duplex",
 			.err  = "parameter ignored",
 			.def  = 0,
-			.arg  = { l: { nr: ARRAY_SIZE(dplx_list), p: dplx_list }}
+			.arg  = { .l = { .nr = ARRAY_SIZE(dplx_list), .p = dplx_list }}
 		};
 
 		dplx = Duplex[bd];
@@ -553,7 +554,7 @@ e1000_check_copper_options(struct e1000_adapter *adapter)
 			.name = "AutoNeg",
 			.err  = "parameter ignored",
 			.def  = AUTONEG_ADV_DEFAULT,
-			.arg  = { l: { nr: ARRAY_SIZE(an_list), p: an_list }}
+			.arg  = { .l = { .nr = ARRAY_SIZE(an_list), .p = an_list }}
 		};
 
 		int an = AutoNeg[bd];
@@ -572,7 +573,7 @@ e1000_check_copper_options(struct e1000_adapter *adapter)
 		printk(KERN_INFO "Half Duplex specified without Speed\n");
 		printk(KERN_INFO "Using Autonegotiation at Half Duplex only\n");
 		adapter->hw.autoneg = 1;
-		adapter->hw.autoneg_advertised = ADVERTISE_10_HALF | 
+		adapter->hw.autoneg_advertised = ADVERTISE_10_HALF |
 		                                 ADVERTISE_100_HALF;
 		break;
 	case FULL_DUPLEX:

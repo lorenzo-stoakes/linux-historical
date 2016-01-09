@@ -782,7 +782,7 @@ static void __init init_hwif_ali15x3 (ide_hwif_t *hwif)
 	u8 ideic, inmir;
 	s8 irq_routing_table[] = { -1,  9, 3, 10, 4,  5, 7,  6,
 				      1, 11, 0, 12, 0, 14, 0, 15 };
-	int irq;
+	int irq = -1;
 	
 	hwif->irq = hwif->channel ? 15 : 14;
 

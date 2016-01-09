@@ -460,6 +460,7 @@ extern int sysctl_tcp_rmem[3];
 extern int sysctl_tcp_app_win;
 extern int sysctl_tcp_adv_win_scale;
 extern int sysctl_tcp_tw_reuse;
+extern int sysctl_tcp_frto;
 
 extern atomic_t tcp_memory_allocated;
 extern atomic_t tcp_sockets_allocated;
@@ -710,6 +711,7 @@ extern struct sock *		tcp_check_req(struct sock *sk,struct sk_buff *skb,
 extern int			tcp_child_process(struct sock *parent,
 						  struct sock *child,
 						  struct sk_buff *skb);
+extern void			tcp_enter_frto(struct sock *sk);
 extern void			tcp_enter_loss(struct sock *sk, int how);
 extern void			tcp_clear_retrans(struct tcp_opt *tp);
 extern void			tcp_update_metrics(struct sock *sk);
@@ -1829,5 +1831,18 @@ static inline int tcp_paws_check(struct tcp_opt *tp, int rst)
 }
 
 #define TCP_CHECK_TIMER(sk) do { } while (0)
+
+static inline int tcp_use_frto(const struct sock *sk)
+{
+	const struct tcp_opt *tp = &sk->tp_pinfo.af_tcp;
+	
+	/* F-RTO must be activated in sysctl and there must be some
+	 * unsent new data, and the advertised window should allow
+	 * sending it.
+	 */
+	return (sysctl_tcp_frto && tp->send_head &&
+		!after(TCP_SKB_CB(tp->send_head)->end_seq,
+		       tp->snd_una + tp->snd_wnd));
+}
 
 #endif	/* _TCP_H */

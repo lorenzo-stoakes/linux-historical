@@ -3368,15 +3368,17 @@ static int ali_close_multi_channels(void)
         pci_dev = pci_find_device(PCI_VENDOR_ID_AL,PCI_DEVICE_ID_AL_M1533, pci_dev);
         if (pci_dev == NULL)
                 return -1;
-	temp = 0x80;
-	pci_write_config_byte(pci_dev, 0x59, ~temp);
+	pci_read_config_byte(pci_dev, 0x59, &temp);
+	temp &= ~0x80;
+	pci_write_config_byte(pci_dev, 0x59, temp);
 	
 	pci_dev = pci_find_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M7101, pci_dev);
 	if (pci_dev == NULL)
                 return -1;
 
-	temp = 0x20;
-	pci_write_config_byte(pci_dev, 0xB8, ~temp);
+	pci_read_config_byte(pci_dev, 0xB8, &temp);
+	temp &= ~0x20;
+	pci_write_config_byte(pci_dev, 0xB8, temp);
 
 	return 0;
 }
@@ -3390,13 +3392,15 @@ static int ali_setup_multi_channels(struct trident_card *card, int chan_nums)
 	pci_dev = pci_find_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M1533, pci_dev);
 	if (pci_dev == NULL)
                 return -1;
-	temp = 0x80;
+	pci_read_config_byte(pci_dev, 0x59, &temp);
+	temp |= 0x80;
 	pci_write_config_byte(pci_dev, 0x59, temp);
 	
 	pci_dev = pci_find_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M7101, pci_dev);
  	if (pci_dev == NULL)
                 return -1;
-	temp = 0x20;
+	pci_read_config_byte(pci_dev, (int)0xB8, &temp);
+	temp |= 0x20;
 	pci_write_config_byte(pci_dev, (int)0xB8,(u8) temp);
 	if (chan_nums == 6) {
 		dwValue = inl(TRID_REG(card, ALI_SCTRL)) | 0x000f0000;

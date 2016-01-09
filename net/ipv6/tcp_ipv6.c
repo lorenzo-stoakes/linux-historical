@@ -14,6 +14,9 @@
  *
  *	Fixes:
  *	Hideaki YOSHIFUJI	:	sin6_scope_id support
+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
+ *	Alexey Kuznetsov		allow both IPv4 and IPv6 sockets to bind
+ *					a single port at the same time.
  *
  *	This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -148,14 +151,23 @@ static int tcp_v6_get_port(struct sock *sk, unsigned short snum)
 					    !sk2->reuse	||
 					    sk2->state == TCP_LISTEN) {
 						/* NOTE: IPv6 tw bucket have different format */
-						if (!sk2->rcv_saddr	||
-						    addr_type == IPV6_ADDR_ANY ||
-						    !ipv6_addr_cmp(&sk->net_pinfo.af_inet6.rcv_saddr,
-								   sk2->state != TCP_TIME_WAIT ?
-								   &sk2->net_pinfo.af_inet6.rcv_saddr :
-								   &((struct tcp_tw_bucket*)sk)->v6_rcv_saddr) ||
-						    (addr_type==IPV6_ADDR_MAPPED && sk2->family==AF_INET &&
-						     sk->rcv_saddr==sk2->rcv_saddr))
+						if ((!sk2->rcv_saddr && !ipv6_only_sock(sk)) ||
+						    (sk2->family == AF_INET6 &&
+						     ipv6_addr_any(&sk2->net_pinfo.af_inet6.rcv_saddr) &&
+						     !(ipv6_only_sock(sk2) && addr_type == IPV6_ADDR_MAPPED)) ||
+						    (addr_type == IPV6_ADDR_ANY &&
+						     (!ipv6_only_sock(sk) ||
+						      !(sk2->family == AF_INET6 ? ipv6_addr_type(&sk2->net_pinfo.af_inet6.rcv_saddr) == IPV6_ADDR_MAPPED : 1))) ||
+						    (sk2->family == AF_INET6 &&
+						     !ipv6_addr_cmp(&sk->net_pinfo.af_inet6.rcv_saddr,
+								    sk2->state != TCP_TIME_WAIT ?
+								    &sk2->net_pinfo.af_inet6.rcv_saddr :
+								    &((struct tcp_tw_bucket*)sk)->v6_rcv_saddr)) ||
+						    (addr_type == IPV6_ADDR_MAPPED && 
+						     !ipv6_only_sock(sk2) &&
+						     (!sk2->rcv_saddr ||
+						      !sk->rcv_saddr ||
+						      sk->rcv_saddr == sk2->rcv_saddr)))
 							break;
 					}
 				}
@@ -601,6 +613,9 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
 		struct sockaddr_in sin;
 
 		SOCK_DEBUG(sk, "connect: ipv4 mapped\n");
+
+		if (__ipv6_only_sock(sk))
+			return -ENETUNREACH;
 
 		sin.sin_family = AF_INET;
 		sin.sin_port = usin->sin6_port;

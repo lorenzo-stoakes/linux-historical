@@ -283,6 +283,8 @@ drm_agp_head_t *DRM(agp_init)(void)
 			break;
 		case VIA_APOLLO_PRO: 	head->chipset = "VIA Apollo Pro";
 			break;
+		case VIA_APOLLO_P4X400:	head->chipset = "VIA Apollo P4X400";
+			break;
 
 		case SIS_GENERIC:	head->chipset = "SiS";           break;
 		case AMD_GENERIC:	head->chipset = "AMD";           break;

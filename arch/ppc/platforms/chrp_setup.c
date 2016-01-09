@@ -411,8 +411,6 @@ static void __init
 chrp_init_irq_openpic(unsigned long intack)
 {
 	int i;
-	unsigned char* chrp_int_ack_special = 0;
-	int nmi_irq = -1;
 	unsigned char init_senses[NR_IRQS - NUM_8259_INTERRUPTS];
 
 	chrp_find_openpic();
@@ -421,12 +419,14 @@ chrp_init_irq_openpic(unsigned long intack)
 	OpenPIC_InitSenses = init_senses;
 	OpenPIC_NumInitSenses = NR_IRQS - NUM_8259_INTERRUPTS;
 
-	if (intack)
-		chrp_int_ack_special = (unsigned char *) ioremap(intack, 1);
-	openpic_init(1, NUM_8259_INTERRUPTS, chrp_int_ack_special, nmi_irq);
+	openpic_init(NUM_8259_INTERRUPTS);
+	/* We have a cascade on OpenPIC IRQ 0, Linux IRQ 16 */
+	openpic_hookup_cascade(NUM_8259_INTERRUPTS, "82c59 cascade",
+			       i8259_irq);
+
 	for (i = 0; i < NUM_8259_INTERRUPTS; i++)
 		irq_desc[i].handler = &i8259_pic;
-	i8259_init(0);
+	i8259_init(intack);
 }
 
 static void __init

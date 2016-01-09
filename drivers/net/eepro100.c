@@ -41,8 +41,8 @@ static int rxfifo = 8;		/* Rx FIFO threshold, default 32 bytes. */
 static int txdmacount = 128;
 static int rxdmacount /* = 0 */;
 
-#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__) || defined(__mips__) || \
-	defined(__arm__)
+#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__) || \
+	defined(__mips__) || defined(__arm__) || defined(__hppa__)
   /* align rx buffers to 2 bytes so that IP header is aligned */
 # define rx_align(skb)		skb_reserve((skb), 2)
 # define RxFD_ALIGNMENT		__attribute__ ((aligned (2), packed))
@@ -2387,6 +2387,7 @@ static struct pci_device_id eepro100_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_INTEL, 0x103C, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x103D, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x103E, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x1059, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1227, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1228, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x2449, PCI_ANY_ID, PCI_ANY_ID, },

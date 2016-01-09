@@ -18,10 +18,45 @@
 
 /* this file is part of ehci-hcd.c */
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,50)
+
+#define ehci_dbg(ehci, fmt, args...) \
+	dev_dbg (*(ehci)->hcd.controller, fmt, ## args )
+#define ehci_err(ehci, fmt, args...) \
+	dev_err (*(ehci)->hcd.controller, fmt, ## args )
+#define ehci_info(ehci, fmt, args...) \
+	dev_info (*(ehci)->hcd.controller, fmt, ## args )
+#define ehci_warn(ehci, fmt, args...) \
+	dev_warn (*(ehci)->hcd.controller, fmt, ## args )
+
+#else
+
+#ifdef DEBUG
+#define ehci_dbg(ehci, fmt, args...) \
+	printk(KERN_DEBUG "%s %s: " fmt, hcd_name, \
+		(ehci)->hcd.pdev->slot_name, ## args )
+#else
+#define ehci_dbg(ehci, fmt, args...) do { } while (0)
+#endif
+
+#define ehci_err(ehci, fmt, args...) \
+	printk(KERN_ERR "%s %s: " fmt, hcd_name, \
+		(ehci)->hcd.pdev->slot_name, ## args )
+#define ehci_info(ehci, fmt, args...) \
+	printk(KERN_INFO "%s %s: " fmt, hcd_name, \
+		(ehci)->hcd.pdev->slot_name, ## args )
+#define ehci_warn(ehci, fmt, args...) \
+	printk(KERN_WARNING "%s %s: " fmt, hcd_name, \
+		(ehci)->hcd.pdev->slot_name, ## args )
+#endif
+
+
 #ifdef EHCI_VERBOSE_DEBUG
 #	define vdbg dbg
+#	define ehci_vdbg ehci_dbg
 #else
-	static inline void vdbg (char *fmt, ...) { }
+#	define vdbg(fmt,args...) do { } while (0)
+#	define ehci_vdbg(ehci, fmt, args...) do { } while (0)
 #endif
 
 #ifdef	DEBUG
@@ -34,7 +69,8 @@ static void dbg_hcs_params (struct ehci_hcd *ehci, char *label)
 {
 	u32	params = readl (&ehci->caps->hcs_params);
 
-	dbg ("%s hcs_params 0x%x dbg=%d%s cc=%d pcc=%d%s%s ports=%d",
+	ehci_dbg (ehci,
+		"%s hcs_params 0x%x dbg=%d%s cc=%d pcc=%d%s%s ports=%d\n",
 		label, params,
 		HCS_DEBUG_PORT (params),
 		HCS_INDICATOR (params) ? " ind" : "",
@@ -56,9 +92,8 @@ static void dbg_hcs_params (struct ehci_hcd *ehci, char *label)
 				((i & 0x1) ? ((byte)&0xf) : ((byte>>4)&0xf)));
 			strcat(buf, tmp);
 		}
-		dbg ("%s: %s portroute %s", 
-			hcd_to_bus (&ehci->hcd)->bus_name, label,
-			buf);
+		ehci_dbg (ehci, "%s portroute %s\n",
+				label, buf);
 	}
 }
 #else
@@ -77,19 +112,16 @@ static void dbg_hcc_params (struct ehci_hcd *ehci, char *label)
 {
 	u32	params = readl (&ehci->caps->hcc_params);
 
-	if (HCC_EXT_CAPS (params)) {
-		// EHCI 0.96 ... could interpret these (legacy?)
-		dbg ("%s extended capabilities at pci %2x",
-			label, HCC_EXT_CAPS (params));
-	}
 	if (HCC_ISOC_CACHE (params)) {
-		dbg ("%s hcc_params %04x caching frame %s%s%s",
+		ehci_dbg (ehci,
+		     "%s hcc_params %04x caching frame %s%s%s\n",
 		     label, params,
 		     HCC_PGM_FRAMELISTLEN (params) ? "256/512/1024" : "1024",
 		     HCC_CANPARK (params) ? " park" : "",
 		     HCC_64BIT_ADDR (params) ? " 64 bit addr" : "");
 	} else {
-		dbg ("%s hcc_params %04x caching %d uframes %s%s%s",
+		ehci_dbg (ehci,
+		     "%s hcc_params %04x thresh %d uframes %s%s%s\n",
 		     label,
 		     params,
 		     HCC_ISOC_THRES (params),
@@ -235,19 +267,19 @@ dbg_port_buf (char *buf, unsigned len, char *label, int port, u32 status)
 #define dbg_status(ehci, label, status) { \
 	char _buf [80]; \
 	dbg_status_buf (_buf, sizeof _buf, label, status); \
-	dbg ("%s", _buf); \
+	ehci_dbg (ehci, "%s\n", _buf); \
 }
 
 #define dbg_cmd(ehci, label, command) { \
 	char _buf [80]; \
 	dbg_command_buf (_buf, sizeof _buf, label, command); \
-	dbg ("%s", _buf); \
+	ehci_dbg (ehci, "%s\n", _buf); \
 }
 
-#define dbg_port(hcd, label, port, status) { \
+#define dbg_port(ehci, label, port, status) { \
 	char _buf [80]; \
 	dbg_port_buf (_buf, sizeof _buf, label, port, status); \
-	dbg ("%s", _buf); \
+	ehci_dbg (ehci, "%s\n", _buf); \
 }
 
 /*-------------------------------------------------------------------------*/
@@ -272,6 +304,7 @@ static inline void remove_debug_files (struct ehci_hcd *bus) { }
 static void qh_lines (struct ehci_qh *qh, char **nextp, unsigned *sizep)
 {
 	u32			scratch;
+	u32			hw_curr;
 	struct list_head	*entry;
 	struct ehci_qtd		*td;
 	unsigned		temp;
@@ -279,20 +312,23 @@ static void qh_lines (struct ehci_qh *qh, char **nextp, unsigned *sizep)
 	char			*next = *nextp;
 
 	scratch = cpu_to_le32p (&qh->hw_info1);
-	temp = snprintf (next, size, "qh/%p dev%d %cs ep%d %08x %08x",
+	hw_curr = cpu_to_le32p (&qh->hw_current);
+	temp = snprintf (next, size,
+			"qh/%p dev%d %cs ep%d %08x %08x (%08x %08x)",
 			qh, scratch & 0x007f,
 			speed_char (scratch),
 			(scratch >> 8) & 0x000f,
-			scratch, cpu_to_le32p (&qh->hw_info2));
+			scratch, cpu_to_le32p (&qh->hw_info2),
+			hw_curr, cpu_to_le32p (&qh->hw_token));
 	size -= temp;
 	next += temp;
 
 	list_for_each (entry, &qh->qtd_list) {
-		td = list_entry (entry, struct ehci_qtd,
-				qtd_list);
+		td = list_entry (entry, struct ehci_qtd, qtd_list);
 		scratch = cpu_to_le32p (&td->hw_token);
 		temp = snprintf (next, size,
-				"\n\ttd/%p %s len=%d %08x urb %p",
+				"\n\t%std/%p %s len=%d %08x urb %p",
+				(hw_curr == td->qtd_dma) ? "*" : "",
 				td, ({ char *tmp;
 				 switch ((scratch>>8)&0x03) {
 				 case 0: tmp = "out"; break;
@@ -335,12 +371,8 @@ show_async (struct device *dev, char *buf, size_t count, loff_t off)
 	 * one QH per line, and TDs we know about
 	 */
 	spin_lock_irqsave (&ehci->lock, flags);
-	if (ehci->async) {
-		qh = ehci->async;
-		do {
-			qh_lines (qh, &next, &size);
-		} while ((qh = qh->qh_next.qh) != ehci->async);
-	}
+	for (qh = ehci->async->qh_next.qh; qh; qh = qh->qh_next.qh)
+		qh_lines (qh, &next, &size);
 	if (ehci->reclaim) {
 		temp = snprintf (next, size, "\nreclaim =\n");
 		size -= temp;
@@ -552,8 +584,8 @@ show_registers (struct device *dev, char *buf, size_t count, loff_t off)
 	size -= temp;
 	next += temp;
 
-	temp = snprintf (next, size, "complete %ld unlink %ld qpatch %ld\n",
-		ehci->stats.complete, ehci->stats.unlink, ehci->stats.qpatch);
+	temp = snprintf (next, size, "complete %ld unlink %ld\n",
+		ehci->stats.complete, ehci->stats.unlink);
 	size -= temp;
 	next += temp;
 #endif

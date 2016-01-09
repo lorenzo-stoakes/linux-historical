@@ -900,7 +900,7 @@ int idescsi_release (struct Scsi_Host *host)
 	for (id = 0; id < MAX_HWIFS * MAX_DRIVES; id++) {
 		drive = idescsi_drives[id];
 		if (drive)
-			DRIVER(drive)->busy--;
+			DRIVER(drive)->busy = 0;
 	}
 	return 0;
 }

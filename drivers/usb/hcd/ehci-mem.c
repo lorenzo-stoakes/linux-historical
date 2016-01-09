@@ -58,6 +58,15 @@ static void ehci_hcd_free (struct usb_hcd *hcd)
 
 /* Allocate the key transfer structures from the previously allocated pool */
 
+static inline void ehci_qtd_init (struct ehci_qtd *qtd, dma_addr_t dma)
+{
+	memset (qtd, 0, sizeof *qtd);
+	qtd->qtd_dma = dma;
+	qtd->hw_next = EHCI_LIST_END;
+	qtd->hw_alt_next = EHCI_LIST_END;
+	INIT_LIST_HEAD (&qtd->qtd_list);
+}
+
 static struct ehci_qtd *ehci_qtd_alloc (struct ehci_hcd *ehci, int flags)
 {
 	struct ehci_qtd		*qtd;
@@ -65,11 +74,9 @@ static struct ehci_qtd *ehci_qtd_alloc (struct ehci_hcd *ehci, int flags)
 
 	qtd = pci_pool_alloc (ehci->qtd_pool, flags, &dma);
 	if (qtd != 0) {
-		memset (qtd, 0, sizeof *qtd);
-		qtd->qtd_dma = dma;
-		qtd->hw_next = EHCI_LIST_END;
-		qtd->hw_alt_next = EHCI_LIST_END;
-		INIT_LIST_HEAD (&qtd->qtd_list);
+		ehci_qtd_init (qtd, dma);
+		if (ehci->async)
+			qtd->hw_alt_next = ehci->async->hw_alt_next;
 	}
 	return qtd;
 }
@@ -87,12 +94,21 @@ static struct ehci_qh *ehci_qh_alloc (struct ehci_hcd *ehci, int flags)
 
 	qh = (struct ehci_qh *)
 		pci_pool_alloc (ehci->qh_pool, flags, &dma);
-	if (qh) {
-		memset (qh, 0, sizeof *qh);
-		atomic_set (&qh->refcount, 1);
-		qh->qh_dma = dma;
-		// INIT_LIST_HEAD (&qh->qh_list);
-		INIT_LIST_HEAD (&qh->qtd_list);
+	if (!qh)
+		return qh;
+
+	memset (qh, 0, sizeof *qh);
+	atomic_set (&qh->refcount, 1);
+	qh->qh_dma = dma;
+	// INIT_LIST_HEAD (&qh->qh_list);
+	INIT_LIST_HEAD (&qh->qtd_list);
+
+	/* dummy td enables safe urb queuing */
+	qh->dummy = ehci_qtd_alloc (ehci, flags);
+	if (qh->dummy == 0) {
+		ehci_dbg (ehci, "no dummy td\n");
+		pci_pool_free (ehci->qh_pool, qh, qh->qh_dma);
+		qh = 0;
 	}
 	return qh;
 }
@@ -100,21 +116,21 @@ static struct ehci_qh *ehci_qh_alloc (struct ehci_hcd *ehci, int flags)
 /* to share a qh (cpu threads, or hc) */
 static inline struct ehci_qh *qh_get (/* ehci, */ struct ehci_qh *qh)
 {
-	// dbg ("get %p (%d++)", qh, qh->refcount.counter);
 	atomic_inc (&qh->refcount);
 	return qh;
 }
 
 static void qh_put (struct ehci_hcd *ehci, struct ehci_qh *qh)
 {
-	// dbg ("put %p (--%d)", qh, qh->refcount.counter);
 	if (!atomic_dec_and_test (&qh->refcount))
 		return;
 	/* clean qtds first, and know this is not linked */
 	if (!list_empty (&qh->qtd_list) || qh->qh_next.ptr) {
-		dbg ("unused qh not empty!");
+		ehci_dbg (ehci, "unused qh not empty!\n");
 		BUG ();
 	}
+	if (qh->dummy)
+		ehci_qtd_free (ehci, qh->dummy);
 	pci_pool_free (ehci->qh_pool, qh, qh->qh_dma);
 }
 
@@ -127,6 +143,10 @@ static void qh_put (struct ehci_hcd *ehci, struct ehci_qh *qh)
 
 static void ehci_mem_cleanup (struct ehci_hcd *ehci)
 {
+	if (ehci->async)
+		qh_put (ehci, ehci->async);
+	ehci->async = 0;
+
 	/* PCI consistent memory and pools */
 	if (ehci->qtd_pool)
 		pci_pool_destroy (ehci->qtd_pool);
@@ -169,21 +189,21 @@ static int ehci_mem_init (struct ehci_hcd *ehci, int flags)
 			4096 /* can't cross 4K */,
 			flags);
 	if (!ehci->qtd_pool) {
-		dbg ("no qtd pool");
-		ehci_mem_cleanup (ehci);
-		return -ENOMEM;
+		goto fail;
 	}
 
-	/* QH for control/bulk/intr transfers */
+	/* QHs for control/bulk/intr transfers */
 	ehci->qh_pool = pci_pool_create ("ehci_qh", ehci->hcd.pdev,
 			sizeof (struct ehci_qh),
 			32 /* byte alignment (for hw parts) */,
 			4096 /* can't cross 4K */,
 			flags);
 	if (!ehci->qh_pool) {
-		dbg ("no qh pool");
-		ehci_mem_cleanup (ehci);
-		return -ENOMEM;
+		goto fail;
+	}
+	ehci->async = ehci_qh_alloc (ehci, flags);
+	if (!ehci->async) {
+		goto fail;
 	}
 
 	/* ITD for high speed ISO transfers */
@@ -193,9 +213,7 @@ static int ehci_mem_init (struct ehci_hcd *ehci, int flags)
 			4096 /* can't cross 4K */,
 			flags);
 	if (!ehci->itd_pool) {
-		dbg ("no itd pool");
-		ehci_mem_cleanup (ehci);
-		return -ENOMEM;
+		goto fail;
 	}
 
 	/* SITD for full/low speed split ISO transfers */
@@ -205,9 +223,7 @@ static int ehci_mem_init (struct ehci_hcd *ehci, int flags)
 			4096 /* can't cross 4K */,
 			flags);
 	if (!ehci->sitd_pool) {
-		dbg ("no sitd pool");
-		ehci_mem_cleanup (ehci);
-		return -ENOMEM;
+		goto fail;
 	}
 
 	/* Hardware periodic table */
@@ -216,9 +232,7 @@ static int ehci_mem_init (struct ehci_hcd *ehci, int flags)
 			ehci->periodic_size * sizeof (u32),
 			&ehci->periodic_dma);
 	if (ehci->periodic == 0) {
-		dbg ("no hw periodic table");
-		ehci_mem_cleanup (ehci);
-		return -ENOMEM;
+		goto fail;
 	}
 	for (i = 0; i < ehci->periodic_size; i++)
 		ehci->periodic [i] = EHCI_LIST_END;
@@ -226,11 +240,14 @@ static int ehci_mem_init (struct ehci_hcd *ehci, int flags)
 	/* software shadow of hardware table */
 	ehci->pshadow = kmalloc (ehci->periodic_size * sizeof (void *), flags);
 	if (ehci->pshadow == 0) {
-		dbg ("no shadow periodic table");
-		ehci_mem_cleanup (ehci);
-		return -ENOMEM;
+		goto fail;
 	}
 	memset (ehci->pshadow, 0, ehci->periodic_size * sizeof (void *));
 
 	return 0;
+
+fail:
+	ehci_dbg (ehci, "couldn't init memory\n");
+	ehci_mem_cleanup (ehci);
+	return -ENOMEM;
 }

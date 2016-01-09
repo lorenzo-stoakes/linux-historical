@@ -7,7 +7,6 @@
  */
 
 #include <linux/config.h>
-#include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
@@ -21,7 +20,7 @@
 #include <asm/uaccess.h>
 
 /* Version Information */
-#define DRIVER_VERSION "v0.4.2 (2002/09/19)"
+#define DRIVER_VERSION "v0.4.3 (2002/12/31)"
 #define DRIVER_AUTHOR "Petko Manolov <petkan@users.sourceforge.net>"
 #define DRIVER_DESC "rtl8150 based usb-ethernet driver"
 
@@ -354,7 +353,7 @@ static void read_bulk_callback(struct urb *urb)
 	case -ENOENT:
 		return;
 	case -ETIMEDOUT:
-		warn("reset needed may be?..");
+		warn("need a device reset?..");
 		goto goon;
 	default:
 		warn("Rx status %d", urb->status);
@@ -497,7 +496,7 @@ static int rtl8150_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 	count = (count & 0x3f) ? count : count + 1;
 	memcpy(dev->tx_buff, skb->data, skb->len);
 	FILL_BULK_URB(dev->tx_urb, dev->udev, usb_sndbulkpipe(dev->udev, 2),
-		      dev->tx_buff, RTL8150_MAX_MTU, write_bulk_callback, dev);
+		      dev->tx_buff, count, write_bulk_callback, dev);
 	dev->tx_urb->transfer_buffer_length = count;
 
 	if ((res = usb_submit_urb(dev->tx_urb))) {
@@ -525,6 +524,9 @@ static int rtl8150_open(struct net_device *netdev)
 	}
 
 	down(&dev->sem);
+
+	set_registers(dev, IDR, 6, netdev->dev_addr);
+	
 	FILL_BULK_URB(dev->rx_urb, dev->udev, usb_rcvbulkpipe(dev->udev, 1),
 		      dev->rx_buff, RTL8150_MAX_MTU, read_bulk_callback, dev);
 	if ((res = usb_submit_urb(dev->rx_urb)))

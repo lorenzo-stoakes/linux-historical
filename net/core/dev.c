@@ -2155,7 +2155,8 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 			    cmd == SIOCETHTOOL ||
 			    cmd == SIOCGMIIPHY ||
 			    cmd == SIOCGMIIREG ||
-			    cmd == SIOCSMIIREG) {
+			    cmd == SIOCSMIIREG ||
+			    cmd == SIOCWANDEV) {
 				if (dev->do_ioctl) {
 					if (!netif_device_present(dev))
 						return -ENODEV;
@@ -2321,8 +2322,9 @@ int dev_ioctl(unsigned int cmd, void *arg)
 		 */	
 		 
 		default:
-			if (cmd >= SIOCDEVPRIVATE &&
-			    cmd <= SIOCDEVPRIVATE + 15) {
+			if (cmd == SIOCWANDEV ||
+			    (cmd >= SIOCDEVPRIVATE &&
+			     cmd <= SIOCDEVPRIVATE + 15)) {
 				dev_load(ifr.ifr_name);
 				dev_probe_lock();
 				rtnl_lock();

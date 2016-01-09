@@ -2,7 +2,7 @@
  * BK Id: %F% %I% %G% %U% %#%
  */
 /*
- *  linux/arch/ppc/kernel/setup.c
+ *  arch/ppc/platforms/setup.c
  *
  *  Copyright (C) 1995  Linus Torvalds
  *  Adapted from 'alpha' version by Gary Thomas
@@ -59,6 +59,7 @@
 #include <asm/time.h>
 #include <asm/i8259.h>
 #include <asm/open_pic.h>
+#include <asm/pci-bridge.h>
 
 #if defined(CONFIG_SOUND) || defined(CONFIG_SOUND_MODULE)
 #include <../drivers/sound/sound_config.h>
@@ -621,12 +622,28 @@ static void __init
 prep_init_IRQ(void)
 {
 	int i;
+	unsigned int pci_viddid, pci_did;
 
-	if (OpenPIC_Addr != NULL)
-		openpic_init(1, NUM_8259_INTERRUPTS, 0, -1);
-	for ( i = 0 ; i < NUM_8259_INTERRUPTS ; i++ )
+	if (OpenPIC_Addr != NULL) {
+		openpic_init(NUM_8259_INTERRUPTS);
+		/* We have a cascade on OpenPIC IRQ 0, Linux IRQ 16 */
+		openpic_hookup_cascade(NUM_8259_INTERRUPTS, "82c59 cascade",
+				       i8259_irq);
+	}
+	for (i = 0; i < NUM_8259_INTERRUPTS; i++)
 		irq_desc[i].handler = &i8259_pic;
-	i8259_init(0xbffffff0); /* PCI interrupt ack address for MPC105 and 106 */
+	 /* If we have a Raven PCI bridge or a Hawk PCI bridge / Memory
+	  * controller, we poll (as they have a different int-ack address). */
+	early_read_config_dword(0, 0, 0, PCI_VENDOR_ID, &pci_viddid);
+	pci_did = (pci_viddid & 0xffff0000) >> 16;
+	if (((pci_viddid & 0xffff) == PCI_VENDOR_ID_MOTOROLA)
+			&& ((pci_did == PCI_DEVICE_ID_MOTOROLA_RAVEN)
+				|| (pci_did == PCI_DEVICE_ID_MOTOROLA_HAWK)))
+		i8259_init(0);
+	else
+		/* PCI interrupt ack address given in section 6.1.8 of the
+		 * PReP specification. */
+		i8259_init(0xbffffff0);
 }
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)

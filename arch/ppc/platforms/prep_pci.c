@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.prep_pci.c 1.33 12/20/01 15:36:12 trini
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * PReP pci functions.
@@ -665,22 +665,22 @@ static struct pci_ops prep_pci_ops =
 #define	MPIC_HAWK_ID		0x48030000
 #define	MOT_PROC2_BIT		0x800
 
-static u_char mvme2600_openpic_initsenses[] __initdata = {
-    1,	/* MVME2600_INT_SIO */
-    0,	/* MVME2600_INT_FALCN_ECC_ERR */
-    1,	/* MVME2600_INT_PCI_ETHERNET */
-    1,	/* MVME2600_INT_PCI_SCSI */
-    1,	/* MVME2600_INT_PCI_GRAPHICS */
-    1,	/* MVME2600_INT_PCI_VME0 */
-    1,	/* MVME2600_INT_PCI_VME1 */
-    1,	/* MVME2600_INT_PCI_VME2 */
-    1,	/* MVME2600_INT_PCI_VME3 */
-    1,	/* MVME2600_INT_PCI_INTA */
-    1,	/* MVME2600_INT_PCI_INTB */
-    1,	/* MVME2600_INT_PCI_INTC */
-    1,	/* MVME2600_INT_PCI_INTD */
-    1,	/* MVME2600_INT_LM_SIG0 */
-    1,	/* MVME2600_INT_LM_SIG1 */
+static u_char prep_openpic_initsenses[] __initdata = {
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_POSITIVE), /* MVME2600_INT_SIO */
+    (IRQ_SENSE_EDGE  | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_FALCN_ECC_ERR */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_ETHERNET */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_SCSI */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_GRAPHICS */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_VME0 */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_VME1 */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_VME2 */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_VME3 */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_INTA */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_INTB */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_INTC */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_PCI_INTD */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_LM_SIG0 */
+    (IRQ_SENSE_LEVEL | IRQ_POLARITY_NEGATIVE), /* MVME2600_INT_LM_SIG1 */
 };
 
 #define MOT_RAVEN_PRESENT	0x1
@@ -737,8 +737,8 @@ raven_init(void)
 	/* Map the Raven MPIC registers to virtual memory. */
 	OpenPIC_Addr = ioremap(pci_membase+0xC0000000, 0x22000);
 
-	OpenPIC_InitSenses = mvme2600_openpic_initsenses;
-	OpenPIC_NumInitSenses = sizeof(mvme2600_openpic_initsenses);
+	OpenPIC_InitSenses = prep_openpic_initsenses;
+	OpenPIC_NumInitSenses = sizeof(prep_openpic_initsenses);
 
 	ppc_md.get_irq = openpic_get_irq;
 	

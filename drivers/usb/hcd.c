@@ -437,7 +437,7 @@ error:
 	}
 
 	/* any errors get returned through the urb completion */
-	usb_hcd_giveback_urb (hcd, urb);
+	usb_hcd_giveback_urb (hcd, urb, 0);
 	return 0;
 }
 
@@ -518,7 +518,7 @@ static void rh_report_status (unsigned long ptr)
 		urb->hcpriv = 0;
 		spin_unlock_irqrestore (&urb->lock, flags);
 
-		usb_hcd_giveback_urb (hcd, urb);
+		usb_hcd_giveback_urb (hcd, urb, 0);
 	}
 }
 
@@ -553,7 +553,7 @@ static void rh_status_dequeue (struct usb_hcd *hcd, struct urb *urb)
 	spin_unlock_irqrestore (&hcd_data_lock, flags);
 
 	/* we rely on RH callback code not unlinking its URB! */
-	usb_hcd_giveback_urb (hcd, urb);
+	usb_hcd_giveback_urb (hcd, urb, 0);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -663,7 +663,8 @@ clean_2:
 	hcd->driver = driver;
 	hcd->description = driver->description;
 	hcd->pdev = dev;
-	info ("%s @ %s, %s", hcd->description,  dev->slot_name, dev->name);
+	printk (KERN_INFO "%s %s: %s\n",
+			hcd->description,  dev->slot_name, dev->name);
 
 #ifndef __sparc__
 	sprintf (buf, "%d", dev->irq);
@@ -682,7 +683,8 @@ clean_3:
 
 	hcd->regs = base;
 	hcd->region = region;
-	info ("irq %s, %s %p", bufp,
+	printk (KERN_INFO "%s %s: irq %s, %s %p\n",
+		hcd->description,  dev->slot_name, bufp,
 		(driver->flags & HCD_MEMORY) ? "pci mem" : "io base",
 		base);
 
@@ -739,7 +741,8 @@ void usb_hcd_pci_remove (struct pci_dev *dev)
 	hcd = pci_get_drvdata(dev);
 	if (!hcd)
 		return;
-	info ("remove: %s, state %x", hcd->bus->bus_name, hcd->state);
+	printk (KERN_INFO "%s %s: remove state %x\n",
+		hcd->description,  dev->slot_name, hcd->state);
 
 	if (in_interrupt ()) BUG ();
 
@@ -817,7 +820,8 @@ int usb_hcd_pci_suspend (struct pci_dev *dev, u32 state)
 	int			retval;
 
 	hcd = pci_get_drvdata(dev);
-	info ("suspend %s to state %d", hcd->bus->bus_name, state);
+	printk (KERN_INFO "%s %s: suspend to state %d\n",
+		hcd->description,  dev->slot_name, state);
 
 	pci_save_state (dev, hcd->pci_state);
 
@@ -846,7 +850,8 @@ int usb_hcd_pci_resume (struct pci_dev *dev)
 	int			retval;
 
 	hcd = pci_get_drvdata(dev);
-	info ("resume %s", hcd->bus->bus_name);
+	printk (KERN_INFO "%s %s: resume\n",
+		hcd->description,  dev->slot_name);
 
 	/* guard against multiple resumes (APM bug?) */
 	atomic_inc (&hcd->resume_count);
@@ -1309,7 +1314,7 @@ static int hcd_unlink_urb (struct urb *urb)
 		if (usb_pipetype (urb->pipe) == PIPE_INTERRUPT)
 			retval = -EAGAIN;
 		else
-			retval = -EINVAL;
+			retval = -EBUSY;
 		goto done;
 	}
 
@@ -1349,8 +1354,6 @@ if (retval && urb->status == -ENOENT) err ("whoa! retval %d", retval);
 	if (!(urb->transfer_flags & (USB_ASYNC_UNLINK|USB_TIMEOUT_KILLED))
 			&& HCD_IS_RUNNING (hcd->state)
 			&& !retval) {
-		dbg ("%s: wait for giveback urb %p",
-			hcd->bus->bus_name, urb);
 		wait_for_completion (&splice.done);
 	} else if ((urb->transfer_flags & USB_ASYNC_UNLINK) && retval == 0) {
 		return -EINPROGRESS;
@@ -1428,7 +1431,7 @@ static void hcd_irq (int irq, void *__hcd, struct pt_regs * r)
 	if (unlikely (hcd->state == USB_STATE_HALT))	/* irq sharing? */
 		return;
 
-	hcd->driver->irq (hcd);
+	hcd->driver->irq (hcd, r);
 	if (hcd->state != start && hcd->state == USB_STATE_HALT)
 		hc_died (hcd);
 }
@@ -1439,6 +1442,7 @@ static void hcd_irq (int irq, void *__hcd, struct pt_regs * r)
  * usb_hcd_giveback_urb - return URB from HCD to device driver
  * @hcd: host controller returning the URB
  * @urb: urb being returned to the USB device driver.
+ * @regs: saved hardware registers (ignored on 2.4 kernels)
  * Context: in_interrupt()
  *
  * This hands the URB from HCD to its USB device driver, using its
@@ -1456,7 +1460,7 @@ static void hcd_irq (int irq, void *__hcd, struct pt_regs * r)
  * ISO streaming functionality can be achieved by having completion handlers
  * re-queue URBs.  Such explicit queuing doesn't discard error reports.
  */
-void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb)
+void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb, struct pt_regs *regs)
 {
 	urb_unlink (urb);
 
@@ -1465,10 +1469,6 @@ void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb)
 	// It would catch exit/unlink paths for all urbs, but non-exit
 	// completions for periodic urbs need hooks inside the HCD.
 	// hcd_monitor_hook(MONITOR_URB_UPDATE, urb, dev)
-
-	if (urb->status)
-		dbg ("giveback urb %p status %d len %d",
-			urb, urb->status, urb->actual_length);
 
 	// NOTE:  2.5 does this if !URB_NO_DMA_MAP transfer flag
 	if (usb_pipecontrol (urb->pipe))

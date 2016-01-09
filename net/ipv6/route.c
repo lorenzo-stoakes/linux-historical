@@ -1397,6 +1397,9 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
 	   caused by addrconf/ndisc.
 	*/
 	idev = __in6_dev_get(arg->dev);
+	if (idev == NULL)
+		return 0;
+
 	/* For administrative MTU increase, there is no way to discover 
 	   IPv6 PMTU increase, so PMTU increase should be updated here.
 	   Since RFC 1981 doesn't include administrative MTU increase

@@ -116,7 +116,7 @@ extern struct task_struct *child_reaper;
 
 #define idle_task(cpu) (init_tasks[cpu_number_map(cpu)])
 #define can_schedule(p,cpu) \
-	((p)->cpus_runnable & (p)->cpus_allowed & (1 << cpu))
+	((p)->cpus_runnable & (p)->cpus_allowed & (1UL << cpu))
 
 #else
 
@@ -359,7 +359,7 @@ static inline int try_to_wake_up(struct task_struct * p, int synchronous)
 	if (task_on_runqueue(p))
 		goto out;
 	add_to_runqueue(p);
-	if (!synchronous || !(p->cpus_allowed & (1 << smp_processor_id())))
+	if (!synchronous || !(p->cpus_allowed & (1UL << smp_processor_id())))
 		reschedule_idle(p);
 	success = 1;
 out:

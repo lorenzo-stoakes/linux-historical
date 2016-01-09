@@ -1424,8 +1424,20 @@ static int __init init_amd(struct cpuinfo_x86 *c)
                                                 &c->x86_capability);
 				}
 			}
-			break;
 
+			/* It's been determined by AMD that Athlons since model 8 stepping 1
+			 * are more robust with CLK_CTL set to 200xxxxx instead of 600xxxxx
+			 * As per AMD technical note 27212 0.2
+			 */
+			if ((c->x86_model == 8 && c->x86_mask>=1) || (c->x86_model > 8)) {
+				rdmsr(MSR_K7_CLK_CTL, l, h);
+				if ((l & 0xfff00000) != 0x20000000) {
+					printk ("CPU: CLK_CTL MSR was %x. Reprogramming to %x\n", l,
+						((l & 0x000fffff)|0x20000000));
+					wrmsr(MSR_K7_CLK_CTL, (l & 0x000fffff)|0x20000000, h);
+				}
+			}
+			break;
 	}
 
 	display_cacheinfo(c);

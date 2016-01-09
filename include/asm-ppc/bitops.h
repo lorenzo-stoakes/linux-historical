@@ -237,8 +237,6 @@ static __inline__ int ffz(unsigned int x)
 	return __ilog2(x & -x);
 }
 
-#ifdef __KERNEL__
-
 /*
  * ffs: find first bit set. This is defined the same way as
  * the libc and compiler builtin ffs routines, therefore
@@ -257,8 +255,6 @@ static __inline__ int ffs(int x)
 #define hweight32(x) generic_hweight32(x)
 #define hweight16(x) generic_hweight16(x)
 #define hweight8(x) generic_hweight8(x)
-
-#endif /* __KERNEL__ */
 
 /*
  * This implementation of find_{first,next}_zero_bit was stolen from
@@ -305,8 +301,6 @@ found_middle:
 	return result + ffz(tmp);
 }
 
-
-#ifdef __KERNEL__
 
 #define ext2_set_bit(nr, addr)		__test_and_set_bit((nr) ^ 0x18, addr)
 #define ext2_clear_bit(nr, addr)	__test_and_clear_bit((nr) ^ 0x18, addr)
@@ -370,8 +364,6 @@ found_middle:
 #define minix_test_and_clear_bit(nr,addr) ext2_clear_bit(nr,addr)
 #define minix_test_bit(nr,addr) ext2_test_bit(nr,addr)
 #define minix_find_first_zero_bit(addr,size) ext2_find_first_zero_bit(addr,size)
-
-#endif	/* __KERNEL__ */
 
 #endif /* _PPC_BITOPS_H */
 #endif /* __KERNEL__ */

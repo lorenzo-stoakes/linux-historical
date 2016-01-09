@@ -716,10 +716,10 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 {
 	struct list_head *prev;
 	struct ext3_sb_info *sbi;
-	ino_t ino_next; 
+	unsigned long ino_next;
 	struct ext3_iloc iloc;
 	int err = 0;
-	
+
 	lock_super(inode->i_sb);
 	if (list_empty(&inode->u.ext3_i.i_orphan)) {
 		unlock_super(inode->i_sb);
@@ -730,7 +730,7 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 	prev = inode->u.ext3_i.i_orphan.prev;
 	sbi = EXT3_SB(inode->i_sb);
 
-	jbd_debug(4, "remove inode %ld from orphan list\n", inode->i_ino);
+	jbd_debug(4, "remove inode %lu from orphan list\n", inode->i_ino);
 
 	list_del(&inode->u.ext3_i.i_orphan);
 	INIT_LIST_HEAD(&inode->u.ext3_i.i_orphan);
@@ -741,13 +741,13 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 	 * list in memory. */
 	if (!handle)
 		goto out;
-	
+
 	err = ext3_reserve_inode_write(handle, inode, &iloc);
 	if (err)
 		goto out_err;
 
 	if (prev == &sbi->s_orphan) {
-		jbd_debug(4, "superblock will point to %ld\n", ino_next);
+		jbd_debug(4, "superblock will point to %lu\n", ino_next);
 		BUFFER_TRACE(sbi->s_sbh, "get_write_access");
 		err = ext3_journal_get_write_access(handle, sbi->s_sbh);
 		if (err)
@@ -758,8 +758,8 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 		struct ext3_iloc iloc2;
 		struct inode *i_prev =
 			list_entry(prev, struct inode, u.ext3_i.i_orphan);
-		
-		jbd_debug(4, "orphan inode %ld will point to %ld\n",
+
+		jbd_debug(4, "orphan inode %lu will point to %lu\n",
 			  i_prev->i_ino, ino_next);
 		err = ext3_reserve_inode_write(handle, i_prev, &iloc2);
 		if (err)
@@ -774,7 +774,7 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 	if (err)
 		goto out_brelse;
 
-out_err: 	
+out_err:
 	ext3_std_error(inode->i_sb, err);
 out:
 	unlock_super(inode->i_sb);

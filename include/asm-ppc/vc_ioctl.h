@@ -41,6 +41,6 @@ extern int console_setcmap(int, unsigned char *, unsigned char *,
 extern int console_powermode(int);
 extern struct vc_mode display_info;
 extern struct fb_info *console_fb_info;
-#endif
+#endif /* __KERNEL__ */
 
 #endif /* _LINUX_VC_IOCTL_H */

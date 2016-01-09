@@ -640,6 +640,11 @@ static void i810_set_dac_channels(struct i810_state *state, int channel)
 {
 	int	aud_reg;
 	struct ac97_codec *codec = state->card->ac97_codec[0];
+	
+	/* No codec, no setup */
+	
+	if(codec == NULL)
+		return;
 
 	aud_reg = i810_ac97_get(codec, AC97_EXTENDED_STATUS);
 	aud_reg |= AC97_EA_PRI | AC97_EA_PRJ | AC97_EA_PRK;

@@ -482,8 +482,8 @@ extern struct exec_domain	default_exec_domain;
     policy:		SCHED_OTHER,					\
     mm:			NULL,						\
     active_mm:		&init_mm,					\
-    cpus_runnable:	-1,						\
-    cpus_allowed:	-1,						\
+    cpus_runnable:	~0UL,						\
+    cpus_allowed:	~0UL,						\
     run_list:		LIST_HEAD_INIT(tsk.run_list),			\
     next_task:		&tsk,						\
     prev_task:		&tsk,						\

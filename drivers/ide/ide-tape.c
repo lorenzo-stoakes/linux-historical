@@ -6597,14 +6597,16 @@ static void __exit idetape_exit (void)
 
 	for (minor = 0; minor < MAX_HWIFS * MAX_DRIVES; minor++) {
 		drive = idetape_chrdevs[minor].drive;
-		if (drive != NULL && idetape_cleanup(drive))
-			printk(KERN_ERR "ide-tape: %s: cleanup_module() "
-				"called while still busy\n", drive->name);
-	}
+		if (drive) {
+			if (idetape_cleanup(drive))
+				printk(KERN_ERR "ide-tape: %s: cleanup_module() "
+					"called while still busy\n", drive->name);
 #ifdef CONFIG_PROC_FS
-	if (drive->proc)
-		ide_remove_proc_entries(drive->proc, idetape_proc);
+			if (drive->proc)
+				ide_remove_proc_entries(drive->proc, idetape_proc);
 #endif
+		}
+	}
 
 	ide_unregister_module(&idetape_module);
 }

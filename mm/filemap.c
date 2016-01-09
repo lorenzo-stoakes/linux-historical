@@ -95,6 +95,9 @@ static inline void remove_page_from_inode_queue(struct page * page)
 {
 	struct address_space * mapping = page->mapping;
 
+	if (mapping->a_ops->removepage)
+		mapping->a_ops->removepage(page);
+	
 	mapping->nrpages--;
 	list_del(&page->list);
 	page->mapping = NULL;

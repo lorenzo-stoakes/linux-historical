@@ -31,11 +31,6 @@ struct ehci_stats {
 	/* termination of urbs from core */
 	unsigned long		complete;
 	unsigned long		unlink;
-
-	/* qhs patched to recover from td queueing race
-	 * (can avoid by using 'dummy td', allowing fewer irqs)
-	 */
-	unsigned long		qpatch;
 };
 
 /* ehci_hcd->lock guards shared data against other CPUs:
@@ -69,9 +64,6 @@ struct ehci_hcd {			/* one per controller */
 	union ehci_shadow	*pshadow;	/* mirror hw periodic table */
 	int			next_uframe;	/* scan periodic, start here */
 	unsigned		periodic_sched;	/* periodic activity count */
-
-	/* deferred work from IRQ, etc */
-	struct tasklet_struct	tasklet;
 
 	/* per root hub port */
 	unsigned long		reset_done [EHCI_MAX_ROOT_PORTS];
@@ -311,6 +303,7 @@ struct ehci_qh {
 	dma_addr_t		qh_dma;		/* address of qh */
 	union ehci_shadow	qh_next;	/* ptr to qh; or periodic */
 	struct list_head	qtd_list;	/* sw qtd list */
+	struct ehci_qtd		*dummy;
 
 	atomic_t		refcount;
 

@@ -396,6 +396,7 @@ struct address_space_operations {
 	int (*releasepage) (struct page *, int);
 #define KERNEL_HAS_O_DIRECT /* this is for modules out of the kernel */
 	int (*direct_IO)(int, struct inode *, struct kiobuf *, unsigned long, int);
+	void (*removepage)(struct page *); /* called when page gets removed from the inode */
 };
 
 struct address_space {
@@ -1202,7 +1203,7 @@ static inline void mark_buffer_async(struct buffer_head * bh, int on)
 
 static inline void set_buffer_attached(struct buffer_head *bh)
 {
-	__set_bit(BH_Attached, &bh->b_state);
+	set_bit(BH_Attached, &bh->b_state);
 }
 
 static inline void clear_buffer_attached(struct buffer_head *bh)

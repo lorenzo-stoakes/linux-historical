@@ -74,6 +74,20 @@
 #define IPV6_ADDR_RESERVED	0x2000U	/* reserved address space */
 
 /*
+ *	Addr scopes
+ */
+#ifdef __KERNEL__
+#define IPV6_ADDR_MC_SCOPE(a)	\
+	((a)->s6_addr[1] & 0x0f)	/* nonstandard */
+#define __IPV6_ADDR_SCOPE_INVALID	-1
+#endif
+#define IPV6_ADDR_SCOPE_NODELOCAL	0x01
+#define IPV6_ADDR_SCOPE_LINKLOCAL	0x02
+#define IPV6_ADDR_SCOPE_SITELOCAL	0x05
+#define IPV6_ADDR_SCOPE_ORGLOCAL	0x08
+#define IPV6_ADDR_SCOPE_GLOBAL		0x0e
+
+/*
  *	fragmentation header
  */
 
@@ -87,6 +101,9 @@ struct frag_hdr {
 #ifdef __KERNEL__
 
 #include <net/sock.h>
+
+/* sysctls */
+extern int sysctl_ipv6_bindv6only;
 
 extern struct ipv6_mib		ipv6_statistics[NR_CPUS*2];
 #define IP6_INC_STATS(field)		SNMP_INC_STATS(ipv6_statistics, field)

@@ -45,9 +45,13 @@
  *	Vitaly E. Lavrov	:	Transparent proxy revived after year coma.
  *	Andi Kleen		:	Fix new listen.
  *	Andi Kleen		:	Fix accept error reporting.
+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
+ *	Alexey Kuznetsov		allow both IPv4 and IPv6 sockets to bind
+ *					a single port at the same time.
  */
 
 #include <linux/config.h>
+
 #include <linux/types.h>
 #include <linux/fcntl.h>
 #include <linux/random.h>
@@ -182,6 +186,7 @@ static inline int tcp_bind_conflict(struct sock *sk, struct tcp_bind_bucket *tb)
 	for( ; sk2 != NULL; sk2 = sk2->bind_next) {
 		if (sk != sk2 &&
 		    sk2->reuse <= 1 &&
+		    !ipv6_only_sock(sk2) &&
 		    sk->bound_dev_if == sk2->bound_dev_if) {
 			if (!sk_reuse	||
 			    !sk2->reuse	||
@@ -418,23 +423,27 @@ static struct sock *__tcp_v4_lookup_listener(struct sock *sk, u32 daddr, unsigne
 	struct sock *result = NULL;
 	int score, hiscore;
 
-	hiscore=0;
+	hiscore=-1;
 	for(; sk; sk = sk->next) {
-		if(sk->num == hnum) {
+		if(sk->num == hnum && !ipv6_only_sock(sk)) {
 			__u32 rcv_saddr = sk->rcv_saddr;
 
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+			score = sk->family == PF_INET ? 1 : 0;
+#else
 			score = 1;
+#endif
 			if(rcv_saddr) {
 				if (rcv_saddr != daddr)
 					continue;
-				score++;
+				score+=2;
 			}
 			if (sk->bound_dev_if) {
 				if (sk->bound_dev_if != dif)
 					continue;
-				score++;
+				score+=2;
 			}
-			if (score == 3)
+			if (score == 5)
 				return sk;
 			if (score > hiscore) {
 				hiscore = score;
@@ -456,6 +465,7 @@ __inline__ struct sock *tcp_v4_lookup_listener(u32 daddr, unsigned short hnum, i
 		if (sk->num == hnum &&
 		    sk->next == NULL &&
 		    (!sk->rcv_saddr || sk->rcv_saddr == daddr) &&
+		    (sk->family == PF_INET || !ipv6_only_sock(sk)) &&
 		    !sk->bound_dev_if)
 			goto sherry_cache;
 		sk = __tcp_v4_lookup_listener(sk, daddr, hnum, dif);

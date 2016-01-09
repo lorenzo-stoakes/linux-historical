@@ -12,6 +12,7 @@
  * 
  * History:
  *
+ * 2002/10/22 OHCI_USB_OPER for ALi lockup in IBM i1200 (ALEX <thchou@ali>)
  * 2002/03/08 interrupt unlink fix (Matt Hughes), better cleanup on
  *	load failure (Matthew Frederickson)
  * 2002/01/20 async unlink fixes:  return -EINPROGRESS (per spec) and
@@ -2168,7 +2169,11 @@ static int hc_reset (ohci_t * ohci)
 
   	/* Reset USB (needed by some controllers) */
 	writel (0, &ohci->regs->control);
-      	
+
+	/* Force a state change from USBRESET to USBOPERATIONAL for ALi */
+	(void) readl (&ohci->regs->control);	/* PCI posting */
+	writel (ohci->hc_control = OHCI_USB_OPER, &ohci->regs->control);
+
 	/* HC Reset requires max 10 ms delay */
 	writel (OHCI_HCR,  &ohci->regs->cmdstatus);
 	while ((readl (&ohci->regs->cmdstatus) & OHCI_HCR) != 0) {

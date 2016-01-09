@@ -622,7 +622,7 @@ extern int ext3_sync_file (struct file *, struct dentry *, int);
 /* ialloc.c */
 extern struct inode * ext3_new_inode (handle_t *, const struct inode *, int);
 extern void ext3_free_inode (handle_t *, struct inode *);
-extern struct inode * ext3_orphan_get (struct super_block *, ino_t);
+extern struct inode * ext3_orphan_get (struct super_block *, unsigned long);
 extern unsigned long ext3_count_free_inodes (struct super_block *);
 extern void ext3_check_inodes_bitmap (struct super_block *);
 extern unsigned long ext3_count_free (struct buffer_head *, unsigned);

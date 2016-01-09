@@ -489,7 +489,7 @@ static int sync_page_io(kdev_t dev, unsigned long sector, int size,
 	init_buffer(&bh, bh_complete, &event);
 	bh.b_rdev = dev;
 	bh.b_rsector = sector;
-	bh.b_state	= (1 << BH_Req) | (1 << BH_Mapped);
+	bh.b_state	= (1 << BH_Req) | (1 << BH_Mapped) | (1 << BH_Lock);
 	bh.b_size = size;
 	bh.b_page = page;
 	bh.b_reqnext = NULL;

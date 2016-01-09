@@ -33,6 +33,7 @@ obj-$(CONFIG_BLK_DEV_SL82C105)		+= sl82c105.o
 obj-$(CONFIG_BLK_DEV_SLC90E66)		+= slc90e66.o
 obj-$(CONFIG_BLK_DEV_TRM290)		+= trm290.o
 obj-$(CONFIG_BLK_DEV_VIA82CXXX)		+= via82cxxx.o
+obj-$(CONFIG_BLK_DEV_TRIFLEX)		+= triflex.o
 
 # Must appear at the end of the block
 obj-$(CONFIG_BLK_DEV_GENERIC)		+= generic.o

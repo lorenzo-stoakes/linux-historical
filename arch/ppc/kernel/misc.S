@@ -1062,10 +1062,10 @@ _GLOBAL(sys_call_table)
 	.long sys_newlstat
 	.long sys_newfstat
 	.long sys_uname
-	.long sys_iopl		/* 110 */
+	.long sys_ni_syscall	/* 110 old iopl syscall */
 	.long sys_vhangup
 	.long sys_ni_syscall	/* old 'idle' syscall */
-	.long sys_vm86
+	.long sys_ni_syscall	/* old vm86 syscall */
 	.long sys_wait4
 	.long sys_swapoff	/* 115 */
 	.long sys_sysinfo
@@ -1075,7 +1075,7 @@ _GLOBAL(sys_call_table)
 	.long sys_clone		/* 120 */
 	.long sys_setdomainname
 	.long sys_newuname
-	.long sys_modify_ldt
+	.long sys_ni_syscall	/* old modify_ldt syscall */
 	.long sys_adjtimex
 	.long sys_mprotect	/* 125 */
 	.long sys_sigprocmask

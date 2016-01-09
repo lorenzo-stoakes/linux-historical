@@ -11684,6 +11684,18 @@ CONFIG_PCNET32
   module, say M here and read <file:Documentation/modules.txt> as well
   as <file:Documentation/networking/net-modules.txt>.
 
+AMD 8111 (new PCI lance) support
+CONFIG_AMD8111_ETH
+  If you have an AMD 8111-based PCI lance ethernet card,
+  answer Y here and read the Ethernet-HOWTO, available from
+  <http://www.tldp.org/docs.html#howto>.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called amd8111e.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt> as well
+  as <file:Documentation/networking/net-modules.txt>.
+
 Ansel Communications EISA 3200 support
 CONFIG_AC3200
   If you have a network (Ethernet) card of this type, say Y and read
@@ -14010,10 +14022,10 @@ CONFIG_USB_SERIAL_VISOR
   The module will be called visor.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
-USB Compaq iPAQ Driver
+USB PocketPC PDA Driver
 CONFIG_USB_SERIAL_IPAQ
-  Say Y here if you want to connect to your Compaq iPAQ, HP Jornada 548/568
-  or Casio EM500 running Windows CE 3.0 or PocketPC 2002 using a USB
+  Say Y here if you want to connect to your Compaq iPAQ, HP Jornada,
+  or any other PDA running Windows CE 3.0 or PocketPC 2002 using a USB
   cradle/cable. For information on using the driver,
   read <file:Documentation/usb/usb-serial.txt>.
 
@@ -14427,7 +14439,7 @@ CONFIG_USB_PEGASUS
   If in doubt then look at linux/drivers/usb/pegasus.h for the complete
   list of supported devices.
   If your particular adapter is not in the list and you are _sure_ it
-  is Pegasus or Pegasus-II based then send me (pmanolov@users.sourceforge.net)
+  is Pegasus or Pegasus-II based then send me (petkan@users.sourceforge.net)
   vendor and device IDs.
   
   This code is also available as a module ( = code which can be
@@ -24583,13 +24595,24 @@ CONFIG_NS83820
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called ns83820.o.
 
+Toshiba Type-O IR Port device driver (old driver)
+CONFIG_TOSHIBA_OLD
+  Say Y here if you want to build support for the Toshiba Type-O IR
+  chipset.  This chipset is used by the Toshiba Libretto 100CT, and
+  many more laptops. This driver is obsolete, will no more be
+  maintained and will be removed in favor of the new driver.
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.
+  The module will be called toshoboe.o.
+
 Toshiba Type-O IR Port device driver
 CONFIG_TOSHIBA_FIR
   Say Y here if you want to build support for the Toshiba Type-O IR
-  chipset.  This chipset is used by the Toshiba Libretto 100CT, and
-  many more laptops.  If you want to compile it as a module, say M
-  here and read <file:Documentation/modules.txt>.  The module will be
-  called toshoboe.o.
+  and Donau oboe chipsets. These chipsets are used by the Toshiba
+  Libretto 100/110CT, Tecra 8100, Portege 7020 and many more laptops.
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.
+  The module will be called donauboe.o.
 
 SMC IrCC
 CONFIG_SMC_IRCC_FIR

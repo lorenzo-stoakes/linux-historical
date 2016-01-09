@@ -171,7 +171,8 @@ struct ipv6_pinfo {
 	__u8			mc_loop:1,
 	                        recverr:1,
 	                        sndflow:1,
-	                        pmtudisc:2;
+	                        pmtudisc:2,
+				ipv6only:1;
 
 	struct ipv6_mc_socklist	*ipv6_mc_list;
 	struct ipv6_fl_socklist *ipv6_fl_list;
@@ -188,6 +189,12 @@ struct raw6_opt {
 	struct icmp6_filter	filter;
 };
 
+#define __ipv6_only_sock(sk)	((sk)->net_pinfo.af_inet6.ipv6only)
+#define ipv6_only_sock(sk)	((sk)->family == PF_INET6 && \
+				 (sk)->net_pinfo.af_inet6.ipv6only)
+#else
+#define __ipv6_only_sock(sk)	0
+#define ipv6_only_sock(sk)	0
 #endif /* IPV6 */
 
 #if defined(CONFIG_INET) || defined(CONFIG_INET_MODULE)
@@ -416,6 +423,9 @@ struct tcp_opt {
 	unsigned int		keepalive_time;	  /* time before keep alive takes place */
 	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */
 	int			linger2;
+
+	int                     frto_counter; /* Number of new acks after RTO */
+	__u32                   frto_highmark; /* snd_nxt when RTO occurred */
 
 	unsigned long last_synq_overflow; 
 };

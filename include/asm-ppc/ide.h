@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.ide.h 1.16 09/28/01 07:54:24 trini
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  *  linux/include/asm-ppc/ide.h
@@ -85,6 +85,11 @@ static __inline__ void ide_init_default_hwifs(void)
 	}
 #endif /* CONFIG_BLK_DEV_IDEPCI */
 }
+
+#define __ide_mm_insw(p, a, c)	_insw_ns((volatile u16 *)(p), (a), (c))
+#define __ide_mm_insl(p, a, c)	_insl_ns((volatile u32 *)(p), (a), (c))
+#define __ide_mm_outsw(p, a, c)	_outsw_ns((volatile u16 *)(p), (a), (c))
+#define __ide_mm_outsl(p, a, c)	_outsl_ns((volatile u32 *)(p), (a), (c))
 
 /*
  * The following are not needed for the non-m68k ports

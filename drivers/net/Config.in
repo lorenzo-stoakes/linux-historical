@@ -158,6 +158,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    if [ "$CONFIG_NET_PCI" = "y" ]; then
       dep_tristate '    AMD PCnet32 PCI support' CONFIG_PCNET32 $CONFIG_PCI
+      dep_tristate '    AMD 8111 (new PCI lance) support' CONFIG_AMD8111_ETH $CONFIG_PCI
       dep_tristate '    Adaptec Starfire/DuraLAN support' CONFIG_ADAPTEC_STARFIRE $CONFIG_PCI
       if [ "$CONFIG_ISA" = "y" -o "$CONFIG_EISA" = "y" ]; then
 	 dep_tristate '    Ansel Communications EISA 3200 support (EXPERIMENTAL)' CONFIG_AC3200 $CONFIG_EXPERIMENTAL

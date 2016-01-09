@@ -76,7 +76,7 @@ typedef unsigned long pgprot_t;
 
 
 /* align addr on a size boundry - adjust address up if needed -- Cort */
-#define _ALIGN(addr,size)	(((addr)+size-1)&(~(size-1)))
+#define _ALIGN(addr,size)	(((addr)+(size)-1)&(~((size)-1)))
 
 /* to align the pointer to the (next) page boundary */
 #define PAGE_ALIGN(addr)	(((addr)+PAGE_SIZE-1)&PAGE_MASK)
@@ -117,8 +117,8 @@ static inline void* ___va(unsigned long p)
 #define __va(x) ___va ((unsigned long)(x))
 
 #define MAP_PAGE_RESERVED	(1<<15)
-#define virt_to_page(kaddr)	(mem_map + (((unsigned long)kaddr-PAGE_OFFSET) >> PAGE_SHIFT))
-#define VALID_PAGE(page)	((page - mem_map) < max_mapnr)
+#define virt_to_page(kaddr)	(mem_map + (((unsigned long)(kaddr)-PAGE_OFFSET) >> PAGE_SHIFT))
+#define VALID_PAGE(page)	(((page) - mem_map) < max_mapnr)
 
 extern unsigned long get_zero_page_fast(void);
 

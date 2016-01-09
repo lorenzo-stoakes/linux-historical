@@ -117,10 +117,10 @@
 #define __NR_lstat		107
 #define __NR_fstat		108
 #define __NR_olduname		109
-#define __NR_iopl		110
+/* 110 was __NR_iopl */
 #define __NR_vhangup		111
 #define __NR_idle		112
-#define __NR_vm86		113
+/* 113 was __NR_vm86 */
 #define __NR_wait4		114
 #define __NR_swapoff		115
 #define __NR_sysinfo		116
@@ -130,7 +130,7 @@
 #define __NR_clone		120
 #define __NR_setdomainname	121
 #define __NR_uname		122
-#define __NR_modify_ldt		123
+/* 123 was __NR_modify_ldt */
 #define __NR_adjtimex		124
 #define __NR_mprotect		125
 #define __NR_sigprocmask	126
