@@ -211,7 +211,8 @@ acpi_get_firmware_table (
 	ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
 		"RSDP located at %p, RSDT physical=%8.8X%8.8X \n",
 		acpi_gbl_RSDP,
-		ACPI_FORMAT_UINT64 (address.pointer.value)));
+		ACPI_HIDWORD (address.pointer.value),
+		ACPI_LODWORD (address.pointer.value)));
 
 	/* Insert processor_mode flags */
 

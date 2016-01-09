@@ -53,7 +53,6 @@
 #include <net/sock.h>	  /* For skb_set_owner_w */
 
 #include <net/sctp/sctp.h>
-#include <net/sctp/sm.h>
 
 /* Declare internal functions here.  */
 static int sctp_acked(sctp_sackhdr_t *sack, __u32 tsn);

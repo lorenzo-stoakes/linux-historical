@@ -42,7 +42,17 @@ struct i2c_msg;
 
 /* --- Includes and compatibility declarations ------------------------ */
 
+#include <linux/version.h>
+#ifndef KERNEL_VERSION
+#define KERNEL_VERSION(a,b,c) (((a) << 16) | ((b) << 8) | (c))
+#endif
+
+#include <asm/page.h>			/* for 2.2.xx 			*/
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,0,25)
+#include <linux/sched.h>
+#else
 #include <asm/semaphore.h>
+#endif
 #include <linux/config.h>
 
 /* --- General options ------------------------------------------------	*/
@@ -216,6 +226,10 @@ struct i2c_algorithm {
 	u32 (*functionality) (struct i2c_adapter *);
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,29)
+struct proc_dir_entry;
+#endif
+
 /*
  * i2c_adapter is the structure used to identify a physical i2c bus along
  * with the access algorithms necessary to access it.
@@ -253,6 +267,9 @@ struct i2c_adapter {
 #ifdef CONFIG_PROC_FS 
 	/* No need to set this when you initialize the adapter          */
 	int inode;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,29)
+	struct proc_dir_entry *proc_entry;
+#endif
 #endif /* def CONFIG_PROC_FS */
 };
 

@@ -24,7 +24,6 @@
  * Routines specific to the LASAT boards
  */
 #include <linux/types.h>
-#include <linux/crc32.h>
 #include <asm/lasat/lasat.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -34,11 +33,9 @@
 #include "at93c.h"
 /* New model description table */
 #include "lasat_models.h"
-
-#define EEPROM_CRC(data, len) (~0 ^ crc32(~0, data, len))
-
 struct lasat_info lasat_board_info;
 
+unsigned long crc32(unsigned long, unsigned char *, int);
 void update_bcastaddr(void);
 
 int EEPROMRead(unsigned int pos, unsigned char *data, int len)
@@ -71,19 +68,19 @@ static void init_flash_sizes(void)
 	ls[LASAT_MTD_NORMAL] = 0x100000;
 
 	if (mips_machtype == MACH_LASAT_100) {
-		lasat_board_info.li_flash_base = 0x1e000000;
+		lasat_board_info.li_flash_base = KSEG1ADDR(0x1e000000);
 		
-		lb[LASAT_MTD_BOOTLOADER] = 0x1e400000;
+		lb[LASAT_MTD_BOOTLOADER] = KSEG1ADDR(0x1e400000);
 
 		if (lasat_board_info.li_flash_size > 0x200000) {
 			ls[LASAT_MTD_CONFIG] = 0x100000;
 			ls[LASAT_MTD_FS] = 0x500000;
 		}
 	} else {
-		lasat_board_info.li_flash_base = 0x10000000;
+		lasat_board_info.li_flash_base = KSEG1ADDR(0x10000000);
 
 		if (lasat_board_info.li_flash_size < 0x1000000) {
-			lb[LASAT_MTD_BOOTLOADER] = 0x10000000;
+			lb[LASAT_MTD_BOOTLOADER] = KSEG1ADDR(0x10000000);
 			ls[LASAT_MTD_CONFIG] = 0x100000;
 			if (lasat_board_info.li_flash_size >= 0x400000) {
 				ls[LASAT_MTD_FS] = lasat_board_info.li_flash_size - 0x300000;
@@ -112,7 +109,7 @@ int lasat_init_board_info(void)
 		   sizeof(struct lasat_eeprom_struct));
 
 	/* Check the CRC */
-	crc = EEPROM_CRC((unsigned char *)(&lasat_board_info.li_eeprom_info),
+	crc = crc32(0x0, (unsigned char *)(&lasat_board_info.li_eeprom_info),
 		    sizeof(struct lasat_eeprom_struct) - 4);
 
 	if (crc != lasat_board_info.li_eeprom_info.crc32) {
@@ -271,7 +268,7 @@ void lasat_write_eeprom_info(void)
 	unsigned long crc;
 
 	/* Generate the CRC */
-	crc = EEPROM_CRC((unsigned char *)(&lasat_board_info.li_eeprom_info),
+	crc = crc32(0x0, (unsigned char *)(&lasat_board_info.li_eeprom_info),
 		    sizeof(struct lasat_eeprom_struct) - 4);
 	lasat_board_info.li_eeprom_info.crc32 = crc;
 

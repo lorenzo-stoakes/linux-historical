@@ -27,7 +27,6 @@ struct sigcontext {
 	unsigned int       sc_badvaddr;
 };
 
-#ifdef __KERNEL__
 struct sigcontext32 {
 	u32 sc_regmask;		/* Unused */
 	u32 sc_status;
@@ -47,6 +46,5 @@ struct sigcontext32 {
 
 	u32 sc_sigset[4];	/* kernel's sigset_t */
 };
-#endif /* __KERNEL__ */
 
 #endif /* _ASM_SIGCONTEXT_H */

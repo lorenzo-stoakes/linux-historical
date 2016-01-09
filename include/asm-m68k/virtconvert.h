@@ -22,12 +22,12 @@
 extern unsigned long mm_vtop(unsigned long addr) __attribute__ ((const));
 extern unsigned long mm_ptov(unsigned long addr) __attribute__ ((const));
 #else
-static inline unsigned long mm_vtop(unsigned long vaddr)
+extern inline unsigned long mm_vtop(unsigned long vaddr)
 {
 	return __pa(vaddr);
 }
 
-static inline unsigned long mm_ptov(unsigned long paddr)
+extern inline unsigned long mm_ptov(unsigned long paddr)
 {
 	return (unsigned long)__va(paddr);
 }

@@ -146,7 +146,6 @@ static int xsurf_ack_intr(ide_hwif_t *hwif)
 void __init buddha_init(void)
 {
 	hw_regs_t hw;
-	ide_hwif_t *hwif;
 	int i, index;
 
 	struct zorro_dev *z = NULL;
@@ -213,9 +212,8 @@ fail_base2:
 						IRQ_AMIGA_PORTS);
 			}	
 			
-			index = ide_register_hw(&hw, &hwif);
+			index = ide_register_hw(&hw, NULL);
 			if (index != -1) {
-				hwif->mmio = 2;
 				printk("ide%d: ", index);
 				switch(type) {
 				case BOARD_BUDDHA:

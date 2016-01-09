@@ -186,9 +186,7 @@ void __init board_setup(void)
 	case 0x02: /* HB */
 		break;
 	default:  /* HC and newer */
-		/* Enable sys bus clock divider when IDLE state or no bus 
-		   activity. */
-		au_writel(au_readl(SYS_POWERCTRL) | (0x3 << 5), SYS_POWERCTRL);
+		au_writel(0x00000060, 0xb190003c);
 		break;
 	}
 }

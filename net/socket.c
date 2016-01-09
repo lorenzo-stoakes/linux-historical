@@ -42,7 +42,7 @@
  *		Andi Kleen	:	Some small cleanups, optimizations,
  *					and fixed a copy_from_user() bug.
  *		Tigran Aivazian	:	sys_send(args) calls sys_sendto(args, NULL, 0)
-o *		Tigran Aivazian	:	Made listen(2) backlog sanity checks 
+ *		Tigran Aivazian	:	Made listen(2) backlog sanity checks 
  *					protocol-independent
  *
  *
@@ -1016,16 +1016,14 @@ asmlinkage long sys_bind(int fd, struct sockaddr *umyaddr, int addrlen)
  *	ready for listening.
  */
 
-int sysctl_somaxconn = SOMAXCONN;
-
 asmlinkage long sys_listen(int fd, int backlog)
 {
 	struct socket *sock;
 	int err;
 	
 	if ((sock = sockfd_lookup(fd, &err)) != NULL) {
-		if ((unsigned) backlog > sysctl_somaxconn)
-			backlog = sysctl_somaxconn;
+		if ((unsigned) backlog > SOMAXCONN)
+			backlog = SOMAXCONN;
 		err=sock->ops->listen(sock, backlog);
 		sockfd_put(sock);
 	}

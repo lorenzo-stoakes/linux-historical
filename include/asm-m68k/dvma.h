@@ -58,8 +58,7 @@ extern void dvma_free(void *vaddr);
 #define dvma_vtob(x) dvma_vtop(x)
 #define dvma_btov(x) dvma_ptov(x)
 
-static inline int dvma_map_cpu(unsigned long kaddr, unsigned long vaddr,
-			       int len)
+extern inline int dvma_map_cpu(unsigned long kaddr, unsigned long vaddr, int len)
 {
 	return 0;
 }

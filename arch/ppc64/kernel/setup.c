@@ -62,8 +62,6 @@ extern void iSeries_init_early( void );
 extern void pSeries_init_early( void );
 extern void pSeriesLP_init_early(void);
 extern void mm_init_ppc64( void ); 
-extern void pseries_secondary_smp_init(unsigned long);
-extern void vpa_init(int cpu);
 
 unsigned long decr_overclock = 1;
 unsigned long decr_overclock_proc0 = 1;
@@ -109,8 +107,6 @@ struct console udbg_console = {
 void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 		  unsigned long r6, unsigned long r7)
 {
-	unsigned int ret, i;
-
 	/* This should be fixed properly in kernel/resource.c */
 	iomem_resource.end = MEM_SPACE_LIMIT;
 
@@ -147,22 +143,7 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 		udbg_printf("---- start early boot console ----\n");
 	}
 
-	if (systemcfg->platform & PLATFORM_PSERIES) {
-		finish_device_tree();
-		chrp_init(r3, r4, r5, r6, r7);
-
-		/* Start secondary threads on SMT systems */
-		for (i = 0; i < NR_CPUS; i++) {
-			if(cpu_available(i)  && !cpu_possible(i)) {
-				printk("%16.16lx : starting thread\n", i);
-				rtas_call(rtas_token("start-cpu"), 3, 1,
-					  (void *)&ret,
-					  i, *((unsigned long *)pseries_secondary_smp_init), i);
-				paca[i].active = 1;
-				systemcfg->processorCount++;
-			}
-		}
-	}
+	printk("Starting Linux PPC64 %s\n", UTS_RELEASE);
 
 	printk("-----------------------------------------------------\n");
 	printk("naca                          = 0x%p\n", naca);
@@ -179,15 +160,12 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 	printk("htab_data.num_ptegs           = 0x%lx\n", htab_data.htab_num_ptegs);
 	printk("-----------------------------------------------------\n");
 
-	printk("Starting Linux PPC64 %s\n", UTS_RELEASE);
-
-	mm_init_ppc64();
-
-	if (cur_cpu_spec->firmware_features & FW_FEATURE_SPLPAR) {
-		vpa_init(0);
+	if (systemcfg->platform & PLATFORM_PSERIES) {
+		finish_device_tree();
+		chrp_init(r3, r4, r5, r6, r7);
 	}
 
-	idle_setup();
+	mm_init_ppc64();
 
 	switch (systemcfg->platform) {
 	    case PLATFORM_ISERIES_LPAR:

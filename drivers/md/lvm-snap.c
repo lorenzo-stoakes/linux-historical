@@ -44,7 +44,6 @@
  *    26/06/2002 - support for new list_move macro [patch@luckynet.dynu.com]
  *    26/07/2002 - removed conditional list_move macro because we will
  *                 discontinue LVM1 before 2.6 anyway
- *    27/08/2003 - fixed unsafe list handling in lvm_find_exception_table() [HM]
  *
  */
 
@@ -115,7 +114,7 @@ static inline lv_block_exception_t *lvm_find_exception_table(kdev_t
 							     org_start,
 							     lv_t * lv)
 {
-	struct list_head *hash_table = lv->lv_snapshot_hash_table, *next, *n;
+	struct list_head *hash_table = lv->lv_snapshot_hash_table, *next;
 	unsigned long mask = lv->lv_snapshot_hash_mask;
 	int chunk_size = lv->lv_chunk_size;
 	lv_block_exception_t *ret;
@@ -124,9 +123,8 @@ static inline lv_block_exception_t *lvm_find_exception_table(kdev_t
 	hash_table =
 	    &hash_table[hashfn(org_dev, org_start, mask, chunk_size)];
 	ret = NULL;
-
-	for (next = hash_table->next, n = next->next; next != hash_table;
-             next = n, n = next->next) {
+	for (next = hash_table->next; next != hash_table;
+	     next = next->next) {
 		lv_block_exception_t *exception;
 
 		exception = list_entry(next, lv_block_exception_t, hash);

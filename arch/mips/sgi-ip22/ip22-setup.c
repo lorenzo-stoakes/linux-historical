@@ -22,7 +22,6 @@
 #include <asm/irq.h>
 #include <asm/reboot.h>
 #include <asm/ds1286.h>
-#include <asm/floppy.h>
 #include <asm/time.h>
 #include <asm/gdb-stub.h>
 #include <asm/io.h>
@@ -38,9 +37,6 @@ extern void breakpoint(void);
 static int remote_debug = 0;
 #endif
 
-#ifdef CONFIG_EISA
-extern struct fd_ops std_fd_ops;
-#endif
 extern struct rtc_ops ip22_rtc_ops;
 
 unsigned long sgi_gfxaddr;
@@ -114,9 +110,10 @@ struct kbd_ops ip22_kbd_ops = {
 extern void ip22_be_init(void) __init;
 extern void ip22_time_init(void) __init;
 
+extern int console_setup(char *) __init;
+
 void __init ip22_setup(void)
 {
-	struct console_cmdline *c;
 	char *ctype;
 #ifdef CONFIG_KGDB
 	char *kgdb_ttyd;
@@ -139,29 +136,23 @@ void __init ip22_setup(void)
 	indy_sc_init();
 #endif
 
-	/* Set EISA IO port base for Indigo2 */
-	set_io_port_base(KSEG1ADDR(0x00080000));
+	/* Set the IO space to some sane value */
+	set_io_port_base (KSEG1ADDR (0x00080000));
 
-	/* Nothing registered console before us, so simply use first entry */
-	c = &console_cmdline[0];
-	ctype = ArcGetEnvironmentVariable("console");
 	/* ARCS console environment variable is set to "g?" for
 	 * graphics console, it is set to "d" for the first serial
 	 * line and "d2" for the second serial line.
 	 */
+	ctype = ArcGetEnvironmentVariable("console");
 	if (ctype && *ctype == 'd') {
-		static char options[8];
-		char *dbaud = ArcGetEnvironmentVariable("dbaud");
-		strcpy(c->name, "ttyS");
-		c->index = *(ctype + 1) == '2' ? 1 : 0;
-		if (dbaud) {
-			strcpy(&options, dbaud);
-			c->options = options;
-		}
+		if (*(ctype + 1) == '2')
+			console_setup("ttyS1");
+		else
+			console_setup("ttyS0");
 	} else if (!ctype || *ctype != 'g') {
 		/* Use ARC if we don't want serial ('d') or Newport ('g'). */
 		prom_flags |= PROM_FLAG_USE_AS_CONSOLE;
-		strcpy(c->name, "arc");
+		console_setup("arc");
 	}
 
 #ifdef CONFIG_KGDB
@@ -189,11 +180,11 @@ void __init ip22_setup(void)
 	conswitchp = &dummy_con;
 #ifdef CONFIG_SGI_NEWPORT_CONSOLE
 	if (ctype && *ctype == 'g'){
-		ULONG *gfxinfo;
-		ULONG * (*__vec)(void) = (void *) (long)
-			*((_PULONG *)(long)((PROMBLOCK)->pvector + 0x20));
+		unsigned long *gfxinfo;
+		long (*__vec)(void) =
+			(void *) *(long *)((PROMBLOCK)->pvector + 0x20);
 
-		gfxinfo = __vec();
+		gfxinfo = (unsigned long *)__vec();
 		sgi_gfxaddr = ((gfxinfo[1] >= 0xa0000000
 			       && gfxinfo[1] <= 0xc0000000)
 			       ? gfxinfo[1] - 0xa0000000 : 0);
@@ -216,14 +207,6 @@ void __init ip22_setup(void)
 		}
 	}
 #endif
-#endif
-
-/*
- * Warning: this is broken, means it has to be known at kernel compile time
- * if a floppy module might ever be loaded
- */
-#if defined(CONFIG_EISA) && defined(CONFIG_BLK_DEV_FD)
-	fd_ops = &std_fd_ops;
 #endif
 	rtc_ops = &ip22_rtc_ops;
 	kbd_ops = &ip22_kbd_ops;

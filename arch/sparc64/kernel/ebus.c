@@ -177,8 +177,7 @@ void __init fill_ebus_child(int node, struct linux_prom_registers *preg,
 
 static int __init child_regs_nonstandard(struct linux_ebus_device *dev)
 {
-	if (!strcmp(dev->prom_name, "i2c") ||
-	    !strcmp(dev->prom_name, "SUNW,lombus"))
+	if (!strcmp(dev->prom_name, "i2c"))
 		return 1;
 	return 0;
 }

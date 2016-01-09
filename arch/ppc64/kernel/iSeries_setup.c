@@ -63,7 +63,6 @@ extern void ppcdbg_initialize(void);
 extern void iSeries_pcibios_init(void);
 extern void iSeries_pcibios_fixup(void);
 extern void iSeries_pcibios_fixup_bus(int);
-extern void iSeries_init_irq_desc(irq_desc_t *desc);
 
 /* Global Variables */
 
@@ -308,7 +307,6 @@ iSeries_init_early(void)
 	ppc_md.get_cpuinfo	 	= iSeries_get_cpuinfo;
 	ppc_md.irq_cannonicalize 	= NULL;
 	ppc_md.init_IRQ		 	= iSeries_init_IRQ;
-	ppc_md.init_irq_desc            = iSeries_init_irq_desc;
 	ppc_md.init_ras_IRQ		= NULL;
 	ppc_md.get_irq		 	= iSeries_get_irq;
 	ppc_md.init		 	= NULL;

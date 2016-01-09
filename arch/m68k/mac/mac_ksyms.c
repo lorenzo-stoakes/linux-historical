@@ -1,7 +1,8 @@
 #include <linux/module.h>
-#include <linux/types.h>
-#include <asm/mac_via.h>
-#include <asm/macintosh.h>
+#include <asm/ptrace.h>
+#include <asm/traps.h>
+
+/* Says whether we're using A/UX interrupts or not */
+extern int via_alt_mapping;
 
 EXPORT_SYMBOL(via_alt_mapping);
-EXPORT_SYMBOL(macintosh_config);

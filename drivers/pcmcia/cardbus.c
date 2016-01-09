@@ -223,6 +223,7 @@ fail:
 
 struct pci_dev *cb_scan_slot(struct pci_dev *temp, struct list_head *list)
 {
+	struct pci_bus *bus = temp->bus;
 	struct pci_dev *dev;
 	struct pci_dev *first_dev = NULL;
 	int func = 0;
@@ -368,7 +369,7 @@ static unsigned int cb_scan_new_bus(struct pci_bus *bus, int irq)
 	return max;
 }
 
-static void program_bridge(struct pci_dev *bridge)
+static int program_bridge(struct pci_dev *bridge)
 {
 	u32 l;
 	

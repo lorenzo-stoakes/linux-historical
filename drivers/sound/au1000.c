@@ -2027,7 +2027,7 @@ static int __devinit au1000_probe(void)
 	s->codec = ac97_alloc_codec();
 	if(s->codec == NULL)
 	{
-		err("Out of memory");
+		error("Out of memory");
 		return -1;
 	}
 	s->codec->private_data = s;

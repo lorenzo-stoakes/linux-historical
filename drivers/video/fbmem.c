@@ -124,10 +124,9 @@ extern int sisfb_init(void);
 extern int sisfb_setup(char*);
 extern int stifb_init(void);
 extern int stifb_setup(char*);
-extern int pmagaafb_init(void);
 extern int pmagbafb_init(void);
 extern int pmagbbfb_init(void);
-extern int maxinefb_init(void);
+extern void maxinefb_init(void);
 extern int tx3912fb_init(void);
 extern int radeonfb_init(void);
 extern int radeonfb_setup(char*);
@@ -313,9 +312,6 @@ static struct {
 #endif
 #ifdef CONFIG_FB_PVR2
 	{ "pvr2", pvr2fb_init, pvr2fb_setup },
-#endif
-#ifdef CONFIG_FB_PMAG_AA
-	{ "pmagaafb", pmagaafb_init, NULL },
 #endif
 #ifdef CONFIG_FB_PMAG_BA
 	{ "pmagbafb", pmagbafb_init, NULL },

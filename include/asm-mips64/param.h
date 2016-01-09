@@ -60,7 +60,7 @@
 #endif /* defined(__KERNEL__)  */
 #endif /* defined(HZ)  */
 
-#define EXEC_PAGESIZE	65536
+#define EXEC_PAGESIZE	4096
 
 #ifndef NGROUPS
 #define NGROUPS		32

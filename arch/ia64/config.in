@@ -34,7 +34,7 @@ choice 'IA-64 system type'					\
 	"generic		CONFIG_IA64_GENERIC		\
 	 DIG-compliant		CONFIG_IA64_DIG			\
 	 HP-simulator		CONFIG_IA64_HP_SIM		\
-	 HP			CONFIG_IA64_HP_ZX1		\
+	 HP-zx1			CONFIG_IA64_HP_ZX1		\
 	 SGI-SN2		CONFIG_IA64_SGI_SN2" generic
 
 if [ "$CONFIG_ITANIUM" = "y" ]; then
@@ -90,7 +90,7 @@ if [ "$CONFIG_SMP" = "y" ]; then
    int  'Maximum number of CPUs (2-32)' CONFIG_NR_CPUS 32
 fi
 
-bool 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
+tristate 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
 bool 'Performance monitor support' CONFIG_PERFMON
 tristate '/proc/pal support' CONFIG_IA64_PALINFO
 tristate '/proc/efi/vars support' CONFIG_EFI_VARS

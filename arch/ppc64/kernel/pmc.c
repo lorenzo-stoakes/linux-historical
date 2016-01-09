@@ -74,6 +74,7 @@ struct mm_struct btmalloc_mm = {pgd             : bolted_dir,
                                 page_table_lock : SPIN_LOCK_UNLOCKED};
 
 extern spinlock_t hash_table_lock[];
+extern inline unsigned long get_lock_slot(unsigned long vpn);
 
 char *
 ppc64_pmc_stab(int file)
@@ -240,7 +241,7 @@ void* btmalloc (unsigned long size) {
 		lock_slot = get_lock_slot(vpn); 
 		rpn = pa >> PAGE_SHIFT;
 
-		spin_lock(&hash_table_lock[lock_slot]);
+		spin_lock(&hash_table_lock[lock_slot].lock);
 		/* Get a pointer to the linux page table entry for this page
 		 * allocating pmd or pte pages along the way as needed.  Note
 		 * that the pmd & pte pages are not themselfs bolted.
@@ -265,7 +266,7 @@ void* btmalloc (unsigned long size) {
 
 		*ptep = pte;
 
-		spin_unlock(&hash_table_lock[lock_slot]);
+		spin_unlock(&hash_table_lock[lock_slot].lock);
 	}
 
 	spin_unlock(&btmalloc_mm.page_table_lock);

@@ -1,9 +1,8 @@
 /***************************************************************************
- * Various definitions for compatibility with OVCAMCHIP external module.   *
+ * Various definitions for compatibility with external modules.            *
  * This file is part of the W996[87]CF driver for Linux.                   *
  *                                                                         *
- * The definitions have been taken from the OVCAMCHIP module written by    *
- * Mark McClelland.                                                        *
+ * Copyright (C) 2002 2003 by Luca Risolia <luca_ing@libero.it>            *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -28,8 +27,10 @@
 #include <asm/ioctl.h>
 #include <asm/types.h>
 
+/* The following values have been copied from the "ovcamchip" module. */
+
 #ifndef I2C_DRIVERID_OVCAMCHIP
-#	define I2C_DRIVERID_OVCAMCHIP 0xf00f
+#	define I2C_DRIVERID_OVCAMCHIP	0xf00f
 #endif
 
 /* Controls */
@@ -76,10 +77,10 @@ struct ovcamchip_window {
 	int width;
 	int height;
 	int format;
-	int quarter;  /* Scale width and height down 2x */
+	int quarter;		/* Scale width and height down 2x */
 
 	/* This stuff will be removed eventually */
-	int clockdiv; /* Clock divisor setting */
+	int clockdiv;		/* Clock divisor setting */
 };
 
 /* Commands. 

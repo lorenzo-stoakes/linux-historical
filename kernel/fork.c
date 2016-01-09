@@ -114,10 +114,8 @@ inside:
 						last_pid = 300;
 					next_safe = PID_MAX;
 				}
-				if(unlikely(last_pid == beginpid)) {
-					next_safe = 0;
+				if(unlikely(last_pid == beginpid))
 					goto nomorepids;
-				}
 				goto repeat;
 			}
 			if(p->pid > last_pid && next_safe > p->pid)
@@ -671,7 +669,6 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	 * than the amount of processes root is running. -- Rik
 	 */
 	if (atomic_read(&p->user->processes) >= p->rlim[RLIMIT_NPROC].rlim_cur
-		      && p->user != &root_user
 	              && !capable(CAP_SYS_ADMIN) && !capable(CAP_SYS_RESOURCE))
 		goto bad_fork_free;
 

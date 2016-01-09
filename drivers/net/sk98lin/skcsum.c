@@ -2,8 +2,8 @@
  *
  * Name:	skcsum.c
  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
- * Version:	$Revision: 1.12 $
- * Date:	$Date: 2003/08/20 13:55:53 $
+ * Version:	$Revision: 1.11 $
+ * Date:	$Date: 2003/03/11 14:05:55 $
  * Purpose:	Store/verify Internet checksum in send/receive packets.
  *
  ******************************************************************************/
@@ -26,10 +26,6 @@
  * History:
  *
  *	$Log: skcsum.c,v $
- *	Revision 1.12  2003/08/20 13:55:53  mschmid
- *	Changed notation of #ifndef SkCsCalculateChecksum to
- *	#ifndef SK_CS_CALCULATE_CHECKSUM
- *	
  *	Revision 1.11  2003/03/11 14:05:55  rschmidt
  *	Replaced memset() by macro SK_MEMSET()
  *	Editorial changes
@@ -82,7 +78,7 @@
 
 #ifndef lint
 static const char SysKonnectFileId[] =
-	"@(#) $Id: skcsum.c,v 1.12 2003/08/20 13:55:53 mschmid Exp $ (C) SysKonnect.";
+	"@(#) $Id: skcsum.c,v 1.11 2003/03/11 14:05:55 rschmidt Exp $ (C) SysKonnect.";
 #endif	/* !lint */
 
 /******************************************************************************
@@ -795,7 +791,7 @@ int			NetNumber)
 	*pChecksum2Offset = SKCS_MAC_HEADER_SIZE + SKCS_IP_HEADER_SIZE;
 }	/* SkCsSetReceiveFlags */
 
-#ifndef SK_CS_CALCULATE_CHECKSUM
+#ifndef SkCsCalculateChecksum
 
 /******************************************************************************
  *
@@ -860,7 +856,7 @@ unsigned	Length)		/* Length of data. */
 	return ((unsigned) Checksum);
 }	/* SkCsCalculateChecksum */
 
-#endif /* SK_CS_CALCULATE_CHECKSUM */
+#endif /* SkCsCalculateChecksum */
 
 /******************************************************************************
  *

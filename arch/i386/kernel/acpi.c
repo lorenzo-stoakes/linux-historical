@@ -333,10 +333,8 @@ acpi_boot_init (void)
 	 * Initialize the ACPI boot-time table parser.
 	 */
 	result = acpi_table_init();
-	if (result) {
-		acpi_disabled = 1;
+	if (result)
 		return result;
-	}
 
 	result = acpi_blacklisted();
 	if (result) {

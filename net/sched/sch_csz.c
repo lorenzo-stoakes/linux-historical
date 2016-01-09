@@ -752,7 +752,7 @@ csz_destroy(struct Qdisc* sch)
 
 	while ((tp = q->filter_list) != NULL) {
 		q->filter_list = tp->next;
-		tcf_destroy(tp);
+		tp->ops->destroy(tp);
 	}
 
 	MOD_DEC_USE_COUNT;

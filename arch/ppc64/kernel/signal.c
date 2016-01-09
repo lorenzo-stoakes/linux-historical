@@ -296,9 +296,7 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size)
 			newsp = (current->sas_ss_sp + current->sas_ss_size);
 	}
 
-	/* The ABI requires quadword alignment for the stack. */
-	return (void *)((newsp - frame_size) & -16ul);
-
+        return (void *)((newsp - frame_size) & -8ul);
 }
 
 static int

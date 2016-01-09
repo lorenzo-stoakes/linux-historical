@@ -180,9 +180,12 @@ struct _of_tce_table of_tce_table[MAX_PHB + 1] = {{0, 0, 0}};
 char *bootpath = 0;
 char *bootdevice = 0;
 
-#define MAX_CPU_THREADS 2
-
 struct device_node *allnodes = 0;
+
+#define UNDEFINED_IRQ 0xffff
+unsigned short real_irq_to_virt_map[NR_HW_IRQS];
+unsigned short virt_irq_to_real_map[NR_IRQS];
+int last_virt_irq = 2;	/* index of last virt_irq.  Skip through IPI */
 
 static unsigned long call_prom(const char *service, int nargs, int nret, ...);
 static void prom_exit(void);
@@ -938,7 +941,7 @@ prom_initialize_tce_table(void)
 		 * By doing this, we avoid the pitfalls of trying to DMA to
 		 * MMIO space and the DMA alias hole.
 		 */
-		minsize = 8UL << 20;
+		minsize = 4UL << 20;
 
 		/* Align to the greater of the align or size */
 		align = (minalign < minsize) ? minsize : minalign;
@@ -1051,9 +1054,6 @@ prom_hold_cpus(unsigned long mem)
 	unsigned long offset = reloc_offset();
 	char type[64], *path;
 	int cpuid = 0;
-	unsigned int interrupt_server[MAX_CPU_THREADS];
-	unsigned int cpu_threads, hw_cpu_num;
-	int propsize;
 	extern void __secondary_hold(void);
         extern unsigned long __secondary_hold_spinloop;
         extern unsigned long __secondary_hold_acknowledge;
@@ -1117,11 +1117,17 @@ prom_hold_cpus(unsigned long mem)
 		call_prom(RELOC("getprop"), 4, 1, node, RELOC("reg"),
 			  &reg, sizeof(reg));
 
+		/* Only need to start secondary procs, not ourself. */
+		if ( reg == _prom->cpu )
+			continue;
+
 		path = (char *) mem;
 		memset(path, 0, 256);
 		if ((long) call_prom(RELOC("package-to-path"), 3, 1,
 				     node, path, 255) < 0)
 			continue;
+
+		cpuid++;
 
 #ifdef DEBUG_PROM
 		prom_print_nl();
@@ -1134,80 +1140,56 @@ prom_hold_cpus(unsigned long mem)
 #endif
 		_xPaca[cpuid].xHwProcNum = reg;
 
+		prom_print(RELOC("starting cpu "));
+		prom_print(path);
+
 		/* Init the acknowledge var which will be reset by
 		 * the secondary cpu when it awakens from its OF
 		 * spinloop.
 		 */
 		*acknowledge = (unsigned long)-1;
 
-		propsize = call_prom(RELOC("getprop"), 4, 1, node,
-				     RELOC("ibm,ppc-interrupt-server#s"),
-				     &interrupt_server,
-				     sizeof(interrupt_server));
-		if (propsize < 0) {
-			/* no property.  old hardware has no SMT */
-			cpu_threads = 1;
-			interrupt_server[0] = reg; /* fake it with phys id */
-		} else {
-			/* We have a threaded processor */
-			cpu_threads = propsize / sizeof(u32);
-			if (cpu_threads > MAX_CPU_THREADS) {
-				prom_print(RELOC("SMT: too many threads!\nSMT: found "));
-				prom_print_hex(cpu_threads);
-				prom_print(RELOC(", max is "));
-				prom_print_hex(MAX_CPU_THREADS);
-				prom_print_nl();
-				cpu_threads = 1; /* ToDo: panic? */
-			}
-		}
-
-		hw_cpu_num = interrupt_server[0];
-		if (hw_cpu_num != _prom->cpu) {
-			/* Primary Thread of non-boot cpu */
-			prom_print_hex(cpuid);
-			prom_print(RELOC(" : starting cpu "));
-			prom_print(path);
-			prom_print(RELOC(" ... "));
-			call_prom(RELOC("start-cpu"), 3, 0, node,
-				  secondary_hold, cpuid);
-
-			for(i = 0; (i < 100000000) &&
-			  (*acknowledge == ((unsigned long)-1)); i++ );
-
-			if (*acknowledge == cpuid) {
-				prom_print(RELOC("ok\n"));
-				/* Set the number of active processors. */
-				_systemcfg->processorCount++;
-				_xPaca[cpuid].active = 1;
-				_xPaca[cpuid].available = 1;
-			} else {
-				prom_print(RELOC("failed: "));
-				prom_print_hex(*acknowledge);
-				prom_print_nl();
-				/* prom_panic(RELOC("cpu failed to start")); */
-			}
-		} else {
-			prom_print_hex(cpuid);
-			prom_print(RELOC(" : booting  cpu "));
-			prom_print(path);
+#ifdef DEBUG_PROM
+		prom_print(RELOC("    3) spinloop       = 0x"));
+		prom_print_hex(spinloop);
+		prom_print_nl();
+		prom_print(RELOC("    3) *spinloop      = 0x"));
+		prom_print_hex(*spinloop);
+		prom_print_nl();
+		prom_print(RELOC("    3) acknowledge    = 0x"));
+		prom_print_hex(acknowledge);
+		prom_print_nl();
+		prom_print(RELOC("    3) *acknowledge   = 0x"));
+		prom_print_hex(*acknowledge);
+		prom_print_nl();
+		prom_print(RELOC("    3) secondary_hold = 0x"));
+		prom_print_hex(secondary_hold);
+		prom_print_nl();
+		prom_print(RELOC("    3) cpuid = 0x"));
+		prom_print_hex(cpuid);
+		prom_print_nl();
+#endif
+		call_prom(RELOC("start-cpu"), 3, 0, node, secondary_hold, cpuid);
+		prom_print(RELOC("..."));
+		for ( i = 0 ; (i < 100000000) && 
+			      (*acknowledge == ((unsigned long)-1)); i++ ) ;
+#ifdef DEBUG_PROM
+		{
+			unsigned long *p = 0x0;
+			prom_print(RELOC("    4) 0x0 = 0x"));
+			prom_print_hex(*p);
 			prom_print_nl();
 		}
-
-		/* Init paca for secondary threads.   They start later. */
-		for (i=1; i < cpu_threads; i++) {
-			cpuid++;
-			_xPaca[cpuid].xHwProcNum = interrupt_server[i];
-			prom_print_hex(interrupt_server[i]);
-			prom_print(RELOC(" : preparing thread ... "));
-			if (_naca->smt_state) {
-				_xPaca[cpuid].available = 1;
-				prom_print(RELOC("available"));
-			} else {
-				prom_print(RELOC("not available"));
-			}
+#endif
+		if (*acknowledge == cpuid) {
+			prom_print(RELOC("ok\n"));
+			/* Set the number of active processors. */
+			_systemcfg->processorCount++;
+		} else {
+			prom_print(RELOC("failed: "));
+			prom_print_hex(*acknowledge);
 			prom_print_nl();
 		}
-		cpuid++;
 	}
 #ifdef CONFIG_HMT
 	/* Only enable HMT on processors that provide support. */
@@ -1252,104 +1234,6 @@ prom_hold_cpus(unsigned long mem)
 #ifdef DEBUG_PROM
 	prom_print(RELOC("prom_hold_cpus: end...\n"));
 #endif
-}
-
-static void
-smt_setup(void)
-{
-	char *p, *q;
-	char my_smt_enabled = SMT_DYNAMIC;
-	unsigned long my_smt_snooze_delay;
-	ihandle prom_options = NULL;
-	char option[9];
-	unsigned long offset = reloc_offset();
-	struct naca_struct *_naca = RELOC(naca);
-	char found = 0;
-
-	if (strstr(RELOC(cmd_line), RELOC("smt-enabled="))) {
-		for (q = RELOC(cmd_line); (p = strstr(q, RELOC("smt-enabled="))) != 0; ) {
-			q = p + 12;
-			if (p > RELOC(cmd_line) && p[-1] != ' ')
-				continue;
-			found = 1;
-			if (q[0] == 'o' && q[1] == 'f' &&
-			    q[2] == 'f' && (q[3] == ' ' || q[3] == '\0')) {
-				my_smt_enabled = SMT_OFF;
-			} else if (q[0]=='o' && q[1] == 'n' &&
-				   (q[2] == ' ' || q[2] == '\0')) {
-				my_smt_enabled = SMT_ON;
-			} else {
-				my_smt_enabled = SMT_DYNAMIC;
-			}
-		}
-	}
-	if (!found) {
-		prom_options = (ihandle)call_prom(RELOC("finddevice"), 1, 1, RELOC("/options"));
-		if (prom_options != (ihandle) -1) {
-			call_prom(RELOC("getprop"),
-				4, 1, prom_options,
-				RELOC("ibm,smt-enabled"),
-				option, sizeof(option));
-			if (option[0] != 0) {
-				found = 1;
-				if (!strcmp(option, "off"))
-					my_smt_enabled = SMT_OFF;
-				else if (!strcmp(option, "on"))
-					my_smt_enabled = SMT_ON;
-				else
-					my_smt_enabled = SMT_DYNAMIC;
-			}
-		}
-	}
-
-	if (!found )
-		my_smt_enabled = SMT_DYNAMIC; /* default to on */
-
-	found = 0;
-	if (my_smt_enabled) {
-		if (strstr(RELOC(cmd_line), RELOC("smt-snooze-delay="))) {
-			for (q = RELOC(cmd_line); (p = strstr(q, RELOC("smt-snooze-delay="))) != 0; ) {
-				q = p + 17;
-				if (p > RELOC(cmd_line) && p[-1] != ' ')
-					continue;
-				found = 1;
-				/* Don't use simple_strtoul() because _ctype & others aren't RELOC'd */
-				my_smt_snooze_delay = 0;
-				while (*q >= '0' && *q <= '9') {
-					my_smt_snooze_delay = my_smt_snooze_delay * 10 + *q - '0';
-					q++;
-				}
-			}
-		}
-
-		if (!found) {
-			prom_options = (ihandle)call_prom(RELOC("finddevice"), 1, 1, RELOC("/options"));
-			if (prom_options != (ihandle) -1) {
-				call_prom(RELOC("getprop"),
-					4, 1, prom_options,
-					RELOC("ibm,smt-snooze-delay"),
-					option, sizeof(option));
-				if (option[0] != 0) {
-					found = 1;
-					/* Don't use simple_strtoul() because _ctype & others aren't RELOC'd */
-					my_smt_snooze_delay = 0;
-					q = option;
-					while (*q >= '0' && *q <= '9') {
-						my_smt_snooze_delay = my_smt_snooze_delay * 10 + *q - '0';
-						q++;
-					}
-				}
-			}
-		}
-
-		if (!found) {
-			my_smt_snooze_delay = 30000; /* default value */
-		}
-	} else {
-		my_smt_snooze_delay = 0; /* default value */
-	}
-	_naca->smt_snooze_delay = my_smt_snooze_delay;
-	_naca->smt_state = my_smt_enabled;
 }
 
 #ifdef CONFIG_PPCDBG
@@ -1475,6 +1359,7 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 	char *p, *d;
  	unsigned long phys;
         u32 getprop_rval;
+        struct naca_struct *_naca = RELOC(naca);
         struct systemcfg *_systemcfg = RELOC(systemcfg);
 	struct paca_struct *_xPaca = PTRRELOC(&paca[0]);
 	struct prom_t *_prom = PTRRELOC(&prom);
@@ -1647,13 +1532,12 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
         /* Initialize some system info into the Naca early... */
         mem = prom_initialize_naca(mem);
 
-	smt_setup();
-
         /* If we are on an SMP machine, then we *MUST* do the
          * following, regardless of whether we have an SMP
          * kernel or not.
          */
-	prom_hold_cpus(mem);
+        if (_systemcfg->processorCount > 1)
+	        prom_hold_cpus(mem);
 
 #ifdef DEBUG_PROM
 	prom_print(RELOC("copying OF device tree...\n"));
@@ -1813,6 +1697,46 @@ check_display(unsigned long mem)
 	return DOUBLEWORD_ALIGN(mem);
 }
 
+void
+virt_irq_init(void)
+{
+	int i;
+	for (i = 0; i < NR_IRQS; i++)
+		virt_irq_to_real_map[i] = UNDEFINED_IRQ;
+	for (i = 0; i < NR_HW_IRQS; i++)
+		real_irq_to_virt_map[i] = UNDEFINED_IRQ;
+}
+
+/* Create a mapping for a real_irq if it doesn't already exist.
+ * Return the virtual irq as a convenience.
+ */
+unsigned long
+virt_irq_create_mapping(unsigned long real_irq)
+{
+	unsigned long virq;
+	if (naca->interrupt_controller == IC_OPEN_PIC)
+		return real_irq;	/* no mapping for openpic (for now) */
+	virq = real_irq_to_virt(real_irq);
+	if (virq == UNDEFINED_IRQ) {
+		/* Assign a virtual IRQ number */
+		if (real_irq < NR_IRQS && virt_irq_to_real(real_irq) == UNDEFINED_IRQ) {
+			/* A 1-1 mapping will work. */
+			virq = real_irq;
+		} else {
+			while (last_virt_irq < NR_IRQS &&
+			       virt_irq_to_real(++last_virt_irq) != UNDEFINED_IRQ)
+				/* skip irq's in use */;
+			if (last_virt_irq >= NR_IRQS)
+				panic("Too many IRQs are required on this system.  NR_IRQS=%d\n", NR_IRQS);
+			virq = last_virt_irq;
+		}
+		virt_irq_to_real_map[virq] = real_irq;
+		real_irq_to_virt_map[real_irq] = virq;
+	}
+	return virq;
+}
+
+
 static int __init
 prom_next_node(phandle *nodep)
 {
@@ -1942,6 +1866,8 @@ finish_device_tree(void)
 {
 	unsigned long mem = klimit;
 
+	virt_irq_init();
+
 	mem = finish_node(allnodes, mem, NULL, 0, 0);
 	dev_tree_size = mem - (unsigned long) allnodes;
 
@@ -2046,7 +1972,7 @@ finish_node_interrupts(struct device_node *np, unsigned long mem_start)
 		np->n_intrs = ipsize / isize;
 		mem_start += np->n_intrs * sizeof(struct interrupt_info);
 		for (i = 0; i < np->n_intrs; ++i) {
-		    np->intrs[i].line = irq_offset_up(*interrupts++);
+		    np->intrs[i].line = openpic_to_irq(virt_irq_create_mapping(*interrupts++));
 		    np->intrs[i].sense = 1;
 		    if (isize > 1)
 		        np->intrs[i].sense = *interrupts++;

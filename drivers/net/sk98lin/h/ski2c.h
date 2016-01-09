@@ -1,17 +1,16 @@
 /******************************************************************************
  *
  * Name:	ski2c.h
- * Project:	Gigabit Ethernet Adapters, TWSI-Module
- * Version:	$Revision: 1.35 $
- * Date:	$Date: 2003/10/20 09:06:30 $
+ * Project:	GEnesis, PCI Gigabit Ethernet Adapter
+ * Version:	$Revision: 1.34 $
+ * Date:	$Date: 2003/01/28 09:11:21 $
  * Purpose:	Defines to access Voltage and Temperature Sensor
  *
  ******************************************************************************/
 
 /******************************************************************************
  *
- *	(C)Copyright 1998-2002 SysKonnect.
- *	(C)Copyright 2002-2003 Marvell.
+ *	(C)Copyright 1998-2003 SysKonnect GmbH.
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -27,10 +26,6 @@
  * History:
  *
  *	$Log: ski2c.h,v $
- *	Revision 1.35  2003/10/20 09:06:30  rschmidt
- *	Added prototypes for SkI2cRead() and SkI2cWrite().
- *	Editorial changes.
- *	
  *	Revision 1.34  2003/01/28 09:11:21  rschmidt
  *	Editorial changes
  *	
@@ -141,6 +136,7 @@
  *
  *	Revision 1.1  1998/06/19 14:30:10  malthoff
  *	Created. Sources taken from ML Project.
+ *
  *
  ******************************************************************************/
 
@@ -256,7 +252,7 @@ struct	s_Sensor {
 	SK_I32	SenThreWarnLow;		/* Lower warning Threshold of the sensor */
 	int		SenErrFlag;			/* Sensor indicated an error */
 	SK_BOOL	SenInit;			/* Is sensor initialized ? */
-	SK_U64	SenErrCts;			/* Error trap counter */
+	SK_U64	SenErrCts;			/* Error  trap counter */
 	SK_U64	SenWarnCts;			/* Warning trap counter */
 	SK_U64	SenBegErrTS;		/* Begin error timestamp */
 	SK_U64	SenBegWarnTS;		/* Begin warning timestamp */
@@ -283,17 +279,13 @@ typedef	struct	s_I2c {
 #endif /* !SK_DIAG */
 } SK_I2C;
 
-extern int SkI2cInit(SK_AC *pAC, SK_IOC IoC, int Level);
-extern int SkI2cWrite(SK_AC *pAC, SK_IOC IoC, SK_U32 Data, int Dev, int Size,
-					   int Reg, int Burst);
 extern int SkI2cReadSensor(SK_AC *pAC, SK_IOC IoC, SK_SENSOR *pSen);
-#ifdef SK_DIAG
-extern	SK_U32 SkI2cRead(SK_AC *pAC, SK_IOC IoC, int Dev, int Size, int Reg,
-						 int Burst);
-#else /* !SK_DIAG */
+#ifndef SK_DIAG
 extern int SkI2cEvent(SK_AC *pAC, SK_IOC IoC, SK_U32 Event, SK_EVPARA Para);
+extern int SkI2cInit(SK_AC *pAC, SK_IOC IoC, int Level);
 extern void SkI2cWaitIrq(SK_AC *pAC, SK_IOC IoC);
 extern void SkI2cIsr(SK_AC *pAC, SK_IOC IoC);
-#endif /* !SK_DIAG */
+
+#endif
 #endif /* n_SKI2C_H */
 

@@ -2,7 +2,6 @@
  * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  * Copyright (C) 1997, 2001 Ralf Baechle (ralf@gnu.org)
  * Copyright (C) 2000 SiByte, Inc.
- * Copyright (C) 2002, 2003 Broadcom Corporation
  *
  * Written by Justin Carlson of SiByte, Inc.
  *         and Kip Walker of Broadcom Corp.
@@ -41,11 +40,8 @@
 #define SB1_PREF_STORE_STREAMED_HINT "5"
 #endif
 
-#ifdef CONFIG_SIBYTE_DMA_PAGEOPS
-static inline void clear_page_cpu(void *page)
-#else
-void clear_page(void *page)
-#endif
+/* These are the functions hooked by the memory management function pointers */
+void sb1_clear_page(void *page)
 {
 	/*
 	 * JDCXXX - This should be bottlenecked by the write buffer, but these
@@ -84,11 +80,7 @@ void clear_page(void *page)
 
 }
 
-#ifdef CONFIG_SIBYTE_DMA_PAGEOPS
-static inline void copy_page_cpu(void *to, void *from)
-#else
-void copy_page(void *to, void *from)
-#endif
+void sb1_copy_page(void *to, void *from)
 {
 	/*
 	 * This should be optimized in assembly...can't use ld/sd, though,
@@ -176,13 +168,13 @@ void sb1_dma_init(void)
 	      IO_SPACE_BASE + A_DM_REGISTER(cpu, R_DM_DSCR_BASE));
 }
 
-void clear_page(void *page)
+void sb1_clear_page_dma(void *page)
 {
 	int cpu = smp_processor_id();
 
 	/* if the page is above Kseg0, use old way */
 	if (KSEGX(page) != K0BASE)
-		return clear_page_cpu(page);
+		return sb1_clear_page(page);
 
 	page_descr[cpu].dscr_a = PHYSADDR(page) | M_DM_DSCRA_ZERO_MEM | M_DM_DSCRA_L2C_DEST | M_DM_DSCRA_INTERRUPT;
 	page_descr[cpu].dscr_b = V_DM_DSCRB_SRC_LENGTH(PAGE_SIZE);
@@ -197,7 +189,7 @@ void clear_page(void *page)
 	in64(IO_SPACE_BASE + A_DM_REGISTER(cpu, R_DM_DSCR_BASE));
 }
 
-void copy_page(void *to, void *from)
+void sb1_copy_page_dma(void *to, void *from)
 {
 	unsigned long from_phys = PHYSADDR(from);
 	unsigned long to_phys = PHYSADDR(to);
@@ -205,7 +197,7 @@ void copy_page(void *to, void *from)
 
 	/* if either page is above Kseg0, use old way */
 	if ((KSEGX(to) != K0BASE) || (KSEGX(from) != K0BASE))
-		return copy_page_cpu(to, from);
+		return sb1_copy_page(to, from);
 
 	page_descr[cpu].dscr_a = PHYSADDR(to_phys) | M_DM_DSCRA_L2C_DEST | M_DM_DSCRA_INTERRUPT;
 	page_descr[cpu].dscr_b = PHYSADDR(from_phys) | V_DM_DSCRB_SRC_LENGTH(PAGE_SIZE);
@@ -220,4 +212,4 @@ void copy_page(void *to, void *from)
 	in64(IO_SPACE_BASE + A_DM_REGISTER(cpu, R_DM_DSCR_BASE));
 }
 
-#endif /* CONFIG_SIBYTE_DMA_PAGEOPS */
+#endif

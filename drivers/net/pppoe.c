@@ -365,8 +365,7 @@ int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
 		if (!__pppoe_xmit( relay_po->sk , skb))
 			goto abort_put;
 	} else {
-		if (sock_queue_rcv_skb(sk, skb))
-			goto abort_kfree;
+		sock_queue_rcv_skb(sk, skb);
 	}
 
 	return NET_RX_SUCCESS;

@@ -62,6 +62,9 @@ void core_send_ipi(int cpu, unsigned int action)
 
 void sb1250_smp_finish(void)
 {
+	extern void sb1_sanitize_tlb(void);
+
+	sb1_sanitize_tlb();
 	sb1250_time_init();
 }
 
@@ -88,53 +91,8 @@ void sb1250_mailbox_interrupt(struct pt_regs *regs)
 }
 
 extern atomic_t cpus_booted;
-extern atomic_t smp_commenced;
-
-/*
- * Clear all undefined state in the cpu, set up sp and gp to the passed
- * values, and kick the cpu into smp_bootstrap();
- */
-extern int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp);
-
-/*
- *  After we've done initial boot, this function is called to allow the
- *  board code to clean up state, if needed
- */
-extern void prom_init_secondary(void);
-
-/*
- * Do whatever setup needs to be done for SMP at the board level.  Return
- * the number of cpus in the system, including this one
- */
 extern int prom_setup_smp(void);
-
-extern void prom_smp_finish(void);
-
-/*
- * Hook for doing final board-specific setup after the generic smp setup
- * is done
- */
-asmlinkage void start_secondary(void)
-{
-	unsigned int cpu = smp_processor_id();
-
-	cpu_probe();
-	prom_init_secondary();
-	per_cpu_trap_init();
-
-	/*
-	 * XXX parity protection should be folded in here when it's converted
-	 * to an option instead of something based on .cputype
-	 */
-	pgd_current[cpu] = init_mm.pgd;
-	cpu_data[cpu].udelay_val = loops_per_jiffy;
-	prom_smp_finish();
-	printk("Slave cpu booted successfully\n");
-	CPUMASK_SETB(cpu_online_map, cpu);
-	atomic_inc(&cpus_booted);
-	while (!atomic_read(&smp_commenced));
-	cpu_idle();
-}
+extern int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp);
 
 void __init smp_boot_cpus(void)
 {

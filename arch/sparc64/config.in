@@ -82,7 +82,6 @@ bool 'SunOS binary emulation' CONFIG_SUNOS_EMUL
 if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
    tristate 'Solaris binary emulation (EXPERIMENTAL)' CONFIG_SOLARIS_EMUL
 fi
-bool 'Select task to kill on out of memory condition' CONFIG_OOM_KILLER
 source drivers/parport/Config.in
 dep_tristate '  Parallel printer support' CONFIG_PRINTER $CONFIG_PARPORT
 if [ "$CONFIG_PCI" = "y" ]; then

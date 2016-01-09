@@ -35,6 +35,7 @@
 #include <linux/interrupt.h>
 #include <linux/in.h>
 #include <linux/string.h>
+#include <linux/timer.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
@@ -254,6 +255,9 @@ static inline void sca_msci_intr(port_t *port)
 	card_t* card = port_to_card(port);
 	u8 stat = sca_in(msci + ST1, card); /* read MSCI ST1 status */
 
+	/* printk(KERN_DEBUG "MSCI INT: ST1=%02X ILAR=%02X\n",
+	   stat, sca_in(ILAR, card)); */
+
 	/* Reset MSCI TX underrun status bit */
 	sca_out(stat & ST1_UDRN, msci + ST1, card);
 
@@ -303,7 +307,7 @@ static inline void sca_rx(card_t *card, port_t *port, pkt_desc *desc, u16 rxin)
 	openwin(card, 0);
 #endif
 	skb_put(skb, len);
-#ifdef DEBUG_PKT
+#ifdef CONFIG_HDLC_DEBUG_PKT
 	printk(KERN_DEBUG "%s RX(%i):", hdlc_to_name(&port->hdlc), skb->len);
 	debug_frame(skb);
 #endif
@@ -553,7 +557,7 @@ static void sca_open(hdlc_device *hdlc)
 #endif
 
 /* We're using the following interrupts:
-   - TXINT (DMAC completed all transmisions, underrun or DCD change)
+   - TXINT (DMAC completed all transmisions, underflow or CTS change)
    - all DMA interrupts
 */
 
@@ -629,7 +633,7 @@ static int sca_attach(hdlc_device *hdlc, unsigned short encoding,
 
 
 
-#ifdef DEBUG_RINGS
+#ifdef CONFIG_HDLC_DEBUG_RINGS
 static void sca_dump_rings(hdlc_device *hdlc)
 {
 	port_t *port = hdlc_to_port(hdlc);
@@ -644,26 +648,30 @@ static void sca_dump_rings(hdlc_device *hdlc)
 	openwin(card, 0);
 #endif
 
-	printk(KERN_DEBUG "RX ring: CDA=%u EDA=%u DSR=%02X in=%u %sactive",
+	printk(KERN_ERR "RX ring: CDA=%u EDA=%u DSR=%02X in=%u %sactive",
 	       sca_ina(get_dmac_rx(port) + CDAL, card),
 	       sca_ina(get_dmac_rx(port) + EDAL, card),
-	       sca_in(DSR_RX(phy_node(port)), card), port->rxin,
+	       sca_in(DSR_RX(phy_node(port)), card),
+	       port->rxin,
 	       sca_in(DSR_RX(phy_node(port)), card) & DSR_DE?"":"in");
 	for (cnt = 0; cnt < port_to_card(port)->rx_ring_buffers; cnt++)
-		printk(" %02X", readb(&(desc_address(port, cnt, 0)->stat)));
+		printk(" %02X",
+		       readb(&(desc_address(port, cnt, 0)->stat)));
 
-	printk("\n" KERN_DEBUG "TX ring: CDA=%u EDA=%u DSR=%02X in=%u "
+	printk("\n" KERN_ERR "TX ring: CDA=%u EDA=%u DSR=%02X in=%u "
 	       "last=%u %sactive",
 	       sca_ina(get_dmac_tx(port) + CDAL, card),
 	       sca_ina(get_dmac_tx(port) + EDAL, card),
-	       sca_in(DSR_TX(phy_node(port)), card), port->txin, port->txlast,
+	       sca_in(DSR_TX(phy_node(port)), card), port->txin,
+	       port->txlast,
 	       sca_in(DSR_TX(phy_node(port)), card) & DSR_DE ? "" : "in");
 
 	for (cnt = 0; cnt < port_to_card(port)->tx_ring_buffers; cnt++)
-		printk(" %02X", readb(&(desc_address(port, cnt, 1)->stat)));
+		printk(" %02X",
+		       readb(&(desc_address(port, cnt, 1)->stat)));
 	printk("\n");
 
-	printk(KERN_DEBUG "MSCI: MD: %02x %02x %02x, "
+	printk(KERN_ERR "MSCI: MD: %02x %02x %02x, "
 	       "ST: %02x %02x %02x %02x"
 #ifdef __HD64572_H
 	       " %02x"
@@ -684,14 +692,14 @@ static void sca_dump_rings(hdlc_device *hdlc)
 	       sca_in(get_msci(port) + CST1, card));
 
 #ifdef __HD64572_H
-	printk(KERN_DEBUG "ILAR: %02x\n", sca_in(ILAR, card));
+	printk(KERN_ERR "ILAR: %02x\n", sca_in(ILAR, card));
 #endif
 
 #if !defined(PAGE0_ALWAYS_MAPPED) && !defined(ALL_PAGES_ALWAYS_MAPPED)
 	openwin(card, page); /* Restore original page */
 #endif
 }
-#endif /* DEBUG_RINGS */
+#endif /* CONFIG_HDLC_DEBUG_RINGS */
 
 
 
@@ -712,7 +720,7 @@ static int sca_xmit(struct sk_buff *skb, struct net_device *dev)
 	desc = desc_address(port, port->txin + 1, 1);
 	if (readb(&desc->stat)) { /* allow 1 packet gap */
 		/* should never happen - previous xmit should stop queue */
-#ifdef DEBUG_PKT
+#ifdef CONFIG_HDLC_DEBUG_PKT
 		printk(KERN_DEBUG "%s: transmitter buffer full\n", dev->name);
 #endif
 		netif_stop_queue(dev);
@@ -720,7 +728,7 @@ static int sca_xmit(struct sk_buff *skb, struct net_device *dev)
 		return 1;	/* request packet to be queued */
 	}
 
-#ifdef DEBUG_PKT
+#ifdef CONFIG_HDLC_DEBUG_PKT
 	printk(KERN_DEBUG "%s TX(%i):", hdlc_to_name(hdlc), skb->len);
 	debug_frame(skb);
 #endif

@@ -125,14 +125,6 @@ acpi_ut_get_type_name (
 	acpi_object_type                type);
 
 char *
-acpi_ut_get_node_name (
-	void                            *object);
-
-char *
-acpi_ut_get_descriptor_name (
-	void                            *object);
-
-char *
 acpi_ut_get_object_type_name (
 	union acpi_operand_object       *obj_desc);
 

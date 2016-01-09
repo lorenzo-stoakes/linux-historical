@@ -1377,7 +1377,9 @@ void ll_rw_block(int rw, int nr, struct buffer_head * bhs[])
 	for (i = 0; i < nr; i++) {
 		struct buffer_head *bh = bhs[i];
 
-		lock_buffer(bh);
+		/* Only one thread can actually submit the I/O. */
+		if (test_and_set_bit(BH_Lock, &bh->b_state))
+			continue;
 
 		/* We have the buffer lock */
 		atomic_inc(&bh->b_count);

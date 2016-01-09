@@ -294,7 +294,7 @@ static void ingress_destroy(struct Qdisc *sch)
 	while (p->filter_list) {
 		tp = p->filter_list;
 		p->filter_list = tp->next;
-		tcf_destroy(tp);
+		tp->ops->destroy(tp);
 	}
 	memset(p, 0, sizeof(*p));
 	p->filter_list = NULL;

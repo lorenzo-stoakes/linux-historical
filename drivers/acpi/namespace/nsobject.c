@@ -104,8 +104,7 @@ acpi_ns_attach_object (
 	if (ACPI_GET_DESCRIPTOR_TYPE (node) != ACPI_DESC_TYPE_NAMED) {
 		/* Not a name handle */
 
-		ACPI_REPORT_ERROR (("ns_attach_object: Invalid handle %p [%s]\n",
-				node, acpi_ut_get_descriptor_name (node)));
+		ACPI_REPORT_ERROR (("ns_attach_object: Invalid handle\n"));
 		return_ACPI_STATUS (AE_BAD_PARAMETER);
 	}
 
@@ -152,7 +151,7 @@ acpi_ns_attach_object (
 	}
 
 	ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "Installing %p into Node %p [%4.4s]\n",
-		obj_desc, node, acpi_ut_get_node_name (node)));
+		obj_desc, node, node->name.ascii));
 
 	/* Detach an existing attached object if present */
 
@@ -235,7 +234,7 @@ acpi_ns_detach_object (
 	node->type = ACPI_TYPE_ANY;
 
 	ACPI_DEBUG_PRINT ((ACPI_DB_NAMES, "Node %p [%4.4s] Object %p\n",
-		node, acpi_ut_get_node_name (node), obj_desc));
+		node, node->name.ascii, obj_desc));
 
 	/* Remove one reference on the object (and all subobjects) */
 

@@ -10,19 +10,12 @@
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/threads.h>
-
 #include <asm/asm.h>
-#include <asm/hazards.h>
 #include <asm/regdef.h>
 #include <asm/mipsregs.h>
 #include <asm/pgtable.h>
 #include <asm/stackframe.h>
 #include <asm/war.h>
-
-#define PGD_INDX_MASK	((_PTRS_PER_PGD - 1) << _PGD_T_LOG2)
-#define PMD_INDX_MASK	((_PTRS_PER_PMD - 1) << _PMD_T_LOG2)
-#define PTE_INDX_MASK	((_PTRS_PER_PTE - 1) << _PTE_T_LOG2)
-#define PTEP_INDX_MASK	((_PTRS_PER_PTE >> 1 - 1) << (_PTE_T_LOG2 + 1))
 
 	.data
 	.comm	pgd_current, NR_CPUS * 8, 8
@@ -42,17 +35,17 @@
 #endif
 	bltz	\tmp, \kaddr
 	 ld	\ptr, (\ptr)
-	dsrl	\tmp, PGDIR_SHIFT - 3		# get pgd offset in bytes
-	andi	\tmp, PGD_INDX_MASK
+	dsrl	\tmp, (PGDIR_SHIFT-3)		# get pgd offset in bytes
+	andi	\tmp, ((PTRS_PER_PGD - 1)<<3)
 	daddu	\ptr, \tmp			# add in pgd offset
 	dmfc0	\tmp, CP0_BADVADDR
 	ld	\ptr, (\ptr)			# get pmd pointer
-	dsrl	\tmp, PMD_SHIFT - 3		# get pmd offset in bytes
-	andi	\tmp, PMD_INDX_MASK
+	dsrl	\tmp, (PMD_SHIFT-3)		# get pmd offset in bytes
+	andi	\tmp, ((PTRS_PER_PMD - 1)<<3)
 	daddu	\ptr, \tmp			# add in pmd offset
 	dmfc0	\tmp, CP0_XCONTEXT
 	ld	\ptr, (\ptr)			# get pte pointer
-	andi	\tmp, PTEP_INDX_MASK		# get pte offset
+	andi	\tmp, 0xff0			# get pte offset
 	daddu	\ptr, \tmp
 	.endm
 
@@ -72,7 +65,7 @@
 	 */
 	dsubu	\tmp, \tmp, \ptr
 	dla	\ptr, kptbl
-	dsrl	\tmp, _PAGE_SHIFT + 1		# get vpn2
+	dsrl	\tmp, (PAGE_SHIFT+1)		# get vpn2
 	dsll	\tmp, 4				# byte offset of pte
 	daddu	\ptr, \ptr, \tmp
 
@@ -80,7 +73,7 @@
 	 * Determine that fault address is within vmalloc range.
 	 */
 	dla	\tmp, ekptbl
-	sltu	\tmp, \ptr, \tmp
+	slt	\tmp, \ptr, \tmp
 	beqz	\tmp, \not_vmalloc		# not vmalloc
 	 nop
 	.endm
@@ -130,7 +123,7 @@ LEAF(except_vec1_sb1)
 	dmfc0	k0, CP0_BADVADDR
 	dmfc0	k1, CP0_ENTRYHI
 	xor	k0, k1
-	dsrl	k0, k0, _PAGE_SHIFT + 1
+	dsrl	k0, k0, PAGE_SHIFT+1
 	bnez	k0, 1f
 #endif
 	.set    noat
@@ -151,11 +144,9 @@ LEAF(handle_vec1_r4k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
 	b	1f
 	 tlbwr
 1:	nop
-	rm9000_tlb_hazard
 	eret
 
 9:						# handle the vmalloc range
@@ -163,11 +154,9 @@ LEAF(handle_vec1_r4k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
 	b	1f
 	 tlbwr
 1:	nop
-	rm9000_tlb_hazard
 	eret
 END(handle_vec1_r4k)
 
@@ -195,10 +184,8 @@ LEAF(handle_vec1_r10k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
 	nop
 	tlbwr
-	rm9000_tlb_hazard
 	eret
 
 9:						# handle the vmalloc range
@@ -206,10 +193,8 @@ LEAF(handle_vec1_r10k)
 	ld	k0, 0(k1)			# get even pte
 	ld	k1, 8(k1)			# get odd pte
 	PTE_RELOAD k0 k1
-	rm9000_tlb_hazard
 	nop
 	tlbwr
-	rm9000_tlb_hazard
 	eret
 END(handle_vec1_r10k)
 

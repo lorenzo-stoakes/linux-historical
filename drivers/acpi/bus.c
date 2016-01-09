@@ -2047,10 +2047,8 @@ acpi_init (void)
 #endif
 
 	result = acpi_bus_init();
-	if (result) {
-		acpi_disabled = 1;
+	if (result)
 		return_VALUE(result);
-	}
 
 #ifdef CONFIG_PM
 	pm_active = 1;

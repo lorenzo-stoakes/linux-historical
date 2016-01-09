@@ -9,8 +9,9 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 
-#include <asm/io.h>
+#include <asm/addrspace.h>
 #include <asm/bootinfo.h>
+#include <asm/ptrace.h>
 #include <asm/sgialib.h>
 #include <asm/sgi/mc.h>
 #include <asm/sgi/hpc3.h>
@@ -105,9 +106,7 @@ void __init sgimc_init(void)
 {
 	u32 tmp;
 
-	/* ioremap can't fail */
-	sgimc = (struct sgimc_regs *)
-		ioremap(SGIMC_BASE, sizeof(struct sgimc_regs));
+	sgimc = (struct sgimc_regs *)(KSEG1 + SGIMC_BASE);
 
 	printk(KERN_INFO "MC: SGI memory controller Revision %d\n",
 	       (int) sgimc->systemid & SGIMC_SYSID_MASKREV);

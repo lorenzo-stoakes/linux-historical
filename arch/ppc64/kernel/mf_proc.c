@@ -220,22 +220,19 @@ int proc_mf_dump_side
 
 int proc_mf_change_side(struct file *file, const char *buffer, unsigned long count, void *data)
 {
-	char side;
-
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
-	if (count == 0)
-		return 0;
-	if (get_user(side, buffer))
-		return -EFAULT;
 
-	if ((side != 'A') && (side != 'B') && (side != 'C') && (side != 'D'))
+	if ((*buffer != 'A') &&
+	    (*buffer != 'B') &&
+	    (*buffer != 'C') &&
+	    (*buffer != 'D'))
 	{
 		printk(KERN_ERR "mf_proc.c: proc_mf_change_side: invalid side\n");
 		return -EINVAL;
 	}
 
-	mf_setSide(side);
+	mf_setSide(*buffer);
 
 	return count;			
 }
@@ -259,24 +256,20 @@ int proc_mf_dump_src
 
 int proc_mf_change_src(struct file *file, const char *buffer, unsigned long count, void *data)
 {
-	char stkbuf[10];
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
 
-	if ((count < 4) && (count != 1)) {
+	if ((count < 4) && (count != 1))
+	{
 		printk(KERN_ERR "mf_proc: invalid src\n");
 		return -EINVAL;
 	}
 
-	if (count > 9)
-		count = 9;
-	if (copy_from_user (stkbuf, buffer, count))
-		return -EFAULT;
-
-	if ((count == 1) && ((*stkbuf) == '\0')) {
+	if ((count == 1) && ((*buffer) == '\0'))
+	{
 		mf_clearSrc();
 	} else {
-		mf_displaySrc(*(u32 *)stkbuf);
+		mf_displaySrc(*(u32 *)buffer);
 	}
 
 	return count;			

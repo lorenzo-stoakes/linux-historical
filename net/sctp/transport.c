@@ -50,7 +50,6 @@
 
 #include <linux/types.h>
 #include <net/sctp/sctp.h>
-#include <net/sctp/sm.h>
 
 /* 1st Level Abstractions.  */
 

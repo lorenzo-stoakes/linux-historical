@@ -41,15 +41,6 @@ extern void smp_send_xmon_break(int cpu);
 struct pt_regs;
 extern void smp_message_recv(int, struct pt_regs *);
 
-/*
- * Retrieve the state of a CPU:
- * online:    CPU is in a normal run state
- * possible:  CPU is a candidate to be made online
- * available: CPU is candidate for the 'possible' pool
- */
-#define cpu_possible(cpu)       paca[cpu].active
-#define cpu_available(cpu)      paca[cpu].available
-
 #define NO_PROC_ID		0xFF            /* No processor magic marker */
 #define PROC_CHANGE_PENALTY	20
 

@@ -47,12 +47,12 @@ void prom_init_secondary(void)
 	unsigned int imask = STATUSF_IP4 | STATUSF_IP3 | STATUSF_IP2 |
 		STATUSF_IP1 | STATUSF_IP0;
 
-	/* cache and TLB setup */
-	load_mmu();
-
 	/* Enable basic interrupts */
 	change_c0_status(ST0_IM, imask);
 	set_c0_status(ST0_IE);
+
+	/* cache and TLB setup */
+	load_mmu();
 }
 
 /*
