@@ -5486,6 +5486,17 @@ CONFIG_FB_ATY_GX
   is at
   <http://support.ati.com/products/pc/mach64/graphics_xpression.html>.
 
+Mach64 Generic LCD support
+CONFIG_FB_ATY_GENERIC_LCD
+  Enabling this option enables the Atyfb driver to drive LCD panels. It
+  will autodetect the resulution and format of your display and emulate
+  other resolutions using the hardware stretcher on the chip.
+  Say Y here if you have computer with a Rage LT Pro, Rage Mobility M1,
+  Rage XC or Rage XL chip and a laptop LCD display or any other LCD display
+  that needs to be digitally driven. It is not necessary to enable this
+  option if you are using an LCD display with a normal VGA connector,
+  but it won't hurt if you do.
+
 ATI Radeon display support
 CONFIG_FB_RADEON
   Choose this option if you want to use an ATI Radeon graphics card as
@@ -27070,12 +27081,31 @@ CONFIG_IA64_DEBUG_IRQ
   and restore instructions.  It's useful for tracking down spinlock
   problems, but slow!  If you're unsure, select N.
 
-Early printk support (requires VGA!)
+Early printk support
 CONFIG_IA64_EARLY_PRINTK
-  Selecting this option uses the VGA screen for printk() output before
-  the consoles are initialised.  It is useful for debugging problems
-  early in the boot process, but only if you have a VGA screen
-  attached.  If you're unsure, select N.
+  Selecting this option uses a UART or VGA screen (or both) for
+  printk() output before the consoles are initialised.  It is useful
+  for debugging problems early in the boot process, but only if you
+  have a serial terminal or a VGA screen attached.  If you're unsure,
+  select N.
+
+Early printk on serial port
+CONFIG_IA64_EARLY_PRINTK_UART
+  Select this option to use a serial port for early printk() output.
+  You must also select either CONFIG_IA64_EARLY_PRINTK_UART_BASE or
+  CONFIG_SERIAL_HCDP.  If you select CONFIG_SERIAL_HCDP, early
+  printk() output will appear on the first console device described by
+  the HCDP.  If you set CONFIG_IA64_EARLY_PRINTK_UART_BASE, the HCDP
+  will be ignored.
+
+UART base address
+CONFIG_IA64_EARLY_PRINTK_UART_BASE
+  The physical MMIO address of the UART to use for early printk().
+  This overrides any UART located using the EFI HCDP table.
+
+Early printk on VGA
+CONFIG_IA64_EARLY_PRINTK_VGA
+  Select this option to use VGA for early printk() output.
 
 Print possible IA64 hazards to console
 CONFIG_IA64_PRINT_HAZARDS

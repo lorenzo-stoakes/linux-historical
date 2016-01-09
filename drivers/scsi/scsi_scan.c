@@ -205,6 +205,7 @@ static struct dev_info device_list[] =
 	{"HP", "C7200", "*", BLIST_SPARSELUN},			/* Medium Changer */
 	{"SMSC", "USB 2 HS", "*", BLIST_SPARSELUN | BLIST_LARGELUN}, 
 	{"XYRATEX", "RS", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"NEC", "iStorage", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_FORCELUN},
 
 	/*
 	 * Must be at end of list...

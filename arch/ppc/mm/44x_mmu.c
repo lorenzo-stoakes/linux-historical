@@ -53,6 +53,7 @@
 #include <asm/bootx.h>
 #include <asm/machdep.h>
 #include <asm/setup.h>
+#include <asm/ibm44x.h>
 
 #include "mmu_decl.h"
 #include "mem_pieces.h"
@@ -108,7 +109,7 @@ ppc44x_tlb_config(void)
 	 * fetch past the end of system memory that would
 	 * result in a machine check exception.
 	 */
-	if (total_lowmem | (PPC44x_PIN_SIZE - 1))
+	if (total_lowmem & (PPC44x_PIN_SIZE - 1))
 		mem_pieces_remove(&phys_avail, total_lowmem - PAGE_SIZE, PAGE_SIZE, 1);
 
 	/* Determine number of entries necessary to cover lowmem */
@@ -124,6 +125,10 @@ ppc44x_tlb_config(void)
 			unsigned int phys_addr = (PPC44x_LOW_SLOT-i) * PPC44x_PIN_SIZE;
 			ppc44x_pin_tlb(i, phys_addr+PAGE_OFFSET, phys_addr);
 		}
+
+	/* Make sure vmalloc doesn't use virtual space covered by
+	   the last pinned TLB entry. */
+	vmalloc_start = KERNELBASE + _ALIGN(total_lowmem, PPC44x_PIN_SIZE);
 }
 
 /*

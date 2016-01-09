@@ -726,7 +726,8 @@ static ssize_t mdc800_device_read (struct file *file, char *buf, size_t len, lof
 		else
 		{
 			/* memcpy Bytes */
-			copy_to_user(ptr, &mdc800->out [mdc800->out_ptr], sts);
+			if (copy_to_user(ptr, &mdc800->out [mdc800->out_ptr], sts))
+				return -EFAULT;
 			ptr+=sts;
 			left-=sts;
 			mdc800->out_ptr+=sts;

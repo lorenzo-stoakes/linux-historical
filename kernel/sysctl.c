@@ -30,6 +30,7 @@
 #include <linux/init.h>
 #include <linux/sysrq.h>
 #include <linux/highuid.h>
+#include <linux/swap.h>
 
 #include <asm/uaccess.h>
 
@@ -276,6 +277,18 @@ static ctl_table kern_table[] = {
 };
 
 static ctl_table vm_table[] = {
+	{VM_GFP_DEBUG, "vm_gfp_debug", 
+	 &vm_gfp_debug, sizeof(int), 0644, NULL, &proc_dointvec},
+	{VM_VFS_SCAN_RATIO, "vm_vfs_scan_ratio", 
+	 &vm_vfs_scan_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
+	{VM_CACHE_SCAN_RATIO, "vm_cache_scan_ratio", 
+	 &vm_cache_scan_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
+	{VM_MAPPED_RATIO, "vm_mapped_ratio", 
+	 &vm_mapped_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
+	{VM_LRU_BALANCE_RATIO, "vm_lru_balance_ratio", 
+	 &vm_lru_balance_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
+	{VM_PASSES, "vm_passes", 
+	 &vm_passes, sizeof(int), 0644, NULL, &proc_dointvec},
 	{VM_BDFLUSH, "bdflush", &bdf_prm, 9*sizeof(int), 0644, NULL,
 	 &proc_dointvec_minmax, &sysctl_intvec, NULL,
 	 &bdflush_min, &bdflush_max},

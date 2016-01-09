@@ -109,6 +109,13 @@ extern void flush_icache_page(struct vm_area_struct *vma, struct page *page);
 extern unsigned long va_to_phys(unsigned long address);
 extern pte_t *va_to_pte(unsigned long address);
 extern unsigned long ioremap_bot, ioremap_base;
+extern unsigned long vmalloc_start;
+
+/* Start and end of the vmalloc area. */
+#define VMALLOC_START	vmalloc_start
+#define VMALLOC_END	ioremap_bot
+#define VMALLOC_VMADDR(x) ((unsigned long)(x))
+
 #endif /* __ASSEMBLY__ */
 
 /*
@@ -194,32 +201,6 @@ extern unsigned long ioremap_bot, ioremap_base;
 	printk("%s:%d: bad pmd %08lx.\n", __FILE__, __LINE__, pmd_val(e))
 #define pgd_ERROR(e) \
 	printk("%s:%d: bad pgd %08lx.\n", __FILE__, __LINE__, pgd_val(e))
-
-/*
- * Just any arbitrary offset to the start of the vmalloc VM area: the
- * current 64MB value just means that there will be a 64MB "hole" after the
- * physical memory until the kernel virtual memory starts.  That means that
- * any out-of-bounds memory accesses will hopefully be caught.
- * The vmalloc() routines leaves a hole of 4kB between each vmalloced
- * area for the same reason. ;)
- *
- * We no longer map larger than phys RAM with the BATs so we don't have
- * to worry about the VMALLOC_OFFSET causing problems.  We do have to worry
- * about clashes between our early calls to ioremap() that start growing down
- * from ioremap_base being run into the VM area allocations (growing upwards
- * from VMALLOC_START).  For this reason we have ioremap_bot to check when
- * we actually run into our mappings setup in the early boot with the VM
- * system.  This really does become a problem for machines with good amounts
- * of RAM.  -- Cort
- */
-#define VMALLOC_OFFSET (0x1000000) /* 16M */
-#ifdef CONFIG_44x
-#define VMALLOC_START (((_ALIGN((long)high_memory, PPC44x_PIN_SIZE) + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1)))
-#else
-#define VMALLOC_START ((((long)high_memory + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1)))
-#endif
-#define VMALLOC_VMADDR(x) ((unsigned long)(x))
-#define VMALLOC_END	ioremap_bot
 
 /*
  * Bits in a linux-style PTE.  These match the bits in the

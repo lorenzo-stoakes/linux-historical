@@ -147,7 +147,13 @@ enum
 	VM_MAX_MAP_COUNT=11,	/* int: Maximum number of active map areas */
 	VM_MIN_READAHEAD=12,    /* Min file readahead */
 	VM_MAX_READAHEAD=13,    /* Max file readahead */
+	VM_VFS_SCAN_RATIO=14,   /* part of the inactive vfs lists to scan */
+	VM_LRU_BALANCE_RATIO=15,/* balance active and inactive caches */
+	VM_PASSES=16,           /* number of vm passes before failing */
 	VM_PAGEBUF=17,		/* struct: Control pagebuf parameters */
+	VM_GFP_DEBUG=18,        /* debug GFP failures */
+	VM_CACHE_SCAN_RATIO=19, /* part of the inactive cache list to scan */
+	VM_MAPPED_RATIO=20,     /* amount of unfreeable pages that triggers swapout */
 };
 
 

@@ -42,7 +42,7 @@
  * SMP-threaded pagemap-LRU 1999, Andrea Arcangeli <andrea@suse.de>
  */
 
-atomic_t page_cache_size = ATOMIC_INIT(0);
+unsigned long page_cache_size;
 unsigned int page_hash_bits;
 struct page **page_hash_table;
 
@@ -79,7 +79,7 @@ static void add_page_to_hash_queue(struct page * page, struct page **p)
 		next->pprev_hash = &page->next_hash;
 	if (page->buffers)
 		PAGE_BUG(page);
-	atomic_inc(&page_cache_size);
+	inc_nr_cache_pages(page);
 }
 
 static inline void add_page_to_inode_queue(struct address_space *mapping, struct page * page)
@@ -113,7 +113,7 @@ static inline void remove_page_from_hash_queue(struct page * page)
 		next->pprev_hash = pprev;
 	*pprev = next;
 	page->pprev_hash = NULL;
-	atomic_dec(&page_cache_size);
+	dec_nr_cache_pages(page);
 }
 
 /*

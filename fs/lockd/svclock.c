@@ -188,6 +188,11 @@ nlmsvc_create_block(struct svc_rqst *rqstp, struct nlm_file *file,
 	locks_init_lock(&block->b_call.a_args.lock.fl);
 	locks_init_lock(&block->b_call.a_res.lock.fl);
 
+	block->b_host = nlmsvc_lookup_host(rqstp);
+	if (block->b_host == NULL) {
+		goto failed_free;
+	}
+
 	if (!nlmclnt_setgrantargs(&block->b_call, lock))
 		goto failed_free;
 
@@ -199,7 +204,6 @@ nlmsvc_create_block(struct svc_rqst *rqstp, struct nlm_file *file,
 
 	/* Create and initialize the block */
 	block->b_daemon = rqstp->rq_server;
-	block->b_host   = host;
 	block->b_file   = file;
 
 	/* Add to file's list of blocks */
@@ -265,8 +269,7 @@ nlmsvc_delete_block(struct nlm_block *block, int unlock)
 		}
 	}
 
-	if (block->b_host)
-		nlm_release_host(block->b_host);
+	nlm_release_host(block->b_host);
 	nlmclnt_freegrantargs(&block->b_call);
 	kfree(block);
 }
@@ -515,7 +518,7 @@ nlmsvc_grant_blocked(struct nlm_block *block)
 	 * Just retry the grant callback, possibly refreshing the RPC
 	 * binding */
 	if (block->b_granted) {
-		nlm_rebind_host(block->b_host);
+		nlm_rebind_host(block->b_call.a_host);
 		goto callback;
 	}
 

@@ -556,7 +556,10 @@ static void __serial_close(struct usb_serial_port *port, struct file *filp)
 		else
 			generic_close(port, filp);
 		port->open_count = 0;
-		port->tty = NULL;
+		if (port->tty) {
+			port->tty->driver_data = NULL;
+			port->tty = NULL;
+		}
 	}
 
 	if (port->serial->type->owner)
@@ -1401,12 +1404,9 @@ static void usb_serial_disconnect(struct usb_device *dev, void *ptr)
 		for (i = 0; i < serial->num_ports; ++i) {
 			port = &serial->port[i];
 			down (&port->sem);
-			if (port->tty != NULL) {
-				while (port->open_count > 0) {
+			if (port->tty != NULL)
+				while (port->open_count > 0)
 					__serial_close(port, NULL);
-				}
-				port->tty->driver_data = NULL;
-			}
 			up (&port->sem);
 		}
 

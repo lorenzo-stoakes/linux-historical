@@ -2727,7 +2727,7 @@ static int i810_ac97_probe_and_powerup(struct i810_card *card,struct ac97_codec 
 		      i810_ac97_get(codec, AC97_POWER_CONTROL) & ~0x7f00);
 
 	/* wait for analog ready */
-	for (i=10; i && ((i810_ac97_get(codec, AC97_POWER_CONTROL) & 0xf) != 0xf); i--)
+	for (i=100; i && ((i810_ac97_get(codec, AC97_POWER_CONTROL) & 0xf) != 0xf); i--)
 	{
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout(HZ/20);

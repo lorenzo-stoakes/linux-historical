@@ -1052,7 +1052,7 @@ static void rp_close(struct tty_struct *tty, struct file * filp)
 		restore_flags(flags);
 		return;
 	}
-	if ((atomic_read(&tty->count) == 1) && (info->count != 1)) {
+	if ((tty->count == 1) && (info->count != 1)) {
 		/*
 		 * Uh, oh.  tty->count is 1, which means that the tty
 		 * structure will be freed.  Info->count should always

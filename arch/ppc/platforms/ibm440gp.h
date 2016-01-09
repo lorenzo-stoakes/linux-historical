@@ -22,7 +22,7 @@
 
 #include <linux/config.h>
 
-#include <asm/ibm4xx.h>
+#include <asm/ibm44x.h>
 
 #define EMAC_NUMS		2
 #define UART_NUMS		2

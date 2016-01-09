@@ -28,11 +28,21 @@ ZIMAGEINITRD			:= zImage.initrd-EMBEDDED
 TFTPIMAGE			:= /tftpboot/zImage.embedded
 MISC				:= misc-embedded.o
 endif
+ifeq ($(CONFIG_IBM_OPENBIOS),y)
+ZIMAGE				:= zImage-TREE
+ZIMAGEINITRD			:= zImage.initrd-TREE
+ZNETBOOT			:= zImage.treeboot
+ZNETBOOTRD			:= zImage.initrd.treeboot
+TFTPIMAGE			:= /tftpboot/zImage.embedded
+MISC				:= misc-embedded.o
+endif
 ifeq ($(CONFIG_EBONY),y)
 ZIMAGE				:= zImage-TREE
 ZIMAGEINITRD			:= zImage.initrd-TREE
 END				:= ebony
 ENTRYPOINT			:= 0x00800000
+ZNETBOOT			:= zImage.treeboot
+ZNETBOOTRD			:= zImage.initrd.treeboot
 TFTPIMAGE			:= /tftpboot/zImage.$(END)
 EXTRA				:= misc-44x.o
 endif
@@ -41,6 +51,8 @@ ZIMAGE				:= zImage-TREE
 ZIMAGEINITRD			:= zImage.initrd-TREE
 END				:= ocotea
 ENTRYPOINT			:= 0x00800000
+ZNETBOOT			:= zImage.treeboot
+ZNETBOOTRD			:= zImage.initrd.treeboot
 TFTPIMAGE			:= /tftpboot/zImage.$(END)
 EXTRA				:= misc-44x.o
 endif
@@ -163,10 +175,10 @@ zImage.initrd-EMBEDDED: zvmlinux.initrd
 	mv zvmlinux.initrd ../images/zImage.initrd.embedded
 
 zImage-PAL4: zvmlinux
-	cp zvmlinux ../images/zImage.pal4
+	mv zvmlinux ../images/zImage.pal4
 
 zImage.initrd-PAL4: zvmlinux.initrd
-	cp zvmlinux.initrd ../images/zImage.initrd.pal4
+	mv zvmlinux.initrd ../images/zImage.initrd.pal4
 
 zImage-PPLUS: zvmlinux $(MKPREP) $(MKBUGBOOT)
 	$(MKPREP) -pbp zvmlinux ../images/zImage.pplus

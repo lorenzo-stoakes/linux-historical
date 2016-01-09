@@ -147,6 +147,9 @@ if [ "$CONFIG_FB" = "y" ]; then
 	 if [ "$CONFIG_FB_ATY" != "n" ]; then
 	    bool '    Mach64 GX support (EXPERIMENTAL)' CONFIG_FB_ATY_GX
 	    bool '    Mach64 CT/VT/GT/LT (incl. 3D RAGE) support' CONFIG_FB_ATY_CT
+            if [ "$ARCH" = "i386" -a "$CONFIG_FB_ATY_CT" != "n" ]; then
+              bool '    Mach64 generic LCD monitor support (EXPERIMENTAL)' CONFIG_FB_ATY_GENERIC_LCD
+            fi
 	 fi
  	 tristate '  ATI Radeon display support (EXPERIMENTAL)' CONFIG_FB_RADEON
 	 tristate '  ATI Rage128 display support (EXPERIMENTAL)' CONFIG_FB_ATY128
