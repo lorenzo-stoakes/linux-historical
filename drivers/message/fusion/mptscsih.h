@@ -17,8 +17,8 @@
  *
  *  Copyright (c) 1999-2002 LSI Logic Corporation
  *  Originally By: Steven J. Ralston
- *  (mailto:netscape.net)
- *  (mailto:Pam.Delaney@lsil.com)
+ *  (mailto:sjralston1@netscape.net)
+ *  (mailto:lstephen@lsil.com)
  *
  *  $Id: mptscsih.h,v 1.22 2002/12/16 15:28:48 pdelaney Exp $
  */

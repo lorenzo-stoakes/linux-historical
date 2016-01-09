@@ -436,26 +436,18 @@ out:
 	return ret;
 }
 
-asmlinkage long sys_fdatasync(unsigned int fd)
+int do_fdatasync(struct file *file)
 {
-	struct file * file;
-	struct dentry * dentry;
-	struct inode * inode;
 	int ret, err;
+	struct dentry *dentry;
+	struct inode *inode;
 
-	ret = -EBADF;
-	file = fget(fd);
-	if (!file)
-		goto out;
-
+	if (unlikely(!file->f_op || !file->f_op->fsync))
+		return -EINVAL;
+	
 	dentry = file->f_dentry;
 	inode = dentry->d_inode;
 
-	ret = -EINVAL;
-	if (!file->f_op || !file->f_op->fsync)
-		goto out_putf;
-
-	down(&inode->i_sem);
 	ret = filemap_fdatasync(inode->i_mapping);
 	err = file->f_op->fsync(file, dentry, 1);
 	if (err && !ret)
@@ -463,6 +455,23 @@ asmlinkage long sys_fdatasync(unsigned int fd)
 	err = filemap_fdatawait(inode->i_mapping);
 	if (err && !ret)
 		ret = err;
+	return ret;
+}
+
+asmlinkage long sys_fdatasync(unsigned int fd)
+{
+	struct file * file;
+	struct inode *inode;
+	int ret;
+
+	ret = -EBADF;
+	file = fget(fd);
+	if (!file)
+		goto out;
+
+	inode = file->f_dentry->d_inode;
+	down(&inode->i_sem);
+	ret = do_fdatasync(file);
 	up(&inode->i_sem);
 
 out_putf:
@@ -2106,7 +2115,8 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 	int i, nr_blocks, retval;
 	unsigned long * blocks = iobuf->blocks;
 	int length;
-
+	int beyond_eof = 0;
+	
 	length = iobuf->length;
 	nr_blocks = length / blocksize;
 	/* build the blocklist */
@@ -2117,13 +2127,20 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 		bh.b_dev = inode->i_dev;
 		bh.b_size = blocksize;
 
-		retval = get_block(inode, blocknr, &bh, rw == READ ? 0 : 1);
+		if (((loff_t) blocknr) * blocksize >= inode->i_size)
+			beyond_eof = 1;
+
+		/* Only allow get_block to create new blocks if we are safely
+		   beyond EOF.  O_DIRECT is unsafe inside sparse files. */
+		retval = get_block(inode, blocknr, &bh, 
+				   ((rw != READ) && beyond_eof));
+
 		if (retval) {
 			if (!i)
 				/* report error to userspace */
 				goto out;
 			else
-				/* do short I/O utill 'i' */
+				/* do short I/O until 'i' */
 				break;
 		}
 
@@ -2139,14 +2156,20 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 			if (buffer_new(&bh))
 				unmap_underlying_metadata(&bh);
 			if (!buffer_mapped(&bh))
-				BUG();
+				/* upper layers need to pass the error on or
+				 * fall back to buffered IO. */
+				return -ENOTBLK;
 		}
 		blocks[i] = bh.b_blocknr;
 	}
 
 	/* patch length to handle short I/O */
 	iobuf->length = i * blocksize;
+	if (!beyond_eof)
+		up(&inode->i_sem);
 	retval = brw_kiovec(rw, 1, &iobuf, inode->i_dev, iobuf->blocks, blocksize);
+	if (!beyond_eof)
+		down(&inode->i_sem);
 	/* restore orig length */
 	iobuf->length = length;
  out:

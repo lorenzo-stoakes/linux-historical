@@ -48,6 +48,7 @@
 #include <linux/completion.h>
 #include <linux/seq_file.h>
 #include <linux/dnotify.h>
+#include <linux/crc32.h>
 #include <asm/checksum.h>
 
 #if defined(CONFIG_PROC_FS)
@@ -560,6 +561,12 @@ EXPORT_SYMBOL(get_write_access);
 EXPORT_SYMBOL(strnicmp);
 EXPORT_SYMBOL(strspn);
 EXPORT_SYMBOL(strsep);
+
+#ifdef CONFIG_CRC32
+EXPORT_SYMBOL(crc32_le);
+EXPORT_SYMBOL(crc32_be);
+EXPORT_SYMBOL(bitreverse);
+#endif
 
 /* software interrupts */
 EXPORT_SYMBOL(tasklet_hi_vec);

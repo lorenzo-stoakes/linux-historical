@@ -155,7 +155,7 @@ struct us_data {
 	/* thread information */
 	Scsi_Cmnd		*queue_srb;	 /* the single queue slot */
 	int			action;		 /* what to do		  */
-	int			pid;		 /* control thread	  */
+	pid_t			pid;		 /* control thread	  */
 
 	/* interrupt info for CBI devices -- only good if attached */
 	struct semaphore	ip_waitq;	 /* for CBI interrupts	 */

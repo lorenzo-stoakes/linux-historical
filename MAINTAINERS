@@ -206,6 +206,21 @@ M:	Juergen Fischer <fischer@norbit.de>
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 
+ALCATEL SPEEDTOUCH USB DRIVER
+P:	Duncan Sands
+M:	duncan.sands@wanadoo.fr
+L:	linux-usb-users@lists.sourceforge.net
+L:	linux-usb-devel@lists.sourceforge.net
+W:	http://www.linux-usb.org/SpeedTouch/
+S:	Maintained
+
+AIPTEK USB TABLET DRIVER
+P:	Bryan W. Headley
+M:	Bryan W. Headley <bwheadley@earthlink.net>
+W:	http://aiptektablet.sourceforge.net
+L:	aiptektablet-users@sourceforge.net
+S:	Maintained
+
 ALTERA EPXA1/EPXA10 DEVELOPMENT BOARD PORT
 P:	Clive Davies
 M:	cdavies@altera.com
@@ -1183,6 +1198,8 @@ P:	Pekka Savola (ipv6)
 M:	pekkas@netcore.fi
 P:	James Morris
 M:	jmorris@intercode.com.au
+P:	Hideaki YOSHIFUJI
+M:	yoshfuji@linux-ipv6.org
 L:	netdev@oss.sgi.com
 S:	Maintained
 
@@ -1704,6 +1721,12 @@ M:	mikep@linuxtr.net
 L:	linux-net@vger.kernel.org
 L:	linux-tr@linuxtr.net
 W:	http://www.linuxtr.net
+S:	Maintained
+
+TOSHIBA ACPI EXTRAS DRIVER
+P:	John Belmonte
+M:	toshiba_acpi@memebeam.org
+W:	http://memebeam.org/toys/ToshibaAcpiDriver
 S:	Maintained
 
 TOSHIBA SMM DRIVER

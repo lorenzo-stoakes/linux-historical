@@ -5476,11 +5476,6 @@ CONFIG_IP_ROUTE_VERBOSE
   handled by the klogd daemon which is responsible for kernel messages
   ("man klogd").
 
-Large routing tables
-CONFIG_IP_ROUTE_LARGE_TABLES
-  If you have routing zones that grow to more than about 64 entries,
-  you may want to say Y here to speed up the routing process.
-
 Fast network address translation
 CONFIG_IP_ROUTE_NAT
   If you say Y here, your router will be able to modify source and
@@ -6903,6 +6898,15 @@ CONFIG_ATM_FORE200E_DEBUG
   When active, these messages can have a significant impact on
   the performances of the driver, and the size of your syslog files!
   Keep the debugging level to 0 during normal operations.
+
+ForeRunner HE Series
+CONFIG_ATM_HE
+  This is a driver for the Marconi ForeRunner HE-series ATM adapter
+  cards. It simultaneously supports the 155 and 622 versions.
+
+Use S/UNI PHY driver
+  Support for the S/UNI-Ultra and S/UNI-622 found in the ForeRunner
+  HE cards.  This driver provides carrier detection some statistics.
 
 PPP over ATM
 CONFIG_PPPOATM
@@ -13919,11 +13923,12 @@ CONFIG_USB_POWERMATE
   The module will be called powermate.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
-Aiptek 6000U/8000U tablet support
+Aiptek HyperPen tablet support
 CONFIG_USB_AIPTEK
-  Say Y here if you want to use the USB version of the Aiptek 6000U/8000U
-  tablet.  Make sure to say Y to "Event interface support"
-  (CONFIG_INPUT_EVDEV) as well.
+  Say Y here if you want to use the USB version of the Aiptek HyperPen
+  Digital Tablet (models 4000U, 5000U, 6000U, 8000U, and 12000U.)
+  Make sure to say Y to "Mouse support" (CONFIG_INPUT_MOUSEDEV) and/or
+  "Event interface support" (CONFIG_INPUT_EVDEV) as well.
 
   This driver is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -14620,6 +14625,24 @@ CONFIG_USB_CATC
   The module will be called catc.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
+USB ASIX AX88172 based ethernet device support
+CONFIG_USB_AX8817X
+  Say Y if you want to use one of the following 10/100 USB2 Ethernet
+  devices based on the ASIX AX88172 chip.  Supported devices are:
+    Linksys USB200M
+    Netgear FA120
+    D-Link DUB-E100
+    Hawking UF200
+
+  This driver makes the adapter appear as a normal Ethernet interface,
+  typically on eth0, if it is the only ethernet device, or perhaps on
+  eth1, if you have a PCI or ISA ethernet card installed.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called ax8817x.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
 USB Kodak DC-2xx Camera support
 CONFIG_USB_DC2XX
   Say Y here if you want to connect this type of still camera to your
@@ -14902,6 +14925,17 @@ CONFIG_USB_DSBR
   inserted in and removed from the running kernel whenever you want).
   The module will be called dsbr100.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
+
+Alcatel Speedtouch USB support
+CONFIG_USB_SPEEDTOUCH
+  Say Y here if you have an Alcatel SpeedTouch USB or SpeedTouch 330
+  modem.  In order to use your modem you will need to install some user
+  space tools, see <http://www.linux-usb.org/SpeedTouch/> for details.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called speedtch.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
 
 Always do synchronous disk IO for UBD
 CONFIG_BLK_DEV_UBD_SYNC
@@ -18602,6 +18636,20 @@ CONFIG_ACPI
   The ACPI Sourceforge project may also be of interest:
   <http://sf.net/projects/acpi/>
 
+ACPI Processor Enumeration Only
+CONFIG_ACPI_HT_ONLY
+  This option enables limited ACPI support -- just enough to
+  enumerate processors from the ACPI Multiple APIC Description
+  Table (MADT).  Note that ACPI supports both logical (e.g. Hyper-
+  Threading) and physical processors, where the MultiProcessor
+  Specification (MPS) table only supports physical processors.
+
+  Full ACPI support (CONFIG_ACPI) is preferred.  Use this option
+  only if you wish to limit ACPI's role to processor enumeration.
+
+  In this configuration, ACPI defaults to off. It must be enabled
+  on the command-line with the "acpismp=force" option.
+
 Enable ACPI 2.0 with errata 1.3
 CONFIG_ACPI20
   Enable support for the 2.0 version of the ACPI interpreter.  See the
@@ -18664,6 +18712,53 @@ ACPI Thermal
 CONFIG_ACPI_THERMAL
   This driver handles overheating conditions on laptops. It is HIGHLY
   recommended, as your laptop CPU may be damaged without it.
+
+ACPI ASUS/Medion Laptop Extras
+CONFIG_ACPI_ASUS
+  This driver provides support for extra features of ACPI-compatible
+  ASUS laptops. As some of Medion laptops are made by ASUS, it may also
+  support some Medion laptops (such as 9675 for example).  It makes all
+  the extra buttons generate standard ACPI events that go through
+  /proc/acpi/events, and (on some models) adds support for changing the
+  display brightness and output, switching the LCD backlight on and off,
+  and most importantly, allows you to blink those fancy LEDs intended
+  for reporting mail and wireless status.
+  
+  All settings are changed via /proc/acpi/asus directory entries. Owner
+  and group for these entries can be set with asus_uid and asus_gid
+  parameters.
+  
+  More information and a userspace daemon for handling the extra buttons
+  at <http://sourceforge.net/projects/acpi4asus/>.
+  
+  If you have an ACPI-compatible ASUS laptop, say Y or M here. This
+  driver is still under development, so if your laptop is unsupported or
+  something works not quite as expected, please use the mailing list
+  available on the above page (acpi4asus-user@lists.sourceforge.net)
+  
+ACPI Toshiba Laptop Extras
+CONFIG_ACPI_TOSHIBA
+  This driver adds support for access to certain system settings
+  on "legacy free" Toshiba laptops.  These laptops can be recognized by
+  their lack of a BIOS setup menu and APM support.
+
+  On these machines, all system configuration is handled through the
+  ACPI.  This driver is required for access to controls not covered
+  by the general ACPI drivers, such as LCD brightness, video output,
+  etc.
+
+  This driver differs from the non-ACPI Toshiba laptop driver (located
+  under "Processor type and features") in several aspects.
+  Configuration is accessed by reading and writing text files in the
+  /proc tree instead of by program interface to /dev.  Furthermore, no
+  power management functions are exposed, as those are handled by the
+  general ACPI drivers.
+
+  More information about this driver is available at
+  <http://memebeam.org/toys/ToshibaAcpiDriver>.
+
+  If you have a legacy free Toshiba laptop (such as the Libretto L1
+  series), say Y.
 
 Advanced Power Management BIOS support
 CONFIG_APM
@@ -26648,6 +26743,13 @@ CONFIG_IPMI_KCS
 IPMI Watchdog Timer
 CONFIG_IPMI_WATCHDOG
   This enables the IPMI watchdog timer.
+
+CRC32 functions
+CONFIG_CRC32
+  This option is provided for the case where no in-kernel-tree
+  modules require CRC32 functions, but a module built outside the
+  kernel tree does. Such modules that use library CRC32 functions
+  require that you say M or Y here.
 
 #
 # A couple of things I keep forgetting:

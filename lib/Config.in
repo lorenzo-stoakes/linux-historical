@@ -4,6 +4,8 @@
 mainmenu_option next_comment
 comment 'Library routines'
 
+tristate 'CRC32 functions' CONFIG_CRC32
+
 #
 # Do we need the compression support?
 #

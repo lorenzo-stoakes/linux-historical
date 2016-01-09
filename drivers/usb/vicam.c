@@ -1,6 +1,10 @@
 /*
  * USB ViCam WebCam driver
- * Copyright (c) 2002 Joe Burks (jburks@wavicle.org)
+ * Copyright (c) 2002 Joe Burks (jburks@wavicle.org),
+ *                    Christopher L Cheney (ccheney@cheney.cx),
+ *                    Pavel Machek (pavel@suse.cz),
+ *                    John Tyner (jtyner@cs.ucr.edu),
+ *                    Monroe Williams (monroe@pobox.com)
  *
  * Supports 3COM HomeConnect PC Digital WebCam
  *
@@ -18,8 +22,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * This source code is based heavily on the CPiA webcam driver
- * */
+ * This source code is based heavily on the CPiA webcam driver which was
+ * written by Peter Pregler, Scott J. Bertin and Johannes Erdfelt
+ *
+ * Portions of this code were also copied from usbvideo.c
+ *
+ * Special thanks to the the whole team at Sourceforge for help making
+ * this driver become a reality.  Notably:
+ * Andy Armstrong who reverse engineered the color encoding and
+ * Pavel Machek and Chris Cheney who worked on reverse engineering the
+ *    camera controls and wrote the first generation driver.
+ */
 
 #include <linux/kernel.h>
 #include <linux/wrapper.h>

@@ -150,6 +150,7 @@ void inode_init_once(struct inode *inode)
 	INIT_LIST_HEAD(&inode->i_devices);
 	sema_init(&inode->i_sem, 1);
 	sema_init(&inode->i_zombie, 1);
+	init_rwsem(&inode->i_alloc_sem);
 	spin_lock_init(&inode->i_data.i_shared_lock);
 }
 

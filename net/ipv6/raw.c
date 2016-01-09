@@ -97,7 +97,7 @@ struct sock *__raw_v6_lookup(struct sock *sk, unsigned short num,
 				if (ipv6_addr_cmp(&np->rcv_saddr, loc_addr) == 0)
 					break;
 				if ((addr_type & IPV6_ADDR_MULTICAST) &&
-				    inet6_mc_check(s, loc_addr))
+				    inet6_mc_check(s, loc_addr, rmt_addr))
 					break;
 				continue;
 			}

@@ -24,7 +24,7 @@
  *  Copyright (c) 1999-2002 LSI Logic Corporation
  *  Original author: Steven J. Ralston
  *  (mailto:sjralston1@netscape.net)
- *  (mailto:Pam.Delaney@lsil.com)
+ *  (mailto:lstephen@lsil.com)
  *
  *  $Id: mptscsih.c,v 1.106 2003/01/28 21:31:57 pdelaney Exp $
  */
@@ -2525,6 +2525,9 @@ mptscsih_qcmd(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
 	cmd_len = SCpnt->cmd_len;
 	for (ii=0; ii < cmd_len; ii++)
 		pScsiReq->CDB[ii] = SCpnt->cmnd[ii];
+
+	for (ii=cmd_len; ii < 16; ii++)
+		pScsiReq->CDB[ii] = 0;
 
 	/* DataLength */
 	pScsiReq->DataLength = cpu_to_le32(datalen);

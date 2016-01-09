@@ -248,7 +248,7 @@ static __inline__ int __get_order(unsigned long size)
 /*
  *  We use our new error handling code if the kernel version is 2.4.18 or newer.
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,18)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1)
         #define MPT_SCSI_USE_NEW_EH
 #endif
 

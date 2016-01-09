@@ -35,6 +35,14 @@
 
 /* If you edit this file, please try to keep it sorted first by VendorID,
  * then by ProductID.
+ *
+ * If you want to add an entry for this file, please send the following
+ * to greg@kroah.com:
+ *	- patch that adds the entry for your device which includes your
+ *	  email address right above the entry.
+ *	- a copy of /proc/bus/usb/devices with your device plugged in
+ *	  running with this patch.
+ *
  */
 
 UNUSUAL_DEV(  0x03ee, 0x0000, 0x0000, 0x0245, 
@@ -89,6 +97,18 @@ UNUSUAL_DEV(  0x0451, 0x5409, 0x0001, 0x0001,
 		"Frontier Labs",
 		"Nex II Digital",
 		US_SC_SCSI, US_PR_BULK, NULL, US_FL_START_STOP),
+
+/* Patch submitted by Philipp Friedrich <philipp@void.at> */
+UNUSUAL_DEV(  0x0482, 0x0100, 0x0100, 0x0100,
+		"Kyocera",
+		"Finecam S3x",
+		US_SC_8070, US_PR_CB, NULL, US_FL_FIX_INQUIRY),
+
+/* Patch submitted by Philipp Friedrich <philipp@void.at> */
+UNUSUAL_DEV(  0x0482, 0x0101, 0x0100, 0x0100,
+		"Kyocera",
+		"Finecam S4",
+		US_SC_8070, US_PR_CB, NULL, US_FL_FIX_INQUIRY),
 
 /* Reported by Paul Stewart <stewart@wetlogic.net>
  * This entry is needed because the device reports Sub=ff */
@@ -222,10 +242,18 @@ UNUSUAL_DEV(  0x0525, 0xa140, 0x0100, 0x0100,
 		US_SC_8070, US_PR_BULK, NULL,
 		US_FL_FIX_INQUIRY | US_FL_START_STOP ),
 
+/* Submitted by Lars Gemeinhardt <linux-usb@gemeinhardt.info>
+ * Needed for START_STOP flag */
+UNUSUAL_DEV(  0x0547, 0x2810, 0x0001, 0x0001,
+                "Mello",
+                "MP3 Player",
+		US_SC_SCSI, US_PR_BULK, NULL,
+		US_FL_START_STOP),
+
 /* This entry is needed because the device reports Sub=ff */
-UNUSUAL_DEV(  0x054c, 0x0010, 0x0106, 0x0440, 
+UNUSUAL_DEV(  0x054c, 0x0010, 0x0106, 0x0450, 
 		"Sony",
-		"DSC-S30/S70/S75/505V/F505/F707/F717", 
+		"DSC-S30/S70/S75/505V/F505/F707/F717/P8", 
 		US_SC_SCSI, US_PR_CB, NULL,
 		US_FL_SINGLE_LUN | US_FL_START_STOP | US_FL_MODE_XLATE ),
 
@@ -293,6 +321,26 @@ UNUSUAL_DEV(  0x09bc, 0x0003, 0x0000, 0x9999,
 		"SP600",
 		US_SC_SCSI, US_PR_BULK, NULL,
 		US_FL_START_STOP ),
+
+/* This Pentax still camera is not conformant
+ * to the USB storage specification: -
+ * - It does not like the INQUIRY command. So we must handle this command
+ *   of the SCSI layer ourselves.
+ * Tested on Rev. 10.00 (0x1000)
+ * Submitted by James Courtier-Dutton <James@superbug.demon.co.uk>
+ */
+UNUSUAL_DEV( 0x0a17, 0x0004, 0x1000, 0x1000,
+                "Pentax",
+                "Optio 2/3/400",
+                US_SC_8070, US_PR_CBI, NULL,
+                US_FL_FIX_INQUIRY ),
+
+/* Submitted by Per Winkvist <per.winkvist@uk.com> */
+UNUSUAL_DEV( 0x0a17, 0x006, 0x1000, 0x9009,
+                "Pentax",
+                "Optio S",
+                US_SC_8070, US_PR_CBI, NULL,
+                US_FL_FIX_INQUIRY ),
 
 #ifdef CONFIG_USB_STORAGE_ISD200
 UNUSUAL_DEV(  0x05ab, 0x0031, 0x0100, 0x0110,
@@ -363,6 +411,14 @@ UNUSUAL_DEV(  0x05e3, 0x0702, 0x0000, 0x0001,
 		"External Hard Disk",
 		US_SC_SCSI, US_PR_BULK, NULL,
 		US_FL_FIX_INQUIRY ),
+
+/* Reported by Hanno Boeck <hanno@gmx.de>
+ * Taken from the Lycoris Kernel */
+UNUSUAL_DEV(  0x0636, 0x0003, 0x0000, 0x9999,
+		"Vivitar",
+		"Vivicam 35Xx",
+		US_SC_SCSI, US_PR_BULK, NULL,
+		US_FL_FIX_INQUIRY | US_FL_MODE_XLATE),
 
 UNUSUAL_DEV(  0x0644, 0x0000, 0x0100, 0x0100, 
 		"TEAC",
@@ -543,6 +599,13 @@ UNUSUAL_DEV( 0x07cf, 0x1001, 0x1000, 0x9009,
                 US_SC_8070, US_PR_CB, NULL,
                 US_FL_FIX_INQUIRY ),
 
+/* Submitted by Hartmut Wahl <hwahl@hwahl.de>*/
+UNUSUAL_DEV( 0x0839, 0x000a, 0x0001, 0x0001,
+        "Samsung",
+        "Digimax 410",
+        US_SC_SCSI, US_PR_BULK, NULL,
+        US_FL_FIX_INQUIRY),
+                
 UNUSUAL_DEV(  0x097a, 0x0001, 0x0000, 0x0001,
 		"Minds@Work",
 		"Digital Wallet",
@@ -555,6 +618,16 @@ UNUSUAL_DEV(  0x0a16, 0x8888, 0x0100, 0x0100,
 		US_SC_SCSI, US_PR_BULK, NULL,
 		US_FL_FIX_INQUIRY ),
 		
+/* Pentax Optio S digital camera
+ * adapted from http://www2.goldfisch.at/knowledge/233
+ * (Peter Pilsl <pilsl@goldfisch.at>)
+ * by Christoph Weidemann <cweidema@indiana.edu> */
+UNUSUAL_DEV(  0x0a17, 0x0006, 0x0000, 0xffff,
+		"Pentax",
+		"Optio S",
+		US_SC_8070, US_PR_CB, NULL,
+		US_FL_MODE_XLATE|US_FL_FIX_INQUIRY),
+
 #ifdef CONFIG_USB_STORAGE_ISD200
 UNUSUAL_DEV(  0x0bf6, 0xa001, 0x0100, 0x0110,
                 "ATI",
@@ -594,3 +667,13 @@ UNUSUAL_DEV(  0x55aa, 0xa103, 0x0000, 0x9999,
 		US_SC_SCSI, US_PR_SDDR55, NULL,
 		US_FL_SINGLE_LUN),
 #endif
+
+/* Aiptek PocketCAM 3Mega
+ * Nicolas DUPEUX <nicolas@dupeux.net> 
+ */
+UNUSUAL_DEV(  0x08ca, 0x2011, 0x0000, 0x9999,
+	"AIPTEK",
+	"PocketCAM 3Mega",
+	US_SC_SCSI, US_PR_BULK, NULL,
+	US_FL_MODE_XLATE | US_FL_START_STOP),
+

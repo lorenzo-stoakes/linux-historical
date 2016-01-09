@@ -2311,7 +2311,11 @@ struct sysinfo32 {
         u32 totalswap;
         u32 freeswap;
         unsigned short procs;
-        char _f[22];
+        unsigned short pad;
+        u32 totalhigh;
+        u32 freehigh;
+        u32 mem_unit;
+        char _f[20-2*sizeof(u32)-sizeof(int)];
 };
 
 extern asmlinkage long sys_sysinfo(struct sysinfo *info);
@@ -2320,6 +2324,7 @@ asmlinkage long sys32_sysinfo(struct sysinfo32 *info)
 {
 	struct sysinfo s;
 	int ret, err;
+	int bitcount = 0;
 	mm_segment_t old_fs = get_fs ();
 	
 	PPCDBG(PPCDBG_SYS32, "sys32_sysinfo - entered - pid=%ld current=%lx comm=%s \n", current->pid, current, current->comm);
@@ -2327,6 +2332,24 @@ asmlinkage long sys32_sysinfo(struct sysinfo32 *info)
 	set_fs (KERNEL_DS);
 	ret = sys_sysinfo(&s);
 	set_fs (old_fs);
+	/* Check to see if any memory value is too large for 32-bit and scale
+	 *  down if needed
+	 */
+	if ((s.totalram >> 32) || (s.totalswap >> 32)) {
+		while (s.mem_unit < PAGE_SIZE) {
+			s.mem_unit <<= 1;
+			bitcount++;
+		}
+		s.totalram >>= bitcount;
+		s.freeram >>= bitcount;
+		s.sharedram >>= bitcount;
+		s.bufferram >>= bitcount;
+		s.totalswap >>= bitcount;
+		s.freeswap >>= bitcount;
+		s.totalhigh >>= bitcount;
+		s.freehigh >>= bitcount;
+	}
+	
 	err = put_user (s.uptime, &info->uptime);
 	err |= __put_user (s.loads[0], &info->loads[0]);
 	err |= __put_user (s.loads[1], &info->loads[1]);
@@ -2338,6 +2361,10 @@ asmlinkage long sys32_sysinfo(struct sysinfo32 *info)
 	err |= __put_user (s.totalswap, &info->totalswap);
 	err |= __put_user (s.freeswap, &info->freeswap);
 	err |= __put_user (s.procs, &info->procs);
+	err |= __put_user (s.totalhigh, &info->totalhigh);
+	err |= __put_user (s.freehigh, &info->freehigh);
+	err |= __put_user (s.mem_unit, &info->mem_unit);
+	
 	if (err)
 		return -EFAULT;
 	
@@ -3029,7 +3056,7 @@ asmlinkage long sys32_ipc(u32 call, u32 first_parm, u32 second_parm, u32 third_p
 		err = do_sys32_shmctl(first, second, (void *)AA(ptr));
 		break;
 	default:
-		err = -EINVAL;
+		err = -ENOSYS;
 		break;
 	}
 

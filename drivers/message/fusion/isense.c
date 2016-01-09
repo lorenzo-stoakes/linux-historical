@@ -9,7 +9,7 @@
  *  Written By: Steven J. Ralston
  *  (yes I wrote some of the orig. code back in 1991!)
  *  (mailto:sjralston1@netscape.net)
- *  (mailto:Pam.Delaney@lsil.com)
+ *  (mailto:lstephen@lsil.com)
  *
  *  $Id: isense.c,v 1.33 2002/02/27 18:44:19 sralston Exp $
  */

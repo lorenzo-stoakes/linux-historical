@@ -47,7 +47,7 @@
  *  Copyright (c) 1999-2002 LSI Logic Corporation
  *  Originally By: Steven J. Ralston
  *  (mailto:sjralston1@netscape.net)
- *  (mailto:Pam.Delaney@lsil.com)
+ *  (mailto:lstephen@lsil.com)
  *
  *  $Id: mptbase.c,v 1.126 2002/12/16 15:28:45 pdelaney Exp $
  */
