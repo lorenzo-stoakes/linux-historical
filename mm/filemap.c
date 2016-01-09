@@ -123,8 +123,6 @@ static inline void remove_page_from_hash_queue(struct page * page)
  */
 void __remove_inode_page(struct page *page)
 {
-	if (PageDirty(page) && !PageSwapCache(page))
-		BUG();
 	remove_page_from_inode_queue(page);
 	remove_page_from_hash_queue(page);
 }

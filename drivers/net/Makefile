@@ -29,6 +29,10 @@ ifeq ($(CONFIG_E1000),y)
   obj-y += e1000/e1000.o
 endif
 
+ifeq ($(CONFIG_BONDING),y)
+  obj-y += bonding/bonding.o
+endif
+
 ifeq ($(CONFIG_ISDN_PPP),y)
   obj-$(CONFIG_ISDN) += slhc.o
 endif
@@ -46,6 +50,7 @@ subdir-$(CONFIG_SK98LIN) += sk98lin
 subdir-$(CONFIG_SKFP) += skfp
 subdir-$(CONFIG_E100) += e100
 subdir-$(CONFIG_E1000) += e1000
+subdir-$(CONFIG_BONDING) += bonding
 
 #
 # link order important here
@@ -158,7 +163,6 @@ endif
 
 obj-$(CONFIG_STRIP) += strip.o
 obj-$(CONFIG_DUMMY) += dummy.o
-obj-$(CONFIG_BONDING) += bonding.o
 obj-$(CONFIG_DE600) += de600.o
 obj-$(CONFIG_DE620) += de620.o
 obj-$(CONFIG_AT1500) += lance.o
@@ -229,7 +233,7 @@ obj-$(CONFIG_TUN) += tun.o
 obj-$(CONFIG_ETHER00) +=ether00.o
 obj-$(CONFIG_DL2K) += dl2k.o
 obj-$(CONFIG_R8169) += r8169.o
-obj-$(CONFIG_AMD8111_ETH) += amd8111e.o
+obj-$(CONFIG_AMD8111_ETH) += amd8111e.o mii.o
 
 # non-drivers/net drivers who want mii lib
 obj-$(CONFIG_PCMCIA_SMC91C92) += mii.o

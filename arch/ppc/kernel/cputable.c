@@ -324,7 +324,7 @@ struct cpu_spec	cpu_specs[] = {
 	__setup_cpu_8xx	/* Empty */
     },
 #endif /* CONFIG_8xx */
-#ifdef CONFIG_4xx
+#ifdef CONFIG_40x
     {	/* 403GC */
     	0xffffff00, 0x00200200, "403GC",
     	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB,

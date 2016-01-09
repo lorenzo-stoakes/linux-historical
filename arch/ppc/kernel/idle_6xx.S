@@ -56,12 +56,12 @@ END_FTR_SECTION_IFSET(CPU_FTR_DUAL_PLL_750FX)
 	blr
 
 /*
- * Here is the power_save_6xx function. This could eventually be
+ * Here is the power_save function. This could eventually be
  * split into several functions & changing the function pointer
  * depending on the various features.
  */
-	.globl	power_save_6xx
-power_save_6xx:
+	.globl	power_save
+power_save:
 	/* Check if we can nap or doze, put HID0 mask in r3
 	 */
 	lis	r3, 0

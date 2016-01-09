@@ -907,9 +907,9 @@ static void change_speed(ser_info_t *info)
 		 * enables, because we want to put them back if they were
 		 * present.
 		 */
-		prev_mode = smcp->smc_smcmr;
-		smcp->smc_smcmr = smcr_mk_clen(bits) | cval |  SMCMR_SM_UART;
-		smcp->smc_smcmr |= (prev_mode & (SMCMR_REN | SMCMR_TEN));
+		prev_mode = smcp->smc_smcmr & (SMCMR_REN | SMCMR_TEN);
+		smcp->smc_smcmr = smcr_mk_clen(bits) | cval | SMCMR_SM_UART
+			| prev_mode;
 	}
 	else {
 		sccp = &immr->im_scc[idx - SCC_IDX_BASE];

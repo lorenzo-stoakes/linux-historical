@@ -33,6 +33,7 @@
 #include <linux/interrupt.h>
 #include <linux/kmod.h>
 #include <linux/delay.h>
+#include <linux/init.h>
 #include <asm/io.h>
 #include <acpi/acpi_bus.h>
 #include <acpi/acpi.h>
@@ -943,14 +944,14 @@ acpi_os_get_line(char *buffer)
  * We just have to assume we're dealing with valid memory
  */
 
-BOOLEAN
-acpi_os_readable(void *ptr, u32 len)
+u8
+acpi_os_readable(void *ptr, acpi_size len)
 {
 	return 1;
 }
 
-BOOLEAN
-acpi_os_writable(void *ptr, u32 len)
+u8
+acpi_os_writable(void *ptr, acpi_size len)
 {
 	return 1;
 }

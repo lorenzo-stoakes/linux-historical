@@ -24,8 +24,7 @@ obj-y    := entry.o traps.o process.o osf_sys.o irq.o irq_alpha.o \
 # FIXME!
 # These should be made conditional on the stuff that needs them!
 #
-obj-y	 += irq_i8259.o irq_srm.o \
-	    es1888.o smc37c669.o smc37c93x.o ns87312.o
+obj-y	 += irq_i8259.o irq_srm.o
 
 ifdef CONFIG_VGA_HOSE
 obj-y	 += console.o
@@ -93,7 +92,10 @@ obj-$(CONFIG_ALPHA_NORITAKE) += sys_noritake.o
 obj-$(CONFIG_ALPHA_RAWHIDE) += sys_rawhide.o
 obj-$(CONFIG_ALPHA_RUFFIAN) += sys_ruffian.o
 obj-$(CONFIG_ALPHA_RX164) += sys_rx164.o
-obj-$(CONFIG_ALPHA_SABLE) += sys_sable.o
+
+ifneq ($(CONFIG_ALPHA_SABLE)$(CONFIG_ALPHA_LYNX),)
+obj-y    += sys_sable.o
+endif
 
 ifneq ($(CONFIG_ALPHA_BOOK1)$(CONFIG_ALPHA_AVANTI)$(CONFIG_ALPHA_NONAME)$(CONFIG_ALPHA_P2K)$(CONFIG_ALPHA_XL),)
 obj-y    += sys_sio.o
@@ -105,6 +107,22 @@ obj-$(CONFIG_ALPHA_WILDFIRE) += sys_wildfire.o
 
 ifneq ($(CONFIG_ALPHA_MIATA)$(CONFIG_ALPHA_RUFFIAN)$(CONFIG_ALPHA_SX164),)
 obj-y    += irq_pyxis.o
+endif
+
+ifneq ($(CONFIG_ALPHA_MIATA)$(CONFIG_ALPHA_DP264),)
+obj-y    += es1888.o
+endif
+
+ifneq ($(CONFIG_ALPHA_DP264)$(CONFIG_ALPHA_MIATA)$(CONFIG_ALPHA_SX164)$(CONFIG_ALPHA_TITAN),)
+obj-y    += smc37c669.o
+endif
+
+ifneq ($(CONFIG_ALPHA_PC164)$(CONFIG_ALPHA_LX164),)
+obj-y    += smc37c93x.o
+endif
+
+ifneq ($(CONFIG_ALPHA_NONAME)$(CONFIG_ALPHA_EB164)$(CONFIG_ALPHA_AVANTI)$(CONFIG_ALPHA_P2K)$(CONFIG_ALPHA_XL)$(CONFIG_ALPHA_TAKARA),)
+obj-y    += ns87312.o
 endif
 
 endif # GENERIC

@@ -1,0 +1,6 @@
+#
+# Bluetooth CMTP layer configuration
+#
+
+dep_tristate 'CMTP protocol support' CONFIG_BLUEZ_CMTP $CONFIG_BLUEZ_L2CAP
+

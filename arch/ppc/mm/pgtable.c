@@ -278,11 +278,11 @@ void __init mapin_ram(void)
 		/* On the MPC8xx, we want the page shared so we
 		 * don't get ASID compares on kernel space.
 		 */
-		f = _PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_SHARED;
-#if defined(CONFIG_KGDB) || defined(CONFIG_XMON)
+		f = _PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_SHARED | _PAGE_HWEXEC;
+#if defined(CONFIG_KGDB) || defined(CONFIG_XMON) || defined(CONFIG_BDI_SWITCH)
 		/* Allows stub to set breakpoints everywhere */
 		f |= _PAGE_WRENABLE;
-#else	/* !CONFIG_KGDB && !CONFIG_XMON */
+#else	/* !CONFIG_KGDB && !CONFIG_XMON && !CONFIG_BDI_SWITCH */
 		if ((char *) v < _stext || (char *) v >= etext)
 			f |= _PAGE_WRENABLE;
 #ifdef CONFIG_PPC_STD_MMU

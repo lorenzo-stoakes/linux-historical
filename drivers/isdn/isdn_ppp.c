@@ -13,6 +13,9 @@
 #include <linux/isdn.h>
 #include <linux/poll.h>
 #include <linux/ppp-comp.h>
+#ifdef CONFIG_IPPP_FILTER
+#include <linux/filter.h>
+#endif
 
 #include "isdn_common.h"
 #include "isdn_ppp.h"
@@ -324,7 +327,10 @@ isdn_ppp_open(int min, struct file *file)
 	 */
 	is->slcomp = slhc_init(16, 16);	/* not necessary for 2. link in bundle */
 #endif
-
+#ifdef CONFIG_IPPP_FILTER
+	is->pass_filter.filter = NULL;
+	is->active_filter.filter = NULL;
+#endif
 	is->state = IPPP_OPEN;
 
 	return 0;
@@ -378,6 +384,16 @@ isdn_ppp_release(int min, struct file *file)
 /* TODO: if this was the previous master: link the slcomp to the new master */
 	slhc_free(is->slcomp);
 	is->slcomp = NULL;
+#endif
+#ifdef CONFIG_IPPP_FILTER
+	if (is->pass_filter.filter) {
+		kfree(is->pass_filter.filter);
+		is->pass_filter.filter = NULL;
+	}
+	if (is->active_filter.filter) {
+		kfree(is->active_filter.filter);
+		is->active_filter.filter = NULL;
+	}
 #endif
 
 /* TODO: if this was the previous master: link the stuff to the new master */
@@ -588,6 +604,39 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 				}
 				return set_arg((void *)arg,&pci,sizeof(struct pppcallinfo));
 			}
+#ifdef CONFIG_IPPP_FILTER
+		case PPPIOCSPASS:
+		case PPPIOCSACTIVE:
+			{
+				struct sock_fprog uprog, *filtp;
+				struct sock_filter *code = NULL;
+				int len, err;
+
+				if (copy_from_user(&uprog, (void *) arg, sizeof(uprog)))
+					return -EFAULT;
+				if (uprog.len > 0 && uprog.len < 65536) {
+					len = uprog.len * sizeof(struct sock_filter);
+					code = kmalloc(len, GFP_KERNEL);
+					if (code == NULL)
+						return -ENOMEM;
+					if (copy_from_user(code, uprog.filter, len)) {
+						kfree(code);
+						return -EFAULT;
+					}
+					err = sk_chk_filter(code, uprog.len);
+					if (err) {
+						kfree(code);
+						return err;
+					}
+				}
+				filtp = (cmd == PPPIOCSPASS) ? &is->pass_filter : &is->active_filter;
+				if (filtp->filter)
+					kfree(filtp->filter);
+				filtp->filter = code;
+				filtp->len = uprog.len;
+				break;
+			}
+#endif /* CONFIG_IPPP_FILTER */
 		default:
 			break;
 	}
@@ -977,6 +1026,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 {
 	struct net_device *dev = &net_dev->dev;
  	struct ippp_struct *is, *mis;
+	isdn_net_local *mlp = NULL;
 	int slot;
 
 	slot = lp->ppp_slot;
@@ -988,7 +1038,8 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 	is = ippp_table[slot];
  	
  	if (lp->master) { // FIXME?
- 		slot = ((isdn_net_local *) (lp->master->priv))->ppp_slot;
+		mlp = (isdn_net_local *) lp->master->priv;
+ 		slot = mlp->ppp_slot;
  		if (slot < 0 || slot > ISDN_MAX_CHANNELS) {
  			printk(KERN_ERR "isdn_ppp_push_higher: master->ppp_slot(%d)\n",
  				lp->ppp_slot);
@@ -1082,9 +1133,36 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 			return;
 	}
 
- 	/* Reset hangup-timer */
- 	lp->huptimer = 0;
+#ifdef CONFIG_IPPP_FILTER
+	/* check if the packet passes the pass and active filters
+	 * the filter instructions are constructed assuming
+	 * a four-byte PPP header on each packet (which is still present) */
+	skb_push(skb, 4);
+	skb->data[0] = 0;	/* indicate inbound */
 
+	if (is->pass_filter.filter
+	    && sk_run_filter(skb, is->pass_filter.filter,
+	                    is->pass_filter.len) == 0) {
+		if (is->debug & 0x2)
+			printk(KERN_DEBUG "IPPP: inbound frame filtered.\n");
+		kfree_skb(skb);
+		return;
+	}
+	if (!(is->active_filter.filter
+	      && sk_run_filter(skb, is->active_filter.filter,
+	                       is->active_filter.len) == 0)) {
+		if (is->debug & 0x2)
+			printk(KERN_DEBUG "IPPP: link-active filter: reseting huptimer.\n");
+		lp->huptimer = 0;
+		if (mlp)
+			mlp->huptimer = 0;
+	}
+	skb_pull(skb, 4);
+#else /* CONFIG_IPPP_FILTER */
+	lp->huptimer = 0;
+	if (mlp)
+		mlp->huptimer = 0;
+#endif /* CONFIG_IPPP_FILTER */
 	skb->dev = dev;
 	skb->mac.raw = skb->data;
 	netif_rx(skb);
@@ -1120,7 +1198,6 @@ static unsigned char *isdn_ppp_skb_push(struct sk_buff **skb_p,int len)
 	}
 	return skb_push(skb,len);
 }
-
 
 /*
  * send ppp frame .. we expect a PIDCOMPressable proto --
@@ -1188,7 +1265,6 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		goto unlock;
 	}
 	ipt = ippp_table[slot];
-	lp->huptimer = 0;
 
 	/*
 	 * after this line .. requeueing in the device queue is no longer allowed!!!
@@ -1198,6 +1274,34 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	 * the fragmentation code happy.
 	 */
 	skb_pull(skb,IPPP_MAX_HEADER);
+
+#ifdef CONFIG_IPPP_FILTER
+	/* check if we should pass this packet
+	 * the filter instructions are constructed assuming
+	 * a four-byte PPP header on each packet */
+	skb_push(skb, 4);
+	skb->data[0] = 1;	/* indicate outbound */
+	*(u_int16_t *)(skb->data + 2) = htons(proto);
+
+	if (ipt->pass_filter.filter 
+	    && sk_run_filter(skb, ipt->pass_filter.filter,
+		             ipt->pass_filter.len) == 0) {
+		if (ipt->debug & 0x4)
+			printk(KERN_DEBUG "IPPP: outbound frame filtered.\n");
+		kfree_skb(skb);
+		goto unlock;
+	}
+	if (!(ipt->active_filter.filter
+	      && sk_run_filter(skb, ipt->active_filter.filter,
+		               ipt->active_filter.len) == 0)) {
+		if (ipt->debug & 0x4)
+			printk(KERN_DEBUG "IPPP: link-active filter: reseting huptimer.\n");
+		lp->huptimer = 0;
+	}
+	skb_pull(skb, 4);
+#else /* CONFIG_IPPP_FILTER */
+	lp->huptimer = 0;
+#endif /* CONFIG_IPPP_FILTER */
 
 	if (ipt->debug & 0x4)
 		printk(KERN_DEBUG "xmit skb, len %d\n", (int) skb->len);
@@ -1340,6 +1444,50 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	return retval;
 }
 
+#ifdef CONFIG_IPPP_FILTER
+/*
+ * check if this packet may trigger auto-dial.
+ */
+
+int isdn_ppp_autodial_filter(struct sk_buff *skb, isdn_net_local *lp)
+{
+	struct ippp_struct *is = ippp_table[lp->ppp_slot];
+	u_int16_t proto;
+	int drop = 0;
+
+	switch (ntohs(skb->protocol)) {
+	case ETH_P_IP:
+		proto = PPP_IP;
+		break;
+	case ETH_P_IPX:
+		proto = PPP_IPX;
+		break;
+	default:
+		printk(KERN_ERR "isdn_ppp_autodial_filter: unsupported protocol 0x%x.\n",
+		       skb->protocol);
+		return 1;
+	}
+
+	/* the filter instructions are constructed assuming
+	 * a four-byte PPP header on each packet. we have to
+	 * temporarily remove part of the fake header stuck on
+	 * earlier.
+	 */
+	skb_pull(skb, IPPP_MAX_HEADER - 4);
+	skb->data[0] = 1;	/* indicate outbound */
+	*(u_int16_t *)(skb->data + 2) = htons(proto);
+	
+	drop |= is->pass_filter.filter
+	        && sk_run_filter(skb, is->pass_filter.filter,
+	                         is->pass_filter.len) == 0;
+	drop |= is->active_filter.filter
+	        && sk_run_filter(skb, is->active_filter.filter,
+	                         is->active_filter.len) == 0;
+	
+	skb_push(skb, IPPP_MAX_HEADER - 4);
+	return drop;
+}
+#endif
 #ifdef CONFIG_ISDN_MPP
 
 /* this is _not_ rfc1990 header, but something we convert both short and long

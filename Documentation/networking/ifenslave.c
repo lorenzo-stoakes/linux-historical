@@ -51,10 +51,51 @@
  *         multiple interfaces are specified on a single ifenslave command
  *         (ifenslave bond0 eth0 eth1).
  *
+ *    - 2003/03/18 - Tsippy Mendelson <tsippy.mendelson at intel dot com> and
+ *                   Shmulik Hen <shmulik.hen at intel dot com>
+ *       - Moved setting the slave's mac address and openning it, from
+ *         the application to the driver. This enables support of modes
+ *         that need to use the unique mac address of each slave.
+ *         The driver also takes care of closing the slave and restoring its
+ *         original mac address upon release.
+ *         In addition, block possibility of enslaving before the master is up.
+ *         This prevents putting the system in an undefined state.
+ *
+ *    - 2003/05/01 - Amir Noam <amir.noam at intel dot com>
+ *       - Added ABI version control to restore compatibility between
+ *         new/old ifenslave and new/old bonding.
+ *       - Prevent adding an adapter that is already a slave.
+ *         Fixes the problem of stalling the transmission and leaving
+ *         the slave in a down state.
+ *
+ *    - 2003/05/01 - Shmulik Hen <shmulik.hen at intel dot com>
+ *       - Prevent enslaving if the bond device is down.
+ *         Fixes the problem of leaving the system in unstable state and
+ *         halting when trying to remove the module.
+ *       - Close socket on all abnormal exists.
+ *       - Add versioning scheme that follows that of the bonding driver.
+ *         current version is 1.0.0 as a base line.
+ *
+ *    - 2003/05/22 - Jay Vosburgh <fubar at us dot ibm dot com>
+ *	 - ifenslave -c was broken; it's now fixed
+ *	 - Fixed problem with routes vanishing from master during enslave
+ *	   processing.
+ *
+ *    - 2003/05/27 - Amir Noam <amir.noam at intel dot com>
+ *	 - Fix backward compatibility issue:
+ *	   For drivers not using ABI versions, slave was set down while
+ *	   it should be left up before enslaving.
+ * 	 - For opt_c: slave should not be set to the master's setting
+ *	   while it is runnig. It was already set during enslave. To
+ *	   simplify things, it is now handeled separately.
  */
 
+#define APP_VERSION	"1.0.11"
+#define APP_RELDATE	"May 29, 2003"
+#define APP_NAME	"ifenslave"
+
 static char *version =
-"ifenslave.c:v0.07 9/9/97  Donald Becker (becker@cesdis.gsfc.nasa.gov).\n"
+APP_NAME ".c:v" APP_VERSION " (" APP_RELDATE ") "  "\nDonald Becker (becker@cesdis.gsfc.nasa.gov).\n"
 "detach support added on 2000/10/02 by Willy Tarreau (willy at meta-x.org).\n"
 "2.4 kernel support added on 2001/02/16 by Chad N. Tindel (ctindel at ieee dot org.\n";
 
@@ -103,6 +144,12 @@ static const char *howto_msg =
 #include <linux/if_bonding.h>
 #include <linux/sockios.h>
 
+typedef unsigned long long u64;	/* hack, so we may include kernel's ethtool.h */
+typedef __uint32_t u32;		/* ditto */
+typedef __uint16_t u16;		/* ditto */
+typedef __uint8_t u8;		/* ditto */
+#include <linux/ethtool.h>
+
 struct option longopts[] = {
  /* { name  has_arg  *flag  val } */
     {"all-interfaces", 0, 0, 'a'},	/* Show all interfaces. */
@@ -130,18 +177,19 @@ opt_howto = 0;
 int skfd = -1;					/* AF_INET socket for ioctl() calls.	*/
 
 static void if_print(char *ifname);
+static int get_abi_ver(char *master_ifname);
 
 int
 main(int argc, char **argv)
 {
 	struct ifreq  ifr2, if_hwaddr, if_ipaddr, if_metric, if_mtu, if_dstaddr;
 	struct ifreq  if_netmask, if_brdaddr, if_flags;
-	int goterr = 0;
+	int rv, goterr = 0;
 	int c, errflag = 0;
 	sa_family_t master_family;
 	char **spp, *master_ifname, *slave_ifname;
 	int hwaddr_notset;
-	int master_up;
+	int abi_ver = 0;
 
 	while ((c = getopt_long(argc, argv, "acdfrvV?h", longopts, 0)) != EOF)
 		switch (c) {
@@ -207,6 +255,7 @@ main(int argc, char **argv)
 		char **tempp = spp;
 		if ((master_ifname == NULL)||(slave_ifname == NULL)||(*tempp++ != NULL)) {
 			fprintf(stderr, usage_msg);
+			(void) close(skfd);
 			return 2;
 		}
 	}
@@ -216,6 +265,13 @@ main(int argc, char **argv)
 		if_print(master_ifname);
 		(void) close(skfd);
 		exit(0);
+	}
+
+	/* exchange abi version with bonding driver */
+	abi_ver = get_abi_ver(master_ifname);
+	if (abi_ver < 0) {
+		(void) close(skfd);
+		exit(1);
 	}
 
 	/* Get the vitals from the master interface. */
@@ -242,6 +298,13 @@ main(int argc, char **argv)
 			}
 		}
 
+		/* check if master is up; if not then fail any operation */
+		if (!(if_flags.ifr_flags & IFF_UP)) {
+			fprintf(stderr, "Illegal operation; the specified master interface '%s' is not up.\n", master_ifname);
+			(void) close(skfd);
+			exit (1);
+		}
+
 		hwaddr_notset = 1; /* assume master's address not set yet */
 		for (i = 0; hwaddr_notset && (i < 6); i++) {
 			hwaddr_notset &= ((unsigned char *)if_hwaddr.ifr_hwaddr.sa_data)[i] == 0;
@@ -254,7 +317,7 @@ main(int argc, char **argv)
 					" with ethernet-like network interfaces.\n"
 					" Use the '-f' option to force the operation.\n",
 					master_ifname);
-
+			(void) close(skfd);
 			exit (1);
 		}
 		master_family = if_hwaddr.ifr_hwaddr.sa_family;
@@ -278,39 +341,50 @@ main(int argc, char **argv)
 					fprintf(stderr,	"SIOCBONDRELEASE: cannot detach %s from %s. errno=%s.\n",
 							slave_ifname, master_ifname, strerror(errno));
 			}
-			else {  /* we'll set the interface down to avoid any conflicts due to
-					   same IP/MAC */
+			else if (abi_ver < 1) {
+			      	/* The driver is using an old ABI, so we'll set the interface
+				 * down to avoid any conflicts due to same IP/MAC
+				 */
 				strncpy(ifr2.ifr_name, slave_ifname, IFNAMSIZ);
 				if (ioctl(skfd, SIOCGIFFLAGS, &ifr2) < 0) {
 					int saved_errno = errno;
 					fprintf(stderr, "SIOCGIFFLAGS on %s failed: %s\n", slave_ifname,
-							strerror(saved_errno));
+						strerror(saved_errno));
 				}
 				else {
 					ifr2.ifr_flags &= ~(IFF_UP | IFF_RUNNING);
 					if (ioctl(skfd, SIOCSIFFLAGS, &ifr2) < 0) {
 						int saved_errno = errno;
 						fprintf(stderr, "Shutting down interface %s failed: %s\n",
-								slave_ifname, strerror(saved_errno));
+							slave_ifname, strerror(saved_errno));
 					}
 				}
 			}
-		}
-		else {  /* attach a slave interface to the master */
-			/* two possibilities :
-			   - if hwaddr_notset, do nothing.  The bond will assign the
-			     hwaddr from it's first slave.
-			   - if !hwaddr_notset, assign the master's hwaddr to each slave
-			*/
+		} else if (opt_c) {
+			strncpy(if_flags.ifr_name, master_ifname, IFNAMSIZ);
+			strncpy(if_flags.ifr_slave, slave_ifname, IFNAMSIZ);
+			if ((ioctl(skfd, SIOCBONDCHANGEACTIVE, &if_flags) < 0) &&
+			    (ioctl(skfd, BOND_CHANGE_ACTIVE_OLD, &if_flags) < 0)) {
+				fprintf(stderr,	"SIOCBONDCHANGEACTIVE: %s.\n", strerror(errno));
+			}
+		} else {  /* attach a slave interface to the master */
 
 			strncpy(ifr2.ifr_name, slave_ifname, IFNAMSIZ);
 			if (ioctl(skfd, SIOCGIFFLAGS, &ifr2) < 0) {
 				int saved_errno = errno;
 				fprintf(stderr, "SIOCGIFFLAGS on %s failed: %s\n", slave_ifname,
 						strerror(saved_errno));
+				(void) close(skfd);
 				return 1;
 			}
 
+			if ((ifr2.ifr_flags & IFF_SLAVE) && !opt_r) {
+				fprintf(stderr, "%s is already a slave\n", slave_ifname);
+				(void) close(skfd);
+				return 1;
+			}
+
+			/* if hwaddr_notset, assign the slave hw address to the master */
 			if (hwaddr_notset) {
 				/* assign the slave hw address to the 
 				 * master since it currently does not 
@@ -322,43 +396,18 @@ main(int argc, char **argv)
 				 * TODO: put this and the "else" portion in
 				 *       a function.
 				 */
-				goterr = 0;
-				master_up = 0;
-				if (if_flags.ifr_flags & IFF_UP) {
-					if_flags.ifr_flags &= ~IFF_UP;
-					if (ioctl(skfd, SIOCSIFFLAGS, 
-							&if_flags) < 0) {
-						goterr = 1;
-						fprintf(stderr, 
-							"Shutting down "
-							"interface %s failed: "
-							"%s\n",
-							master_ifname, 
-							strerror(errno));
-					} else {
-						/* we took the master down, 
-						 * so we must bring it up 
-						 */
-						master_up = 1; 
-					}
-				}
-
-				if (!goterr) {
-					/* get the slaves MAC address */
-					strncpy(if_hwaddr.ifr_name, 
-							slave_ifname, IFNAMSIZ);
-					if (ioctl(skfd, SIOCGIFHWADDR, 
-							&if_hwaddr) < 0) {
-						fprintf(stderr, 
-							"Could not get MAC "
-							"address of %s: %s\n",
-							slave_ifname, 
-							strerror(errno));
-						strncpy(if_hwaddr.ifr_name, 
-							master_ifname, 
-							IFNAMSIZ);
-						goterr=1;
-					}
+				/* get the slaves MAC address */
+				strncpy(if_hwaddr.ifr_name, slave_ifname,
+					IFNAMSIZ);
+				rv = ioctl(skfd, SIOCGIFHWADDR, &if_hwaddr);
+				if (-1 == rv) {
+					fprintf(stderr, "Could not get MAC "
+						"address of %s: %s\n",
+						slave_ifname, 
+						strerror(errno));
+					strncpy(if_hwaddr.ifr_name,
+						master_ifname, IFNAMSIZ);
+					goterr = 1;
 				}
 
 				if (!goterr) {
@@ -376,45 +425,35 @@ main(int argc, char **argv)
 						hwaddr_notset = 0;
 					}
 				}
+			} else if (abi_ver < 1) { /* if (hwaddr_notset) */
 
-				if (master_up) {
-					if_flags.ifr_flags |= IFF_UP;
-					if (ioctl(skfd, SIOCSIFFLAGS, 
-							&if_flags) < 0) {
-						fprintf(stderr, 
-							"Bringing up interface "
-							"%s failed: %s\n",
-							master_ifname, 
-							strerror(errno));
-					}
-				}
-
-			} else {  
-				/* we'll assign master's hwaddr to this slave */
+			      	/* The driver is using an old ABI, so we'll set the interface
+				 * down and assign the master's hwaddr to it
+				 */
 				if (ifr2.ifr_flags & IFF_UP) {
 					ifr2.ifr_flags &= ~IFF_UP;
 					if (ioctl(skfd, SIOCSIFFLAGS, &ifr2) < 0) {
 						int saved_errno = errno;
 						fprintf(stderr, "Shutting down interface %s failed: %s\n",
-								slave_ifname, strerror(saved_errno));
+							slave_ifname, strerror(saved_errno));
 					}
 				}
-	
+
 				strncpy(if_hwaddr.ifr_name, slave_ifname, IFNAMSIZ);
 				if (ioctl(skfd, SIOCSIFHWADDR, &if_hwaddr) < 0) {
 					int saved_errno = errno;
 					fprintf(stderr, "SIOCSIFHWADDR on %s failed: %s\n", if_hwaddr.ifr_name,
-							strerror(saved_errno));
+						strerror(saved_errno));
 					if (saved_errno == EBUSY)
 						fprintf(stderr, "  The slave device %s is busy: it must be"
-								" idle before running this command.\n", slave_ifname);
+							" idle before running this command.\n", slave_ifname);
 					else if (saved_errno == EOPNOTSUPP)
 						fprintf(stderr, "  The slave device you specified does not support"
-								" setting the MAC address.\n  Your kernel likely does not"
-								" support slave devices.\n");
+							" setting the MAC address.\n  Your kernel likely does not"
+							" support slave devices.\n");
 					else if (saved_errno == EINVAL)
 						fprintf(stderr, "  The slave device's address type does not match"
-								" the master's address type.\n");
+							" the master's address type.\n");
 				} else {
 					if (verbose) {
 						unsigned char *hwaddr = if_hwaddr.ifr_hwaddr.sa_data;
@@ -424,10 +463,11 @@ main(int argc, char **argv)
 					}
 				}
 			}
-	
+
 			if (*spp  &&  !strcmp(*spp, "metric")) {
 				if (*++spp == NULL) {
 					fprintf(stderr, usage_msg);
+					(void) close(skfd);
 					exit(2);
 				}
 				if_metric.ifr_metric = atoi(*spp);
@@ -500,33 +540,44 @@ main(int argc, char **argv)
 				}
 			}
 			
-			ifr2.ifr_flags |= IFF_UP; /* the interface will need to be up to be bonded */
-			if ((ifr2.ifr_flags &= ~(IFF_SLAVE | IFF_MASTER)) == 0
-				|| strncpy(ifr2.ifr_name, slave_ifname, IFNAMSIZ) <= 0
-				|| ioctl(skfd, SIOCSIFFLAGS, &ifr2) < 0) {
-				fprintf(stderr,
-						"Something broke setting the slave (%s) flags: %s.\n",
-						slave_ifname, strerror(errno));
+			if (abi_ver < 1) {
+
+			      	/* The driver is using an old ABI, so we'll set the interface
+				 * up before enslaving it
+				 */
+				ifr2.ifr_flags |= IFF_UP;
+				if ((ifr2.ifr_flags &= ~(IFF_SLAVE | IFF_MASTER)) == 0
+					|| strncpy(ifr2.ifr_name, slave_ifname, IFNAMSIZ) <= 0
+					|| ioctl(skfd, SIOCSIFFLAGS, &ifr2) < 0) {
+						fprintf(stderr,
+							"Something broke setting the slave (%s) flags: %s.\n",
+							slave_ifname, strerror(errno));
+				} else {
+					if (verbose)
+						printf("Set the slave's (%s) flags %4.4x.\n",
+							slave_ifname, if_flags.ifr_flags);
+				}
 			} else {
-				if (verbose)
-					printf("Set the slave's (%s) flags %4.4x.\n", slave_ifname, if_flags.ifr_flags);
-			}
-	
-			/* Do the real thing */
-			if ( ! opt_r) {
-				strncpy(if_flags.ifr_name, master_ifname, IFNAMSIZ);
-				strncpy(if_flags.ifr_slave, slave_ifname, IFNAMSIZ);
-				if (!opt_c) {
-					if ((ioctl(skfd, SIOCBONDENSLAVE, &if_flags) < 0) &&
-					    (ioctl(skfd, BOND_ENSLAVE_OLD, &if_flags) < 0)) {
-						fprintf(stderr,	"SIOCBONDENSLAVE: %s.\n", strerror(errno));
+				/* the bonding module takes care of setting the slave's mac address
+			 	 * and opening its interface
+			 	 */
+				if (ifr2.ifr_flags & IFF_UP) { /* the interface will need to be down */
+					ifr2.ifr_flags &= ~IFF_UP;
+					if (ioctl(skfd, SIOCSIFFLAGS, &ifr2) < 0) {
+						int saved_errno = errno;
+						fprintf(stderr, "Shutting down interface %s failed: %s\n",
+							slave_ifname, strerror(saved_errno));
 					}
 				}
-				else {
-					if ((ioctl(skfd, SIOCBONDCHANGEACTIVE, &if_flags) < 0) &&
-					    (ioctl(skfd, BOND_CHANGE_ACTIVE_OLD, &if_flags) < 0)) {
-						fprintf(stderr,	"SIOCBONDCHANGEACTIVE: %s.\n", strerror(errno));
-					}
+			}
+
+			/* Do the real thing */
+			if (!opt_r) {
+				strncpy(if_flags.ifr_name, master_ifname, IFNAMSIZ);
+				strncpy(if_flags.ifr_slave, slave_ifname, IFNAMSIZ);
+				if ((ioctl(skfd, SIOCBONDENSLAVE, &if_flags) < 0) &&
+				    (ioctl(skfd, BOND_ENSLAVE_OLD, &if_flags) < 0)) {
+					fprintf(stderr,	"SIOCBONDENSLAVE: %s.\n", strerror(errno));
 				}
 			}
 		}
@@ -638,6 +689,37 @@ static void if_print(char *ifname)
 			fprintf(stderr, "%s: unknown interface.\n", ifname);
 	}
 }
+
+static int get_abi_ver(char *master_ifname)
+{
+	struct ifreq ifr;
+	struct ethtool_drvinfo info;
+	int abi_ver = 0;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, master_ifname, IFNAMSIZ);
+	ifr.ifr_data = (caddr_t)&info;
+
+	info.cmd = ETHTOOL_GDRVINFO;
+	strncpy(info.driver, "ifenslave", 32);
+	snprintf(info.fw_version, 32, "%d", BOND_ABI_VERSION);
+	if (ioctl(skfd, SIOCETHTOOL, &ifr) >= 0) {
+		char *endptr;
+
+		abi_ver = strtoul(info.fw_version, &endptr, 0);
+		if (*endptr) {
+			fprintf(stderr, "Error: got invalid string as an ABI "
+				"version from the bonding module\n");
+			return -1;
+		}
+	}
+
+	if (verbose) {
+        	printf("ABI ver is %d\n", abi_ver);
+	}
+	return abi_ver;
+}
+
 
 
 /*

@@ -1032,9 +1032,9 @@ static int init_one_kcs(int kcs_port,
 
 #include <linux/acpi.h>
 /* A real hack, but everything's not there yet in 2.4. */
-#define COMPILER_DEPENDENT_UINT64 unsigned long
-#include <../drivers/acpi/include/acpi.h>
-#include <../drivers/acpi/include/actypes.h>
+#include <acpi/acpi.h>
+#include <acpi/actypes.h>
+#include <acpi/actbl.h>
 
 struct SPMITable {
 	s8	Signature[4];
@@ -1059,7 +1059,7 @@ struct SPMITable {
 static unsigned long acpi_find_bmc(void)
 {
 	acpi_status       status;
-	acpi_table_header *spmi;
+	struct acpi_table_header *spmi;
 	static unsigned long io_base = 0;
 
 	if (io_base != 0)

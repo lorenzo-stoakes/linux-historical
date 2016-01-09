@@ -348,6 +348,20 @@ _GLOBAL(_nmask_and_or_msr)
  * Flush MMU TLB
  */
 _GLOBAL(_tlbia)
+#if defined(CONFIG_40x) && defined(CONFIG_PIN_TLB)
+	/* This needs to be coordinated with other pinning functions since
+	 * we don't keep a memory location of number of entries to reduce
+	 * cache pollution during these operations.
+	 */
+	lis	r3, 0
+	sync
+1:
+	tlbwe	r3, r3, TLB_TAG		/* just ensure V is clear */
+	addi	r3, r3, 1		/*   so r3 works fine for that */
+	cmpwi	0, r3, 61		/* reserve last two entries */
+	ble	1b
+	isync
+#else
 #if defined(CONFIG_SMP)
 	mfmsr	r10
 	SYNC
@@ -375,12 +389,24 @@ _GLOBAL(_tlbia)
 	mtmsr	r10
 	SYNC
 #endif /* CONFIG_SMP */
+#endif /* defined(CONFIG_40x) && defined(CONFIG_PIN_TLB) */
 	blr	
 
 /*
  * Flush MMU TLB for a particular address
  */
 _GLOBAL(_tlbie)
+#ifdef CONFIG_40x
+	tlbsx.	r3, 0, r3
+	bne	10f
+	sync
+	/* There are only 64 TLB entries, so r3 < 64, which means bit 25, is clear.
+	 * Since 25 is the V bit in the TLB_TAG, loading this value will invalidate
+	 * the TLB entry. */
+	tlbwe	r3, r3, TLB_TAG
+	isync
+10:
+#else
 #if defined(CONFIG_SMP)
 	mfmsr	r10
 	SYNC
@@ -394,6 +420,7 @@ _GLOBAL(_tlbie)
 10:	lwarx	r7,0,r9
 	cmpi	0,r7,0
 	bne-	10b
+	PPC405_ERR77(0,r9)
 	stwcx.	r8,0,r9
 	bne-	10b
 #endif /* CONFIG_SMP */
@@ -407,6 +434,7 @@ _GLOBAL(_tlbie)
 	mtmsr	r10
 	SYNC
 #endif
+#endif /* CONFIG_40x */
 	blr
 
 /*
@@ -418,9 +446,18 @@ _GLOBAL(flush_instruction_cache)
 	isync
 	lis	r5, IDC_INVALL@h
 	mtspr	IC_CST, r5
-#elif defined(CONFIG_4xx)
+#elif CONFIG_4xx
+#ifdef CONFIG_403GCX
+	li      r3, 512
+	mtctr   r3
+	lis     r4, KERNELBASE@h
+1:	iccci   0, r4 
+	addi    r4, r4, 16
+	bdnz    1b
+#else
 	lis	r3, KERNELBASE@h
 	iccci	0,r3
+#endif
 #else
 	mfspr	r3,PVR
 	rlwinm	r3,r3,16,16,31
@@ -430,7 +467,7 @@ _GLOBAL(flush_instruction_cache)
 	mfspr	r3,HID0
 	ori	r3,r3,HID0_ICFI
 	mtspr	HID0,r3
-#endif /* CONFIG_8xx */
+#endif /* CONFIG_8xx/4xx */
 	isync
 	blr
 
@@ -529,6 +566,27 @@ _GLOBAL(invalidate_dcache_range)
 	bdnz	1b
 	sync				/* wait for dcbi's to get to ram */
 	blr
+
+#ifdef CONFIG_NOT_COHERENT_CACHE
+/*
+ * 40x cores have 8K or 16K dcache and 32 byte line size.
+ * 440 has a 32K dcache and 32 byte line size.
+ * 8xx has 1, 2, 4, 8K variants.
+ * For now, cover the worst case of the 440.
+ * Must be called with external interrupts disabled.
+ */
+#define CACHE_NWAYS	64
+#define CACHE_NLINES	16	
+
+_GLOBAL(flush_dcache_all)
+	li	r4, (2 * CACHE_NWAYS * CACHE_NLINES)
+	mtctr	r4
+	lis     r5, KERNELBASE@h
+1:	lwz	r3, 0(r5)		/* Load one word from every line */
+	addi	r5, r5, L1_CACHE_LINE_SIZE
+	bdnz    1b
+	blr
+#endif /* CONFIG_NOT_COHERENT_CACHE */
 
 /*
  * Flush a particular page from the data cache to RAM.
@@ -867,7 +925,7 @@ _GLOBAL(_get_SP)
  * and exceptions as if the cpu had performed the load or store.
  */
 
-#if defined(CONFIG_4xx)
+#ifdef CONFIG_4xx
 _GLOBAL(cvt_fd)
 	lfs	0,0(r3)
 	stfd	0,0(r4)

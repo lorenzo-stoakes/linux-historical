@@ -33,7 +33,11 @@
 /*
  * Set of msr bits that gdb can change on behalf of a process.
  */
+#if defined(CONFIG_4xx)
+#define MSR_DEBUGCHANGE	(0)
+#else
 #define MSR_DEBUGCHANGE	(MSR_FE0 | MSR_SE | MSR_BE | MSR_FE1)
+#endif
 
 /*
  * does not yet catch signals sent when the child dies.
@@ -129,18 +133,27 @@ static inline void
 set_single_step(struct task_struct *task)
 {
 	struct pt_regs *regs = task->thread.regs;
-
+#if defined(CONFIG_4xx)
+	regs->msr |= MSR_DE;
+	task->thread.dbcr0 |=  (DBCR0_IDM | DBCR0_IC);
+#else
 	if (regs != NULL)
 		regs->msr |= MSR_SE;
+#endif
+
 }
 
 static inline void
 clear_single_step(struct task_struct *task)
 {
 	struct pt_regs *regs = task->thread.regs;
-
+#if defined(CONFIG_4xx)
+	regs->msr &= ~MSR_DE;
+	task->thread.dbcr0 &=  ~DBCR0_IC;
+#else
 	if (regs != NULL)
 		regs->msr &= ~MSR_SE;
+#endif
 }
 
 /*
@@ -275,6 +288,12 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		child->exit_code = data;
 		/* make sure the single step bit is not set. */
 		clear_single_step(child);
+#ifdef CONFIG_4xx
+		/* ...but traps may be set, so catch those....
+		*/
+		child->thread.regs->msr   |= MSR_DE;
+		child->thread.dbcr0 |= (DBCR0_IDM | DBCR0_TDE);
+#endif
 		wake_up_process(child);
 		ret = 0;
 		break;

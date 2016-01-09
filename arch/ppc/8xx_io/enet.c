@@ -594,7 +594,7 @@ static void set_multicast_list(struct net_device *dev)
 
 			dmi = dev->mc_list;
 
-			for (i=0; i<dev->mc_count; i++) {
+			for (i=0; i<dev->mc_count; i++, dmi = dmi->next) {
 				
 				/* Only support group multicast for now.
 				*/

@@ -15,6 +15,7 @@ obj-$(CONFIG_BLUEZ_SCO) += sco.o
 
 subdir-$(CONFIG_BLUEZ_RFCOMM) += rfcomm
 subdir-$(CONFIG_BLUEZ_BNEP) += bnep
+subdir-$(CONFIG_BLUEZ_CMTP) += cmtp
 
 ifeq ($(CONFIG_BLUEZ_RFCOMM),y)
 obj-y += rfcomm/rfcomm.o

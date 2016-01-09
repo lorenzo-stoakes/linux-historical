@@ -10,6 +10,8 @@ if [ "$CONFIG_X86" = "y" ]; then
   if [ "$CONFIG_ACPI" = "y" ]; then
     if [ "$CONFIG_X86_LOCAL_APIC" = "y" ]; then
       bool         'CPU Enumeration Only' CONFIG_ACPI_HT_ONLY
+    else
+      define_bool CONFIG_ACPI_HT_ONLY n
     fi
 
     if [ "$CONFIG_ACPI_HT_ONLY" = "n" ]; then

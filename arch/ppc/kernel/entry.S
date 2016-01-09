@@ -307,6 +307,9 @@ restore:
 	 */
 	mfmsr	r0		/* Get current interrupt state */
 	rlwinm	r0,r0,0,17,15	/* clear MSR_EE in r0 */
+#ifdef CONFIG_4xx
+ 	rlwinm	r0,r0,0,23,21	/* clear MSR_DE in r0 */
+#endif
 	SYNC			/* Some chip revs have problems here... */
 	mtmsr	r0		/* Update machine state */
 
@@ -323,6 +326,14 @@ BEGIN_FTR_SECTION
 	mtspr	SPRN_VRSAVE,r0		/* if G4, restore VRSAVE reg */
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 #endif /* CONFIG_ALTIVEC */
+#if defined(CONFIG_4xx) && !defined(CONFIG_BDI_SWITCH)
+	/* Restore the processor debugging state of the thread.  Only do
+	 * this if we aren't using an Abatron BDI JTAG debugger.  It doesn't
+	 * tolerate others mucking with the debug registers.
+	 */
+	lwz	r0,THREAD+THREAD_DBCR0(r2)
+	mtspr	SPRN_DBCR0,r0
+#endif
 	addi	r0,r1,INT_FRAME_SIZE	/* size of frame */
 	stw	r0,THREAD+KSP(r2)	/* save kernel stack pointer */
 	tophys(r8,r1)

@@ -28,7 +28,7 @@ O_TARGET := platform.o
 
 export-objs			:= prep_setup.o
 
-obj-$(CONFIG_WALNUT)		+= walnut.o
+obj-$(CONFIG_WALNUT)		+= walnut.o ibm405gp.o
 
 obj-$(CONFIG_APUS)		+= apus_setup.o
 ifeq ($(CONFIG_APUS),y)

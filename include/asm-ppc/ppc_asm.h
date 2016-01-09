@@ -147,7 +147,11 @@ END_FTR_SECTION_IFCLR(CPU_FTR_601)
 
 #else
 #define FIX_SRR1(ra, rb)
+#ifndef CONFIG_4xx
 #define	RFI		rfi
+#else
+#define RFI		rfi; b .	/* prevent prefetch past rfi */
+#endif
 #define MTMSRD(r)	mtmsr	r
 #define CLR_TOP32(r)
 #endif /* CONFIG_PPC64BRIDGE */

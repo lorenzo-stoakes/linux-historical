@@ -115,7 +115,7 @@ struct scc_enet_private {
 	cbd_t	*dirty_tx;	/* The ring entries to be free()ed. */
 	scc_t	*sccp;
 	struct	net_device_stats stats;
-	uint	tx_full;
+	uint	tx_free;
 	spinlock_t lock;
 };
 
@@ -175,9 +175,9 @@ scc_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	bdp = cep->cur_tx;
 
 #ifndef final_version
-	if (bdp->cbd_sc & BD_ENET_TX_READY) {
+	if (!cep->tx_free || (bdp->cbd_sc & BD_ENET_TX_READY)) {
 		/* Ooops.  All transmit buffers are full.  Bail out.
-		 * This should not happen, since cep->tx_full should be set.
+		 * This should not happen, since the tx queue should be stopped.
 		 */
 		printk("%s: tx queue full!.\n", dev->name);
 		return 1;
@@ -223,10 +223,8 @@ scc_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	else
 		bdp++;
 
-	if (bdp->cbd_sc & BD_ENET_TX_READY) {
+	if (!--cep->tx_free)
 		netif_stop_queue(dev);
-		cep->tx_full = 1;
-	}
 
 	cep->cur_tx = (cbd_t *)bdp;
 
@@ -246,8 +244,8 @@ scc_enet_timeout(struct net_device *dev)
 	{
 		int	i;
 		cbd_t	*bdp;
-		printk(" Ring data dump: cur_tx %p%s cur_rx %p.\n",
-		       cep->cur_tx, cep->tx_full ? " (full)" : "",
+		printk(" Ring data dump: cur_tx %p tx_free %d cur_rx %p.\n",
+		       cep->cur_tx, cep->tx_free,
 		       cep->cur_rx);
 		bdp = cep->tx_bd_base;
 		printk(" Tx @base %p :\n", bdp);
@@ -265,7 +263,7 @@ scc_enet_timeout(struct net_device *dev)
 			       bdp->cbd_bufaddr);
 	}
 #endif
-	if (!cep->tx_full)
+	if (cep->tx_free)
 		netif_wake_queue(dev);
 }
 
@@ -309,7 +307,7 @@ scc_enet_interrupt(int irq, void * dev_id, struct pt_regs * regs)
 	    spin_lock(&cep->lock);
 	    bdp = cep->dirty_tx;
 	    while ((bdp->cbd_sc&BD_ENET_TX_READY)==0) {
-		if ((bdp==cep->cur_tx) && (cep->tx_full == 0))
+		if (cep->tx_free == TX_RING_SIZE)
 		    break;
 
 		if (bdp->cbd_sc & BD_ENET_TX_HB)	/* No heartbeat */
@@ -365,8 +363,7 @@ scc_enet_interrupt(int irq, void * dev_id, struct pt_regs * regs)
 		/* Since we have freed up a buffer, the ring is no longer
 		 * full.
 		 */
-		if (cep->tx_full) {
-			cep->tx_full = 0;
+		if (!cep->tx_free++) {
 			if (netif_queue_stopped(dev)) {
 				netif_wake_queue(dev);
 			}
@@ -395,13 +392,10 @@ scc_enet_interrupt(int irq, void * dev_id, struct pt_regs * regs)
 	}
 
 	/* Check for receive busy, i.e. packets coming but no place to
-	 * put them.  This "can't happen" because the receive interrupt
-	 * is tossing previous frames.
+	 * put them.
 	 */
-	if (int_events & SCCE_ENET_BSY) {
+	if (int_events & SCCE_ENET_BSY)
 		cep->stats.rx_dropped++;
-		printk("SCC ENET: BSY can't happen.\n");
-	}
 
 	return;
 }
@@ -576,7 +570,7 @@ static void set_multicast_list(struct net_device *dev)
 
 			dmi = dev->mc_list;
 
-			for (i=0; i<dev->mc_count; i++) {
+			for (i=0; i<dev->mc_count; i++, dmi = dmi->next) {
 				
 				/* Only support group multicast for now.
 				*/
@@ -693,6 +687,7 @@ int __init scc_enet_init(void)
 	cep->tx_bd_base = (cbd_t *)&immap->im_dprambase[i];
 
 	cep->dirty_tx = cep->cur_tx = cep->tx_bd_base;
+	cep->tx_free = TX_RING_SIZE;
 	cep->cur_rx = cep->rx_bd_base;
 
 	ep->sen_genscc.scc_rfcr = CPMFCR_GBL | CPMFCR_EB;

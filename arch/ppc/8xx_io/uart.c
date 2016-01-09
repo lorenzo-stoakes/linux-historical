@@ -1023,9 +1023,9 @@ static void change_speed(ser_info_t *info)
 		 * enables, because we want to put them back if they were
 		 * present.
 		 */
-		prev_mode = smcp->smc_smcmr;
-		new_mode = smcr_mk_clen(bits) | cval |  SMCMR_SM_UART;
-		new_mode |= (prev_mode & (SMCMR_REN | SMCMR_TEN));
+		prev_mode = smcp->smc_smcmr & (SMCMR_REN | SMCMR_TEN);
+		new_mode = smcr_mk_clen(bits) | cval | SMCMR_SM_UART
+			| prev_mode;
 		if (!(prev_mode & SMCMR_PEN))
 			/* If parity is disabled, mask out even/odd */
 			prev_mode &= ~SMCMR_PM_EVEN;

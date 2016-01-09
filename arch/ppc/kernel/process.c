@@ -250,20 +250,33 @@ void show_regs(struct pt_regs * regs)
 	       regs->msr & MSR_FP ? 1 : 0,regs->msr&MSR_ME ? 1 : 0,
 	       regs->msr&MSR_IR ? 1 : 0,
 	       regs->msr&MSR_DR ? 1 : 0);
+#ifdef CONFIG_4xx
+	/*
+	 * TRAP 0x800 is the hijacked FPU unavailable exception vector
+	 * on 40x used to implement the heavyweight data access
+	 * functionality.  It is an emulated value (like all trap
+	 * vectors) on 440.
+	 */
+	if (regs->trap == 0x300 || regs->trap == 0x600 || regs->trap == 0x800)
+		printk("DEAR: %08lX, ESR: %08lX\n", regs->dar, regs->dsisr);
+#else
 	if (regs->trap == 0x300 || regs->trap == 0x600)
 		printk("DAR: %08lX, DSISR: %08lX\n", regs->dar, regs->dsisr);
+#endif
 	printk("TASK = %p[%d] '%s' ",
 	       current, current->pid, current->comm);
 	printk("Last syscall: %ld ", current->thread.last_syscall);
 	printk("\nlast math %p last altivec %p", last_task_used_math,
 	       last_task_used_altivec);
 
-#ifdef CONFIG_4xx
+#if defined(CONFIG_4xx) && defined(DCRN_PLB0_BEAR)
 	printk("\nPLB0: bear= 0x%8.8x acr=   0x%8.8x besr=  0x%8.8x\n",
-	    mfdcr(DCRN_POB0_BEAR), mfdcr(DCRN_PLB0_ACR),
+	    mfdcr(DCRN_PLB0_BEAR), mfdcr(DCRN_PLB0_ACR),
 	    mfdcr(DCRN_PLB0_BESR));
+#endif
+#if defined(CONFIG_4xx) && defined(DCRN_POB0_BEAR)
 	printk("PLB0 to OPB: bear= 0x%8.8x besr0= 0x%8.8x besr1= 0x%8.8x\n",
-	    mfdcr(DCRN_PLB0_BEAR), mfdcr(DCRN_POB0_BESR0),
+	    mfdcr(DCRN_POB0_BEAR), mfdcr(DCRN_POB0_BESR0),
 	    mfdcr(DCRN_POB0_BESR1));
 #endif
 	

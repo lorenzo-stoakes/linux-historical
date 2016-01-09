@@ -74,7 +74,7 @@ obj-y				:= head.o ../common/relocate.o $(EXTRA) \
 				$(MISC) ../common/misc-common.o \
 				../common/string.o ../common/util.o \
 				../common/serial_stub.o
-obj-$(CONFIG_4xx)		+= embed_config.o
+obj-$(CONFIG_40x)		+= embed_config.o
 obj-$(CONFIG_8xx)		+= embed_config.o
 obj-$(CONFIG_8260)		+= embed_config.o
 obj-$(CONFIG_BSEIP)		+= iic.o

@@ -74,6 +74,20 @@ _start:
  * I used to use SPRG2 for a temporary register in the TLB handler, but it
  * has since been put to other uses.  I now use a hack to save a register
  * and the CCR at memory location 0.....Someday I'll fix this.....
+ *
+ * With regard to resetting the CPM. The UART console has a number of subtle
+ * assumptions built around the initialization to support kgdb/xmon debugging.
+ * The quick answer is we don't want to reset the CPM so we can proper support
+ * this debugging.
+ *
+ * When the kernel is first booted, kgdb/xmon use the CPM as it was set up by
+ * the boot rom.  There is a second initialization of the UART driver, but
+ * before the console is initialized.  This changes the BDs, but the UART
+ * still operates for kgdb/xmon.  The final stage initialization occurs when
+ * the console is initialized, and all of the "normal path" debugging and
+ * messages can occur after this point.  So the only time we want to do a CPM
+ * is in the case of a microcode patch.
+ *
  *	-- Dan
  */
 
@@ -470,7 +484,16 @@ DataStoreTLBMiss:
 #endif
 	rfi
 
-2:	mfspr	r20, M_TW	/* Restore registers */
+2:
+	/* Copy 20 msb from MD_EPN to DAR since the dcxx instructions fail
+	 * to update DAR when they cause a DTLB miss.
+	 */
+	mfspr	r21, MD_EPN
+	mfspr	r20, DAR
+	rlwimi	r20, r21, 0, 0, 19
+	mtspr	DAR, r20
+
+	mfspr	r20, M_TW	/* Restore registers */
 	lwz	r21, 0(r0)
 	mtcr	r21
 	lwz	r21, 4(r0)

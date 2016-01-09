@@ -37,6 +37,8 @@
 #define BLIST_ISDISK    	0x100	/* Treat as (removable) disk */
 #define BLIST_ISROM     	0x200	/* Treat as (removable) CD-ROM */
 #define BLIST_LARGELUN		0x400	/* LUNs larger than 7 despite reporting as SCSI 2 */
+#define BLIST_NOSTARTONADD	0x1000	/* do not do automatic start on add */
+
 
 static void print_inquiry(unsigned char *data);
 static int scan_scsis_single(unsigned int channel, unsigned int dev,
@@ -145,7 +147,7 @@ static struct dev_info device_list[] =
 	{"EMULEX", "MD21/S2     ESDI", "*", BLIST_SINGLELUN},
 	{"CANON", "IPUBJD", "*", BLIST_SPARSELUN},
 	{"nCipher", "Fastness Crypto", "*", BLIST_FORCELUN},
-	{"DEC","HSG80","*", BLIST_FORCELUN},
+	{"DEC","HSG80","*", BLIST_FORCELUN | BLIST_NOSTARTONADD},
 	{"COMPAQ","LOGICAL VOLUME","*", BLIST_FORCELUN},
 	{"COMPAQ","CR3500","*", BLIST_FORCELUN},
 	{"NEC", "PD-1 ODX654P", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
@@ -173,7 +175,10 @@ static struct dev_info device_list[] =
 	{"HP", "NetRAID-4M", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "AACRAID", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "Adaptec 5400S", "*", BLIST_FORCELUN},
-	{"COMPAQ", "MSA1000", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"COMPAQ", "MSA1000", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
+	{"COMPAQ", "MSA1000 VOLUME", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
+	{"COMPAQ", "HSV110", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
+	{"HP", "HSV100", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
 	{"HP", "C1557A", "*", BLIST_FORCELUN},
 	{"IBM", "AuSaV1S2", "*", BLIST_FORCELUN},
 	{"FSC", "CentricStor", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
@@ -194,6 +199,7 @@ static struct dev_info device_list[] =
 	{"SGI", "TP9400", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 	{"SGI", "TP9500", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 	{"MYLEX", "DACARMRB", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"XYRATEX", "RS", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 
 	/*
 	 * Must be at end of list...
@@ -741,6 +747,13 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 	 */
 	if ((bflags & BLIST_BORKEN) == 0)
 		SDpnt->borken = 0;
+
+ 	/*
+	 * Some devices may not want to have a start command automatically
+	 * issued when a device is added.
+	 */
+	if (bflags & BLIST_NOSTARTONADD)
+		SDpnt->no_start_on_add = 1;
 
 	/*
 	 * If we want to only allow I/O to one of the luns attached to this device

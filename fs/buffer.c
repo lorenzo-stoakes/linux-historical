@@ -2126,6 +2126,7 @@ int generic_direct_IO(int rw, struct inode * inode, struct kiobuf * iobuf, unsig
 		bh.b_state = 0;
 		bh.b_dev = inode->i_dev;
 		bh.b_size = blocksize;
+		bh.b_page = NULL;
 
 		if (((loff_t) blocknr) * blocksize >= inode->i_size)
 			beyond_eof = 1;
@@ -2210,9 +2211,7 @@ static int wait_kio(int rw, int nr, struct buffer_head *bh[], int size)
 	for (i = nr; --i >= 0; ) {
 		iosize += size;
 		tmp = bh[i];
-		if (buffer_locked(tmp)) {
-			wait_on_buffer(tmp);
-		}
+		wait_on_buffer(tmp);
 		
 		if (!buffer_uptodate(tmp)) {
 			/* We are traversing bh'es in reverse order so
