@@ -165,7 +165,7 @@ static void destroy_filters(struct atm_flow_data *flow)
 	while ((filter = flow->filter_list)) {
 		DPRINTK("destroy_filters: destroying filter %p\n",filter);
 		flow->filter_list = filter->next;
-		tcf_destroy(filter);
+		filter->ops->destroy(filter);
 	}
 }
 

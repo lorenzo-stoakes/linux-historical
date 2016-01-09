@@ -678,7 +678,6 @@ static int br2684_ioctl(struct atm_vcc *atmvcc, unsigned int cmd,
 	return -ENOIOCTLCMD;
 }
 
-#ifdef CONFIG_PROC_FS
 /* Never put more than 256 bytes in at once */
 static int br2684_proc_engine(loff_t pos, char *buf)
 {
@@ -771,19 +770,16 @@ static struct file_operations br2684_proc_operations = {
 };
 
 extern struct proc_dir_entry *atm_proc_root;	/* from proc.c */
-#endif /* CONFIG_PROC_FS */
 
 /* the following avoids some spurious warnings from the compiler */
 #define UNUSED __attribute__((unused))
 
 static int __init UNUSED br2684_init(void)
 {
-#ifdef CONFIG_PROC_FS
 	struct proc_dir_entry *p;
 	if ((p = create_proc_entry("br2684", 0, atm_proc_root)) == NULL)
 		return -ENOMEM;
 	p->proc_fops = &br2684_proc_operations;
-#endif /* CONFIG_PROC_FS */
 	br2684_ioctl_set(br2684_ioctl);
 	return 0;
 }
@@ -792,9 +788,7 @@ static void __exit UNUSED br2684_exit(void)
 {
 	struct br2684_dev *brdev;
 	br2684_ioctl_set(NULL);
-#ifdef CONFIG_PROC_FS
 	remove_proc_entry("br2684", atm_proc_root);
-#endif /* CONFIG_PROC_FS */
 	while (!list_empty(&br2684_devs)) {
 		brdev = list_entry_brdev(br2684_devs.next);
 		unregister_netdev(&brdev->net_dev);

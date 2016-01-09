@@ -44,6 +44,11 @@ static struct smatch mach_table[] = {
 		MACH_GROUP_SGI,
 		MACH_SGI_IP28,
 		PROM_FLAG_ARCS
+	}, {	"SGI-IP32",
+		"SGI IP32",
+		MACH_GROUP_SGI,
+		MACH_SGI_IP32,
+		PROM_FLAG_ARCS
 	}, {	"Microsoft-Jazz",
 		"Jazz MIPS_Magnum_4000",
 		MACH_GROUP_JAZZ,
@@ -58,7 +63,7 @@ static struct smatch mach_table[] = {
 		"SNI RM200_PCI",
 		MACH_GROUP_SNI_RM,
 		MACH_SNI_RM200_PCI,
-		PROM_FLAG_DONT_FREE_TEMP
+		0
 	}
 };
 

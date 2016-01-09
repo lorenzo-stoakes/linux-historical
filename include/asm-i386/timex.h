@@ -40,10 +40,14 @@ extern cycles_t cacheflush_time;
 
 static inline cycles_t get_cycles (void)
 {
-	unsigned long long ret = 0;
-	if(cpu_has_tsc)
-		rdtscll(ret);
+#ifndef CONFIG_X86_TSC
+	return 0;
+#else
+	unsigned long long ret;
+
+	rdtscll(ret);
 	return ret;
+#endif
 }
 
 extern unsigned long cpu_khz;

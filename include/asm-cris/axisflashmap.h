@@ -59,7 +59,4 @@ struct partitiontable_entry {
 #define PARTITION_TYPE_KERNEL 0x0002
 #define PARTITION_TYPE_JFFS   0x0003
 
-/* The master mtd for the entire flash. */
-extern struct mtd_info* axisflash_mtd;
-
 #endif

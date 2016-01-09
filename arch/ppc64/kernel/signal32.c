@@ -761,7 +761,7 @@ siginfo64to32(siginfo_t32 *d, siginfo_t *s)
 	memset (d, 0, sizeof(siginfo_t32));
 	d->si_signo = s->si_signo;
 	d->si_errno = s->si_errno;
-	d->si_code = (short)s->si_code;
+	d->si_code = s->si_code & 0xffff;
 	if (s->si_signo >= SIGRTMIN) {
 		d->si_pid = s->si_pid;
 		d->si_uid = s->si_uid;
@@ -1067,8 +1067,7 @@ handle_signal32(unsigned long sig, struct k_sigaction *ka,
 	if (ka->sa.sa_flags & SA_SIGINFO)
 	{
 		siginfo64to32(&siginfo32bit,info);
-		/* The ABI requires quadword alignment for the stack. */
-		*newspp = (*newspp - sizeof(*rt_stack_frame)) & -16ul;
+		*newspp -= sizeof(*rt_stack_frame);
 		rt_stack_frame = (struct rt_sigframe_32 *) (u64)(*newspp) ;
     
 		if (verify_area(VERIFY_WRITE, rt_stack_frame, sizeof(*rt_stack_frame)))
@@ -1096,7 +1095,7 @@ handle_signal32(unsigned long sig, struct k_sigaction *ka,
 		}
 	} else {
 		/* Put a sigcontext on the stack */
-		*newspp = (*newspp - sizeof(*sc)) & -16ul;
+		*newspp -= sizeof(*sc);
 		sc = (struct sigcontext32 *)(u64)*newspp;
 		if (verify_area(VERIFY_WRITE, sc, sizeof(*sc)))
 			goto badframe;
@@ -1311,8 +1310,7 @@ int do_signal32(sigset_t *oldset, struct pt_regs *regs)
 			newsp = (current->sas_ss_sp + current->sas_ss_size);
 		else
 			newsp = regs->gpr[1];
-		/* The ABI requires quadword alignment for the stack. */
-		newsp = frame = (newsp - sizeof(struct sigregs32)) & -16ul;
+		newsp = frame = newsp - sizeof(struct sigregs32);
 
 		/* Whee!  Actually deliver the signal.  */
 		handle_signal32(signr, ka, &info, oldset, regs, &newsp, frame);

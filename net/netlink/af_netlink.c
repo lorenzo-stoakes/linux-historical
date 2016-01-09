@@ -385,7 +385,6 @@ static int netlink_getname(struct socket *sock, struct sockaddr *addr, int *addr
 	struct sockaddr_nl *nladdr=(struct sockaddr_nl *)addr;
 	
 	nladdr->nl_family = AF_NETLINK;
-	nladdr->nl_pad = 0;
 	*addr_len = sizeof(*nladdr);
 
 	if (peer) {
@@ -676,7 +675,6 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, int len,
 	if (msg->msg_name) {
 		struct sockaddr_nl *addr = (struct sockaddr_nl*)msg->msg_name;
 		addr->nl_family = AF_NETLINK;
-		addr->nl_pad    = 0;
 		addr->nl_pid	= NETLINK_CB(skb).pid;
 		addr->nl_groups	= NETLINK_CB(skb).dst_groups;
 		msg->msg_namelen = sizeof(*addr);

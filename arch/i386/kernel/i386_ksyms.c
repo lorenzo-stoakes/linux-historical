@@ -185,5 +185,4 @@ EXPORT_SYMBOL(xquad_portio);
 #ifdef CONFIG_EDD_MODULE
 EXPORT_SYMBOL(edd);
 EXPORT_SYMBOL(eddnr);
-EXPORT_SYMBOL(edd_disk80_sig);
 #endif

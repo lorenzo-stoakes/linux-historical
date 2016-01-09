@@ -4013,10 +4013,6 @@ pfm_inherit(struct task_struct *task, struct pt_regs *regs)
 	if (CTX_INHERIT_MODE(ctx) == PFM_FL_INHERIT_ONCE) {
 		nctx->ctx_fl_inherit = PFM_FL_INHERIT_NONE;
 		DBprintk(("downgrading to INHERIT_NONE for [%d]\n", task->pid));
-		/*
-		 * downgrade parent: once means only first child!
-		 */
-		ctx->ctx_fl_inherit = PFM_FL_INHERIT_NONE;
 	}
 	/*
 	 * task is not yet visible in the tasklist, so we do 

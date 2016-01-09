@@ -35,13 +35,17 @@ struct pt_regs {
 	/* Saved main processor registers. */
 	unsigned long regs[32];
 
-	/* Saved special registers. */
-	unsigned long cp0_status;
+	/* Other saved registers. */
 	unsigned long lo;
 	unsigned long hi;
-	unsigned long cp0_badvaddr;
-	unsigned long cp0_cause;
+
+	/*
+	 * saved cp0 registers
+	 */
 	unsigned long cp0_epc;
+	unsigned long cp0_badvaddr;
+	unsigned long cp0_status;
+	unsigned long cp0_cause;
 };
 
 #define __str2(x) #x

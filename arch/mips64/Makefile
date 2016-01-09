@@ -36,11 +36,10 @@ endif
 #
 GCCFLAGS	:= -I $(TOPDIR)/include/asm/gcc
 GCCFLAGS	+= -mabi=64 -G 0 -mno-abicalls -fno-pic -Wa,--trap -pipe
-GCCFLAGS	+= $(call check_gcc, -finline-limit=100000,)
 LINKFLAGS	+= -G 0 -static # -N
 MODFLAGS	+= -mlong-calls
 
-ifdef CONFIG_DEBUG_INFO
+ifdef CONFIG_KGDB
 GCCFLAGS	+= -g
 ifdef CONFIG_SB1XXX_CORELIS
 GCCFLAGS	+= -mno-sched-prolog -fno-omit-frame-pointer
@@ -62,8 +61,7 @@ ifdef CONFIG_CPU_R5000
 GCCFLAGS	+= -mcpu=r8000 -mips4
 endif
 ifdef CONFIG_CPU_NEVADA
-# Cannot use -mmad with currently recommended tools
-GCCFLAGS	+= -mcpu=r8000 -mips3
+GCCFLAGS	+= -mcpu=r8000 -mips3 -mmad
 endif
 ifdef CONFIG_CPU_RM7000
 GCCFLAGS	+= $(call check_gcc, -march=rm7000, -mcpu=r5000) \
@@ -84,12 +82,6 @@ endif
 ifdef CONFIG_CPU_MIPS64
 #CFLAGS		+= -mips64	# Should be used then we get a MIPS64 compiler
 CFLAGS		+= -mcpu=r8000 -mips4
-endif
-ifdef CONFIG_CPU_RM7000
-GCCFLAGS	+= -mcpu=r8000 -mips4
-endif
-ifdef CONFIG_CPU_RM9000
-GCCFLAGS	+= -mcpu=r8000 -mips4
 endif
 
 #
@@ -112,15 +104,6 @@ endif
 #
 # Board-dependent options and extra files
 #
-
-#
-# Cobalt Server
-#
-ifdef CONFIG_MIPS_COBALT
-SUBDIRS		+= arch/mips/cobalt
-CORE_FILES	+= arch/mips/cobalt/cobalt.o
-LOADADDR	:= 0x80080000
-endif
 
 #
 # DECstation family
@@ -199,19 +182,11 @@ endif
 # Momentum Ocelot-C and -CS boards
 #
 ifdef CONFIG_MOMENCO_OCELOT_C
+# The Ocelot-C[S] setup.o must be linked early - it does the ioremap() for the
+# mips_io_port_base.
 CORE_FILES	+= arch/mips/momentum/ocelot_c/ocelot_c.o
 SUBDIRS		+= arch/mips/momentum/ocelot_c
 LOADADDR	:= 0x80100000
-endif
-
-ifdef CONFIG_MOMENCO_JAGUAR_ATX
-LIBS		+= arch/mips/momentum/jaguar_atx/jaguar_atx.o
-SUBDIRS		+= arch/mips/momentum/jaguar_atx
-ifdef CONFIG_JAGUAR_DMALOW
-LOADADDR	:= 0x88000000
-else
-LOADADDR	:= 0x80100000
-endif
 endif
 
 ifdef CONFIG_PCI
@@ -345,7 +320,7 @@ arch/mips64/ld.script.elf32: arch/mips64/ld.script.elf32.S
 
 ifdef CONFIG_MAPPED_KERNEL
 vmlinux.64: vmlinux
-	$(OBJCOPY) -O $(64bit-bfd) --remove-section=.reginfo --change-addresses=0xc000000080000000 $< $@
+	$(OBJCOPY) -O $(64bit-bfd) --remove-section=.reginfo --change-addresses=0xbfffffff40000000 $< $@
 else
 vmlinux.64: vmlinux
 	$(OBJCOPY) -O $(64bit-bfd) --remove-section=.reginfo --change-addresses=0xa800000080000000 $< $@

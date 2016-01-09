@@ -18,7 +18,6 @@
  *  - flush_tlb_page(mm, vmaddr) flushes a single page
  *  - flush_tlb_range(mm, start, end) flushes a range of pages
  *  - flush_tlb_pgtables(mm, start, end) flushes a range of page tables
- *  - flush_tlb_one(page) flushes a single kernel page
  */
 extern void local_flush_tlb_all(void);
 extern void local_flush_tlb_mm(struct mm_struct *mm);
@@ -26,7 +25,6 @@ extern void local_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 			       unsigned long end);
 extern void local_flush_tlb_page(struct vm_area_struct *vma,
                                  unsigned long page);
-extern void local_flush_tlb_one(unsigned long page);
 
 #ifdef CONFIG_SMP
 
@@ -89,14 +87,14 @@ static inline void free_pgd_fast(pgd_t *pgd)
 
 static inline void free_pgd_slow(pgd_t *pgd)
 {
-	free_pages((unsigned long)pgd, PGD_ORDER);
+	free_pages((unsigned long)pgd, 1);
 }
 
 static inline pte_t *pte_alloc_one(struct mm_struct *mm, unsigned long address)
 {
 	pte_t *pte;
 
-	pte = (pte_t *) __get_free_pages(GFP_KERNEL, PTE_ORDER);
+	pte = (pte_t *) __get_free_page(GFP_KERNEL);
 	if (pte)
 		clear_page(pte);
 	return pte;
@@ -137,14 +135,14 @@ static inline void free_pte_fast(pte_t *pte)
 
 static inline void free_pte_slow(pte_t *pte)
 {
-	free_pages((unsigned long)pte, PTE_ORDER);
+	free_pages((unsigned long)pte, 0);
 }
 
 static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long address)
 {
 	pmd_t *pmd;
 
-	pmd = (pmd_t *) __get_free_pages(GFP_KERNEL, PMD_ORDER);
+	pmd = (pmd_t *) __get_free_pages(GFP_KERNEL, 1);
 	if (pmd)
 		pmd_init((unsigned long)pmd, (unsigned long)invalid_pte_table);
 	return pmd;
@@ -187,7 +185,7 @@ static inline void free_pmd_fast(pmd_t *pmd)
 
 static inline void free_pmd_slow(pmd_t *pmd)
 {
-	free_pages((unsigned long)pmd, PMD_ORDER);
+	free_pages((unsigned long)pmd, 1);
 }
 
 #define pte_free(pte)           free_pte_fast(pte)

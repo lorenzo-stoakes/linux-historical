@@ -271,7 +271,7 @@ acpi_ns_install_node (
 		 * alphabetic placement.
 		 */
 		previous_child_node = NULL;
-		while (acpi_ns_compare_names (acpi_ut_get_node_name (child_node), acpi_ut_get_node_name (node)) < 0) {
+		while (acpi_ns_compare_names (child_node->name.ascii, node->name.ascii) < 0) {
 			if (child_node->flags & ANOBJ_END_OF_PEER_LIST) {
 				/* Last peer;  Clear end-of-list flag */
 
@@ -335,9 +335,8 @@ acpi_ns_install_node (
 	node->type = (u8) type;
 
 	ACPI_DEBUG_PRINT ((ACPI_DB_NAMES, "%4.4s (%s) added to %4.4s (%s) %p at %p\n",
-		acpi_ut_get_node_name (node), acpi_ut_get_type_name (node->type),
-		acpi_ut_get_node_name (parent_node), acpi_ut_get_type_name (parent_node->type),
-		parent_node, node));
+		node->name.ascii, acpi_ut_get_type_name (node->type),
+		parent_node->name.ascii, acpi_ut_get_type_name (parent_node->type), parent_node, node));
 
 	/*
 	 * Increment the reference count(s) of all parents up to

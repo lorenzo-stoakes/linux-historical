@@ -649,9 +649,6 @@ int try_to_free_pages_zone(zone_t *classzone, unsigned int gfp_mask)
 				failed_swapout = !swap_out(classzone);
 		} while (--tries);
 
-#ifdef	CONFIG_OOM_KILLER
-	out_of_memory();
-#else
 	if (likely(current->pid != 1))
 		break;
 	if (!check_classzone_need_balance(classzone))
@@ -659,7 +656,6 @@ int try_to_free_pages_zone(zone_t *classzone, unsigned int gfp_mask)
 
 	__set_current_state(TASK_RUNNING);
 	yield();
-#endif
 	}
 
 	return 0;

@@ -82,7 +82,6 @@ extern void pckbd_leds(unsigned char leds);
 extern void pckbd_init_hw(void);
 extern unsigned char pckbd_sysrq_xlate[128];
 extern void openpic_init_IRQ(void);
-extern void openpic_init_irq_desc(irq_desc_t *);
 extern void init_ras_IRQ(void);
 
 extern void find_and_init_phbs(void);
@@ -265,12 +264,10 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.setup_residual = NULL;
 	ppc_md.get_cpuinfo    = chrp_get_cpuinfo;
 	if(naca->interrupt_controller == IC_OPEN_PIC) {
-		ppc_md.init_IRQ       = openpic_init_IRQ;
-		ppc_md.init_irq_desc  = openpic_init_irq_desc;
+		ppc_md.init_IRQ       = openpic_init_IRQ; 
 		ppc_md.get_irq        = openpic_get_irq;
 	} else {
 		ppc_md.init_IRQ       = xics_init_IRQ;
-		ppc_md.init_irq_desc  = xics_init_irq_desc;
 		ppc_md.get_irq        = xics_get_irq;
 	}
 	ppc_md.init_ras_IRQ = init_ras_IRQ;

@@ -13,7 +13,7 @@
 /* We let the MMU do all checking */
 #define access_ok(type,addr,size) 1
 
-static inline int verify_area(int type, const void *addr, unsigned long size)
+extern inline int verify_area(int type, const void * addr, unsigned long size)
 {
 	return access_ok(type,addr,size)?0:-EFAULT;
 }

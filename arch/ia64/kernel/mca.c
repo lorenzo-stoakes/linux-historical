@@ -91,7 +91,6 @@ static void			ia64_mca_wakeup_all(void);
 static void			ia64_log_init(int);
 extern void			ia64_monarch_init_handler (void);
 extern void			ia64_slave_init_handler (void);
-static u64			ia64_log_get(int sal_info_type, u8 **buffer);
 extern struct hw_interrupt_type	irq_type_iosapic_level;
 
 static struct irqaction cmci_irqaction = {
@@ -152,7 +151,7 @@ static int cmc_polling_enabled = 1;
  */
 static int cpe_poll_enabled = 1;
 
-extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size);
+extern void salinfo_log_wakeup(int);
 
 /*
  *  ia64_mca_log_sal_error_record
@@ -167,13 +166,11 @@ extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size);
 int
 ia64_mca_log_sal_error_record(int sal_info_type, int called_from_init)
 {
-	u8 *buffer;
-	u64 size;
-	int platform_err;
+	int platform_err = 0;
 
-	size = ia64_log_get(sal_info_type, &buffer);
-	if (!size)
-		return 0;
+	/* Get the MCA error record */
+	if (!ia64_log_get(sal_info_type, (prfunc_t)printk))
+		return platform_err;		/* no record retrieved */
 
 	/* TODO:
 	 * 1. analyze error logs to determine recoverability
@@ -181,11 +178,8 @@ ia64_mca_log_sal_error_record(int sal_info_type, int called_from_init)
 	 * 3. set ia64_os_mca_recovery_successful flag, if applicable
 	 */
 
-	salinfo_log_wakeup(sal_info_type, buffer, size);
+	salinfo_log_wakeup(sal_info_type);
 	platform_err = ia64_log_print(sal_info_type, (prfunc_t)printk);
-	/* Clear logs from corrected errors in case there's no user-level logger */
-	if (sal_info_type == SAL_INFO_TYPE_CPE || sal_info_type == SAL_INFO_TYPE_CMC)
-		ia64_sal_clear_state_info(sal_info_type);
 
 	return platform_err;
 }
@@ -840,7 +834,7 @@ ia64_mca_wakeup_ipi_wait(void)
 			irr = ia64_get_irr3();
 			break;
 		}
-	} while (!(irr & (1UL << irr_bit))) ;
+	} while (!(irr & (1 << irr_bit))) ;
 }
 
 /*
@@ -1422,12 +1416,12 @@ ia64_log_init(int sal_info_type)
  *	Get the current MCA log from SAL and copy it into the OS log buffer.
  *
  *  Inputs  :   info_type   (SAL_INFO_TYPE_{MCA,INIT,CMC,CPE})
+ *              prfunc      (fn ptr of log output function)
  *  Outputs :   size        (total record length)
- *              *buffer     (ptr to error record)
  *
  */
 u64
-ia64_log_get(int sal_info_type, u8 **buffer)
+ia64_log_get(int sal_info_type, prfunc_t prfunc)
 {
 	sal_log_record_header_t     *log_buffer;
 	u64                         total_len = 0;
@@ -1445,7 +1439,6 @@ ia64_log_get(int sal_info_type, u8 **buffer)
 		IA64_LOG_UNLOCK(sal_info_type);
 		IA64_MCA_DEBUG("ia64_log_get: SAL error record type %d retrieved. "
 			       "Record length = %ld\n", sal_info_type, total_len);
-		*buffer = (u8 *) log_buffer;
 		return total_len;
 	} else {
 		IA64_LOG_UNLOCK(sal_info_type);
@@ -1490,7 +1483,7 @@ ia64_log_prt_oem_data (int header_len, int sect_len, u8 *p_data, prfunc_t prfunc
 void
 ia64_log_rec_header_print (sal_log_record_header_t *lh, prfunc_t prfunc)
 {
-	prfunc("+Err Record ID: %ld    SAL Rev: %2x.%02x\n", lh->id,
+	prfunc("+Err Record ID: %d    SAL Rev: %2x.%02x\n", lh->id,
 			lh->revision.major, lh->revision.minor);
 	prfunc("+Time: %02x/%02x/%02x%02x %02x:%02x:%02x    Severity %d\n",
 			lh->timestamp.slh_month, lh->timestamp.slh_day,
@@ -1613,13 +1606,13 @@ ia64_log_cache_check_info_print (int                      i,
 	if (info->dl)
 		prfunc(" Line: Data,");
 	prfunc(" Operation: %s,", pal_cache_op[info->op]);
-	if (info->wiv)
+	if (info->wv)
 		prfunc(" Way: %d,", info->way);
 	if (cache_check_info->valid.target_identifier)
 		/* Hope target address is saved in target_identifier */
 		if (info->tv)
 			prfunc(" Target Addr: 0x%lx,", target_addr);
-	if (info->mcc)
+	if (info->mc)
 		prfunc(" MC: Corrected");
 	prfunc("\n");
 }
@@ -1655,13 +1648,13 @@ ia64_log_tlb_check_info_print (int                      i,
 		prfunc("  Failure: Data Translation Cache");
 	if (info->itr) {
 		prfunc("  Failure: Instruction Translation Register");
-		prfunc(" ,Slot: %ld", info->tr_slot);
+		prfunc(" ,Slot: %d", info->tr_slot);
 	}
 	if (info->dtr) {
 		prfunc("  Failure: Data Translation Register");
-		prfunc(" ,Slot: %ld", info->tr_slot);
+		prfunc(" ,Slot: %d", info->tr_slot);
 	}
-	if (info->mcc)
+	if (info->mc)
 		prfunc(" ,MC: Corrected");
 	prfunc("\n");
 }
@@ -1707,7 +1700,7 @@ ia64_log_bus_check_info_print (int                      i,
 		prfunc(" ,Error: Internal");
 	if (info->eb)
 		prfunc(" ,Error: External");
-	if (info->mcc)
+	if (info->mc)
 		prfunc(" ,MC: Corrected");
 	if (info->tv)
 		prfunc(" ,Target Address: 0x%lx", targ_addr);
@@ -2383,8 +2376,7 @@ ia64_log_print(int sal_info_type, prfunc_t prfunc)
 		ia64_log_rec_header_print(IA64_LOG_CURR_BUFFER(sal_info_type), prfunc);
 		break;
 	      case SAL_INFO_TYPE_INIT:
-		prfunc("+CPU %d: SAL log contains INIT error record\n", smp_processor_id());
-		ia64_log_rec_header_print(IA64_LOG_CURR_BUFFER(sal_info_type), prfunc);
+		prfunc("+MCA INIT ERROR LOG (UNIMPLEMENTED)\n");
 		break;
 	      case SAL_INFO_TYPE_CMC:
 		prfunc("+BEGIN HARDWARE ERROR STATE AT CMC\n");

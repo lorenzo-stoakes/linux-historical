@@ -130,36 +130,6 @@ union bdflush_param {
 int bdflush_min[N_PARAM] = {  0,  1,    0,   0,  0,   1*HZ,   0, 0, 0};
 int bdflush_max[N_PARAM] = {100,50000, 20000, 20000,10000*HZ, 10000*HZ, 100, 100, 0};
 
-static inline int write_buffer_delay(struct buffer_head *bh)
-{
-	struct page *page = bh->b_page;
-
-	if (!TryLockPage(page)) {
-		spin_unlock(&lru_list_lock);
-		unlock_buffer(bh);
-		page->mapping->a_ops->writepage(page);
-		return 1;
-	}
-
-	return 0;
-}
-
-static inline void write_buffer(struct buffer_head *bh)
-{
-	if (buffer_delay(bh)) {
-		struct page *page = bh->b_page;
-
-		lock_page(page);
-		if (buffer_delay(bh)) {
-			page->mapping->a_ops->writepage(page);
-			return;
-		}
-		unlock_page(page);
-	}
-
-	ll_rw_block(WRITE, 1, &bh);
-}
-
 void unlock_buffer(struct buffer_head *bh)
 {
 	clear_bit(BH_Wait_IO, &bh->b_state);
@@ -263,13 +233,7 @@ static int write_some_buffers(kdev_t dev)
 			continue;
 		if (test_and_set_bit(BH_Lock, &bh->b_state))
 			continue;
-		if (buffer_delay(bh)) {
-			if (write_buffer_delay(bh)) {
-				if (count)
-					write_locked_buffers(array, count);
-				return -EAGAIN;
-			}
-		} else if (atomic_set_buffer_clean(bh)) {
+		if (atomic_set_buffer_clean(bh)) {
 			__refile_buffer(bh);
 			get_bh(bh);
 			array[count++] = bh;
@@ -801,7 +765,7 @@ void init_buffer(struct buffer_head *bh, bh_end_io_t *handler, void *private)
 	bh->b_private = private;
 }
 
-void end_buffer_io_async(struct buffer_head * bh, int uptodate)
+static void end_buffer_io_async(struct buffer_head * bh, int uptodate)
 {
 	static spinlock_t page_uptodate_lock = SPIN_LOCK_UNLOCKED;
 	unsigned long flags;
@@ -916,7 +880,7 @@ int fsync_buffers_list(struct list_head *list)
 			 * a noop)
 			 */
 				wait_on_buffer(bh);
-				write_buffer(bh);
+				ll_rw_block(WRITE, 1, &bh);
 				brelse(bh);
 				spin_lock(&lru_list_lock);
 			}
@@ -1372,14 +1336,13 @@ no_grow:
  */
 static void discard_buffer(struct buffer_head * bh)
 {
-	if (buffer_mapped(bh) || buffer_delay(bh)) {
+	if (buffer_mapped(bh)) {
 		mark_buffer_clean(bh);
 		lock_buffer(bh);
 		clear_bit(BH_Uptodate, &bh->b_state);
 		clear_bit(BH_Mapped, &bh->b_state);
 		clear_bit(BH_Req, &bh->b_state);
 		clear_bit(BH_New, &bh->b_state);
-		clear_bit(BH_Delay, &bh->b_state);
 		remove_from_queues(bh);
 		unlock_buffer(bh);
 	}
@@ -1671,7 +1634,7 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 			set_bit(BH_Uptodate, &bh->b_state);
 			continue; 
 		}
-		if (!buffer_uptodate(bh) && !buffer_delay(bh) &&
+		if (!buffer_uptodate(bh) &&
 		     (block_start < from || block_end > to)) {
 			ll_rw_block(READ, 1, &bh);
 			*wait_bh++=bh;
@@ -2069,7 +2032,7 @@ int block_truncate_page(struct address_space *mapping, loff_t from, get_block_t 
 	if (Page_Uptodate(page))
 		set_bit(BH_Uptodate, &bh->b_state);
 
-	if (!buffer_uptodate(bh) && !buffer_delay(bh)) {
+	if (!buffer_uptodate(bh)) {
 		err = -EIO;
 		ll_rw_block(READ, 1, &bh);
 		wait_on_buffer(bh);
@@ -2263,8 +2226,8 @@ static void end_buffer_io_kiobuf(struct buffer_head *bh, int uptodate)
 	mark_buffer_uptodate(bh, uptodate);
 
 	kiobuf = bh->b_private;
-	end_kio_request(kiobuf, uptodate);
 	unlock_buffer(bh);
+	end_kio_request(kiobuf, uptodate);
 }
 
 /*
@@ -2798,7 +2761,7 @@ void show_buffers(void)
 {
 #ifdef CONFIG_SMP
 	struct buffer_head * bh;
-	int delalloc = 0, found = 0, locked = 0, dirty = 0, used = 0, lastused = 0;
+	int found = 0, locked = 0, dirty = 0, used = 0, lastused = 0;
 	int nlist;
 	static char *buf_types[NR_LIST] = { "CLEAN", "LOCKED", "DIRTY", };
 #endif
@@ -2813,7 +2776,7 @@ void show_buffers(void)
 	if (!spin_trylock(&lru_list_lock))
 		return;
 	for(nlist = 0; nlist < NR_LIST; nlist++) {
-		delalloc = found = locked = dirty = used = lastused = 0;
+		found = locked = dirty = used = lastused = 0;
 		bh = lru_list[nlist];
 		if(!bh) continue;
 
@@ -2823,8 +2786,6 @@ void show_buffers(void)
 				locked++;
 			if (buffer_dirty(bh))
 				dirty++;
-			if (buffer_delay(bh))
-				delalloc++;
 			if (atomic_read(&bh->b_count))
 				used++, lastused = found;
 			bh = bh->b_next_free;
@@ -2836,9 +2797,9 @@ void show_buffers(void)
 				       buf_types[nlist], found, tmp);
 		}
 		printk("%9s: %d buffers, %lu kbyte, %d used (last=%d), "
-		       "%d locked, %d dirty %d delay\n",
+		       "%d locked, %d dirty\n",
 		       buf_types[nlist], found, size_buffers_type[nlist]>>10,
-		       used, lastused, locked, dirty, delalloc);
+		       used, lastused, locked, dirty);
 	}
 	spin_unlock(&lru_list_lock);
 #endif

@@ -449,6 +449,7 @@ void ext3_put_super (struct super_block * sb)
 }
 
 static struct dquot_operations ext3_qops;
+static int (*old_sync_dquot)(struct dquot *dquot);
 
 static struct super_operations ext3_sops = {
 	read_inode:	ext3_read_inode,	/* BKL held */
@@ -1772,8 +1773,6 @@ int ext3_statfs (struct super_block * sb, struct statfs * buf)
  */
 
 #ifdef CONFIG_QUOTA
-
-static int (*old_sync_dquot)(struct dquot *dquot);
 
 /* Blocks: (2 data blocks) * (3 indirect + 1 descriptor + 1 bitmap) + superblock */
 #define EXT3_OLD_QFMT_BLOCKS 11

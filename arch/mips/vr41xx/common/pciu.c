@@ -51,6 +51,8 @@
 
 #include "pciu.h"
 
+extern unsigned long vr41xx_vtclock;
+
 static inline int vr41xx_pci_config_access(struct pci_dev *dev, int where)
 {
 	unsigned char bus = dev->bus->number;
@@ -72,7 +74,7 @@ static inline int vr41xx_pci_config_access(struct pci_dev *dev, int where)
 		/*
 		 * Type 1 configuration
 		 */
-		if (PCI_SLOT(dev_fn) > 31 || where > 255)
+		if (bus > 255 || PCI_SLOT(dev_fn) > 31 || where > 255)
 			return -1;
 
 		writel((bus << 16)	|
@@ -194,7 +196,6 @@ struct pci_ops vr41xx_pci_ops = {
 void __init vr41xx_pciu_init(struct vr41xx_pci_address_map *map)
 {
 	struct vr41xx_pci_address_space *s;
-	unsigned long vtclock;
 	u32 config;
 	int n;
 
@@ -214,12 +215,11 @@ void __init vr41xx_pciu_init(struct vr41xx_pci_address_map *map)
 	udelay(1);
 
 	/* Select PCI clock */
-	vtclock = vr41xx_get_vtclock_frequency();
-	if (vtclock < MAX_PCI_CLOCK)
+	if (vr41xx_vtclock < MAX_PCI_CLOCK)
 		writel(EQUAL_VTCLOCK, PCICLKSELREG);
-	else if ((vtclock / 2) < MAX_PCI_CLOCK)
+	else if ((vr41xx_vtclock / 2) < MAX_PCI_CLOCK)
 		writel(HALF_VTCLOCK, PCICLKSELREG);
-	else if ((vtclock / 4) < MAX_PCI_CLOCK)
+	else if ((vr41xx_vtclock / 4) < MAX_PCI_CLOCK)
 		writel(QUARTER_VTCLOCK, PCICLKSELREG);
 	else
 		printk(KERN_INFO "Warning: PCI Clock is over 33MHz.\n");

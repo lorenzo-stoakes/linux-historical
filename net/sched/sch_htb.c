@@ -1348,7 +1348,7 @@ static void htb_destroy_filters(struct tcf_proto **fl)
 
 	while ((tp = *fl) != NULL) {
 		*fl = tp->next;
-		tcf_destroy(tp);
+		tp->ops->destroy(tp);
 	}
 }
 

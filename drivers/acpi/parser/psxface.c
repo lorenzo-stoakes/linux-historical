@@ -127,8 +127,7 @@ acpi_psx_execute (
 
 	op = acpi_ps_create_scope_op ();
 	if (!op) {
-		status = AE_NO_MEMORY;
-		goto cleanup1;
+		return_ACPI_STATUS (AE_NO_MEMORY);
 	}
 
 	/*
@@ -143,24 +142,20 @@ acpi_psx_execute (
 	walk_state = acpi_ds_create_walk_state (obj_desc->method.owning_id,
 			   NULL, NULL, NULL);
 	if (!walk_state) {
-		status = AE_NO_MEMORY;
-		goto cleanup2;
+		return_ACPI_STATUS (AE_NO_MEMORY);
 	}
 
 	status = acpi_ds_init_aml_walk (walk_state, op, method_node, obj_desc->method.aml_start,
 			  obj_desc->method.aml_length, NULL, NULL, 1);
 	if (ACPI_FAILURE (status)) {
-		goto cleanup3;
+		acpi_ds_delete_walk_state (walk_state);
+		return_ACPI_STATUS (status);
 	}
 
 	/* Parse the AML */
 
 	status = acpi_ps_parse_aml (walk_state);
 	acpi_ps_delete_parse_tree (op);
-	if (ACPI_FAILURE (status)) {
-		goto cleanup1; /* Walk state is already deleted */
-
-	}
 
 	/*
 	 * 2) Execute the method.  Performs second pass parse simultaneously
@@ -173,8 +168,7 @@ acpi_psx_execute (
 
 	op = acpi_ps_create_scope_op ();
 	if (!op) {
-		status = AE_NO_MEMORY;
-		goto cleanup1;
+		return_ACPI_STATUS (AE_NO_MEMORY);
 	}
 
 	/* Init new op with the method name and pointer back to the NS node */
@@ -186,30 +180,22 @@ acpi_psx_execute (
 
 	walk_state = acpi_ds_create_walk_state (0, NULL, NULL, NULL);
 	if (!walk_state) {
-		status = AE_NO_MEMORY;
-		goto cleanup2;
+		return_ACPI_STATUS (AE_NO_MEMORY);
 	}
 
 	status = acpi_ds_init_aml_walk (walk_state, op, method_node, obj_desc->method.aml_start,
 			  obj_desc->method.aml_length, params, return_obj_desc, 3);
 	if (ACPI_FAILURE (status)) {
-		goto cleanup3;
+		acpi_ds_delete_walk_state (walk_state);
+		return_ACPI_STATUS (status);
 	}
 
 	/*
 	 * The walk of the parse tree is where we actually execute the method
 	 */
 	status = acpi_ps_parse_aml (walk_state);
-	goto cleanup2; /* Walk state already deleted */
-
-
-cleanup3:
-	acpi_ds_delete_walk_state (walk_state);
-
-cleanup2:
 	acpi_ps_delete_parse_tree (op);
 
-cleanup1:
 	if (params) {
 		/* Take away the extra reference that we gave the parameters above */
 
@@ -218,10 +204,6 @@ cleanup1:
 
 			(void) acpi_ut_update_object_reference (params[i], REF_DECREMENT);
 		}
-	}
-
-	if (ACPI_FAILURE (status)) {
-		return_ACPI_STATUS (status);
 	}
 
 	/*

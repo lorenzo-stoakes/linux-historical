@@ -146,7 +146,7 @@ acpi_ds_scope_stack_push (
 	if (old_scope_info) {
 		ACPI_DEBUG_PRINT_RAW ((ACPI_DB_EXEC,
 			"[%4.4s] (%s)",
-			acpi_ut_get_node_name (old_scope_info->scope.node),
+			old_scope_info->scope.node->name.ascii,
 			acpi_ut_get_type_name (old_scope_info->common.value)));
 	}
 	else {
@@ -156,7 +156,7 @@ acpi_ds_scope_stack_push (
 
 	ACPI_DEBUG_PRINT_RAW ((ACPI_DB_EXEC,
 		", New scope -> [%4.4s] (%s)\n",
-		acpi_ut_get_node_name (scope_info->scope.node),
+		scope_info->scope.node->name.ascii,
 		acpi_ut_get_type_name (scope_info->common.value)));
 
 	/* Push new scope object onto stack */
@@ -207,14 +207,14 @@ acpi_ds_scope_stack_pop (
 	ACPI_DEBUG_PRINT ((ACPI_DB_EXEC,
 		"[%.2d] Popped scope [%4.4s] (%s), New scope -> ",
 		(u32) walk_state->scope_depth,
-		acpi_ut_get_node_name (scope_info->scope.node),
+		scope_info->scope.node->name.ascii,
 		acpi_ut_get_type_name (scope_info->common.value)));
 
 	new_scope_info = walk_state->scope_info;
 	if (new_scope_info) {
 		ACPI_DEBUG_PRINT_RAW ((ACPI_DB_EXEC,
 			"[%4.4s] (%s)\n",
-			acpi_ut_get_node_name (new_scope_info->scope.node),
+			new_scope_info->scope.node->name.ascii,
 			acpi_ut_get_type_name (new_scope_info->common.value)));
 	}
 	else {

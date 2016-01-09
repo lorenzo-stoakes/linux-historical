@@ -523,6 +523,8 @@ pcibios_enable_device (struct pci_dev *dev, int mask)
 	if (ret < 0)
 		return ret;
 
+ 	platform_pci_enable_device(dev);
+
 	printk(KERN_INFO "PCI: Found IRQ %d for device %s\n", dev->irq, dev->slot_name);
 
 	return 0;

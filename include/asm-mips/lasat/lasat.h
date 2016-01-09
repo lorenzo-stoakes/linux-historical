@@ -234,8 +234,7 @@ extern void lasat_write_eeprom_info(void);
 
 extern unsigned int lasat_ndelay_divider;
 
-static inline void lasat_ndelay(unsigned int ns)
-{
+extern inline void lasat_ndelay(unsigned int ns) {
 	__delay(ns / lasat_ndelay_divider);
 }
 

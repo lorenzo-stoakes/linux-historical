@@ -16,6 +16,7 @@
 #endif /* !__ASSEMBLY__ */
 
 #include <asm/addrspace.h>
+#include <asm/reg.h>
 #include <asm/sn/kldir.h>
 
 #if defined(CONFIG_SGI_IP27)

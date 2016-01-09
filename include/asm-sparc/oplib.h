@@ -11,6 +11,9 @@
 #include <asm/openprom.h>
 #include <linux/spinlock.h>
 
+/* The master romvec pointer... */
+extern struct linux_romvec *romvec;
+
 /* Enumeration to describe the prom major version we have detected. */
 enum prom_major_version {
 	PROM_V0,      /* Original sun4c V0 prom */

@@ -24,16 +24,13 @@ endif
 drop-sections	= .reginfo .mdebug
 strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
-all: vmlinux.ecoff vmlinux.srec addinitrd
+all: vmlinux.ecoff addinitrd
 
 vmlinux.ecoff:	$(CONFIGURE) elf2ecoff $(TOPDIR)/vmlinux
 	./elf2ecoff $(TOPDIR)/vmlinux vmlinux.ecoff $(E2EFLAGS)
 
 elf2ecoff: elf2ecoff.c
 	$(HOSTCC) -o $@ $^
-
-vmlinux.srec: $(CONFIGURE) $(TOPDIR)/vmlinux
-	$(OBJCOPY) -S -O srec $(strip-flags) $(TOPDIR)/vmlinux vmlinux.srec
 
 addinitrd: addinitrd.c
 	$(HOSTCC) -o $@ $^
@@ -43,12 +40,10 @@ dep:
 
 clean:
 	rm -f vmlinux.ecoff
-	rm -f vmlinux.srec
 	rm -f zImage zImage.tmp
 
 mrproper:
 	rm -f vmlinux.ecoff
-	rm -f vmlinux.srec
 	rm -f addinitrd
 	rm -f elf2ecoff
 

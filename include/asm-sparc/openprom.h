@@ -169,8 +169,6 @@ struct linux_romvec {
 	int (*v3_cpuresume)(unsigned int whichcpu);
 };
 
-extern struct linux_romvec *romvec;
-
 /* Routines for traversing the prom device tree. */
 struct linux_nodeops {
 	int (*no_nextnode)(int node);

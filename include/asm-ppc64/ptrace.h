@@ -66,11 +66,7 @@ struct pt_regs32 {
 
 #define STACK_FRAME_OVERHEAD	112	/* size of minimum stack frame */
 
-/*
- * Size of dummy stack frame allocated when calling signal handler.
- * These *MUST* be multiples of 16 since the ABI requires stack frames
- * be quadword aligned.
- */
+/* Size of dummy stack frame allocated when calling signal handler. */
 #define __SIGNAL_FRAMESIZE	128
 #define __SIGNAL_FRAMESIZE32	64
 

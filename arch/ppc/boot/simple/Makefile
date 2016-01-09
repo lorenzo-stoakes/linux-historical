@@ -9,10 +9,12 @@
 # or implied.
 #
 # Notes:
-# (1) All machines must set the END variable to the suffix of the preferred
-# final image (i.e. would be copied in 'make znetboot'.
-# (2) For machine targets which use the mktree program you can optionally
-# set ENTRYPOINT which the image should be loaded at.  The optimal setting
+# (1) For machine targets which produce more than one image, define
+# ZNETBOOT and ZNETBOOTRD to the image which should be available for
+# 'znetboot' and 'znetboot.initrd`
+# (2) For machine targets which use the mktree program, define END to be
+# the machine name you want in the image, and you can optionally set
+# ENTRYPOINT which the image should be loaded at.  The optimal setting
 # for ENTRYPOINT is the link address.
 
 USE_STANDARD_AS_RULE		:= true
@@ -23,13 +25,15 @@ MISC				:= ../common/misc-simple.o
 ifeq ($(CONFIG_EMBEDDEDBOOT),y)
 ZIMAGE				:= zImage-EMBEDDED
 ZIMAGEINITRD			:= zImage.initrd-EMBEDDED
+TFTPIMAGE			:= /tftpboot/zImage.embedded
 MISC				:= misc-embedded.o
-END				:= embedded
 endif
 ifeq ($(CONFIG_IBM_OPENBIOS),y)
 ZIMAGE				:= zImage-TREE
 ZIMAGEINITRD			:= zImage.initrd-TREE
 END				:= treeboot
+ZNETBOOT			:= zImage.treeboot
+ZNETBOOTRD			:= zImage.initrd.treeboot
 TFTPIMAGE			:= /tftpboot/zImage.embedded
 MISC				:= misc-embedded.o
 endif
@@ -38,6 +42,9 @@ ZIMAGE				:= zImage-TREE
 ZIMAGEINITRD			:= zImage.initrd-TREE
 END				:= ebony
 ENTRYPOINT			:= 0x00800000
+ZNETBOOT			:= zImage.treeboot
+ZNETBOOTRD			:= zImage.initrd.treeboot
+TFTPIMAGE			:= /tftpboot/zImage.$(END)
 EXTRA				:= misc-44x.o
 endif
 ifeq ($(CONFIG_OCOTEA),y)
@@ -45,21 +52,25 @@ ZIMAGE				:= zImage-TREE
 ZIMAGEINITRD			:= zImage.initrd-TREE
 END				:= ocotea
 ENTRYPOINT			:= 0x00800000
+ZNETBOOT			:= zImage.treeboot
+ZNETBOOTRD			:= zImage.initrd.treeboot
+TFTPIMAGE			:= /tftpboot/zImage.$(END)
 EXTRA				:= misc-44x.o
 endif
 ifeq ($(CONFIG_GEMINI),y)
 ZIMAGE				:= zImage-SMON
 ZIMAGEINITRD			:= zImage.initrd-SMON
-END				:= gemini
+TFTPIMAGE			:= /tftpboot/zImage.gemini
 endif
 # kbuild-2.4 'feature', only one of these will ever by 'y' at a time.
 # The rest will be unset.
-ifeq ($(CONFIG_LOPEC)$(CONFIG_PPLUS)$(CONFIG_PRPMC750),y)
+ifeq ($(CONFIG_LOPEC)$(CONFIG_PPLUS),y)
 ZIMAGE				:= zImage-PPLUS
 ZIMAGEINITRD			:= zImage.initrd-PPLUS
 EXTRA				:= ../common/mpc10x_memory.o
 TFTPIMAGE			:= /tftpboot/zImage.pplus
-END				:= pplus
+ZNETBOOT			:= zImage.pplus
+ZNETBOOTRD			:= zImage.initrd.pplus
 endif
 ifeq ($(CONFIG_PPLUS),y)
 EXTRA				:= legacy.o
@@ -67,14 +78,7 @@ endif
 ifeq ($(CONFIG_PAL4),y)
 ZIMAGE				:= zImage-PAL4
 ZIMAGEINITRD			:= zImage.initrd-PAL4
-END				:= pal4
-endif
-ifeq ($(CONFIG_SANDPOINT),y)
-ZIMAGE				:= zImage-SP
-ZIMAGEINITRD			:= zImage.initrd-SP
-CACHEFLAG			:= -include clear.S
-TFTPIMAGE			:= /tftpboot/zImage.sandpoint
-END				:= sandpoint
+TFTPIMAGE			:= /tftpboot/zImage.pal4
 endif
 ifeq ($(CONFIG_SPRUCE),y)
 ZIMAGE				:= zImage-TREE
@@ -82,13 +86,11 @@ ZIMAGEINITRD			:= zImage.initrd-TREE
 ENTRYPOINT			:= 0x00800000
 MISC				:= misc-spruce.o
 END				:= spruce
+TFTPIMAGE			:= /tftpboot/zImage.$(END)
 endif
-
-TFTPIMAGE			?= /tftpboot/zImage.$(END)
 ifeq ($(CONFIG_SMP),y)
 TFTPIMAGE			+= .smp
 endif
-
 
 # Setup a default address to put ourselves, change it as needed.
 LD_ARGS				= -T ../ld.script -Ttext 0x00800000 -Bstatic
@@ -154,22 +156,30 @@ zImage.initrd: $(ZIMAGEINITRD)
 	rm -f zvmlinux.initrd
 
 znetboot: zImage
-	cp ../images/zImage.$(END) $(TFTPIMAGE)
+ifneq ($(ZNETBOOT),)
+	cp ../images/$(ZNETBOOT) $(TFTPIMAGE)
+else
+	cp ../images/zImage.* $(TFTPIMAGE)
+endif
 
 znetboot.initrd: zImage.initrd
-	cp ../images/zImage.initrd.$(END) $(TFTPIMAGE)
+ifneq ($(ZNETBOOTRD),)
+	cp ../images/$(ZNETBOOTRD) $(TFTPIMAGE)
+else
+	cp ../images/zImage.* $(TFTPIMAGE)
+endif
 
 zImage-EMBEDDED: zvmlinux
-	mv zvmlinux ../images/zImage.$(END)
+	mv zvmlinux ../images/zImage.embedded
 
 zImage.initrd-EMBEDDED: zvmlinux.initrd
-	mv zvmlinux.initrd ../images/zImage.initrd.$(END)
+	mv zvmlinux.initrd ../images/zImage.initrd.embedded
 
 zImage-PAL4: zvmlinux
-	mv zvmlinux ../images/zImage.$(END)
+	mv zvmlinux ../images/zImage.pal4
 
 zImage.initrd-PAL4: zvmlinux.initrd
-	mv zvmlinux.initrd ../images/zImage.initrd.$(END)
+	mv zvmlinux.initrd ../images/zImage.initrd.pal4
 
 zImage-PPLUS: zvmlinux $(MKPREP) $(MKBUGBOOT)
 	$(MKPREP) -pbp zvmlinux ../images/zImage.pplus
@@ -179,17 +189,11 @@ zImage.initrd-PPLUS: zvmlinux.initrd $(MKPREP) $(MKBUGBOOT)
 	$(MKPREP) -pbp zvmlinux.initrd ../images/zImage.initrd.pplus
 	$(MKBUGBOOT) zvmlinux.initrd ../images/zImage.initrd.bugboot
 
-zImage-SP: zvmlinux
-	mv zvmlinux ../images/zImage.sandpoint
-
-zImage.initrd-SP: zvmlinux.initrd
-	mv zvmlinux.initrd ../images/zImage.initrd.sandpoint
-
 zImage-SMON: zvmlinux
-	dd if=zvmlinux of=../images/zImage.$(END) skip=64 bs=1k
+	dd if=zvmlinux of=../images/zImage.gemini skip=64 bs=1k
 
 zImage.initrd-SMON: zvmlinux.initrd
-	dd if=zvmlinux.initrd of=../images/zImage.initrd.$(END) skip=64 bs=1k
+	dd if=zvmlinux.initrd of=../images/zImage.initrd.gemini skip=64 bs=1k
 
 zImage-TREE: zvmlinux
 	$(MKTREE) zvmlinux ../images/zImage.$(END) $(ENTRYPOINT)

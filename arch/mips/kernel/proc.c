@@ -39,7 +39,6 @@ static const char *cpu_name[] = {
         [CPU_R6000A]	"R6000A",
 	[CPU_R8000]	"R8000",
 	[CPU_R10000]	"R10000",
-	[CPU_R12000]	"R12000",
 	[CPU_R4300]	"R4300",
 	[CPU_R4650]	"R4650",
 	[CPU_R4700]	"R4700",
@@ -48,7 +47,6 @@ static const char *cpu_name[] = {
 	[CPU_R4640]	"R4640",
 	[CPU_NEVADA]	"Nevada",
 	[CPU_RM7000]	"RM7000",
-	[CPU_RM9000]	"RM9000",
 	[CPU_R5432]	"R5432",
 	[CPU_4KC]	"MIPS 4Kc",
         [CPU_5KC]	"MIPS 5Kc",
@@ -69,7 +67,6 @@ static const char *cpu_name[] = {
 	[CPU_VR4121]	"NEC VR4121",
 	[CPU_VR4122]	"NEC VR4122",
 	[CPU_VR4131]	"NEC VR4131",
-	[CPU_VR4133]	"NEC VR4133",
 	[CPU_VR4181]	"NEC VR4181",
 	[CPU_VR4181A]	"NEC VR4181A",
 	[CPU_SR71000]	"Sandcraft SR71000"

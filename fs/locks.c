@@ -135,9 +135,15 @@ static LIST_HEAD(blocked_list);
 static kmem_cache_t *filelock_cache;
 
 /* Allocate an empty lock structure. */
-static struct file_lock *locks_alloc_lock(void)
+static struct file_lock *locks_alloc_lock(int account)
 {
-	return kmem_cache_alloc(filelock_cache, SLAB_KERNEL);
+	struct file_lock *fl;
+	if (account && current->locks >= current->rlim[RLIMIT_LOCKS].rlim_cur)
+		return NULL;
+	fl = kmem_cache_alloc(filelock_cache, SLAB_KERNEL);
+	if (fl)
+		current->locks++;
+	return fl;
 }
 
 /* Free a lock which is not in use. */
@@ -147,6 +153,7 @@ static inline void locks_free_lock(struct file_lock *fl)
 		BUG();
 		return;
 	}
+	current->locks--;
 	if (waitqueue_active(&fl->fl_wait))
 		panic("Attempting to free lock with active wait queue");
 
@@ -213,7 +220,7 @@ void locks_copy_lock(struct file_lock *new, struct file_lock *fl)
 /* Fill in a file_lock structure with an appropriate FLOCK lock. */
 static struct file_lock *flock_make_lock(struct file *filp, unsigned int type)
 {
-	struct file_lock *fl = locks_alloc_lock();
+	struct file_lock *fl = locks_alloc_lock(1);
 	if (fl == NULL)
 		return NULL;
 
@@ -351,7 +358,7 @@ static int flock64_to_posix_lock(struct file *filp, struct file_lock *fl,
 /* Allocate a file_lock initialised to this type of lease */
 static int lease_alloc(struct file *filp, int type, struct file_lock **flp)
 {
-	struct file_lock *fl = locks_alloc_lock();
+	struct file_lock *fl = locks_alloc_lock(1);
 	if (fl == NULL)
 		return -ENOMEM;
 
@@ -714,7 +721,7 @@ int locks_mandatory_area(int read_write, struct inode *inode,
 			 size_t count)
 {
 	struct file_lock *fl;
-	struct file_lock *new_fl = locks_alloc_lock();
+	struct file_lock *new_fl = locks_alloc_lock(0);
 	int error;
 
 	if (new_fl == NULL)
@@ -874,8 +881,8 @@ int posix_lock_file(struct file *filp, struct file_lock *caller,
 	 * We may need two file_lock structures for this operation,
 	 * so we get them in advance to avoid races.
 	 */
-	new_fl = locks_alloc_lock();
-	new_fl2 = locks_alloc_lock();
+	new_fl = locks_alloc_lock(0);
+	new_fl2 = locks_alloc_lock(0);
 	error = -ENOLCK; /* "no luck" */
 	if (!(new_fl && new_fl2))
 		goto out_nolock;
@@ -1481,7 +1488,7 @@ out:
 int fcntl_setlk(unsigned int fd, unsigned int cmd, struct flock *l)
 {
 	struct file *filp;
-	struct file_lock *file_lock = locks_alloc_lock();
+	struct file_lock *file_lock = locks_alloc_lock(0);
 	struct flock flock;
 	struct inode *inode;
 	int error;
@@ -1637,7 +1644,7 @@ out:
 int fcntl_setlk64(unsigned int fd, unsigned int cmd, struct flock64 *l)
 {
 	struct file *filp;
-	struct file_lock *file_lock = locks_alloc_lock();
+	struct file_lock *file_lock = locks_alloc_lock(0);
 	struct flock64 flock;
 	struct inode *inode;
 	int error;

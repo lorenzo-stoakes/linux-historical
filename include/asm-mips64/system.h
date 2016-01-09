@@ -30,7 +30,7 @@ __asm__ (
 	".set\tpop\n\t"
 	".endm");
 
-static __inline__ void
+extern __inline__ void
 __sti(void)
 {
 	__asm__ __volatile__(
@@ -63,7 +63,7 @@ __asm__ (
 	".set\tpop\n\t"
 	".endm");
 
-static __inline__ void
+extern __inline__ void
 __cli(void)
 {
 	__asm__ __volatile__(
@@ -249,7 +249,7 @@ do { \
 	(last) = resume(prev, next); \
 } while(0)
 
-static __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
+extern __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
 {
 	unsigned long dummy;
 
@@ -271,7 +271,7 @@ static __inline__ unsigned long xchg_u32(volatile int * m, unsigned long val)
 	return val;
 }
 
-static __inline__ unsigned long xchg_u64(volatile int * m, unsigned long val)
+extern __inline__ unsigned long xchg_u64(volatile int * m, unsigned long val)
 {
 	unsigned long dummy;
 

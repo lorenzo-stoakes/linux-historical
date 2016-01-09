@@ -50,6 +50,8 @@
 
 		.macro	SAVE_TEMP
 		mfhi	v1
+		sd	$8, PT_R8(sp)
+		sd	$9, PT_R9(sp)
 		sd	v1, PT_HI(sp)
 		mflo	v1
 		sd	$10, PT_R10(sp)
@@ -133,8 +135,6 @@
 		sd	$6, PT_R6(sp)
 		dmfc0	v1, CP0_EPC
 		sd	$7, PT_R7(sp)
-		sd	$8, PT_R8(sp)
-		sd	$9, PT_R9(sp)
 		sd	v1, PT_EPC(sp)
 		sd	$25, PT_R25(sp)
 		sd	$28, PT_R28(sp)
@@ -164,6 +164,8 @@
 
 		.macro	RESTORE_TEMP
 		ld	$24, PT_LO(sp)
+		ld	$8, PT_R8(sp)
+		ld	$9, PT_R9(sp)
 		mtlo	$24
 		ld	$24, PT_HI(sp)
 		ld	$10, PT_R10(sp)
@@ -208,8 +210,6 @@
 		ld	$31, PT_R31(sp)
 		ld	$28, PT_R28(sp)
 		ld	$25, PT_R25(sp)
-		ld	$9,  PT_R9(sp)
-		ld	$8,  PT_R8(sp)
 		ld	$7,  PT_R7(sp)
 		ld	$6,  PT_R6(sp)
 		ld	$5,  PT_R5(sp)

@@ -69,7 +69,7 @@
 #ifndef __ASSEMBLY__
 
 /* Read bus error status register (implicitly clearing it). */
-static inline unsigned char sun3_get_buserr(void)
+extern __inline__ unsigned char sun3_get_buserr (void)
 {
 	unsigned char sfc, c;
 
@@ -82,7 +82,7 @@ static inline unsigned char sun3_get_buserr(void)
 }
 
 /* Read segmap from hardware MMU. */
-static inline unsigned long sun3_get_segmap(unsigned long addr)
+extern __inline__ unsigned long sun3_get_segmap (unsigned long addr)
 {
         register unsigned long entry;
         unsigned char c, sfc;
@@ -97,7 +97,7 @@ static inline unsigned long sun3_get_segmap(unsigned long addr)
 }
 
 /* Write segmap to hardware MMU. */
-static inline void sun3_put_segmap(unsigned long addr, unsigned long entry)
+extern __inline__ void sun3_put_segmap (unsigned long addr, unsigned long entry)
 {
         unsigned char sfc;
 
@@ -110,7 +110,7 @@ static inline void sun3_put_segmap(unsigned long addr, unsigned long entry)
 }
 
 /* Read PTE from hardware MMU. */
-static inline unsigned long sun3_get_pte(unsigned long addr)
+extern __inline__ unsigned long sun3_get_pte (unsigned long addr)
 {
         register unsigned long entry;
         unsigned char sfc;
@@ -124,7 +124,7 @@ static inline unsigned long sun3_get_pte(unsigned long addr)
 }
 
 /* Write PTE to hardware MMU. */
-static inline void sun3_put_pte(unsigned long addr, unsigned long entry)
+extern __inline__ void sun3_put_pte (unsigned long addr, unsigned long entry)
 {
         unsigned char sfc;
 
@@ -137,7 +137,7 @@ static inline void sun3_put_pte(unsigned long addr, unsigned long entry)
 }
 
 /* get current context */
-static inline unsigned char sun3_get_context(void)
+extern __inline__ unsigned char sun3_get_context(void)
 {
 	unsigned char sfc, c;
 
@@ -150,7 +150,7 @@ static inline unsigned char sun3_get_context(void)
 }
 
 /* set alternate context */
-static inline void sun3_put_context(unsigned char c)
+extern __inline__ void sun3_put_context(unsigned char c)
 {
 	unsigned char dfc;
 	GET_DFC(dfc);

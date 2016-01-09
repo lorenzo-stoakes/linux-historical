@@ -32,11 +32,7 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 
 	switch (call) {
 	case SEMOP:
-		return sys_semtimedop (first, (struct sembuf *)ptr, second,
-		                       NULL);
-	case SEMTIMEDOP:
-		return sys_semtimedop (first, (struct sembuf *)ptr, second,
-		                       (const struct timespec *)fifth);
+		return sys_semop (first, (struct sembuf *)ptr, second);
 	case SEMGET:
 		return sys_semget (first, second, third);
 	case SEMCTL: {

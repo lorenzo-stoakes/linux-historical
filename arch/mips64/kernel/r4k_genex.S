@@ -17,7 +17,6 @@
 #include <asm/stackframe.h>
 #include <asm/exception.h>
 #include <asm/cacheops.h>
-#include <asm/war.h>
 
 	BUILD_HANDLER adel ade ade silent		/* #4  */
 	BUILD_HANDLER ades ade ade silent		/* #5  */

@@ -1,5 +1,5 @@
 /*
- *  include/asm-ppc64/cputable.h
+ *  include/asm-ppc/cputable.h
  *
  *  Copyright (C) 2001 Ben. Herrenschmidt (benh@kernel.crashing.org)
  *
@@ -30,7 +30,7 @@
 #ifndef __ASSEMBLY__
 
 /* This structure can grow, it's real size is used by head.S code
- * via the mkdefs mechanism.
+ * via the mkdefs mecanism.
  */
 struct cpu_spec;
 
@@ -74,20 +74,10 @@ extern struct cpu_spec		*cur_cpu_spec;
 #define FW_FEATURE_COPY		(1UL<<4)	
 #define FW_FEATURE_ASR		(1UL<<5)	
 #define FW_FEATURE_DEBUG	(1UL<<6)	
-#define FW_FEATURE_TERM		(1UL<<7)
-#define FW_FEATURE_PERF		(1UL<<8)
-#define FW_FEATURE_DUMP		(1UL<<9)
-#define FW_FEATURE_INTERRUPT	(1UL<<10)
-#define FW_FEATURE_MIGRATE	(1UL<<11)
-#define FW_FEATURE_PERFMON	(1UL<<12)
-#define FW_FEATURE_CRQ   	(1UL<<13)
-#define FW_FEATURE_VIO   	(1UL<<14)
-#define FW_FEATURE_RDMA   	(1UL<<15)
-#define FW_FEATURE_LLAN   	(1UL<<16)
-#define FW_FEATURE_BULK   	(1UL<<17)
-#define FW_FEATURE_XDABR   	(1UL<<18)
-#define FW_FEATURE_MULTITCE   	(1UL<<19)
-#define FW_FEATURE_SPLPAR   	(1UL<<20)
+#define FW_FEATURE_PERF		(1UL<<7)	
+#define FW_FEATURE_DUMP		(1UL<<8)	
+#define FW_FEATURE_INTERRUPT	(1UL<<9)	
+#define FW_FEATURE_MIGRATE	(1UL<<10)	
 
 typedef struct {
     unsigned long val;

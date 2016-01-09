@@ -61,12 +61,6 @@ if [ "$CONFIG_PARPORT" != "n" ]; then
       define_tristate CONFIG_PARPORT_SUNBPP n
    fi
 
-   if [ "$CONFIG_SGI_IP22" = "y" -a "$CONFIG_EXPERIMENTAL" = "y" ]; then
-      dep_tristate '  SGI Indy/Indigo2 hardware (EXPERIMENTAL)' CONFIG_PARPORT_IP22 $CONFIG_PARPORT
-   else
-      define_tristate CONFIG_PARPORT_IP22 n
-   fi
-
    # If exactly one hardware type is selected then parport will optimise away
    # support for loading any others.  Defeat this if the user is keen.
    bool '  Support foreign hardware' CONFIG_PARPORT_OTHER

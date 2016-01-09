@@ -39,7 +39,6 @@
 extern struct mac_booter_data mac_bi_data;
 static void (*rom_reset)(void);
 
-#ifdef CONFIG_ADB
 /*
  * Return the current time as the number of seconds since January 1, 1904.
  */
@@ -104,7 +103,6 @@ static void adb_write_pram(int offset, __u8 data)
 			(offset >> 8) & 0xFF, offset & 0xFF,
 			data);
 }
-#endif /* CONFIG_ADB */
 
 /*
  * VIA PRAM/RTC access routines
@@ -359,11 +357,7 @@ void mac_pram_read(int offset, __u8 *buffer, int len)
 	    macintosh_config->adb_type == MAC_ADB_PB1 ||
 	    macintosh_config->adb_type == MAC_ADB_PB2 ||
 	    macintosh_config->adb_type == MAC_ADB_CUDA) {
-#ifdef CONFIG_ADB
 		func = adb_read_pram;
-#else
-		return;
-#endif
 	} else {
 		func = via_read_pram;
 	}
@@ -381,11 +375,7 @@ void mac_pram_write(int offset, __u8 *buffer, int len)
 	    macintosh_config->adb_type == MAC_ADB_PB1 ||
 	    macintosh_config->adb_type == MAC_ADB_PB2 ||
 	    macintosh_config->adb_type == MAC_ADB_CUDA) {
-#ifdef CONFIG_ADB
 		func = adb_write_pram;
-#else
-		return;
-#endif
 	} else {
 		func = via_write_pram;
 	}
@@ -612,16 +602,12 @@ int mac_hwclk(int op, struct rtc_time *t)
 	if (!op) { /* read */
 		if (macintosh_config->adb_type == MAC_ADB_II) {
 			now = via_read_time();
-		} else
-#ifdef CONFIG_ADB
-		if ((macintosh_config->adb_type == MAC_ADB_IISI) ||
+		} else if ((macintosh_config->adb_type == MAC_ADB_IISI) ||
 			   (macintosh_config->adb_type == MAC_ADB_PB1) ||
 			   (macintosh_config->adb_type == MAC_ADB_PB2) ||
 			   (macintosh_config->adb_type == MAC_ADB_CUDA)) {
 			now = adb_read_time();
-		} else
-#endif
-		if (macintosh_config->adb_type == MAC_ADB_IOP) {
+		} else if (macintosh_config->adb_type == MAC_ADB_IOP) {
 			now = via_read_time();
 		} else {
 			now = 0;

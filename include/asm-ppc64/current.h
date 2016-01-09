@@ -1,6 +1,5 @@
 #ifndef _PPC64_CURRENT_H
 #define _PPC64_CURRENT_H
-#include <asm/paca.h>
 
 /*
  * This program is free software; you can redistribute it and/or
@@ -8,11 +7,9 @@
  * as published by the Free Software Foundation; either version
  * 2 of the License, or (at your option) any later version.
  *
- * current is in the paca (processor data area), which is pointed
- * to by r13.
+ * Use r13 for current since the ppc64 ABI reserves it - Anton
  */
 
-#define get_current()   ((struct task_struct *)(get_paca()->xCurrent))
-#define current         get_current()
+register struct task_struct *current asm ("r13");
 
 #endif /* !(_PPC64_CURRENT_H) */

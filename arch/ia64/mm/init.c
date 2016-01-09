@@ -488,8 +488,7 @@ ia64_page_valid (struct page *page)
 {
 	char byte;
 
-	return     (__get_user(byte, (char *) page) == 0)
-		&& (__get_user(byte, (char *) (page + 1) - 1) == 0);
+	return __get_user(byte, (char *) page) == 0;
 }
 
 #define GRANULEROUNDDOWN(n) ((n) & ~(IA64_GRANULE_SIZE-1))
