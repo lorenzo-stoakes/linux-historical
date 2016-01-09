@@ -38,10 +38,6 @@
 
 #include <linux/init.h>
 
-/* FIXME need i2c versioning */
-#define LM_DATE "20010825"
-#define LM_VERSION "2.6.1"
-
 #ifndef THIS_MODULE
 #define THIS_MODULE NULL
 #endif
@@ -684,7 +680,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				    && (addr == this_force->force[j + 1])) {
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found force parameter for adapter %d, addr %04x\n",
+					    (KERN_DEBUG "i2c-proc.o: found force parameter for adapter %d, addr %04x\n",
 					     adapter_id, addr);
 #endif
 					if (
@@ -714,7 +710,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 			    && (addr == address_data->ignore[i + 1])) {
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found ignore parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found ignore parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 				found = 1;
@@ -734,7 +730,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 			    && (addr <= address_data->ignore_range[i + 2])) {
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found ignore_range parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found ignore_range parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 				found = 1;
@@ -753,7 +749,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				if (addr == address_data->normal_isa[i]) {
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal isa entry for adapter %d, "
+					    (KERN_DEBUG "i2c-proc.o: found normal isa entry for adapter %d, "
 					     "addr %04x\n", adapter_id,
 					     addr);
 #endif
@@ -775,7 +771,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				     0)) {
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal isa_range entry for adapter %d, "
+					    (KERN_DEBUG "i2c-proc.o: found normal isa_range entry for adapter %d, "
 					     "addr %04x", adapter_id, addr);
 #endif
 					found = 1;
@@ -789,7 +785,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 					found = 1;
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal i2c entry for adapter %d, "
+					    (KERN_DEBUG "i2c-proc.o: found normal i2c entry for adapter %d, "
 					     "addr %02x", adapter_id, addr);
 #endif
 				}
@@ -805,7 +801,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				{
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal i2c_range entry for adapter %d, "
+					    (KERN_DEBUG "i2c-proc.o: found normal i2c_range entry for adapter %d, "
 					     "addr %04x\n", adapter_id, addr);
 #endif
 					found = 1;
@@ -822,7 +818,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 			    && (addr == address_data->probe[i + 1])) {
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found probe parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found probe parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 				found = 1;
@@ -841,7 +837,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				found = 1;
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found probe_range parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found probe_range parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 			}
@@ -862,7 +858,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 
 int __init sensors_init(void)
 {
-	printk("i2c-proc.o version %s (%s)\n", LM_VERSION, LM_DATE);
+	printk(KERN_INFO "i2c-proc.o version %s (%s)\n", I2C_VERSION, I2C_DATE);
 	i2c_initialized = 0;
 	if (!
 	    (i2c_proc_header =

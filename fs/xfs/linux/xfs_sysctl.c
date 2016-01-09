@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2001-2003 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -41,7 +41,6 @@ static struct ctl_table_header *xfs_table_header;
 
 /* Custom proc handlers */
 
-#ifdef HAVE_REFCACHE
 STATIC int
 xfs_refcache_resize_proc_handler(
 	ctl_table	*ctl,
@@ -66,7 +65,6 @@ xfs_refcache_resize_proc_handler(
 
 	return ret;
 }
-#endif
 
 #ifdef CONFIG_PROC_FS
 STATIC int
@@ -96,8 +94,6 @@ xfs_stats_clear_proc_handler(
 #endif /* CONFIG_PROC_FS */
 
 STATIC ctl_table xfs_table[] = {
-
-#ifdef HAVE_REFCACHE
 	{XFS_REFCACHE_SIZE, "refcache_size", &xfs_params.refcache_size.val,
 	sizeof(int), 0644, NULL, &xfs_refcache_resize_proc_handler,
 	&sysctl_intvec, NULL, 
@@ -108,7 +104,6 @@ STATIC ctl_table xfs_table[] = {
 	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
 	&sysctl_intvec, NULL, 
 	&xfs_params.refcache_purge.min, &xfs_params.refcache_size.val},
-#endif
 
 	{XFS_RESTRICT_CHOWN, "restrict_chown", &xfs_params.restrict_chown.val,
 	sizeof(int), 0644, NULL, &proc_dointvec_minmax,

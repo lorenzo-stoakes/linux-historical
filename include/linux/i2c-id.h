@@ -90,7 +90,7 @@
 #define I2C_DRIVERID_DRP3510	43     /* ADR decoder (Astra Radio)	*/
 #define I2C_DRIVERID_SP5055	44     /* Satellite tuner		*/
 #define I2C_DRIVERID_STV0030	45     /* Multipurpose switch		*/
-#define I2C_DRIVERID_ADV717X   48     /* video encoder                 */
+#define I2C_DRIVERID_ADV7175	48     /* ADV 7175/7176 video encoder	*/
 #define I2C_DRIVERID_MAX1617	56     /* temp sensor			*/
 #define I2C_DRIVERID_SAA7191	57     /* video decoder                 */
 #define I2C_DRIVERID_INDYCAM	58     /* SGI IndyCam			*/
@@ -213,7 +213,7 @@
 #define I2C_HW_SMBUS_AMD756	0x05
 #define I2C_HW_SMBUS_SIS5595	0x06
 #define I2C_HW_SMBUS_ALI1535	0x07
-#define I2C_HW_SMBUS_W9968CF	0x08
+#define I2C_HW_SMBUS_W9968CF	0x0d
 
 /* --- ISA pseudo-adapter						*/
 #define I2C_HW_ISA 0x00

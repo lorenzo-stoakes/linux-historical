@@ -232,6 +232,7 @@ void show_regs(struct pt_regs *regs)
 	printk("epc     : %016lx    %s\nbadvaddr: %016lx\n",
 	       regs->cp0_epc, print_tainted(), regs->cp0_badvaddr);
 	printk("Status  : %08x  [ ", (unsigned int) regs->cp0_status);
+
 	if (regs->cp0_status & ST0_KX) printk("KX ");
 	if (regs->cp0_status & ST0_SX) printk("SX ");
 	if (regs->cp0_status & ST0_UX) printk("UX ");
@@ -247,6 +248,7 @@ void show_regs(struct pt_regs *regs)
 	printk("]\n");
 
 	printk("Cause   : %08x\n", (unsigned int) regs->cp0_cause);
+	printk("PrId  : %08x\n", read_c0_prid());
 }
 
 void show_registers(struct pt_regs *regs)

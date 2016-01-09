@@ -58,14 +58,6 @@
 
 static struct vm_operations_struct linvfs_file_vm_ops;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,22)
-#define	do_down_read(x)	down_read(x)
-#define do_up_read(x)	up_read(x)
-#else
-#define	do_down_read(x)
-#define do_up_read(x)
-#endif
-
 STATIC inline ssize_t
 __linvfs_read(
 	struct file	*file,
@@ -80,9 +72,9 @@ __linvfs_read(
 
 	if (unlikely(file->f_flags & O_DIRECT)) {
 		ioflags |= IO_ISDIRECT;
-		do_down_read(&inode->i_alloc_sem);
+		down_read(&inode->i_alloc_sem);
 		VOP_READ(vp, file, buf, size, offset, ioflags, NULL, error);
-		do_up_read(&inode->i_alloc_sem);
+		up_read(&inode->i_alloc_sem);
 	} else {
 		VOP_READ(vp, file, buf, size, offset, ioflags, NULL, error);
 	}
@@ -144,10 +136,10 @@ __linvfs_write(
 	 */
 	if (unlikely(file->f_flags & O_DIRECT)) {
 		ioflags |= IO_ISDIRECT;
-		do_down_read(&inode->i_alloc_sem);
+		down_read(&inode->i_alloc_sem);
 		VOP_WRITE(vp, file, buf, count, &pos, ioflags, NULL, error);
 		*ppos = pos;
-		do_up_read(&inode->i_alloc_sem);
+		up_read(&inode->i_alloc_sem);
 	} else {
 		down(&inode->i_sem);
 		VOP_WRITE(vp, file, buf, count, &pos, ioflags, NULL, error);

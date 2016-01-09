@@ -321,16 +321,12 @@ xfs_read(
 		}
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,22)
 	if (unlikely(ioflags & IO_ISDIRECT)) {
 		ret = do_generic_direct_read(file, buf, size, offset);
 		UPDATE_ATIME(file->f_dentry->d_inode);
 	} else {
 		ret = generic_file_read(file, buf, size, offset);
 	}
-#else
-	ret = generic_file_read(file, buf, size, offset);
-#endif
 
 	if (!(ioflags & IO_ISLOCKED))
 		xfs_iunlock(ip, XFS_IOLOCK_SHARED);
@@ -713,7 +709,6 @@ start:
 	}
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,22)
 	if ((ssize_t) size < 0) {
 		ret = -EINVAL;
 		goto error;
@@ -735,13 +730,6 @@ retry:
 					io, buf, size, *offset, ioflags);
 		ret = do_generic_file_write(file, buf, size, offset);
 	}
-#else
-retry:
-	if (ioflags & IO_ISDIRECT) {
-		xfs_inval_cached_pages(vp, io, *offset, 1, 1);
-	}
- 	ret = generic_file_write_nolock(file, buf, size, offset);
-#endif
 
 	if (unlikely(ioflags & IO_INVIS)) {
 		/* generic_file_write updates the mtime/ctime but we need
@@ -770,9 +758,7 @@ retry:
 		goto retry;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,22)
 error:
-#endif
 	if (ret <= 0) {
 		if (iolock)
 			xfs_rwunlock(bdp, locktype);

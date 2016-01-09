@@ -22,10 +22,6 @@
 #include <asm/pgtable.h>
 #include <asm/system.h>
 
-/* memory functions */
-void (*_clear_page)(void * page);
-void (*_copy_page)(void * to, void * from);
-
 /* Cache operations. */
 void (*_flush_cache_all)(void);
 void (*___flush_cache_all)(void);

@@ -687,6 +687,11 @@ void __init setup_arch(char **cmdline_p)
                 hp_setup();
                 break;
 #endif
+#ifdef  CONFIG_PMC_YOSEMITE
+        case MACH_GROUP_TITAN:
+                pmc_yosemite_setup();
+                break;
+#endif
 	default:
 		panic("Unsupported architecture");
 	}

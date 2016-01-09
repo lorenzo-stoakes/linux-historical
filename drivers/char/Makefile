@@ -47,6 +47,10 @@ ifeq ($(ARCH),mips)
   ifneq ($(CONFIG_PC_KEYB),y)
     KEYBD    =
   endif
+  ifeq ($(CONFIG_VR41XX_KIU),y)
+    KEYMAP   =
+    KEYBD    = vr41xx_keyb.o
+  endif
 endif
 
 ifeq ($(ARCH),s390x)

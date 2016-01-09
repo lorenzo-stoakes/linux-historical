@@ -69,16 +69,14 @@ _GLOBAL(get_sp)
 _GLOBAL(__no_use_save_flags)
 	mfspr	r4,SPRG3
 	lbz	r3,PACAPROCENABLED(r4)
+	/* shift into position of MSR.EE */
+	sldi	r3,r3,15
 	blr
 
-/* void __no_use_restore_flags(unsigned long flags) */	
+/* void __no_use_restore_flags(unsigned long flags) */
 _GLOBAL(__no_use_restore_flags)
-/*
- * Just set/clear the MSR_EE bit through restore/flags but do not
- * change anything else.  This is needed by the RT system and makes
- * sense anyway.
- *    -- Cort
- */
+	/* shift from position of MSR.EE */
+	srdi	r3,r3,15
 	mfspr	r6,SPRG3
 	lbz	r5,PACAPROCENABLED(r6)
 	 /* Check if things are setup the way we want _already_. */
@@ -104,6 +102,8 @@ _GLOBAL(__no_use_cli)
 	lbz	r3,PACAPROCENABLED(r5)
 	li	r4,0
 	stb	r4,PACAPROCENABLED(r5)
+	/* shift into position of MSR.EE */
+	sldi	r3,r3,15
 	blr			/* Done */
 
 _GLOBAL(__no_use_sti)
@@ -578,9 +578,10 @@ _GLOBAL(arch_kernel_thread)
 	bnelr			/* return if parent */
 
 	li	r0,0		/* clear out p->thread.regs */
-	std	r0,THREAD+PT_REGS(r13)	/* since we don't have user ctx */
+	ld	r7,PACACURRENT(r13)
+	std	r0,THREAD+PT_REGS(r7)	/* since we don't have user ctx */
 	li	r0,RUN_FLAG		/* Run light on */
-	std	r0,THREAD+THREAD_FLAGS(r13)
+	std	r0,THREAD+THREAD_FLAGS(r7)
 
 	ld	r2,8(r6)
 	ld	r6,0(r6)

@@ -63,7 +63,7 @@ extern int fpu_emulator_cop1Handler(int xcptno, struct pt_regs *xcp,
 
 void (*board_be_init)(void);
 int (*board_be_handler)(struct pt_regs *regs, int is_fixup);
-void (*board_nmi_handler_setup)(void) = NULL;
+void (*board_nmi_handler_setup)(void);
 
 int kstack_depth_to_print = 24;
 
@@ -235,9 +235,10 @@ void show_regs(struct pt_regs *regs)
 	/*
 	 * Saved cp0 registers
 	 */
-	printk("epc  : %08lx    %s\nStatus: %08lx\nCause : %08lx\n",
-	       regs->cp0_epc, print_tainted(), regs->cp0_status,
-	       regs->cp0_cause);
+	printk("epc   : %08lx    %s\n", regs->cp0_epc, print_tainted());
+	printk("Status: %08lx\n", regs->cp0_status);
+	printk("epc   : %08lx\n", regs->cp0_cause);
+	printk("PrId  : %08x\n", read_c0_prid());
 }
 
 void show_registers(struct pt_regs *regs)

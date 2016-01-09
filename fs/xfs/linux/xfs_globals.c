@@ -102,10 +102,8 @@ unsigned long xfs_physmem;
 
 xfs_param_t xfs_params = {
 			  /*	MIN	DFLT	MAX	*/
-#ifdef HAVE_REFCACHE
 	.refcache_size	= {	0,	128,	XFS_REFCACHE_SIZE_MAX },
 	.refcache_purge	= {	0,	32,	XFS_REFCACHE_SIZE_MAX },
-#endif
 	.restrict_chown	= {	0,	1,	1	},
 	.sgid_inherit	= {	0,	0,	1	},
 	.symlink_mode	= {	0,	0,	1	},

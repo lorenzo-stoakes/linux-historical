@@ -114,8 +114,10 @@ inside:
 						last_pid = 300;
 					next_safe = PID_MAX;
 				}
-				if(unlikely(last_pid == beginpid))
+				if(unlikely(last_pid == beginpid)) {
+					next_safe = 0;
 					goto nomorepids;
+				}
 				goto repeat;
 			}
 			if(p->pid > last_pid && next_safe > p->pid)

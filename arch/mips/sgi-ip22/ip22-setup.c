@@ -114,10 +114,9 @@ struct kbd_ops ip22_kbd_ops = {
 extern void ip22_be_init(void) __init;
 extern void ip22_time_init(void) __init;
 
-extern int console_setup(char *) __init;
-
 void __init ip22_setup(void)
 {
+	struct console_cmdline *c;
 	char *ctype;
 #ifdef CONFIG_KGDB
 	char *kgdb_ttyd;
@@ -143,21 +142,26 @@ void __init ip22_setup(void)
 	/* Set EISA IO port base for Indigo2 */
 	set_io_port_base(KSEG1ADDR(0x00080000));
 
+	/* Nothing registered console before us, so simply use first entry */
+	c = &console_cmdline[0];
+	ctype = ArcGetEnvironmentVariable("console");
 	/* ARCS console environment variable is set to "g?" for
 	 * graphics console, it is set to "d" for the first serial
 	 * line and "d2" for the second serial line.
 	 */
-	ctype = ArcGetEnvironmentVariable("console");
 	if (ctype && *ctype == 'd') {
-		static char con[16];
+		static char options[8];
 		char *dbaud = ArcGetEnvironmentVariable("dbaud");
-		sprintf(con, "ttyS%c,%s", *(ctype + 1) == '2' ? '1' : '0',
-					  dbaud ? dbaud : "9600");
-		console_setup(con);
+		strcpy(c->name, "ttyS");
+		c->index = *(ctype + 1) == '2' ? 1 : 0;
+		if (dbaud) {
+			strcpy(&options, dbaud);
+			c->options = options;
+		}
 	} else if (!ctype || *ctype != 'g') {
 		/* Use ARC if we don't want serial ('d') or Newport ('g'). */
 		prom_flags |= PROM_FLAG_USE_AS_CONSOLE;
-		console_setup("arc");
+		strcpy(c->name, "arc");
 	}
 
 #ifdef CONFIG_KGDB

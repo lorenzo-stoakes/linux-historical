@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -93,12 +93,14 @@ typedef enum page_buf_flags_e {		/* pb_flags values */
 	_PBF_PRIVATE_BH = (1 << 17), /* do not use public buffer heads	   */
 	_PBF_ALL_PAGES_MAPPED = (1 << 18), /* all pages in range mapped	   */
 	_PBF_ADDR_ALLOCATED = (1 << 19), /* pb_addr space was allocated	   */
-	_PBF_MEM_ALLOCATED = (1 << 20), /* pb_mem+underlying pages alloc'd */
+	_PBF_MEM_ALLOCATED = (1 << 20), /* underlying pages are allocated  */
+	_PBF_MEM_SLAB = (1 << 21), /* underlying pages are slab allocated  */
 
-	PBF_FORCEIO = (1 << 21),
-	PBF_FLUSH = (1 << 22),	/* flush disk write cache		   */
-	PBF_READ_AHEAD = (1 << 23),
-	PBF_RUN_QUEUES = (1 << 24), /* run block device task queue	   */
+	PBF_FORCEIO = (1 << 22), /* ignore any cache state		   */
+	PBF_FLUSH = (1 << 23),	/* flush disk write cache		   */
+	PBF_READ_AHEAD = (1 << 24), /* asynchronous read-ahead		   */
+	PBF_RUN_QUEUES = (1 << 25), /* run block device task queue	   */
+	PBF_DIRECTIO = (1 << 26), /* used for a direct IO mapping	   */
 
 } page_buf_flags_t;
 
@@ -338,6 +340,7 @@ extern void pagebuf_trace(
 # define pagebuf_trace(pb, id, ptr, ra)	do { } while (0)
 #endif
 
+#define pagebuf_target_name(target)	bdevname((target)->pbr_kdev)
 
 /*
  * Kernel version compatibility macros

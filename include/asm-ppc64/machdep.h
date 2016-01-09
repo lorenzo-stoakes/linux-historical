@@ -10,6 +10,8 @@
  */
 
 #include <linux/config.h>
+#include <linux/seq_file.h>
+#include <linux/irq.h>
 
 struct pt_regs;
 struct pci_bus;	
@@ -62,6 +64,7 @@ struct machdep_calls {
 	unsigned int	(*irq_cannonicalize)(unsigned int irq);
 	void		(*init_IRQ)(void);
 	void		(*init_ras_IRQ)(void);
+	void		(*init_irq_desc)(irq_desc_t *desc);
 	int		(*get_irq)(struct pt_regs *);
 	
 	/* A general init function, called by ppc_init in init/main.c.

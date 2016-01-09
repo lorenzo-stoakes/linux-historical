@@ -73,7 +73,7 @@ void init_ras_IRQ(void) {
 	   (ireg = (unsigned int *)get_property(np, "open-pic-interrupt", 
 						&len))) {
 		for(i=0; i<(len / sizeof(*ireg)); i++) {
-			request_irq(virt_irq_create_mapping(*(ireg)) + NUM_8259_INTERRUPTS, 
+			request_irq(irq_offset_up(*(ireg)),
 				    &ras_error_interrupt, 0, 
 				    "RAS_ERROR", NULL);
 			ireg++;
@@ -84,7 +84,7 @@ void init_ras_IRQ(void) {
 	   (ireg = (unsigned int *)get_property(np, "open-pic-interrupt", 
 						&len))) {
 		for(i=0; i<(len / sizeof(*ireg)); i++) {
-			request_irq(virt_irq_create_mapping(*(ireg)) + NUM_8259_INTERRUPTS, 
+			request_irq(irq_offset_up(*(ireg)),
 				    &ras_epow_interrupt, 0, 
 				    "RAS_EPOW", NULL);
 			ireg++;

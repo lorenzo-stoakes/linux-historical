@@ -3177,13 +3177,13 @@ xfs_attr_trace_entry(ktrace_entry_t *ktep)
 	static char *attr_arg_flags[] = {
 		"DONTFOLLOW",	/* 0x0001 */
 		"ROOT",		/* 0x0002 */
-		"?",		/* 0x0004 */
-		"REPLACE",	/* 0x0008 */
+		"TRUSTED",	/* 0x0004 */
+		"?",		/* 0x0008 */
 		"CREATE",	/* 0x0010 */
-		"?",		/* 0x0020 */
+		"REPLACE",	/* 0x0020 */
 		"?",		/* 0x0040 */
 		"?",		/* 0x0080 */
-		"?",		/* 0x0100 */
+		"SYSTEM",	/* 0x0100 */
 		"?",		/* 0x0200 */
 		"?",		/* 0x0400 */
 		"?",		/* 0x0800 */

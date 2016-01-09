@@ -32,6 +32,34 @@
 #ifndef __XFS_LINUX__
 #define __XFS_LINUX__
 
+#include <linux/types.h>
+#include <linux/config.h>
+
+/*
+ * Some types are conditional depending on the target system.
+ * XFS_BIG_BLKNOS needs block layer disk addresses to be 64 bits.
+ * XFS_BIG_INUMS needs the VFS inode number to be 64 bits, as well
+ * as requiring XFS_BIG_BLKNOS to be set.
+ */
+#define XFS_BIG_BLKNOS	0
+#define XFS_BIG_INUMS	0
+
+#include <xfs_types.h>
+#include <xfs_arch.h>
+
+#include <support/kmem.h>
+#include <support/mrlock.h>
+#include <support/qsort.h>
+#include <support/spin.h>
+#include <support/sv.h>
+#include <support/ktrace.h>
+#include <support/mutex.h>
+#include <support/sema.h>
+#include <support/debug.h>
+#include <support/move.h>
+#include <support/uuid.h>
+#include <support/time.h>
+
 #include <linux/mm.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -54,10 +82,6 @@
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
-
-#ifndef HAVE_SECTOR_T
-typedef long		sector_t;	/* offset- or number- of disk blocks */
-#endif
 
 #include <linux/xfs_behavior.h>
 #include <linux/xfs_vfs.h>
@@ -97,10 +121,7 @@ static inline void set_buffer_unwritten_io(struct buffer_head *bh)
 {
 	bh->b_end_io = linvfs_unwritten_done;
 }
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,17)
 BUFFER_FNS(Unwritten, unwritten)
-#endif
 
 #define xfs_refcache_size	xfs_params.refcache_size.val
 #define xfs_refcache_purge_count xfs_params.refcache_purge.val
@@ -220,17 +241,29 @@ BUFFER_FNS(Unwritten, unwritten)
 #define howmany(x, y)	(((x)+((y)-1))/(y))
 #define roundup(x, y)	((((x)+((y)-1))/(y))*(y))
 
-/* dump_stack() showed up in 2.4.20, show_stack is arch-specific */
+/*
+ * Juggle IRIX device numbers - still used in ondisk structures
+ */
+#define XFS_DEV_BITSMAJOR	14
+#define XFS_DEV_BITSMINOR	18
+#define XFS_DEV_MAXMAJ		0x1ff
+#define XFS_DEV_MAXMIN		0x3ffff
+#define XFS_DEV_MAJOR(dev)	((int)(((unsigned)(dev)>>XFS_DEV_BITSMINOR) \
+				    & XFS_DEV_MAXMAJ))
+#define XFS_DEV_MINOR(dev)	((int)((dev)&XFS_DEV_MAXMIN))
+#define XFS_MKDEV(major,minor) ((xfs_dev_t)(((major)<<XFS_DEV_BITSMINOR) \
+				    | (minor&XFS_DEV_MAXMIN)))
+
+#define XFS_DEV_TO_KDEVT(dev)	mk_kdev(XFS_DEV_MAJOR(dev),XFS_DEV_MINOR(dev))
+
+
+/* Produce a kernel stack trace */
+
 static inline void xfs_stack_trace(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,20)
 	dump_stack();
-#else
-# if defined(CONFIG_X86) || defined(CONFIG_X86_64)
-	show_stack(0);
-# endif
-#endif
 }
+
 
 /* Move the kernel do_div definition off to one side */
 

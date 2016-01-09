@@ -43,7 +43,7 @@
 
 #define READ_SECTORS 0x02
 #define MBR_SIG_OFFSET 0x1B8
-#define DISK80_SIG_BUFFER 0x228
+#define DISK80_SIG_BUFFER 0x2cc
 
 #ifndef __ASSEMBLY__
 
