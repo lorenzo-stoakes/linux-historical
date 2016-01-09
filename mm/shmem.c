@@ -681,9 +681,9 @@ void shmem_lock(struct file * file, int lock)
 	struct inode * inode = file->f_dentry->d_inode;
 	struct shmem_inode_info * info = SHMEM_I(inode);
 
-	down(&info->sem);
+	spin_lock(&info->lock);
 	info->locked = lock;
-	up(&info->sem);
+	spin_unlock(&info->lock);
 }
 
 static int shmem_mmap(struct file * file, struct vm_area_struct * vma)

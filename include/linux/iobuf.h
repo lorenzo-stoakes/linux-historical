@@ -32,7 +32,6 @@
 
 struct kiobuf 
 {
-	int		rw;		/* mapped for READ or WRITE */
 	int		nr_pages;	/* Pages actually referenced */
 	int		array_len;	/* Space in the allocated lists */
 	int		offset;		/* Offset to start of valid data */

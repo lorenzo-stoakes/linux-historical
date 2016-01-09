@@ -520,7 +520,7 @@ got_block:
 	    in_range (tmp, le32_to_cpu(gdp->bg_inode_table),
 		      EXT2_SB(sb)->s_itb_per_group)) {
 		ext2_error (sb, "ext2_new_block",
-			    "Allocating block in system zone - block = %lu",
+			    "Allocating block in system zone - block = %u",
 			    tmp);
 		ext2_set_bit(j, bh->b_data);
 		DQUOT_FREE_BLOCK(inode, 1);

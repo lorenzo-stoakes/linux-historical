@@ -553,7 +553,6 @@ int map_user_kiobuf(int rw, struct kiobuf *iobuf, unsigned long va, size_t len)
 	if (err)
 		return err;
 
-	iobuf->rw = rw;
 	iobuf->locked = 0;
 	iobuf->offset = va & (PAGE_SIZE-1);
 	iobuf->length = len;
@@ -570,10 +569,11 @@ int map_user_kiobuf(int rw, struct kiobuf *iobuf, unsigned long va, size_t len)
 		return err;
 	}
 	iobuf->nr_pages = err;
-	/* if rw==WRITE, get updated data before writing them to disk */
-	if (rw==WRITE) {
-		while (pgcount--) 
-			flush_dcache_page(iobuf->maplist[pgcount]);
+	while (pgcount--) {
+		/* FIXME: flush superflous for rw==READ,
+		 * probably wrong function for rw==WRITE
+		 */
+		flush_dcache_page(iobuf->maplist[pgcount]);
 	}
 	dprintk ("map_user_kiobuf: end OK\n");
 	return 0;
@@ -628,10 +628,9 @@ void unmap_kiobuf (struct kiobuf *iobuf)
 		if (map) {
 			if (iobuf->locked)
 				UnlockPage(map);
-			/* if rw==READ, flush dcache before user uses data */
-			if (iobuf->rw==READ) {
-				flush_dcache_page(iobuf->maplist[i]);
-			}
+			/* FIXME: cache flush missing for rw==READ
+			 * FIXME: call the correct reference counting function
+			 */
 			page_cache_release(map);
 		}
 	}
