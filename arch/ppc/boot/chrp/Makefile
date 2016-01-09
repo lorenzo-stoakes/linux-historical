@@ -50,13 +50,13 @@ ifdef CONFIG_XMON
 		--set-section-flags=.sysmap=contents,alloc,load,readonly,data
 endif
 
-zImage: $(OBJS) $(LIBS) $(ADDNOTE)
+zImage: $(OBJS) $(LIBS) $(ADDNOTE) ../ld.script
 	$(LD) $(LD_ARGS) -o ../images/$@.chrp $(OBJS) $(LIBS)
 	$(OBJCOPY) ../images/$@.chrp ../images/$@.chrp -R .comment -R .ramdisk
 	cp ../images/$@.chrp ../images/$@.chrp-rs6k
 	$(ADDNOTE) ../images/$@.chrp-rs6k
 
-zImage.initrd: $(OBJS) $(LIBS) $(ADDNOTE) ../images/ramdisk.image.gz
+zImage.initrd: $(OBJS) $(LIBS) $(ADDNOTE) ../images/ramdisk.image.gz ../ld.script
 	$(OBJCOPY) image.o image.o \
 		--add-section=.ramdisk=../images/ramdisk.image.gz \
 		--set-section-flags=.ramdisk=contents,alloc,load,readonly,data

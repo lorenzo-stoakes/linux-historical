@@ -84,7 +84,7 @@ vmlinux.initrd.coff: coffboot.initrd $(HACKCOFF)
 	rm -f coffboot.initrd
 	ln -sf vmlinux.initrd.coff ../images/zImage.initrd.pmac
 
-vmlinux.elf-pmac: $(CHRPOBJS) $(LIBS) $(MKNOTE) image.o
+vmlinux.elf-pmac: $(CHRPOBJS) $(LIBS) $(MKNOTE) image.o ../ld.script
 	$(LD) $(CHRP_LD_ARGS) -o ../images/$@ $(CHRPOBJS) $(LIBS) image.o
 	$(MKNOTE) > note
 	$(OBJCOPY) ../images/$@ ../images/$@ --add-section=.note=note \
@@ -92,7 +92,7 @@ vmlinux.elf-pmac: $(CHRPOBJS) $(LIBS) $(MKNOTE) image.o
 	rm -f note
 
 vmlinux.initrd.elf-pmac: $(CHRPOBJS) $(LIBS) $(MKNOTE) image.o \
-		../images/ramdisk.image.gz
+		../images/ramdisk.image.gz ../ld.script
 	$(OBJCOPY) image.o image-elf.o \
 		--add-section=.ramdisk=../images/ramdisk.image.gz \
 		--set-section-flags=.ramdisk=contents,alloc,load,readonly,data

@@ -33,6 +33,7 @@ tools-$(CONFIG_ALL_PPC)		:= addnote mknote hack-coff mkprep
 tools-$(CONFIG_4xx)		:= mktree
 tools-$(CONFIG_LOPEC)		:= mkbugboot mkprep
 tools-$(CONFIG_PPLUS)		:= mkbugboot mkprep
+tools-$(CONFIG_PRPMC750)	:= mkbugboot mkprep
 tools-$(CONFIG_SPRUCE)		:= mktree
 
 # These are dirs we don't want to go into on BOOT_TARGETS.  We have them for

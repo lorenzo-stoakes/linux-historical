@@ -11372,6 +11372,18 @@ CONFIG_PC300_MLPPP
   Say 'Y' to this option if you are planning to use Multilink PPP over the
   PC300 synchronous communication boards.
 
+CONFIG_PCI200SYN
+  This driver is for PCI200SYN cards made by Goramo sp. j.
+  If you have such a card, say Y or M here and see
+  <http://hq.pm.waw.pl/pub/hdlc/>
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called pci200syn.o.
+
+  If unsure, say N here.
+
 SDL RISCom/N2 support
 CONFIG_N2
   This driver is for RISCom/N2 single or dual channel ISA cards
@@ -11399,25 +11411,6 @@ CONFIG_C101
   will be called c101.o.
 
   If unsure, say N here.
-
-CONFIG_HDLC_DEBUG_PKT
-  This option is for developers only - do NOT use on production
-  systems.
-
-CONFIG_HDLC_DEBUG_HARD_HEADER
-  This option is for developers only - do NOT use on production
-  systems.
-
-CONFIG_HDLC_DEBUG_ECN
-  This option is for developers only - do NOT use on production
-  systems.
-
-CONFIG_HDLC_DEBUG_RINGS
-  If you answer Y here you will be able to get a diagnostic dump of
-  port's TX and RX packet rings, using "sethdlc hdlcX private"
-  command. It does not affect normal operations.
-
-  If unsure, say Y here.
 
 Ethernet (10 or 100Mbit)
 CONFIG_NET_ETHERNET
@@ -19052,9 +19045,9 @@ CONFIG_I2C_ELV
   <file:Documentation/modules.txt>.
   The module will be called i2c-elv.o.
 
-Velleman K9000 adapter
+Velleman K8000 adapter
 CONFIG_I2C_VELLEMAN
-  This supports the Velleman K9000 parallel-port I2C adapter.  Say Y
+  This supports the Velleman K8000 parallel-port I2C adapter.  Say Y
   if you own such an adapter.
 
   This driver is also available as a module.  If you want to compile
@@ -28276,6 +28269,14 @@ CONFIG_SCx200
   This support is also available as a module.  If compiled as a
   module, it will be called scx200.o.
 
+NatSemi SCx200 GPIO support
+CONFIG_SCx200_GPIO
+  Give userspace access to the GPIO pins on the National
+  Semiconductor SCx200 processors.
+
+  This support is also available as a module.  If compiled as a
+  module, it will be called scx200_gpio.o.
+
 NatSemi SCx200 Watchdog
 CONFIG_SCx200_WDT
   Enable the built-in watchdog timer support on the National 
@@ -28427,7 +28428,7 @@ CONFIG_MTD_UCLINUX
   If compiled as a module, it will be called uclinux.o.
 
 NatSemi SCx200 I2C using GPIO pins
-CONFIG_SCx200_GPIO
+CONFIG_SCx200_I2C
   Enable the use of two GPIO pins of a SCx200 processor as an I2C bus.
 
   If you don't know what to do here, say N.

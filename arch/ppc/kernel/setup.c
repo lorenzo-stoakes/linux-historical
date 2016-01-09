@@ -157,7 +157,7 @@ int show_cpuinfo(struct seq_file *m, void *v)
 	lpj = loops_per_jiffy;
 #endif
 
-	seq_printf(m, "processor\t: %lu\n", i);
+	seq_printf(m, "processor\t: %u\n", i);
 	seq_printf(m, "cpu\t\t: ");
 
 	if (cur_cpu_spec[i]->pvr_mask)

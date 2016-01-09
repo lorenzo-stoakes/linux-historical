@@ -69,7 +69,6 @@ static void openpic_mapirq(u_int irq, u_int cpumask, u_int keepmask);
  * These functions are not used but the code is kept here
  * for completeness and future reference.
  */
-static void openpic_reset(void);
 #ifdef notused
 static void openpic_enable_8259_pass_through(void);
 static u_int openpic_get_priority(void);

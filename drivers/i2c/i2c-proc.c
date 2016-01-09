@@ -23,7 +23,6 @@
     This driver puts entries in /proc/sys/dev/sensors for each I2C device
 */
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -63,10 +62,6 @@ static struct ctl_table_header *i2c_entries[SENSORS_ENTRY_MAX];
 
 static struct i2c_client *i2c_clients[SENSORS_ENTRY_MAX];
 static unsigned short i2c_inodes[SENSORS_ENTRY_MAX];
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1)
-static void i2c_fill_inode(struct inode *inode, int fill);
-static void i2c_dir_fill_inode(struct inode *inode, int fill);
-#endif			/* LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1) */
 
 static ctl_table sysctl_table[] = {
 	{CTL_DEV, "dev", NULL, 0, 0555},
@@ -196,12 +191,7 @@ int i2c_register_entry(struct i2c_client *client, const char *prefix,
 #endif				/* DEBUG */
 	i2c_inodes[id - 256] =
 	    new_header->ctl_table->child->child->de->low_ino;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27))
 	new_header->ctl_table->child->child->de->owner = controlling_mod;
-#else
-	new_header->ctl_table->child->child->de->fill_inode =
-	    &i2c_dir_fill_inode;
-#endif	/* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27)) */
 
 	return id;
 }
@@ -863,12 +853,7 @@ int __init sensors_init(void)
 	if (!
 	    (i2c_proc_header =
 	     register_sysctl_table(i2c_proc, 0))) return -ENOMEM;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,1))
 	i2c_proc_header->ctl_table->child->de->owner = THIS_MODULE;
-#else
-	i2c_proc_header->ctl_table->child->de->fill_inode =
-	    &i2c_fill_inode;
-#endif			/* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,1)) */
 	i2c_initialized++;
 	return 0;
 }

@@ -288,7 +288,8 @@ obj-$(CONFIG_PPDEV) += ppdev.o
 obj-$(CONFIG_DZ) += dz.o
 obj-$(CONFIG_NWBUTTON) += nwbutton.o
 obj-$(CONFIG_NWFLASH) += nwflash.o
-obj-$(CONFIG_SCx200_GPIO) += scx200_gpio.o scx200.o
+obj-$(CONFIG_SCx200) += scx200.o
+obj-$(CONFIG_SCx200_GPIO) += scx200_gpio.o
 
 # Only one watchdog can succeed. We probe the hardware watchdog
 # drivers first, then the softdog driver.  This means if your hardware
@@ -320,6 +321,7 @@ obj-$(CONFIG_WAFER_WDT) += wafer5823wdt.o
 obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
 obj-$(CONFIG_AMD7XX_TCO) += amd7xx_tco.o
 obj-$(CONFIG_INDYDOG) += indydog.o
+obj-$(CONFIG_8xx_WDT) += mpc8xx_wdt.o
 
 subdir-$(CONFIG_MWAVE) += mwave
 ifeq ($(CONFIG_MWAVE),y)
