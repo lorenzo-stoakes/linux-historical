@@ -322,8 +322,8 @@ ia32_sys_call_table:
 	.quad stub32_vfork            /* 190 */
 	.quad sys32_getrlimit
 	.quad sys32_mmap2
-	.quad sys_truncate
-	.quad sys_ftruncate
+	.quad sys32_truncate64
+	.quad sys32_ftruncate64
 	.quad sys32_stat64		/* 195 */
 	.quad sys32_lstat64
 	.quad sys32_fstat64

@@ -174,6 +174,19 @@ sys32_newfstat(unsigned int fd, struct stat32 *statbuf)
 	return putstat(statbuf, &s);
 }
 
+asmlinkage long
+sys32_truncate64(char * filename, unsigned long offset_low, unsigned long offset_high)
+{
+       return sys_truncate(filename, ((loff_t) offset_high << 32) | offset_low);
+}
+
+
+asmlinkage long
+sys32_ftruncate64(unsigned int fd, unsigned long offset_low, unsigned long offset_high)
+{
+       return sys_ftruncate(fd, ((loff_t) offset_high << 32) | offset_low);
+}
+
 /* Another set for IA32/LFS -- x86_64 struct stat is different due to 
    support for 64bit inode numbers. */
 
