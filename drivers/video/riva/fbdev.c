@@ -1912,6 +1912,26 @@ static int __devinit rivafb_init_one(struct pci_dev *pd,
 
 	rinfo->riva.IO = (MISCin(rinfo) & 0x01) ? 0x3D0 : 0x3B0;
 
+	if (rinfo->riva.Architecture == NV_ARCH_03) {
+		/*
+		 * We have to map the full BASE_1 aperture for Riva128's
+		 * because they use the PRAMIN set in "framebuffer" space
+		 */
+		if (!request_mem_region(rinfo->fb_base_phys,
+					rinfo->base1_region_size, "rivafb")) {
+			printk(KERN_ERR PFX "cannot reserve FB region\n");
+			goto err_out_free_base0;
+		}
+	
+		rinfo->fb_base = ioremap(rinfo->fb_base_phys,
+					 rinfo->base1_region_size);
+		if (!rinfo->fb_base) {
+			printk(KERN_ERR PFX "cannot ioremap FB base\n");
+			goto err_out_iounmap_ctrl;
+		}
+	}
+
+
 	switch (rinfo->riva.Architecture) {
 	case NV_ARCH_03:
 		rinfo->riva.PRAMIN = (unsigned *)(rinfo->fb_base + 0x00C00000);
@@ -1929,17 +1949,23 @@ static int __devinit rivafb_init_one(struct pci_dev *pd,
 	rinfo->ram_amount = rinfo->riva.RamAmountKBytes * 1024;
 	rinfo->dclk_max = rinfo->riva.MaxVClockFreqKHz * 1000;
 
-	if (!request_mem_region(rinfo->fb_base_phys,
-				rinfo->ram_amount, "rivafb")) {
-		printk(KERN_ERR PFX "cannot reserve FB region\n");
-		goto err_out_free_base0;
-	}
+	if (rinfo->riva.Architecture != NV_ARCH_03) {
+		/*
+		 * Now the _normal_ chipsets can just map the amount of
+		 * real physical ram instead of the whole aperture
+		 */
+		if (!request_mem_region(rinfo->fb_base_phys,
+					rinfo->ram_amount, "rivafb")) {
+			printk(KERN_ERR PFX "cannot reserve FB region\n");
+			goto err_out_free_base0;
+		}
 	
-	rinfo->fb_base = ioremap(rinfo->fb_base_phys,
-				 rinfo->ram_amount);
-	if (!rinfo->fb_base) {
-		printk(KERN_ERR PFX "cannot ioremap FB base\n");
-		goto err_out_iounmap_ctrl;
+		rinfo->fb_base = ioremap(rinfo->fb_base_phys,
+					 rinfo->ram_amount);
+		if (!rinfo->fb_base) {
+			printk(KERN_ERR PFX "cannot ioremap FB base\n");
+			goto err_out_iounmap_ctrl;
+		}
 	}
 
 #ifdef CONFIG_MTRR

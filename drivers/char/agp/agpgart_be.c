@@ -1093,7 +1093,8 @@ static struct _intel_i830_private {
 	int gtt_entries;
 } intel_i830_private;
 
-static void intel_i830_init_gtt_entries(void) {
+static void intel_i830_init_gtt_entries(void)
+{
 	u16 gmch_ctrl;
 	int gtt_entries;
 	u8 rdct;
@@ -1103,15 +1104,15 @@ static void intel_i830_init_gtt_entries(void) {
 
 	switch (gmch_ctrl & I830_GMCH_GMS_MASK) {
 	case I830_GMCH_GMS_STOLEN_512:
-		gtt_entries = KB(512);
+		gtt_entries = KB(512) - KB(132);
 		printk(KERN_INFO PFX "detected %dK stolen memory.\n",gtt_entries / KB(1));
 		break;
 	case I830_GMCH_GMS_STOLEN_1024:
-		gtt_entries = MB(1);
+		gtt_entries = MB(1) - KB(132);
 		printk(KERN_INFO PFX "detected %dK stolen memory.\n",gtt_entries / KB(1));
 		break;
 	case I830_GMCH_GMS_STOLEN_8192:
-		gtt_entries = MB(8);
+		gtt_entries = MB(8) - KB(132);
 		printk(KERN_INFO PFX "detected %dK stolen memory.\n",gtt_entries / KB(1));
 		break;
 	case I830_GMCH_GMS_LOCAL:
@@ -1490,6 +1491,44 @@ static int intel_configure(void)
 	return 0;
 }
 
+static int intel_815_configure(void)
+{
+	u32 temp, addr;
+	u8 temp2;
+	aper_size_info_8 *current_size;
+
+	current_size = A_SIZE_8(agp_bridge.current_size);
+
+	/* aperture size */
+	pci_write_config_byte(agp_bridge.dev, INTEL_APSIZE,
+			      current_size->size_value); 
+
+	/* address to map to */
+	pci_read_config_dword(agp_bridge.dev, INTEL_APBASE, &temp);
+	agp_bridge.gart_bus_addr = (temp & PCI_BASE_ADDRESS_MEM_MASK);
+
+	/* attbase - aperture base */
+        /* the Intel 815 chipset spec. says that bits 29-31 in the
+         * ATTBASE register are reserved -> try not to write them */
+        if (agp_bridge.gatt_bus_addr &  INTEL_815_ATTBASE_MASK)
+		panic("gatt bus addr too high");
+	pci_read_config_dword(agp_bridge.dev, INTEL_ATTBASE, &addr);
+	addr &= INTEL_815_ATTBASE_MASK;
+	addr |= agp_bridge.gatt_bus_addr;
+	pci_write_config_dword(agp_bridge.dev, INTEL_ATTBASE, addr);
+
+	/* agpctrl */
+	pci_write_config_dword(agp_bridge.dev, INTEL_AGPCTRL, 0x0000); 
+
+	/* apcont */
+	pci_read_config_byte(agp_bridge.dev, INTEL_815_APCONT, &temp2);
+	pci_write_config_byte(agp_bridge.dev, INTEL_815_APCONT,
+			      temp2 | (1 << 1));
+	/* clear any possible error conditions */
+        /* Oddness : this chipset seems to have no ERRSTS register ! */
+	return 0;
+}
+
 static void intel_820_tlbflush(agp_memory * mem)
 {
   return;
@@ -1724,6 +1763,12 @@ static gatt_mask intel_generic_masks[] =
 	{0x00000017, 0}
 };
 
+static aper_size_info_8 intel_815_sizes[2] =
+{
+	{64, 16384, 4, 0},
+	{32, 8192, 3, 8},
+};
+
 static aper_size_info_8 intel_8xx_sizes[7] =
 {
 	{256, 65536, 6, 0},
@@ -1787,7 +1832,38 @@ static int __init intel_generic_setup (struct pci_dev *pdev)
 	(void) pdev; /* unused */
 }
 
+static int __init intel_815_setup (struct pci_dev *pdev)
+{
+	agp_bridge.masks = intel_generic_masks;
+	agp_bridge.num_of_masks = 1;
+	agp_bridge.aperture_sizes = (void *) intel_815_sizes;
+	agp_bridge.size_type = U8_APER_SIZE;
+	agp_bridge.num_aperture_sizes = 2;
+	agp_bridge.dev_private_data = NULL;
+	agp_bridge.needs_scratch_page = FALSE;
+	agp_bridge.configure = intel_815_configure;
+	agp_bridge.fetch_size = intel_8xx_fetch_size;
+	agp_bridge.cleanup = intel_8xx_cleanup;
+	agp_bridge.tlb_flush = intel_8xx_tlbflush;
+	agp_bridge.mask_memory = intel_mask_memory;
+	agp_bridge.agp_enable = agp_generic_agp_enable;
+	agp_bridge.cache_flush = global_cache_flush;
+	agp_bridge.create_gatt_table = agp_generic_create_gatt_table;
+	agp_bridge.free_gatt_table = agp_generic_free_gatt_table;
+	agp_bridge.insert_memory = agp_generic_insert_memory;
+	agp_bridge.remove_memory = agp_generic_remove_memory;
+	agp_bridge.alloc_by_type = agp_generic_alloc_by_type;
+	agp_bridge.free_by_type = agp_generic_free_by_type;
+	agp_bridge.agp_alloc_page = agp_generic_alloc_page;
+	agp_bridge.agp_destroy_page = agp_generic_destroy_page;
+	agp_bridge.suspend = agp_generic_suspend;
+	agp_bridge.resume = agp_generic_resume;
+	agp_bridge.cant_use_aperture = 0;
 
+	return 0;
+	
+	(void) pdev; /* unused */
+}
 
 static int __init intel_820_setup (struct pci_dev *pdev)
 {
@@ -3929,7 +4005,7 @@ static struct {
 		INTEL_I815,
 		"Intel",
 		"i815",
-		intel_generic_setup },
+		intel_815_setup },
 	{ PCI_DEVICE_ID_INTEL_820_0,
 		PCI_VENDOR_ID_INTEL,
 		INTEL_I820,

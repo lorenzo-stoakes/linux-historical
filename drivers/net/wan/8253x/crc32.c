@@ -25,8 +25,8 @@
 /*		    header files		    */
 /****************************************************/
 
-#include <crc32dcl.h>
-#include <endian.h>
+#include "crc32dcl.h"
+#include "endian.h"
 
 /****************************************************/
 /*		    constants			    */

@@ -1,5 +1,5 @@
 /*
- *  linux/include/asm-ia64/hcdp_serial.h
+ *  linux/include/linux/hcdp_serial.h
  *
  *  Copyright (C) 2002  Hewlett-Packard Co.
  *  Copyright (C) 2002  Khalid Aziz <khalid_aziz@hp.com>
@@ -8,8 +8,8 @@
  *  debug ports)
  *
  */
-#ifndef _ASM_IA64_HCDP_SERIAL_H
-#define _ASM_IA64_HCDP_SERIAL_H
+#ifndef _LINUX_HCDP_SERIAL_H
+#define _LINUX_HCDP_SERIAL_H
 
 /* ACPI table signatures */
 #define HCDP_SIG_LEN		4
@@ -81,4 +81,4 @@ typedef struct {
 	hcdp_dev_t	hcdp_dev[MAX_HCDP_DEVICES];
 } hcdp_t;
 
-#endif	/* _ASM_IA64_HCDP_SERIAL_H */
+#endif	/* _LINUX_HCDP_SERIAL_H */

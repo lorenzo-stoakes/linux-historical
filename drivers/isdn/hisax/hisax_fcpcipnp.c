@@ -32,6 +32,9 @@
 #include <linux/slab.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
+
+#include <asm/io.h>
+
 #include "hisax_fcpcipnp.h"
 
 // debugging cruft

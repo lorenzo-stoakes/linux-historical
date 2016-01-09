@@ -4187,6 +4187,7 @@ dasd_init (void)
 		goto failed;
 	}
 	genhd_dasd_name = dasd_device_name;
+	genhd_dasd_ioctl = dasd_ioctl;
 
 	if (dasd_autodetect) {	/* update device range to all devices */
 		for (irq = get_irq_first (); irq != -ENODEV;
@@ -4309,7 +4310,9 @@ cleanup_dasd (void)
 	printk (KERN_INFO PRINTK_HEADER
 		"De-Registered ECKD discipline successfully\n");
 #endif /* CONFIG_DASD_ECKD_BUILTIN */
-        
+
+	genhd_dasd_name = NULL;
+	genhd_dasd_ioctl = NULL;
 	dasd_proc_cleanup ();
         
 	list_for_each_safe (l, n, &dasd_major_info[0].list) {

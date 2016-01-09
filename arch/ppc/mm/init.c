@@ -619,6 +619,7 @@ void flush_icache_page(struct vm_area_struct *vma, struct page *page)
 void clear_user_page(void *page, unsigned long vaddr)
 {
 	clear_page(page);
+	__flush_dcache_icache(page);
 }
 
 void copy_user_page(void *vto, void *vfrom, unsigned long vaddr)

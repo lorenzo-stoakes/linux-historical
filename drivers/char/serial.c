@@ -424,10 +424,6 @@ static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 	case SERIAL_IO_MEM:
 		return readb((unsigned long) info->iomem_base +
 			     (offset<<info->iomem_reg_shift));
-#ifdef CONFIG_SERIAL_GSC
-	case SERIAL_IO_GSC:
-		return gsc_readb(info->iomem_base + offset);
-#endif
 	default:
 		return inb(info->port + offset);
 	}
@@ -447,11 +443,6 @@ static _INLINE_ void serial_out(struct async_struct *info, int offset,
 		writeb(value, (unsigned long) info->iomem_base +
 			      (offset<<info->iomem_reg_shift));
 		break;
-#ifdef CONFIG_SERIAL_GSC
-	case SERIAL_IO_GSC:
-		gsc_writeb(value, info->iomem_base + offset);
-		break;
-#endif
 	default:
 		outb(value, info->port+offset);
 	}
@@ -2145,6 +2136,7 @@ static int set_serial_info(struct async_struct * info,
 	if (new_serial.type) {
 		for (i = 0 ; i < NR_PORTS; i++)
 			if ((state != &rs_table[i]) &&
+			    (rs_table[i].io_type == SERIAL_IO_PORT) &&
 			    (rs_table[i].port == new_port) &&
 			    rs_table[i].type)
 				return -EADDRINUSE;
@@ -2207,7 +2199,7 @@ static int set_serial_info(struct async_struct * info,
 
 	
 check_and_exit:
-	if (!state->port || !state->type)
+	if ((!state->port && !state->iomem_base) || !state->type)
 		return 0;
 	if (info->flags & ASYNC_INITIALIZED) {
 		if (((old_state.flags & ASYNC_SPD_MASK) !=
@@ -3927,6 +3919,25 @@ static _INLINE_ int get_pci_port(struct pci_dev *dev,
 		
 	}
   
+	/* HP's Diva chip puts the 4th/5th serial port further out, and
+	 * some serial ports are supposed to be hidden on certain models.
+	 */
+	if (dev->vendor == PCI_VENDOR_ID_HP &&
+			dev->device == PCI_DEVICE_ID_HP_SAS) {
+		switch (dev->subsystem_device) {
+		case 0x104B: /* Maestro */
+			if (idx == 3) idx++;
+			break;
+		case 0x1282: /* Everest / Longs Peak */
+			if (idx > 0) idx++;
+			if (idx > 2) idx++;
+			break;
+		}
+		if (idx > 2) {
+			offset = 0x18;
+		}
+	}
+
 	port =  pci_resource_start(dev, base_idx) + offset;
 
 	if ((board->flags & SPCI_FL_BASE_TABLE) == 0)
@@ -4234,6 +4245,40 @@ pci_timedia_fn(struct pci_dev *dev, struct pci_board *board, int enable)
 	return 0;
 }
 
+/*
+ * HP's Remote Management Console.  The Diva chip came in several
+ * different versions.  N-class, L2000 and A500 have two Diva chips, each
+ * with 3 UARTs (the third UART on the second chip is unused).  Superdome
+ * and Keystone have one Diva chip with 3 UARTs.  Some later machines have
+ * one Diva chip, but it has been expanded to 5 UARTs.
+ */
+static int __devinit
+pci_hp_diva(struct pci_dev *dev, struct pci_board *board, int enable)
+{
+	if (!enable)
+		return 0;
+
+	switch (dev->subsystem_device) {
+	case 0x1049: /* Prelude Diva 1 */
+	case 0x1223: /* Superdome */
+	case 0x1226: /* Keystone */
+	case 0x1282: /* Everest / Longs Peak */
+		board->num_ports = 3;
+		break;
+	case 0x104A: /* Prelude Diva 2 */
+		board->num_ports = 2;
+		break;
+	case 0x104B: /* Maestro */
+		board->num_ports = 4;
+		break;
+	case 0x1227: /* Powerbar */
+		board->num_ports = 1;
+		break;
+	}
+
+	return 0;
+}
+
 static int __devinit
 pci_xircom_fn(struct pci_dev *dev, struct pci_board *board, int enable)
 {
@@ -4278,6 +4323,7 @@ enum pci_board_num_t {
 	pbn_b1_4_1382400,
 	pbn_b1_8_1382400,
 
+	pbn_b2_1_115200,
 	pbn_b2_8_115200,
 	pbn_b2_4_460800,
 	pbn_b2_8_460800,
@@ -4298,6 +4344,7 @@ enum pci_board_num_t {
 	pbn_timedia,
 	pbn_intel_i960,
 	pbn_sgi_ioc3,
+	pbn_hp_diva,
 #ifdef CONFIG_DDB5074
 	pbn_nec_nile4,
 #endif
@@ -4357,6 +4404,7 @@ static struct pci_board pci_boards[] __devinitdata = {
 	{ SPCI_FL_BASE1, 4, 1382400 },		/* pbn_b1_4_1382400 */
 	{ SPCI_FL_BASE1, 8, 1382400 },		/* pbn_b1_8_1382400 */
 
+	{ SPCI_FL_BASE2, 1, 115200 },		/* pbn_b2_1_115200 */
 	{ SPCI_FL_BASE2, 8, 115200 },		/* pbn_b2_8_115200 */
 	{ SPCI_FL_BASE2, 4, 460800 },		/* pbn_b2_4_460800 */
 	{ SPCI_FL_BASE2, 8, 460800 },		/* pbn_b2_8_460800 */
@@ -4387,6 +4435,7 @@ static struct pci_board pci_boards[] __devinitdata = {
 		8<<2, 2, pci_inteli960ni_fn, 0x10000},
 	{ SPCI_FL_BASE0 | SPCI_FL_IRQRESOURCE,		   /* pbn_sgi_ioc3 */
 		1, 458333, 0, 0, 0, 0x20178 },
+	{ SPCI_FL_BASE0, 5, 115200, 8, 0, pci_hp_diva, 0},   /* pbn_hp_diva */
 #ifdef CONFIG_DDB5074
 	/*
 	 * NEC Vrc-5074 (Nile 4) builtin UART.
@@ -4839,6 +4888,14 @@ static struct pci_device_id serial_pci_tbl[] __devinitdata = {
 	{	PCI_VENDOR_ID_SGI, PCI_DEVICE_ID_SGI_IOC3,
 		0xFF00, 0, 0, 0,
 		pbn_sgi_ioc3 },
+
+	/* HP Diva card */
+	{	PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_SAS,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_hp_diva },
+	{	PCI_VENDOR_ID_HP, 0x1290,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_b2_1_115200 },
 
 #ifdef CONFIG_DDB5074
 	/*
@@ -5462,7 +5519,7 @@ static int __init rs_init(void)
 		    && (state->port != 0 || state->iomem_base != 0))
 			state->irq = detect_uart_irq(state);
 		if (state->io_type == SERIAL_IO_MEM) {
-			printk(KERN_INFO"ttyS%02d%s at 0x%px (irq = %d) is a %s\n",
+			printk(KERN_INFO"ttyS%02d%s at 0x%p (irq = %d) is a %s\n",
 	 		       state->line + SERIAL_DEV_OFFSET,
 			       (state->flags & ASYNC_FOURPORT) ? " FourPort" : "",
 			       state->iomem_base, state->irq,

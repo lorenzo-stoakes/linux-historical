@@ -5805,7 +5805,14 @@
 	244a  82801BAM IDE U100
 	244b  82801BA IDE U100
 	244c  82801BAM ISA Bridge (LPC)
-	244e  82801BA/CA PCI Bridge
+	244e  82801BA/CA/DB PCI Bridge
+	2450  82801E ISA Bridge (LPC)
+	2452  82801E USB
+	2453  82801E SMBus
+	2459  82801E Ethernet Controller 0
+	245b  82801E IDE U100
+	245d  82801E Ethernet Controller 1
+	245e  82801E PCI Bridge
 	2480  82801CA ISA Bridge (LPC)
 	2482  82801CA/CAM USB (Hub #1)
 	2483  82801CA/CAM SMBus
@@ -5816,6 +5823,15 @@
 	248a  82801CAM IDE U100
 	248b  82801CA IDE U100
 	248c  82801CAM ISA Bridge (LPC)
+	24c0  82801DB ISA Bridge (LPC)
+	24c2  82801DB USB (Hub #1)
+	24c3  82801DB SMBus
+	24c4  82801DB USB (Hub #2)
+	24c5  82801DB AC'97 Audio
+	24c6  82801DB AC'97 Modem
+	24c7  82801DB USB (Hub #3)
+	24cb  82801DB IDE U100
+	24cd  82801DB USB EHCI Controller
 	2500  82820 820 (Camino) Chipset Host Bridge (MCH)
 		1043 801c  P3C-2000 system chipset
 	2501  82820 820 (Camino) Chipset Host Bridge (MCH)
@@ -5829,14 +5845,14 @@
 	2532  82850 850 (Tehama) Chipset AGP Bridge
 	2533  82860 860 (Wombat) Chipset AGP Bridge
 	2534  82860 860 (Wombat) Chipset PCI Bridge
-	2540  e7500 DRAM Controller
-	2541  e7500 DRAM Controller Error Reporting
-	2543  e7500 HI_B Virtual PCI-to-PCI Bridge (F0)
-	2544  e7500 HI_B Virtual PCI-to-PCI Bridge (F1)
-	2545  e7500 HI_C Virtual PCI-to-PCI Bridge (F0)
-	2546  e7500 HI_C Virtual PCI-to-PCI Bridge (F1)
-	2547  e7500 HI_D Virtual PCI-to-PCI Bridge (F0)
-	2548  e7500 HI_D Virtual PCI-to-PCI Bridge (F1)
+	2540  e7500 (Plumas) DRAM Controller
+	2541  e7500 (Plumas) DRAM Controller Error Reporting
+	2543  e7500 (Plumas) HI_B Virtual PCI-to-PCI Bridge (F0)
+	2544  e7500 (Plumas) HI_B Virtual PCI-to-PCI Bridge (F1)
+	2545  e7500 (Plumas) HI_C Virtual PCI-to-PCI Bridge (F0)
+	2546  e7500 (Plumas) HI_C Virtual PCI-to-PCI Bridge (F1)
+	2547  e7500 (Plumas) HI_D Virtual PCI-to-PCI Bridge (F0)
+	2548  e7500 (Plumas) HI_D Virtual PCI-to-PCI Bridge (F1)
 	3092  Integrated RAID
 	3575  82830 830 Chipset Host Bridge
 	3576  82830 830 Chipset AGP Bridge

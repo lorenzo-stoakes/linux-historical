@@ -551,7 +551,7 @@ static void start_adc(struct au1000_state *s)
 #define DMABUF_DEFAULTORDER (17-PAGE_SHIFT)
 #define DMABUF_MINORDER 1
 
-extern inline void dealloc_dmabuf(struct au1000_state *s, struct dmabuf *db)
+static inline void dealloc_dmabuf(struct au1000_state *s, struct dmabuf *db)
 {
 	struct page    *page, *pend;
 
@@ -653,14 +653,14 @@ static int prog_dmabuf(struct au1000_state *s, struct dmabuf *db)
 	return 0;
 }
 
-extern inline int prog_dmabuf_adc(struct au1000_state *s)
+static inline int prog_dmabuf_adc(struct au1000_state *s)
 {
 	stop_adc(s);
 	return prog_dmabuf(s, &s->dma_adc);
 
 }
 
-extern inline int prog_dmabuf_dac(struct au1000_state *s)
+static inline int prog_dmabuf_dac(struct au1000_state *s)
 {
 	stop_dac(s);
 	return prog_dmabuf(s, &s->dma_dac);

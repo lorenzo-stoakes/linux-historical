@@ -92,7 +92,7 @@
 */
 
 #define DRV_NAME	"8139too"
-#define DRV_VERSION	"0.9.24"
+#define DRV_VERSION	"0.9.25"
 
 
 #include <linux/config.h>
@@ -1008,6 +1008,7 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
 	} else
 #endif
 		tp->phys[0] = 32;
+	tp->mii.phy_id = tp->phys[0];
 
 	/* The lower four bits are the media type. */
 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
@@ -2430,7 +2431,7 @@ static void __set_rx_mode (struct net_device *dev)
 		     i++, mclist = mclist->next) {
 			int bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
 
-			mc_filter[bit_nr >> 5] |= cpu_to_le32(1 << (bit_nr & 31));
+			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 			rx_mode |= AcceptMulticast;
 		}
 	}

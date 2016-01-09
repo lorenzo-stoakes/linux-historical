@@ -12,7 +12,7 @@ if [ "$CONFIG_PCI" = "y" -a "$CONFIG_EXPERIMENTAL" = "y" ]; then
 	dep_tristate '  Texas Instruments PCILynx support' CONFIG_IEEE1394_PCILYNX $CONFIG_IEEE1394
 	if [ "$CONFIG_IEEE1394_PCILYNX" != "n" ]; then
 	    bool '    Use PCILynx local RAM' CONFIG_IEEE1394_PCILYNX_LOCALRAM
-	    bool '    Support for non-IEEE1394 local ports' CONFIG_IEEE1394_PCILYNX_PORTS
+#	    bool '    Support for non-IEEE1394 local ports' CONFIG_IEEE1394_PCILYNX_PORTS
 	fi
 	dep_tristate '  OHCI-1394 support' CONFIG_IEEE1394_OHCI1394 $CONFIG_IEEE1394
 

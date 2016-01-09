@@ -1,5 +1,5 @@
 /*
- *  linux/arch/ia64/kernel/hcdp_serial.c
+ *  linux/drivers/char/hcdp_serial.c
  *
  *  Copyright (C) 2002  Hewlett-Packard Co.
  *  Copyright (C) 2002  Khalid Aziz <khalid_aziz@hp.com>

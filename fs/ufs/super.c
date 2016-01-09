@@ -662,12 +662,12 @@ magic_found:
 			uspi->s_fsize);
 		goto failed;
 	}
-	if (uspi->s_bsize < 512) {
+	if (uspi->s_fsize < 512) {
 		printk(KERN_ERR "ufs_read_super: fragment size %u is too small\n",
 			uspi->s_fsize);
 		goto failed;
 	}
-	if (uspi->s_bsize > 4096) {
+	if (uspi->s_fsize > 4096) {
 		printk(KERN_ERR "ufs_read_super: fragment size %u is too large\n",
 			uspi->s_fsize);
 		goto failed;
@@ -679,7 +679,7 @@ magic_found:
 	}
 	if (uspi->s_bsize < 4096) {
 		printk(KERN_ERR "ufs_read_super: block size %u is too small\n",
-			uspi->s_fsize);
+			uspi->s_bsize);
 		goto failed;
 	}
 	if (uspi->s_bsize / uspi->s_fsize > 8) {

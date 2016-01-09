@@ -1694,7 +1694,7 @@ static int __devinit sst_init(struct sstfb_info *sst_info)
 	return 1;
 }
 
-static void  __exit sst_shutdown(struct sstfb_info *sst_info)
+static void  __devexit sst_shutdown(struct sstfb_info *sst_info)
 {
 	struct pci_dev * sst_dev = sst_info->dev;
 	struct pll_timing gfx_timings;

@@ -89,8 +89,8 @@ static void dump_mii(struct net_device *dev, int phy_id);
 // externs
 extern  void ack_rise_edge_irq(unsigned int);
 extern int get_ethernet_addr(char *ethernet_addr);
-extern inline void str2eaddr(unsigned char *ea, unsigned char *str);
-extern inline unsigned char str2hexnum(unsigned char c);
+static inline void str2eaddr(unsigned char *ea, unsigned char *str);
+static inline unsigned char str2hexnum(unsigned char c);
 extern char * __init prom_getcmdline(void);
 
 /*

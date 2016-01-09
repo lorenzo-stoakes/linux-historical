@@ -105,6 +105,8 @@ typedef struct bonding {
 #endif /* CONFIG_PROC_FS */
 	struct bonding *next_bond;
 	struct net_device *device;
+	struct dev_mc_list *mc_list;
+	unsigned short flags;
 } bonding_t;
 #endif /* __KERNEL__ */
 

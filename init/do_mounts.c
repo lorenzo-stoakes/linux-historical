@@ -378,6 +378,7 @@ static int __init create_dev(char *name, kdev_t dev, char *devfs_name)
 	return sys_symlink(path + n + 5, name);
 }
 
+#if defined(CONFIG_BLOCK_DEV_RAM) || defined(CONFIG_BLK_DEV_FD)
 static void __init change_floppy(char *fmt, ...)
 {
 	struct termios termios;
@@ -405,6 +406,7 @@ static void __init change_floppy(char *fmt, ...)
 		close(fd);
 	}
 }
+#endif
 
 #ifdef CONFIG_BLK_DEV_RAM
 

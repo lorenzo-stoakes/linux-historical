@@ -1678,6 +1678,7 @@ S: USA
 N: Denis O. Kropp
 E: dok@directfb.org
 D: NeoMagic framebuffer driver
+D: CyberPro 32 bit support, fixes
 S: Badensche Str. 46
 S: 10715 Berlin
 S: Germany
@@ -2769,6 +2770,10 @@ S: USA
 N: Christopher Smith
 E: x@xman.org
 D: Tulip net driver hacker
+
+N: Mark Smith
+E: mark.smith@comdev.cc
+D: Multicast support in bonding driver
 
 N: Miquel van Smoorenburg
 E: miquels@cistron.nl

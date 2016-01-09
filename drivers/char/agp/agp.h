@@ -293,6 +293,10 @@ struct agp_bridge_data {
 /* This one is for I830MP w. an external graphic card */
 #define INTEL_I830_ERRSTS          0x92
 
+/* intel 815 register */
+#define INTEL_815_APCONT        0x51
+#define INTEL_815_ATTBASE_MASK  ~0x1FFFFFFF
+
 /* intel i820 registers */
 #define INTEL_I820_RDCR     0x51
 #define INTEL_I820_ERRSTS   0xc8

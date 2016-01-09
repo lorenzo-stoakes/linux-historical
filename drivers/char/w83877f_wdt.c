@@ -215,7 +215,7 @@ static int fop_open(struct inode * inode, struct file * file)
 		case WATCHDOG_MINOR:
 			/* Just in case we're already talking to someone... */
 			if(test_and_set_bit(0, &wdt_is_open)) {
-				spin_unlock(&wdt_is_open);
+				spin_unlock(&wdt_spinlock);
 				return -EBUSY;
 			}
 			/* Good, fire up the show */

@@ -3,22 +3,16 @@
  *
  * Copyright 2001,2002 - Jani Monoses   <jani@iv.ro>
  *
- * $Id: trident.c,v 1.72 2002/05/04 14:49:28 jani Exp $
  *
  * CREDITS:(in order of appearance)
  * 	skeletonfb.c by Geert Uytterhoeven and other fb code in drivers/video
  * 	Special thanks ;) to Mattia Crivellini <tia@mclink.it>
- * 	much inspired by the XFree86 4.1.0 Trident driver sources by Alan Hourihane
+ * 	much inspired by the XFree86 4.x Trident driver sources by Alan Hourihane
  * 	the FreeVGA project
  *	Francesco Salvestrini <salvestrini@users.sf.net> XP support,code,suggestions
- * NOTES:
- * 	Tested on Compaq Presario 12XL300 with CyberBladei1
- * 	Tested on Toshiba 1800-514 with CyberBladeXPAi1
- * 	No monitors were harmed during the writing of this driver
  * TODO:
  * 	timing value tweaking so it looks good on every monitor in every mode
- * 	test text acceleration for the Image series
- *	test DPMS stuff
+ *	TGUI acceleration	
  */
 
 #include <linux/config.h>
@@ -35,7 +29,7 @@
 
 #include "tridentfb.h"
 
-#define VERSION		"0.7.2"
+#define VERSION		"0.7.5"
 
 struct tridentfb_par {
 	struct fb_var_screeninfo var;
@@ -83,7 +77,7 @@ static struct fb_var_screeninfo default_var;
 
 static char * tridentfb_name = "Trident";
 
-static int pci_id;
+static int chip_id;
 
 static int defaultaccel;
 static int displaytype;
@@ -97,7 +91,6 @@ static char * mode = "640x480";
 static int bpp = 8;
 
 static int noaccel;
-static int accel;
 
 static int center;
 static int stretch;
@@ -115,14 +108,25 @@ MODULE_PARM(bpp,"i");
 MODULE_PARM(center,"i");
 MODULE_PARM(stretch,"i");
 MODULE_PARM(noaccel,"i");
-MODULE_PARM(accel,"i");
 MODULE_PARM(memsize,"i");
 MODULE_PARM(memdiff,"i");
 MODULE_PARM(nativex,"i");
 MODULE_PARM(fp,"i");
 MODULE_PARM(crt,"i");
 
-
+static int chip3D;
+int is3Dchip(int id)
+{
+	return 	((id == BLADE3D) || (id == CYBERBLADEE4) ||
+		 (id == CYBERBLADEi7) || (id == CYBERBLADEi7D) ||
+		 (id == CYBER9397) || (id == CYBER9397DVD) ||
+		 (id == CYBER9520) || (id == CYBER9525DVD) ||
+		 (id == IMAGE975) || (id == IMAGE985) ||
+		 (id == CYBERBLADEi1) || (id == CYBERBLADEi1D) ||
+		 (id ==	CYBERBLADEAi1) || (id == CYBERBLADEAi1D) ||
+		 (id ==	CYBERBLADEXPm8) || (id == CYBERBLADEXPm16) ||
+		 (id ==	CYBERBLADEXPAi1));
+}
 
 #define CRT 0x3D0		//CRTC registers offset for color display
 
@@ -324,7 +328,7 @@ static void xp_copy_rect(int x1,int y1,int x2,int y2,int w,int h)
 	int x1_tmp, x2_tmp, y1_tmp, y2_tmp;
 
 	direction = 0x0004;
-
+	
 	if ((x1 < x2) && (y1 == y2)) {
 		direction |= 0x0200;
 		x1_tmp = x1 + w - 1;
@@ -333,7 +337,7 @@ static void xp_copy_rect(int x1,int y1,int x2,int y2,int w,int h)
 		x1_tmp = x1;
 		x2_tmp = x2;
 	}
-
+  
 	if (y1 < y2) {
 		direction |= 0x0100;
 		y1_tmp = y1 + h - 1;
@@ -343,7 +347,7 @@ static void xp_copy_rect(int x1,int y1,int x2,int y2,int w,int h)
 		y2_tmp = y2;
 	}
 
-	writemmr(0x2128,direction);
+	writemmr(0x2128,direction);	
 	t_outb(ROP_S,0x2127);
 	writemmr(0x213C,masked_point(y1_tmp,x1_tmp));
 	writemmr(0x2138,masked_point(y2_tmp,x2_tmp));
@@ -581,11 +585,30 @@ static inline void write3CE(int reg, unsigned char val)
 	t_outb(val, 0x3CF);
 }
 
-#define unprotect_all()	write3C4(Protection, 0x92);unprotect()
-#define unprotect()	write3C4(NewMode1,0xC2)
 #define bios_reg(reg) 	write3CE(BiosReg, reg)
-#define enable_mmio()	outb(PCIReg, 0x3D4); \
-			outb(inb(0x3D5) | 0x01, 0x3D5)
+#if 0
+static inline void unprotect_all(void)
+{
+	outb(Protection, 0x3C4);
+	outb(0x92, 0x3C5);
+}
+#endif
+static inline void enable_mmio(void)
+{
+	/* Goto New Mode */
+	outb(0x0B, 0x3C4);
+	inb(0x3C5);
+
+	/* Unprotect registers */
+	outb(NewMode1, 0x3C4);
+	outb(0x80, 0x3C5);
+  
+	/* Enable MMIO */
+	outb(PCIReg, 0x3D4); 
+	outb(inb(0x3D5) | 0x01, 0x3D5);
+}
+
+
 #define crtc_unlock()	write3X4(CRTVSyncEnd, read3X4(CRTVSyncEnd) & 0x7F)
 
 /*  Return flat panel's maximum x resolution */
@@ -598,15 +621,13 @@ static int __init get_nativex(void)
 
        	tmp = (read3CE(VertStretch) >> 4) & 3;
 
-	/* detection broken on XPAi ??? misdetects 1024 for 800 */
-	if (pci_id == CYBERBLADEXPAi1 && tmp == 3)
-		tmp = 2;
-
 	switch (tmp) {
-		case 0:x = 1280;y = 1024;break;
-		case 1:x = 640;y = 480;break;
-		case 2:x = 1024;y = 768;break;
-		default:x = 800;y = 600;break;
+		case 0: x = 1280; y = 1024; break;
+		case 2: x = 1024; y = 768;  break;
+		case 3: x = 800;  y = 600;  break; 
+		case 4: x = 1400; y = 1050; break;
+		case 1: 
+		default:x = 640;  y = 480;  break;
 	}
 
 	output("%dx%d flat panel found\n", x, y);
@@ -639,13 +660,13 @@ static void screen_center(void)
 static void set_screen_start(int base)
 {
 	write3X4(StartAddrLow, base & 0xFF);
-	write3X4(StartAddrHigh, (base & 0xFF00) >>8);
-	write3X4(CRTCModuleTest, (read3X4(CRTCModuleTest) & 0xDF) | ((base & 0x10000) >>11));
-	write3X4(CRTHiOrd, (read3X4(CRTHiOrd) & 0xF8) | (base & 0xE0000) >> 17);
+	write3X4(StartAddrHigh, (base & 0xFF00) >> 8);
+	write3X4(CRTCModuleTest, (read3X4(CRTCModuleTest) & 0xDF) | ((base & 0x10000) >> 11));
+	write3X4(CRTHiOrd, (read3X4(CRTHiOrd) & 0xF8) | ((base & 0xE0000) >> 17));
 }
 
 /* Use 20.12 fixed-point for NTSC value and frequency calculation */
-#define calc_freq(n,m,k)  ( (unsigned long)0xE517 * (n+8) / ((m+2)*(1<<k)) )
+#define calc_freq(n,m,k)  ( ((unsigned long)0xE517 * (n+8) / ((m+2)*(1<<k))) >> 12 )
 
 /* Set dotclock frequency */
 static void set_vclk(int freq)
@@ -666,8 +687,13 @@ static void set_vclk(int freq)
 			hi = (k<<6) | m;
 		}
 	}
-	write3C4(ClockHigh,hi);
-	write3C4(ClockLow,lo);
+	if (chip3D) {
+		write3C4(ClockHigh,hi);
+		write3C4(ClockLow,lo);
+	} else {
+		outb(lo,0x43C8);
+		outb(hi,0x43C9);
+	}
 	debug("VCLK = %X %X\n",hi,lo);
 }
 
@@ -700,26 +726,42 @@ static unsigned int __init get_displaytype(void)
 /* Try detecting the video memory size */
 static unsigned int __init get_memsize(void)
 {
-	unsigned char tmp;
+	unsigned char tmp, tmp2;
 	unsigned int k;
 
 	/* If memory size provided by user */
 	if (memsize)
 		k = memsize * Kb;
 	else
-	switch (pci_id) {
-		case CYBER9525DVD:k = 2560 * Kb;break;
-		case CYBERBLADEXPAi1:k = 16 * Mb;break;
-		case CYBERBLADEXPm16:k = 16 * Mb;break;
-		case CYBERBLADEXPm8:k = 8 * Mb;break;
+	switch (chip_id) {
+		case CYBER9525DVD:    k = 2560 * Kb; break;
 		default:
 			tmp = read3X4(SPR) & 0x0F;
 			switch (tmp) {
-				case 3:k = 1 * Mb;break;
-				case 7:k = 2 * Mb;break;
-				case 15:k = 4 * Mb;break;
-				case 4:k = 8 * Mb;break;
-				default:k = 1 * Mb;
+
+				case 0x01: k = 512;     break;
+				case 0x02: k = 6 * Mb;  break; /* XP */
+				case 0x03: k = 1 * Mb;  break;
+				case 0x04: k = 8 * Mb;  break;
+				case 0x06: k = 10 * Mb; break; /* XP */
+				case 0x07: k = 2 * Mb;  break;
+				case 0x08: k = 12 * Mb; break; /* XP */
+				case 0x0A: k = 14 * Mb; break; /* XP */
+				case 0x0C: k = 16 * Mb; break; /* XP */
+				case 0x0E:                     /* XP */
+  
+					tmp2 = read3C4(0xC1);
+					switch (tmp2) {
+						case 0x00: k = 20 * Mb; break;
+						case 0x01: k = 24 * Mb; break;
+						case 0x10: k = 28 * Mb; break;
+						case 0x11: k = 32 * Mb; break;
+						default:   k = 1 * Mb;  break;
+					}
+				break;
+	
+				case 0x0F: k = 4 * Mb; break;
+				default:   k = 1 * Mb;
 			}
 	}
 
@@ -727,7 +769,6 @@ static unsigned int __init get_memsize(void)
 	output("framebuffer size = %d Kb\n", k/Kb);
 	return k;
 }
-
 
 /* Fill in fix */
 static int trident_encode_fix(struct fb_fix_screeninfo *fix,
@@ -917,9 +958,8 @@ static void trident_set_par(const void *par, struct fb_info_gen *info)
 	debug("enter\n");
 
 	i->currentmode = *p;
-	unprotect_all();
-	crtc_unlock();
 	enable_mmio();
+	crtc_unlock();
 
 	write3CE(CyberControl,8);
 	if (flatpanel && p->hres < i->nativex) {
@@ -930,7 +970,7 @@ static void trident_set_par(const void *par, struct fb_info_gen *info)
 		 */
 		t_outb(0xEB,0x3C2);
 		write3CE(CyberControl,0x81);
-		if (center) //|| (p->bpp==32 && pci_id == CYBERBLADEi1D))
+		if (center) 
 			screen_center();
 		else if (stretch)
 			screen_stretch();
@@ -1221,48 +1261,75 @@ static struct fbgen_hwswitch trident_hwswitch = {
 	trident_set_disp
 };
 
+static int trident_iosize;
+
 static int __devinit trident_pci_probe(struct pci_dev * dev, const struct pci_device_id * id)
 {
 	int err;
+	unsigned char revision;
 
 	err = pci_enable_device(dev);
 	if (err)
 		return err;
 
-	pci_id = id->device;
+	chip_id = id->device;
 
-	/* At this point this seems useless, we
-	 * could leave the default_accel variable
-	 * in the case that other boards (without
-	 * accel or buggy accel) will be added...
-	 */
-	if (is_xp(pci_id)) {
-		defaultaccel = ACCEL;
+	/* If PCI id is 0x9660 then further detect chip type */
+	
+	if (chip_id == TGUI9660) {
+		outb(RevisionID,0x3C4);
+		revision = inb(0x3C5);	
+	
+		switch (revision) {
+			case 0x22:
+			case 0x23: chip_id = CYBER9397;break;
+			case 0x2A: chip_id = CYBER9397DVD;break;
+			case 0x30:
+			case 0x33:
+			case 0x34:
+			case 0x35:
+			case 0x38:
+			case 0x3A:
+			case 0xB3: chip_id = CYBER9385;break;
+			case 0x40 ... 0x43: chip_id = CYBER9382;break;
+			case 0x4A: chip_id = CYBER9388;break;
+			default:break;	
+		}
+	}
+
+	chip3D = is3Dchip(chip_id);
+
+	if (is_xp(chip_id)) {
 		acc = &accel_xp;
-	} else
-	if (is_blade(pci_id)) {
-		defaultaccel = ACCEL;
+	} else 
+	if (is_blade(chip_id)) {
 		acc = &accel_blade;
 	} else {
-		defaultaccel = ACCEL;
 		acc = &accel_image;
 	}
+
+	/* acceleration is on by default for 3D chips */
+	defaultaccel = chip3D && !noaccel;
 
 	fb_info.io = pci_resource_start(dev,1);
 	fb_info.fbmem = pci_resource_start(dev,0);
 
-	if (!request_mem_region(fb_info.io, TRIDENT_IOSIZE, "tridentfb")) {
+	trident_iosize = chip3D ? 0x20000:0x10000;
+
+	if (!request_mem_region(fb_info.io, trident_iosize, "tridentfb")) {
 		debug("request_region failed!\n");
 		return -1;
 	}
 
-	fb_info.io_virt = (unsigned int)ioremap_nocache(fb_info.io, TRIDENT_IOSIZE);
+	fb_info.io_virt = (unsigned int)ioremap_nocache(fb_info.io, trident_iosize);
 
 	if (!fb_info.io_virt) {
-		release_region(fb_info.io, TRIDENT_IOSIZE);
+		release_region(fb_info.io, trident_iosize);
 		debug("ioremap failed\n");
 		return -1;
 	}
+
+	enable_mmio();
 
 	fb_info.memsize = get_memsize();
 	if (!request_mem_region(fb_info.fbmem, fb_info.memsize, "tridentfb")) {
@@ -1307,16 +1374,7 @@ static int __devinit trident_pci_probe(struct pci_dev * dev, const struct pci_de
 	/* This should give a reasonable default video mode */
 	fb_find_mode(&default_var,&fb_info.gen.info,mode,NULL,0,NULL,bpp);
 
-	/*
-	 * Unless user explicitly requires accel/noaccel use
-	 * per chip defaults.Accel has priority over noaccel.
-	 */
-	if (accel)
-		defaultaccel = ACCEL;
-	else if (noaccel)
-		defaultaccel = NOACCEL;
-
-	if (defaultaccel == ACCEL && acc)
+	if (defaultaccel && acc)
 		default_var.accel_flags |= FB_ACCELF_TEXT;
 	else
 		default_var.accel_flags &= ~FB_ACCELF_TEXT;
@@ -1343,7 +1401,7 @@ static void __devexit trident_pci_remove(struct pci_dev * dev)
 	iounmap((void *)fb_info.io_virt);
 	iounmap((void *)fb_info.fbmem_virt);
 	release_mem_region(fb_info.fbmem, fb_info.memsize);
-	release_region(fb_info.io, TRIDENT_IOSIZE);
+	release_region(fb_info.io, trident_iosize);
 }
 
 /* List of boards that we are trying to support */
@@ -1356,6 +1414,7 @@ static struct pci_device_id trident_devices[] __devinitdata = {
 	{PCI_VENDOR_ID_TRIDENT,	CYBERBLADEAi1, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{PCI_VENDOR_ID_TRIDENT,	CYBERBLADEAi1D, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{PCI_VENDOR_ID_TRIDENT,	CYBERBLADEE4, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
+	{PCI_VENDOR_ID_TRIDENT,	TGUI9660, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{PCI_VENDOR_ID_TRIDENT,	IMAGE975, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{PCI_VENDOR_ID_TRIDENT,	IMAGE985, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{PCI_VENDOR_ID_TRIDENT,	CYBER9320, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
@@ -1368,9 +1427,9 @@ static struct pci_device_id trident_devices[] __devinitdata = {
 	{PCI_VENDOR_ID_TRIDENT,	CYBERBLADEXPm8, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{PCI_VENDOR_ID_TRIDENT,	CYBERBLADEXPm16, PCI_ANY_ID,PCI_ANY_ID,0,0,0},
 	{0,}
-};
-
-MODULE_DEVICE_TABLE(pci,trident_devices);
+};	
+	
+MODULE_DEVICE_TABLE(pci,trident_devices); 
 
 static struct pci_driver tridentfb_pci_driver = {
 	name:"tridentfb",
@@ -1381,7 +1440,7 @@ static struct pci_driver tridentfb_pci_driver = {
 
 int __init tridentfb_init(void)
 {
-	output("Trident framebuffer  %s initializing\n", VERSION);
+	output("Trident framebuffer %s initializing\n", VERSION);
 	return pci_module_init(&tridentfb_pci_driver);
 }
 
@@ -1405,8 +1464,6 @@ int tridentfb_setup(char *options)
 		if (!*opt) continue;
 		if (!strncmp(opt,"noaccel",7))
 			noaccel = 1;
-		else if (!strncmp(opt,"accel",5))
-			accel = 1;
 		else if (!strncmp(opt,"fp",2))
 			displaytype = DISPLAY_FP;
 		else if (!strncmp(opt,"crt",3))

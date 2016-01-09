@@ -141,7 +141,6 @@ static int video_open(struct inode *inode, struct file *file)
 		}
 	}
 	if (vfl->fops) {
-		int err = 0;
 		struct file_operations *old_fops;
 
 		old_fops = file->f_op;
@@ -173,8 +172,7 @@ static int video_open(struct inode *inode, struct file *file)
 			goto unlock_out;
 		}
 	}
-	up(&videodev_lock);
-	return 0;
+	err = 0;
 	
 unlock_out:
 	up(&videodev_lock);
@@ -414,7 +412,6 @@ static void videodev_proc_create(void)
 	video_dev_proc_entry->owner = THIS_MODULE;
 }
 
-#ifdef MODULE
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_VIDEO_PROC_FS)
 static void videodev_proc_destroy(void)
 {
@@ -424,7 +421,6 @@ static void videodev_proc_destroy(void)
 	if (video_proc_entry != NULL)
 		remove_proc_entry("video", &proc_root);
 }
-#endif
 #endif
 
 static void videodev_proc_create_dev (struct video_device *vfd, char *name)

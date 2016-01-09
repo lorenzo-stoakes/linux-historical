@@ -237,7 +237,7 @@ static LIST_HEAD(devs);
 
 /* --------------------------------------------------------------------- */
 
-extern inline unsigned ld2(unsigned int x)
+static inline unsigned ld2(unsigned int x)
 {
     unsigned r = 0;
 	
@@ -365,7 +365,7 @@ static void set_dac_rate(struct vrc5477_ac97_state *s, unsigned rate)
 
 /* --------------------------------------------------------------------- */
 
-extern inline void 
+static inline void 
 stop_dac(struct vrc5477_ac97_state *s)
 {
 	struct dmabuf* db = &s->dma_dac;
@@ -483,7 +483,7 @@ static void start_dac(struct vrc5477_ac97_state *s)
 	spin_unlock_irqrestore(&s->lock, flags);
 }	
 
-extern inline void stop_adc(struct vrc5477_ac97_state *s)
+static inline void stop_adc(struct vrc5477_ac97_state *s)
 {
 	struct dmabuf* db = &s->dma_adc;
 	unsigned long flags;
@@ -582,7 +582,7 @@ static void start_adc(struct vrc5477_ac97_state *s)
 #define DMABUF_DEFAULTORDER (16-PAGE_SHIFT)
 #define DMABUF_MINORDER 1
 
-extern inline void dealloc_dmabuf(struct vrc5477_ac97_state *s, 
+static inline void dealloc_dmabuf(struct vrc5477_ac97_state *s, 
 				  struct dmabuf *db)
 {
 	if (db->lbuf) {
@@ -656,13 +656,13 @@ static int prog_dmabuf(struct vrc5477_ac97_state *s,
 	return 0;
 }
 
-extern inline int prog_dmabuf_adc(struct vrc5477_ac97_state *s)
+static inline int prog_dmabuf_adc(struct vrc5477_ac97_state *s)
 {
     stop_adc(s);
     return prog_dmabuf(s, &s->dma_adc, s->adcRate);
 }
 
-extern inline int prog_dmabuf_dac(struct vrc5477_ac97_state *s)
+static inline int prog_dmabuf_dac(struct vrc5477_ac97_state *s)
 {
     stop_dac(s);
     return prog_dmabuf(s, &s->dma_dac, s->dacRate);

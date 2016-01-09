@@ -153,8 +153,6 @@ walk_gendisk(int (*walk)(struct gendisk *, void *), void *data)
 	return error;
 }
 
-EXPORT_SYMBOL(walk_gendisk);
-
 
 #ifdef CONFIG_PROC_FS
 int
@@ -215,7 +213,6 @@ out:
 extern int blk_dev_init(void);
 extern int net_dev_init(void);
 extern void console_map_init(void);
-extern int soc_probe(void);
 extern int atmdev_init(void);
 
 int __init device_init(void)
@@ -223,10 +220,6 @@ int __init device_init(void)
 	rwlock_init(&gendisk_lock);
 	blk_dev_init();
 	sti();
-#ifdef CONFIG_FC4_SOC
-	/* This has to be done before scsi_dev_init */
-	soc_probe();
-#endif
 #ifdef CONFIG_NET
 	net_dev_init();
 #endif

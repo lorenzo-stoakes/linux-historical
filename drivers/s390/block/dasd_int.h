@@ -367,6 +367,8 @@ dasd_device_t * dasd_device_from_kdev (kdev_t kdev);
 
 extern debug_info_t *dasd_debug_area;
 extern int (*genhd_dasd_name) (char *, int, int, struct gendisk *);
+extern int (*genhd_dasd_ioctl) (struct inode *inp, struct file *filp,
+                            unsigned int no, unsigned long data);
 
 #endif /* __KERNEL__ */
 

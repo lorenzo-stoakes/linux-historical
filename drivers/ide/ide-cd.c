@@ -2536,8 +2536,8 @@ static int ide_cdrom_register (ide_drive_t *drive, int nslots)
 	devinfo->dev = MKDEV (HWIF(drive)->major, minor);
 	devinfo->ops = &ide_cdrom_dops;
 	devinfo->mask = 0;
-	*(int *)&devinfo->speed = CDROM_STATE_FLAGS (drive)->current_speed;
-	*(int *)&devinfo->capacity = nslots;
+	devinfo->speed = CDROM_STATE_FLAGS (drive)->current_speed;
+	devinfo->capacity = nslots;
 	devinfo->handle = (void *) drive;
 	strcpy(devinfo->name, drive->name);
 	

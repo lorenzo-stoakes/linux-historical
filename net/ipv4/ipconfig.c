@@ -1144,7 +1144,6 @@ u32 __init root_nfs_parse_addr(char *name)
 
 static int __init ip_auto_config(void)
 {
-	int retries = CONF_OPEN_RETRIES;
 	unsigned long jiff;
 	u32 addr;
 
@@ -1157,7 +1156,9 @@ static int __init ip_auto_config(void)
 
 	DBG(("IP-Config: Entered.\n"));
 
+#ifdef IPCONFIG_DYNAMIC
  try_try_again:
+#endif
 	/* Give hardware a chance to settle */
 	jiff = jiffies + CONF_PRE_OPEN;
 	while (time_before(jiffies, jiff))
@@ -1186,6 +1187,8 @@ static int __init ip_auto_config(void)
 #endif
 	    ic_first_dev->next) {
 #ifdef IPCONFIG_DYNAMIC
+
+		int retries = CONF_OPEN_RETRIES;
 
 		if (ic_dynamic() < 0) {
 			ic_close_devs();

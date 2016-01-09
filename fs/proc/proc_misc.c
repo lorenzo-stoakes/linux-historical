@@ -336,7 +336,7 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 #if !defined(CONFIG_ARCH_S390)
 	for (i = 0 ; i < NR_IRQS ; i++)
 		proc_sprintf(page, &off, &len,
-			     " %u", kstat_irqs(i) + 1000000000);
+			     " %u", kstat_irqs(i));
 #endif
 
 	proc_sprintf(page, &off, &len, "\ndisk_io: ");

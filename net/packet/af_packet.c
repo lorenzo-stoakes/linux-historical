@@ -1662,7 +1662,7 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
 			pg_vec[i] = __get_free_pages(GFP_KERNEL, order);
 			if (!pg_vec[i])
 				goto out_free_pgvec;
-
+			memset((void *)(pg_vec[i]), 0, PAGE_SIZE << order);
 			pend = virt_to_page(pg_vec[i] + (PAGE_SIZE << order) - 1);
 			for (page = virt_to_page(pg_vec[i]); page <= pend; page++)
 				SetPageReserved(page);
