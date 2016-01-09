@@ -88,6 +88,9 @@ struct ctlr_info
 	int              sizes[256];
 	int              blocksizes[256];
 	int              hardsizes[256];
+#ifdef CONFIG_CISS_SCSI_TAPE
+	void *scsi_ctlr; /* ptr to structure containing scsi related stuff */
+#endif
 };
 
 /*  Defining the diffent access_menthods */

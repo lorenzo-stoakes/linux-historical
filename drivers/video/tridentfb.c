@@ -3,7 +3,7 @@
  *
  * Copyright 2001,2002 - Jani Monoses   <jani@astechnix.ro>
  *
- * $Id: tridentfb.c,v 1.2 2002/02/13 17:44:14 marcelo Exp $
+ * $Id: tridentfb.c,v 1.3 2002/02/25 20:09:41 marcelo Exp $
  *
  * CREDITS:(in order of appearance)
  * 	skeletonfb.c by Geert Uytterhoeven and other fb code in drivers/video
@@ -35,7 +35,7 @@
 
 #include "tridentfb.h"
 
-#define VERSION		"0.6.8"
+#define VERSION		"0.6.9"
 
 struct tridentfb_par {
 	struct fb_var_screeninfo var;
@@ -520,9 +520,8 @@ static void set_screen_start(int base)
 	write3X4(CRTHiOrd, (read3X4(CRTHiOrd) & 0xF8) | (base & 0xE0000) >> 17);
 }
 
-
-#error "Floating point maths. This needs fixing before the driver is safe"
-#define calc_freq(n,m,k) ((NTSC * (n+8))/((m+2)*(1<<k)))
+/* Use 20.12 fixed-point for NTSC value and frequency calculation */
+#define calc_freq(n,m,k)  ( (unsigned long)0xE517 * (n+8) / (m+2)*(1<<k) )
 
 /* Set dotclock frequency */
 static void set_vclk(int freq)
@@ -1260,8 +1259,8 @@ int tridentfb_setup(char *options)
 	char * opt;
 	if (!options || !*options)
 		return 0;
-	for(opt = strtok(options,",");opt;opt = strtok(NULL,",")){
-		if (!opt) continue;
+	while((opt = strsep(&options,",")) != NULL ) {
+		if (!*opt) continue;
 		if (!strncmp(opt,"noaccel",7))
 			noaccel = 1;
 		else if (!strncmp(opt,"accel",5))

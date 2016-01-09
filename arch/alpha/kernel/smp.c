@@ -184,9 +184,23 @@ smp_callin(void)
 	 */
 	wait_boot_cpu_to_stop(cpuid);
 	mb();
+ try_again:
 	calibrate_delay();
 
 	smp_store_cpu_info(cpuid);
+
+	{
+#define LPJ(c) ((long)cpu_data[c].loops_per_jiffy)
+	  static int tries = 3;
+	  long diff = LPJ(boot_cpuid) - LPJ(cpuid);
+	  if (diff < 0) diff = -diff;
+				
+	  if (diff > LPJ(boot_cpuid)/10 && --tries) {
+	    printk("Bogus BogoMIPS for cpu %d - retrying...\n", cpuid);
+	    goto try_again;
+	  }
+	}
+
 	/*
 	 * Allow master to continue only after we written
 	 * the loops_per_jiffy.

@@ -26,6 +26,9 @@ if [ "$CONFIG_FB" = "y" ]; then
 	    fi
 	 fi
       fi
+      if [ "$CONFIG_PCI" = "y" ]; then
+         tristate '  Permedia3 support (EXPERIMENTAL)' CONFIG_FB_PM3
+      fi
    fi
    if [ "$CONFIG_ARCH_ACORN" = "y" ]; then
       bool '  Acorn VIDC support' CONFIG_FB_ACORN
@@ -263,6 +266,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	   "$CONFIG_FB_VALKYRIE" = "y" -o "$CONFIG_FB_PLATINUM" = "y" -o \
            "$CONFIG_FB_IGA" = "y" -o "$CONFIG_FB_MATROX" = "y" -o \
 	   "$CONFIG_FB_CT65550" = "y" -o "$CONFIG_FB_PM2" = "y" -o \
+           "$CONFIG_FB_PM3" = "y" -o \
 	   "$CONFIG_FB_P9100" = "y" -o "$CONFIG_FB_ATY128" = "y" -o \
 	   "$CONFIG_FB_RIVA" = "y" -o "$CONFIG_FB_RADEON" = "y" -o \
 	   "$CONFIG_FB_SGIVW" = "y" -o "$CONFIG_FB_CYBER2000" = "y" -o \
@@ -283,6 +287,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	      "$CONFIG_FB_VALKYRIE" = "m" -o "$CONFIG_FB_PLATINUM" = "m" -o \
               "$CONFIG_FB_IGA" = "m" -o "$CONFIG_FB_MATROX" = "m" -o \
 	      "$CONFIG_FB_CT65550" = "m" -o "$CONFIG_FB_PM2" = "m" -o \
+              "$CONFIG_FB_PM3" = "m" -o \
 	      "$CONFIG_FB_P9100" = "m" -o "$CONFIG_FB_ATY128" = "m" -o \
 	      "$CONFIG_FB_RIVA" = "m" -o "$CONFIG_FB_3DFX" = "m" -o \
 	      "$CONFIG_FB_SGIVW" = "m" -o "$CONFIG_FB_CYBER2000" = "m" -o \
@@ -302,6 +307,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	   "$CONFIG_FB_VALKYRIE" = "y" -o "$CONFIG_FB_PLATINUM" = "y" -o \
 	   "$CONFIG_FB_CT65550" = "y" -o "$CONFIG_FB_MATROX" = "y" -o \
 	   "$CONFIG_FB_PM2" = "y" -o "$CONFIG_FB_SGIVW" = "y" -o \
+           "$CONFIG_FB_PM3" = "y" -o \
 	   "$CONFIG_FB_RIVA" = "y" -o "$CONFIG_FB_ATY128" = "y" -o \
 	   "$CONFIG_FB_CYBER2000" = "y" -o "$CONFIG_FB_3DFX" = "y"  -o \
 	   "$CONFIG_FB_SIS" = "y" -o "$CONFIG_FB_SA1100" = "y" -o \
@@ -317,6 +323,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	      "$CONFIG_FB_VALKYRIE" = "m" -o "$CONFIG_FB_PLATINUM" = "m" -o \
 	      "$CONFIG_FB_CT65550" = "m" -o "$CONFIG_FB_MATROX" = "m" -o \
 	      "$CONFIG_FB_PM2" = "m" -o "$CONFIG_FB_SGIVW" = "m" -o \
+              "$CONFIG_FB_PM3" = "m" -o \
 	      "$CONFIG_FB_RIVA" = "m" -o "$CONFIG_FB_ATY128" = "m" -o \
 	      "$CONFIG_FB_CYBER2000" = "m" -o "$CONFIG_FB_SIS" = "m" -o \
 	      "$CONFIG_FB_SA1100" = "m" -o "$CONFIG_FB_RADEON" = "m" -o \
@@ -346,6 +353,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	   "$CONFIG_FB_CONTROL" = "y" -o "$CONFIG_FB_CLGEN" = "y" -o \
 	   "$CONFIG_FB_TGA" = "y" -o "$CONFIG_FB_PLATINUM" = "y" -o \
 	   "$CONFIG_FB_MATROX" = "y" -o "$CONFIG_FB_PM2" = "y" -o \
+           "$CONFIG_FB_PM3" = "y" -o \
 	   "$CONFIG_FB_RIVA" = "y" -o "$CONFIG_FB_ATY128" = "y" -o \
 	   "$CONFIG_FB_FM2" = "y" -o "$CONFIG_FB_SGIVW" = "y" -o \
 	   "$CONFIG_FB_RADEON" = "y" -o "$CONFIG_FB_PVR2" = "y" -o \
@@ -358,6 +366,7 @@ if [ "$CONFIG_FB" = "y" ]; then
 	      "$CONFIG_FB_CONTROL" = "m" -o "$CONFIG_FB_CLGEN" = "m" -o \
 	      "$CONFIG_FB_TGA" = "m" -o "$CONFIG_FB_PLATINUM" = "m" -o \
 	      "$CONFIG_FB_MATROX" = "m" -o "$CONFIG_FB_PM2" = "m" -o \
+              "$CONFIG_FB_PM3" = "m" -o \
 	      "$CONFIG_FB_RIVA" = "m" -o "$CONFIG_FB_ATY128" = "m" -o \
 	      "$CONFIG_FB_3DFX" = "m" -o "$CONFIG_FB_RADEON" = "m" -o \
 	      "$CONFIG_FB_SGIVW" = "m" -o "$CONFIG_FB_SIS" = "m" -o \

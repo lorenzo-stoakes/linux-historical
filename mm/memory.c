@@ -44,6 +44,7 @@
 #include <linux/iobuf.h>
 #include <linux/highmem.h>
 #include <linux/pagemap.h>
+#include <linux/module.h>
 
 #include <asm/pgalloc.h>
 #include <asm/uaccess.h>
@@ -523,6 +524,8 @@ bad_page:
 	i = -EFAULT;
 	goto out;
 }
+
+EXPORT_SYMBOL(get_user_pages);
 
 /*
  * Force in an entire range of pages from the current process's user VA,

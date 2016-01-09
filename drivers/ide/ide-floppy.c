@@ -1,8 +1,8 @@
 /*
- * linux/drivers/ide/ide-floppy.c	Version 0.97.sv	Jan 14 2001
+ * linux/drivers/ide/ide-floppy.c	Version 0.99	Feb 24 2002
  *
  * Copyright (C) 1996 - 1999 Gadi Oxman <gadio@netvision.net.il>
- * Copyright (C) 2000 - 2001 Paul Bristow <paul@paulbristow.net>
+ * Copyright (C) 2000 - 2002 Paul Bristow <paul@paulbristow.net>
  */
 
 /*
@@ -13,7 +13,7 @@
  *
  * This driver supports the following IDE floppy drives:
  *
- * LS-120 SuperDisk
+ * LS-120/240 SuperDisk
  * Iomega Zip 100/250
  * Iomega PC Card Clik!/PocketZip
  *
@@ -71,9 +71,11 @@
  *                       including set_bit patch from Rusty Russel
  * Ver 0.97  Jul 22 01   Merge 0.91-0.96 onto 0.9.sv for ac series
  * Ver 0.97.sv Aug 3 01  Backported from 2.4.7-ac3
+ * Ver 0.99  Feb 24 02   Remove duplicate code, modify clik! detection code 
+                         to support new PocketZip drives 
  */
 
-#define IDEFLOPPY_VERSION "0.97.sv"
+#define IDEFLOPPY_VERSION "0.99"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -1962,25 +1964,12 @@ static void idefloppy_setup (ide_drive_t *drive, idefloppy_floppy_t *floppy)
    *      above fix.  It makes nasty clicking noises without
    *      it, so please don't remove this.
    */
-  if (strcmp(drive->id->model, "IOMEGA Clik! 40 CZ ATAPI") == 0)
+	if (strncmp(drive->id->model, "IOMEGA Clik", 11) == 0) 
   {
     for (i = 0; i < 1 << PARTN_BITS; i++)
       max_sectors[major][minor + i] = 64;
     set_bit(IDEFLOPPY_CLIK_DRIVE, &floppy->flags);
   }
-
-	/*
-	*      Guess what?  The IOMEGA Clik! drive also needs the
-	*      above fix.  It makes nasty clicking noises without
-	*      it, so please don't remove this.
-	*/
-	if (strcmp(drive->id->model, "IOMEGA Clik! 40 CZ ATAPI") == 0) 
-	{
-		for (i = 0; i < 1 << PARTN_BITS; i++)
-			max_sectors[major][minor + i] = 64;
-		set_bit(IDEFLOPPY_CLIK_DRIVE, &floppy->flags);
-	}
-
 
 	(void) idefloppy_get_capacity (drive);
 	idefloppy_add_settings(drive);

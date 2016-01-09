@@ -119,9 +119,9 @@ struct request_queue
 	spinlock_t		queue_lock;
 
 	/*
-	 * Tasks wait here for free request
+	 * Tasks wait here for free read and write requests
 	 */
-	wait_queue_head_t	wait_for_request;
+	wait_queue_head_t	wait_for_requests[2];
 };
 
 struct blk_dev_struct {

@@ -493,6 +493,11 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_PRODUCT_NAME, "Delhi3"),
 			NO_MATCH, NO_MATCH,
 			} },
+	{ apm_is_horked, "Fujitsu-Siemens", { /* APM crashes */
+			MATCH(DMI_BIOS_VENDOR, "hoenix/FUJITSU SIEMENS"),
+			MATCH(DMI_BIOS_VERSION, "Version1.01"),
+			NO_MATCH, NO_MATCH,
+			} },
 	{ apm_is_horked, "Sharp PC-PJ/AX", { /* APM crashes */
 			MATCH(DMI_SYS_VENDOR, "SHARP"),
 			MATCH(DMI_PRODUCT_NAME, "PC-PJ/AX"),

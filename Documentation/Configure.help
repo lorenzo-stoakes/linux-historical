@@ -4796,6 +4796,13 @@ CONFIG_FBCON_MAC
   bits per pixel packed pixels on Mac. It supports variable font
   widths for low resolution screens.
 
+Permedia3 support (EXPERIMENTAL)
+CONFIG_FB_PM3
+  This is the frame buffer device driver for the 3DLabs Permedia3
+  chipset, used in Formac ProFormance III, 3DLabs Oxygen VX1 &
+  similar boards, 3DLabs Permedia3 Create!, Appian Jeronimo 2000
+  and maybe other boards.
+
 HGA monochrome support
 CONFIG_FBCON_HGA
   This is the low level frame buffer console driver for Hercules mono
@@ -6393,6 +6400,18 @@ CONFIG_BLK_CPQ_CISS_DA
   See <file:Documentation/cciss.txt> for the current list of
   boards supported by this driver, and for further information
   on the use of this driver.
+
+SCSI tape drive support for Smart Array 5xxx
+CONFIG_CISS_SCSI_TAPE
+  When enabled (Y), this option allows SCSI tape drives and SCSI medium
+  changers (tape robots) to be accessed via a Compaq 5xxx array
+  controller.  (See Documentation/cciss.txt for more details.)
+
+  "SCSI support" and "SCSI tape support" must also be enabled for this
+  option to work.
+
+  When this option is disabled (N), the SCSI portion of the driver
+  is not compiled.
 
 QuickNet Internet LineJack/PhoneJack support
 CONFIG_PHONE_IXJ
@@ -18943,8 +18962,11 @@ CONFIG_SOUND_VMIDI
 
 Yamaha YMF7xx PCI audio (native mode)
 CONFIG_SOUND_YMFPCI
-  Support for Yamaha cards including the YMF711, YMF715, YMF718,
-  YMF719, YMF724, Waveforce 192XG, and Waveforce 192 Digital.
+  Support for Yamaha cards with the following chipsets: YMF724,
+  YMF724F, YMF740, YMF740C, YMF744, and YMF754.
+
+  Two common cards that use this type of chip are Waveforce 192XG,
+  and Waveforce 192 Digital.
 
 Yamaha PCI legacy ports support
 CONFIG_SOUND_YMFPCI_LEGACY

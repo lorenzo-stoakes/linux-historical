@@ -118,10 +118,14 @@ int * max_readahead[MAX_BLKDEV];
 int * max_sectors[MAX_BLKDEV];
 
 /*
- * How many reqeusts do we allocate per queue,
- * and how many do we "batch" on freeing them?
+ * The total number of requests in each queue.
  */
-static int queue_nr_requests, batch_requests;
+static int queue_nr_requests;
+
+/*
+ * The threshold around which we make wakeup decisions
+ */
+static int batch_requests;
 
 static inline int get_max_sectors(kdev_t dev)
 {
@@ -352,7 +356,8 @@ static void blk_init_free_list(request_queue_t *q)
 		q->rq[i&1].count++;
 	}
 
-	init_waitqueue_head(&q->wait_for_request);
+	init_waitqueue_head(&q->wait_for_requests[0]);
+	init_waitqueue_head(&q->wait_for_requests[1]);
 	spin_lock_init(&q->queue_lock);
 }
 
@@ -418,9 +423,9 @@ void blk_init_queue(request_queue_t * q, request_fn_proc * rfn)
 #define blkdev_free_rq(list) list_entry((list)->next, struct request, queue);
 /*
  * Get a free request. io_request_lock must be held and interrupts
- * disabled on the way in.
+ * disabled on the way in.  Returns NULL if there are no free requests.
  */
-static inline struct request *get_request(request_queue_t *q, int rw)
+static struct request *get_request(request_queue_t *q, int rw)
 {
 	struct request *rq = NULL;
 	struct request_list *rl = q->rq + rw;
@@ -430,6 +435,7 @@ static inline struct request *get_request(request_queue_t *q, int rw)
 		list_del(&rq->queue);
 		rl->count--;
 		rq->rq_status = RQ_ACTIVE;
+		rq->cmd = rw;
 		rq->special = NULL;
 		rq->q = q;
 	}
@@ -438,38 +444,82 @@ static inline struct request *get_request(request_queue_t *q, int rw)
 }
 
 /*
- * No available requests for this queue, unplug the device.
+ * Here's the request allocation design:
+ *
+ * 1: Blocking on request exhaustion is a key part of I/O throttling.
+ * 
+ * 2: We want to be `fair' to all requesters.  We must avoid starvation, and
+ *    attempt to ensure that all requesters sleep for a similar duration.  Hence
+ *    no stealing requests when there are other processes waiting.
+ * 
+ * 3: We also wish to support `batching' of requests.  So when a process is
+ *    woken, we want to allow it to allocate a decent number of requests
+ *    before it blocks again, so they can be nicely merged (this only really
+ *    matters if the process happens to be adding requests near the head of
+ *    the queue).
+ * 
+ * 4: We want to avoid scheduling storms.  This isn't really important, because
+ *    the system will be I/O bound anyway.  But it's easy.
+ * 
+ *    There is tension between requirements 2 and 3.  Once a task has woken,
+ *    we don't want to allow it to sleep as soon as it takes its second request.
+ *    But we don't want currently-running tasks to steal all the requests
+ *    from the sleepers.  We handle this with wakeup hysteresis around
+ *    0 .. batch_requests and with the assumption that request taking is much,
+ *    much faster than request freeing.
+ * 
+ * So here's what we do:
+ * 
+ *    a) A READA requester fails if free_requests < batch_requests
+ * 
+ *       We don't want READA requests to prevent sleepers from ever
+ *       waking.  Note that READA is used extremely rarely - a few
+ *       filesystems use it for directory readahead.
+ * 
+ *  When a process wants a new request:
+ * 
+ *    b) If free_requests == 0, the requester sleeps in FIFO manner.
+ * 
+ *    b) If 0 <  free_requests < batch_requests and there are waiters,
+ *       we still take a request non-blockingly.  This provides batching.
+ *
+ *    c) If free_requests >= batch_requests, the caller is immediately
+ *       granted a new request.
+ * 
+ *  When a request is released:
+ * 
+ *    d) If free_requests < batch_requests, do nothing.
+ * 
+ *    f) If free_requests >= batch_requests, wake up a single waiter.
+ * 
+ *   The net effect is that when a process is woken at the batch_requests level,
+ *   it will be able to take approximately (batch_requests) requests before
+ *   blocking again (at the tail of the queue).
+ * 
+ *   This all assumes that the rate of taking requests is much, much higher
+ *   than the rate of releasing them.  Which is very true.
+ *
+ * -akpm, Feb 2002.
  */
+
 static struct request *__get_request_wait(request_queue_t *q, int rw)
 {
 	register struct request *rq;
 	DECLARE_WAITQUEUE(wait, current);
 
 	generic_unplug_device(q);
-	add_wait_queue(&q->wait_for_request, &wait);
+	add_wait_queue_exclusive(&q->wait_for_requests[rw], &wait);
 	do {
 		set_current_state(TASK_UNINTERRUPTIBLE);
-		if (q->rq[rw].count < batch_requests)
+		if (q->rq[rw].count == 0)
 			schedule();
 		spin_lock_irq(&io_request_lock);
 		rq = get_request(q,rw);
 		spin_unlock_irq(&io_request_lock);
 	} while (rq == NULL);
-	remove_wait_queue(&q->wait_for_request, &wait);
+	remove_wait_queue(&q->wait_for_requests[rw], &wait);
 	current->state = TASK_RUNNING;
 	return rq;
-}
-
-static inline struct request *get_request_wait(request_queue_t *q, int rw)
-{
-	register struct request *rq;
-
-	spin_lock_irq(&io_request_lock);
-	rq = get_request(q, rw);
-	spin_unlock_irq(&io_request_lock);
-	if (rq)
-		return rq;
-	return __get_request_wait(q, rw);
 }
 
 /* RO fail safe mechanism */
@@ -546,7 +596,7 @@ static inline void add_request(request_queue_t * q, struct request * req,
 /*
  * Must be called with io_request_lock held and interrupts disabled
  */
-inline void blkdev_release_request(struct request *req)
+void blkdev_release_request(struct request *req)
 {
 	request_queue_t *q = req->q;
 	int rw = req->cmd;
@@ -560,8 +610,9 @@ inline void blkdev_release_request(struct request *req)
 	 */
 	if (q) {
 		list_add(&req->queue, &q->rq[rw].free);
-		if (++q->rq[rw].count >= batch_requests && waitqueue_active(&q->wait_for_request))
-			wake_up(&q->wait_for_request);
+		if (++q->rq[rw].count >= batch_requests &&
+				waitqueue_active(&q->wait_for_requests[rw]))
+			wake_up(&q->wait_for_requests[rw]);
 	}
 }
 
@@ -742,22 +793,30 @@ again:
 			BUG();
 	}
 		
-	/*
-	 * Grab a free request from the freelist - if that is empty, check
-	 * if we are doing read ahead and abort instead of blocking for
-	 * a free slot.
-	 */
 get_rq:
 	if (freereq) {
 		req = freereq;
 		freereq = NULL;
-	} else if ((req = get_request(q, rw)) == NULL) {
-		spin_unlock_irq(&io_request_lock);
-		if (rw_ahead)
-			goto end_io;
-
-		freereq = __get_request_wait(q, rw);
-		goto again;
+	} else {
+		/*
+		 * See description above __get_request_wait()
+		 */
+		if (rw_ahead) {
+			if (q->rq[rw].count < batch_requests) {
+				spin_unlock_irq(&io_request_lock);
+				goto end_io;
+			}
+			req = get_request(q, rw);
+			if (req == NULL)
+				BUG();
+		} else {
+			req = get_request(q, rw);
+			if (req == NULL) {
+				spin_unlock_irq(&io_request_lock);
+				freereq = __get_request_wait(q, rw);
+				goto again;
+			}
+		}
 	}
 
 /* fill up the request-info, and add it to the queue */
