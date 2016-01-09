@@ -40,11 +40,10 @@ unsigned long minYieldTime = 0xffffffffffffffffUL;
 #ifdef CONFIG_PPC_ISERIES
 static void yield_shared_processor(void)
 {
-	struct Paca *paca;
+	struct paca_struct *lpaca = get_paca();
 	unsigned long tb;
 	unsigned long yieldTime;
 
-	paca = (struct Paca *)mfspr(SPRG3);
 	HvCall_setEnabledInterrupts( HvCall_MaskIPI |
 				     HvCall_MaskLpEvent |
 				     HvCall_MaskLpProd |
@@ -64,14 +63,14 @@ static void yield_shared_processor(void)
 	/* The decrementer stops during the yield.  Force a fake decrementer
 	 * here and let the timer_interrupt code sort out the actual time.
 	 */
-	paca->xLpPaca.xIntDword.xFields.xDecrInt = 1;
+	lpaca->xLpPaca.xIntDword.xFields.xDecrInt = 1;
 	process_iSeries_events();
 }
 #endif /* CONFIG_PPC_ISERIES */
 
 int idled(void)
 {
-	struct Paca *paca;
+	struct paca_struct *lpaca;
 	long oldval;
 #ifdef CONFIG_PPC_ISERIES
 	unsigned long CTRL;
@@ -89,12 +88,12 @@ int idled(void)
 #endif
 	init_idle();	
 
-	paca = (struct Paca *)mfspr(SPRG3);
+	lpaca = get_paca();
 
 	for (;;) {
 #ifdef CONFIG_PPC_ISERIES
-		if ( paca->xLpPaca.xSharedProc ) {
-			if ( ItLpQueue_isLpIntPending( paca->lpQueuePtr ) )
+		if ( lpaca->xLpPaca.xSharedProc ) {
+			if ( ItLpQueue_isLpIntPending( lpaca->lpQueuePtr ) )
 				process_iSeries_events();
 			if ( !current->need_resched )
 				yield_shared_processor();
@@ -108,7 +107,7 @@ int idled(void)
 				while(current->need_resched == -1) {
 #ifdef CONFIG_PPC_ISERIES
 					HMT_medium();
-					if ( ItLpQueue_isLpIntPending( paca->lpQueuePtr ) )
+					if ( ItLpQueue_isLpIntPending( lpaca->lpQueuePtr ) )
 						process_iSeries_events();
 #endif
 					HMT_low();

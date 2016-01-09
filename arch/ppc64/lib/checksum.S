@@ -15,7 +15,7 @@
 #include <linux/sys.h>
 #include <asm/processor.h>
 #include <asm/errno.h>
-#include "../kernel/ppc_asm.tmpl"
+#include <asm/ppc_asm.tmpl>
 
 	.text
 

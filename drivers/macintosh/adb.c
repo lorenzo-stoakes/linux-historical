@@ -64,7 +64,7 @@ static struct adb_driver *adb_driver_list[] = {
 #ifdef CONFIG_ADB_IOP
 	&adb_iop_driver,
 #endif
-#ifdef CONFIG_ADB_PMU
+#if defined(CONFIG_ADB_PMU) || defined(CONFIG_ADB_PMU68K)
 	&via_pmu_driver,
 #endif
 #ifdef CONFIG_ADB_MACIO

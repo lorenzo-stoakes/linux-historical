@@ -230,7 +230,7 @@ void free_initmem(void)
 		 (unsigned long)(&__ ## TYPE ## _end), \
 		 #TYPE);
 
-	printk ("Freeing unused kernel memory:");
+	printk (KERN_INFO "Freeing unused kernel memory:");
 	FREESEC(init);
 	if (_machine != _MACH_Pmac)
 		FREESEC(pmac);
@@ -247,7 +247,7 @@ void free_initmem(void)
 #ifdef CONFIG_BLK_DEV_INITRD
 void free_initrd_mem(unsigned long start, unsigned long end)
 {
-	printk ("Freeing initrd memory: %ldk freed\n", (end - start) >> 10);
+	printk (KERN_INFO "Freeing initrd memory: %ldk freed\n", (end - start) >> 10);
 
 	for (; start < end; start += PAGE_SIZE) {
 		ClearPageReserved(virt_to_page(start));
@@ -515,7 +515,7 @@ void __init mem_init(void)
 	}
 #endif /* CONFIG_HIGHMEM */
 
-        printk("Memory: %luk available (%dk kernel code, %dk data, %dk init, %ldk highmem)\n",
+        printk(KERN_INFO "Memory: %luk available (%dk kernel code, %dk data, %dk init, %ldk highmem)\n",
 	       (unsigned long)nr_free_pages()<< (PAGE_SHIFT-10),
 	       codepages<< (PAGE_SHIFT-10), datapages<< (PAGE_SHIFT-10),
 	       initpages<< (PAGE_SHIFT-10),

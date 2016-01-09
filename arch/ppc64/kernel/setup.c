@@ -31,8 +31,8 @@
 #include <asm/elf.h>
 #include <asm/machdep.h>
 #include <asm/iSeries/LparData.h>
-#include <asm/Naca.h>
-#include <asm/Paca.h>
+#include <asm/naca.h>
+#include <asm/paca.h>
 #include <asm/ppcdebug.h>
 #include <asm/time.h>
 
@@ -75,15 +75,11 @@ void parse_cmd_line(unsigned long r3, unsigned long r4, unsigned long r5,
 		    unsigned long r6, unsigned long r7);
 int parse_bootinfo(void);
 
-unsigned long DMA_MODE_READ, DMA_MODE_WRITE;
-int _machine = _MACH_unknown;
-
 #ifdef CONFIG_MAGIC_SYSRQ
 unsigned long SYSRQ_KEY;
 #endif /* CONFIG_MAGIC_SYSRQ */
 
 struct machdep_calls ppc_md;
-struct Naca *naca;
 
 /*
  * Perhaps we can put the pmac screen_info[] here
@@ -118,32 +114,9 @@ int ucache_bsize;
  */
 void ppcdbg_initialize(void) {
 	unsigned long offset = reloc_offset();
-	struct Naca *_naca = RELOC(naca);
+	struct naca_struct *_naca = RELOC(naca);
 
 	_naca->debug_switch = PPC_DEBUG_DEFAULT; /* | PPCDBG_BUSWALK | PPCDBG_PHBINIT | PPCDBG_MM | PPCDBG_MMINIT | PPCDBG_TCEINIT | PPCDBG_TCE */;
-}
-
-/* 
- * Initialize a set of PACA's, one for each processor.
- *
- * At this point, relocation is on, but we have not done any other
- * setup of the mm subsystem.
- */
-void paca_init(void) {
-#if 0
-	int processorCount = naca->processorCount, i;
-	struct Paca *paca[];
-
-	/* Put the array of paca's on a page boundary & allocate 1/2 page of */
-	/* storage for each.                                                 */  
-	klimit += (PAGE_SIZE-1) & PAGE_MASK;
-	naca->xPaca = paca[0] = klimit;
-	klimit += ((PAGE_SIZE>>1) * processorCount); 
-
-	for(i=0; i<processorCount; i++) {
-		paca[0]->xPacaIndex = i;
-	}
-#endif
 }
 
 /*
@@ -158,14 +131,15 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	/* pSeries systems are identified in prom.c via OF. */
 	if ( itLpNaca.xLparInstalled == 1 )
-		_machine = _MACH_iSeries;
-	switch (_machine) {
-	case _MACH_iSeries:
+		naca->platform = PLATFORM_ISERIES_LPAR;
+	
+	switch (naca->platform) {
+	case PLATFORM_ISERIES_LPAR:
 		iSeries_init_early();
 		break;
 
 #ifdef CONFIG_PPC_PSERIES
-	case _MACH_pSeries:
+	case PLATFORM_PSERIES:
 		pSeries_init_early();
 #ifdef CONFIG_BLK_DEV_INITRD
 		initrd_start = initrd_end = 0;
@@ -173,7 +147,7 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 		parse_bootinfo();
 		break;
 
-	case _MACH_pSeriesLP:
+	case PLATFORM_PSERIES_LPAR:
 		pSeriesLP_init_early();
 #ifdef CONFIG_BLK_DEV_INITRD
 		initrd_start = initrd_end = 0;
@@ -244,15 +218,15 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 	udbg_puts("\n-----------------------------------------------------\n");
 
 
-	if ( _machine & _MACH_pSeries ) {
+	if (naca->platform & PLATFORM_PSERIES) {
 		finish_device_tree();
 		chrp_init(r3, r4, r5, r6, r7);
 	}
 
 	mm_init_ppc64();
 
-	switch (_machine) {
-	case _MACH_iSeries:
+	switch (naca->platform) {
+	case PLATFORM_ISERIES_LPAR:
 		iSeries_init();
 		break;
 	default:
@@ -300,14 +274,14 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		return 0;
 #endif
 
-	pvr = xPaca[cpu_id].pvr;
+	pvr = paca[cpu_id].pvr;
 	maj = (pvr >> 8) & 0xFF;
 	min = pvr & 0xFF;
 
 	seq_printf(m, "processor\t: %lu\n", cpu_id);
 	seq_printf(m, "cpu\t\t: ");
 
-	pvr = xPaca[cpu_id].pvr;
+	pvr = paca[cpu_id].pvr;
 
 	switch (PVR_VER(pvr)) {
 	case PV_PULSAR:
@@ -337,7 +311,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	 * Assume here that all clock rates are the same in a
 	 * smp system.  -- Cort
 	 */
-	if (_machine != _MACH_iSeries) {
+	if (naca->platform != PLATFORM_ISERIES_LPAR) {
 		struct device_node *cpu_node;
 		int *fp;
 
@@ -566,6 +540,8 @@ void __init setup_arch(char **cmdline_p)
 	ppc_md.progress("setup_arch: exit", 0x3eab);
 }
 
+#ifdef CONFIG_IDE
+
 /* Convert the shorts/longs in hd_driveid from little to big endian;
  * chars are endian independant, of course, but strings need to be flipped.
  * (Despite what it says in drivers/block/ide.h, they come up as little
@@ -636,8 +612,12 @@ void ppc64_ide_fix_driveid(struct hd_driveid *id)
 	id->CurAPMvalues   = __le16_to_cpu(id->CurAPMvalues);
 	id->word92         = __le16_to_cpu(id->word92);
 	id->hw_config      = __le16_to_cpu(id->hw_config);
-	for (i = 0; i < 32; i++)
-		id->words94_125[i]  = __le16_to_cpu(id->words94_125[i]);
+	id->acoustic       = __le16_to_cpu(id->acoustic);
+	for (i = 0; i < 5; i++)
+		id->words95_99[i]  = __le16_to_cpu(id->words95_99[i]);
+	id->lba_capacity_2 = __le64_to_cpu(id->lba_capacity_2);
+	for (i = 0; i < 21; i++)
+		id->words104_125[i]  = __le16_to_cpu(id->words104_125[i]);
 	id->last_lun       = __le16_to_cpu(id->last_lun);
 	id->word127        = __le16_to_cpu(id->word127);
 	id->dlf            = __le16_to_cpu(id->dlf);
@@ -647,9 +627,16 @@ void ppc64_ide_fix_driveid(struct hd_driveid *id)
 	id->word156        = __le16_to_cpu(id->word156);
 	for (i = 0; i < 3; i++)
 		id->words157_159[i] = __le16_to_cpu(id->words157_159[i]);
-	for (i = 0; i < 96; i++)
-		id->words160_255[i] = __le16_to_cpu(id->words160_255[i]);
+	id->cfa_power=__le16_to_cpu(id->cfa_power);
+	for (i = 0; i < 15; i++)
+		id->words161_175[i] = __le16_to_cpu(id->words161_175[i]);
+	for (i = 0; i < 29; i++)
+		id->words176_205[i] = __le16_to_cpu(id->words176_205[i]);
+	for (i = 0; i < 48; i++)
+		id->words206_254[i] = __le16_to_cpu(id->words206_254[i]);
+	id->integrity_word=__le16_to_cpu(id->integrity_word);
 }
+#endif
 
 
 void exception_trace(unsigned long trap)
@@ -677,9 +664,9 @@ int set_spread_lpevents( char * str )
 	/* The parameter is the number of processors to share in processing lp events */
 	unsigned long i;
 	unsigned long val = simple_strtoul( str, NULL, 0 );
-	if ( ( val > 0 ) && ( val <= maxPacas ) ) {
+	if ( ( val > 0 ) && ( val <= MAX_PACAS ) ) {
 		for ( i=1; i<val; ++i )
-			xPaca[i].lpQueuePtr = xPaca[0].lpQueuePtr;
+			paca[i].lpQueuePtr = paca[0].lpQueuePtr;
 		printk("lpevent processing spread over %ld processors\n", val);
 	}
 	else
@@ -690,13 +677,13 @@ int set_spread_lpevents( char * str )
 /* This should only be called on processor 0 during calibrate decr */
 void setup_default_decr(void)
 {
-	struct Paca * paca = (struct Paca *)mfspr(SPRG3);
+	struct paca_struct *lpaca = get_paca();
 
 	if ( decr_overclock_set && !decr_overclock_proc0_set )
 		decr_overclock_proc0 = decr_overclock;
 
-	paca->default_decr = tb_ticks_per_jiffy / decr_overclock_proc0;	
-	paca->next_jiffy_update_tb = get_tb() + tb_ticks_per_jiffy;
+	lpaca->default_decr = tb_ticks_per_jiffy / decr_overclock_proc0;	
+	lpaca->next_jiffy_update_tb = get_tb() + tb_ticks_per_jiffy;
 }
 
 int set_decr_overclock_proc0( char * str )

@@ -1,5 +1,5 @@
 /*
- *	i810-tco 0.03:	TCO timer driver for i8xx chipsets
+ *	i810-tco 0.04:	TCO timer driver for i8xx chipsets
  *
  *	(c) Copyright 2000 kernel concepts <nils@kernelconcepts.de>, All Rights Reserved.
  *				http://www.kernelconcepts.de
@@ -30,8 +30,11 @@
  *	Initial Version 0.01
  *  20000728 Nils Faerber
  *      0.02 Fix for SMI_EN->TCO_EN bit, some cleanups
+ *  20011214 Matt Domsch <Matt_Domsch@dell.com>
+ *	0.03 Added nowayout module option to override CONFIG_WATCHDOG_NOWAYOUT
+ *	     Didn't add timeout option as i810_margin already exists.
  *  20020224 Joel Becker, Wim Van Sebroeck
- *	0.03 Support for 82801CA(M) chipset, timer margin needs to be > 3,
+ *	0.04 Support for 82801CA(M) chipset, timer margin needs to be > 3,
  *	     add support for WDIOC_SETTIMEOUT and WDIOC_GETTIMEOUT.
  */
  
@@ -51,13 +54,13 @@
 #include "i810-tco.h"
 
 
-/* Default expire timeout */
-#define TIMER_MARGIN	50	/* steps of 0.6sec, 3<n<64. Default is 30 seconds */
-
 /* Module and version information */
-#define TCO_VERSION "0.03"
+#define TCO_VERSION "0.04"
 #define TCO_MODULE_NAME "i810 TCO timer"
 #define TCO_DRIVER_NAME   TCO_MODULE_NAME " , " TCO_VERSION
+
+/* Default expire timeout */
+#define TIMER_MARGIN	50	/* steps of 0.6sec, 3<n<64. Default is 30 seconds */
 
 static unsigned int ACPIBASE;
 static spinlock_t tco_lock;	/* Guards the hardware */
@@ -65,6 +68,18 @@ static spinlock_t tco_lock;	/* Guards the hardware */
 static int i810_margin = TIMER_MARGIN;	/* steps of 0.6sec */
 
 MODULE_PARM (i810_margin, "i");
+MODULE_PARM_DESC(i810_margin, "Watchdog timeout in steps of 0.6sec, 3<n<64. Default = 50 (30 seconds)");
+
+
+#ifdef CONFIG_WATCHDOG_NOWAYOUT
+static int nowayout = 1;
+#else
+static int nowayout = 0;
+#endif
+
+MODULE_PARM(nowayout,"i");
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=CONFIG_WATCHDOG_NOWAYOUT)");
+
 
 /*
  *	Timer active flag
@@ -172,6 +187,9 @@ static int i810tco_open (struct inode *inode, struct file *file)
 	if (timer_alive)
 		return -EBUSY;
 
+	if (nowayout) {
+		MOD_INC_USE_COUNT;
+	}
 	/*
 	 *      Reload and activate timer
 	 */
@@ -186,10 +204,10 @@ static int i810tco_release (struct inode *inode, struct file *file)
 	/*
 	 *      Shut off the timer.
 	 */
-#ifndef CONFIG_WATCHDOG_NOWAYOUT
-	tco_timer_stop ();
-	timer_alive = 0;
-#endif	
+	if (nowayout) {
+		tco_timer_stop ();
+		timer_alive = 0;
+	}
 	return 0;
 }
 
@@ -363,7 +381,7 @@ static int __init watchdog_init (void)
 	tco_timer_settimer ((unsigned char) i810_margin);
 	tco_timer_reload ();
 
-	printk (KERN_INFO TCO_MODULE_NAME
+	printk (KERN_INFO TCO_DRIVER_NAME
 		": timer margin: %d sec (0x%04x)\n",
 		(int) (i810_margin * 6 / 10), TCOBASE);
 	return 0;

@@ -25,7 +25,7 @@
 /*
  * HCI Connection handling.
  *
- * $Id: hci_conn.c,v 1.1 2002/03/08 21:06:59 maxk Exp $
+ * $Id: hci_conn.c,v 1.2 2002/04/17 17:37:16 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -53,8 +53,8 @@
 #include <net/bluetooth/hci_core.h>
 
 #ifndef HCI_CORE_DEBUG
-#undef  DBG
-#define DBG( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
 #endif
 
 void hci_acl_connect(struct hci_conn *conn)
@@ -63,7 +63,7 @@ void hci_acl_connect(struct hci_conn *conn)
 	struct inquiry_entry *ie;
 	create_conn_cp cp;
 
-	DBG("%p", conn);
+	BT_DBG("%p", conn);
 
 	conn->state = BT_CONNECT;
 	conn->out   = 1;
@@ -93,7 +93,7 @@ void hci_acl_disconn(struct hci_conn *conn, __u8 reason)
 {
 	disconnect_cp cp;
 
-	DBG("%p", conn);
+	BT_DBG("%p", conn);
 
 	conn->state = BT_DISCONN;
 
@@ -108,7 +108,7 @@ void hci_add_sco(struct hci_conn *conn, __u16 handle)
 	struct hci_dev *hdev = conn->hdev;
 	add_sco_cp cp;
 
-	DBG("%p", conn);
+	BT_DBG("%p", conn);
 
 	conn->state = BT_CONNECT;
 	conn->out = 1;
@@ -124,7 +124,7 @@ static void hci_conn_timeout(unsigned long arg)
 	struct hci_conn *conn = (void *)arg;
 	struct hci_dev  *hdev = conn->hdev;
 
-	DBG("conn %p state %d", conn, conn->state);
+	BT_DBG("conn %p state %d", conn, conn->state);
 
 	if (atomic_read(&conn->refcnt))
 		return;
@@ -149,7 +149,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst)
 {
 	struct hci_conn *conn;
 
-	DBG("%s dst %s", hdev->name, batostr(dst));
+	BT_DBG("%s dst %s", hdev->name, batostr(dst));
 
 	if (!(conn = kmalloc(sizeof(struct hci_conn), GFP_ATOMIC)))
 		return NULL;
@@ -178,7 +178,7 @@ int hci_conn_del(struct hci_conn *conn)
 {
 	struct hci_dev  *hdev = conn->hdev;
 
-	DBG("%s conn %p handle %d", hdev->name, conn, conn->handle);
+	BT_DBG("%s conn %p handle %d", hdev->name, conn, conn->handle);
 	
 	hci_conn_del_timer(conn);
 
@@ -218,7 +218,7 @@ struct hci_dev *hci_get_route(bdaddr_t *dst, bdaddr_t *src)
 	struct hci_dev *hdev = NULL;
 	struct list_head *p;
 
-	DBG("%s -> %s", batostr(src), batostr(dst));
+	BT_DBG("%s -> %s", batostr(src), batostr(dst));
 
 	spin_lock_bh(&hdev_list_lock);
 
@@ -258,7 +258,7 @@ struct hci_conn * hci_connect(struct hci_dev *hdev, int type, bdaddr_t *dst)
 {
 	struct hci_conn *acl;
 
-	DBG("%s dst %s", hdev->name, batostr(dst));
+	BT_DBG("%s dst %s", hdev->name, batostr(dst));
 
 	if (!(acl = conn_hash_lookup_ba(hdev, ACL_LINK, dst))) {
 		if (!(acl = hci_conn_add(hdev, ACL_LINK, dst)))
@@ -297,7 +297,7 @@ struct hci_conn * hci_connect(struct hci_dev *hdev, int type, bdaddr_t *dst)
 /* Authenticate remote device */
 int hci_conn_auth(struct hci_conn *conn)
 {
-	DBG("conn %p", conn);
+	BT_DBG("conn %p", conn);
 	
 	if (conn->link_mode & HCI_LM_AUTH)
 		return 1;
@@ -314,7 +314,7 @@ int hci_conn_auth(struct hci_conn *conn)
 /* Enable encryption */
 int hci_conn_encrypt(struct hci_conn *conn)
 {
-	DBG("conn %p", conn);
+	BT_DBG("conn %p", conn);
 	
 	if (conn->link_mode & HCI_LM_ENCRYPT)
 		return 1;
@@ -338,7 +338,7 @@ void hci_conn_hash_flush(struct hci_dev *hdev)
 	struct conn_hash *h = &hdev->conn_hash;
         struct list_head *p;
 
-	DBG("hdev %s", hdev->name);
+	BT_DBG("hdev %s", hdev->name);
 
 	p = h->list.next;
 	while (p != &h->list) {

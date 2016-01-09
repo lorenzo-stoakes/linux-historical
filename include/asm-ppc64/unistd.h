@@ -211,6 +211,27 @@
 #define __NR_pciconfig_iobase	200
 #define __NR_multiplexer	201
 #define __NR_getdents64		202
+#define __NR_pivot_root		203
+#define __NR_fcntl64		204
+#define __NR_madvise		205
+#define __NR_mincore		206
+#define __NR_gettid		207
+#if 0 /* Reserved syscalls */
+#define __NR_tkill		208
+#define __NR_setxattr		209
+#define __NR_lsetxattr		210
+#define __NR_fsetxattr		211
+#define __NR_getxattr		212
+#define __NR_lgetxattr		213
+#define __NR_fgetxattr		214
+#define __NR_listxattr		215
+#define __NR_llistxattr		216
+#define __NR_flistxattr		217
+#define __NR_removexattr	218
+#define __NR_lremovexattr	219
+#define __NR_fremovexattr	220
+#define __NR_futex		221
+#endif
 
 #define __NR(n)	#n
 

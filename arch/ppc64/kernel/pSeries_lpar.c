@@ -32,7 +32,7 @@
 #include <asm/ppcdebug.h>
 #include <asm/pci_dma.h>
 #include <linux/pci.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 
 /* Status return values */
 #define H_Success	0
@@ -532,7 +532,7 @@ void make_pte_LPAR(HPTE *htab,
 	local_hpte.dw0.dw0.avpn = va >> 23;
 	local_hpte.dw0.dw0.bolted = 1;				/* bolted */
 	if (large)
-    local_hpte.dw0.dw0.l = 1;  /* large page */
+		local_hpte.dw0.dw0.l = 1;  /* large page */
 	local_hpte.dw0.dw0.v = 1;
 
 	/* Set CEC cookie to 0                   */
@@ -577,7 +577,7 @@ void make_pte_LPAR(HPTE *htab,
 static void tce_build_pSeriesLP(struct TceTable *tbl, long tcenum, 
 				unsigned long uaddr, int direction )
 {
-	u64 setTceRc;
+	u64 set_tce_rc;
 	union Tce tce;
 	
 	PPCDBG(PPCDBG_TCE, "build_tce: uaddr = 0x%lx\n", uaddr);
@@ -590,90 +590,35 @@ static void tce_build_pSeriesLP(struct TceTable *tbl, long tcenum,
 	tce.tceBits.readWrite = 1;
 	if ( direction != PCI_DMA_TODEVICE ) tce.tceBits.pciWrite = 1;
 
-	setTceRc = plpar_tce_put((u64)tbl->index, 
+	set_tce_rc = plpar_tce_put((u64)tbl->index, 
 				 (u64)tcenum << 12, 
 				 tce.wholeTce );
-	/* Make sure the update is visible to hardware.
-	 * ToDo: sync after setting *all* the tce's.
-	 */
-	__asm__ __volatile__ ("sync" : : : "memory");
 
-	if(setTceRc) {
-		PPCDBG(PPCDBG_TCE, "setTce failed. rc=%ld\n", setTceRc);
-		PPCDBG(PPCDBG_TCE, "\tindex   = 0x%lx\n", (u64)tbl->index);
-		PPCDBG(PPCDBG_TCE, "\ttcenum  = 0x%lx\n", (u64)tcenum);
-		PPCDBG(PPCDBG_TCE, "\ttce val = 0x%lx\n", tce.wholeTce );
+	if(set_tce_rc) {
+		printk("tce_build_pSeriesLP: plpar_tce_put failed. rc=%ld\n", set_tce_rc);
+		printk("\tindex   = 0x%lx\n", (u64)tbl->index);
+		printk("\ttcenum  = 0x%lx\n", (u64)tcenum);
+		printk("\ttce val = 0x%lx\n", tce.wholeTce );
 	}
 }
 
-static inline void free_tce_range(struct TceTable *tbl, 
-				  long tcenum, unsigned order )
+static void tce_free_one_pSeriesLP(struct TceTable *tbl, long tcenum)
 {
-	unsigned long flags;
-
-	/* Lock the tce allocation bitmap */
-	spin_lock_irqsave( &(tbl->lock), flags );
-
-	/* Do the actual work */
-	free_tce_range_nolock( tbl, tcenum, order );
-	
-	/* Unlock the tce allocation bitmap */
-	spin_unlock_irqrestore( &(tbl->lock), flags );
-
-}
-
-static void tce_free_pSeriesLP(struct TceTable *tbl, dma_addr_t dma_addr, 
-			       unsigned order, unsigned numPages)
-{
-	u64 setTceRc;
-	long tcenum, freeTce, maxTcenum;
-	unsigned i;
+	u64 set_tce_rc;
 	union Tce tce;
 
-	maxTcenum = (tbl->size * (PAGE_SIZE / sizeof(union Tce))) - 1;
-	
-	tcenum = dma_addr >> PAGE_SHIFT;
-
-	freeTce = tcenum - tbl->startOffset;
-
-	if ( freeTce > maxTcenum ) {
-		printk("free_tces: tcenum > maxTcenum\n");
-		printk("\ttcenum    = 0x%lx\n", tcenum); 
-		printk("\tfreeTce   = 0x%lx\n", freeTce); 
-		printk("\tmaxTcenum = 0x%lx\n", maxTcenum); 
-		printk("\tTCE Table = 0x%lx\n", (u64)tbl);
-		printk("\tbus#      = 0x%lx\n", 
-		       (u64)tbl->busNumber );
-		printk("\tsize      = 0x%lx\n", (u64)tbl->size);
-		printk("\tstartOff  = 0x%lx\n", 
-		       (u64)tbl->startOffset );
-		printk("\tindex     = 0x%lx\n", (u64)tbl->index);
-		return;
-	}
-	
-	for (i=0; i<numPages; ++i) {
-		tce.wholeTce = 0;
-		setTceRc = plpar_tce_put((u64)tbl->index, 
-					 (u64)tcenum << 12, /* note: not freeTce */
-					 tce.wholeTce );
-		if ( setTceRc ) {
-			printk("tce_free: setTce failed\n");
-			printk("\trc      = %ld\n", setTceRc);
-			printk("\tindex   = 0x%lx\n", 
-			       (u64)tbl->index);
-			printk("\ttcenum  = 0x%lx\n", (u64)tcenum);
-			printk("\tfreeTce = 0x%lx\n", (u64)freeTce);
-			printk("\ttce val = 0x%lx\n", 
-			       tce.wholeTce );
-		}
-
-		++tcenum;
+	tce.wholeTce = 0;
+	set_tce_rc = plpar_tce_put((u64)tbl->index, 
+				 (u64)tcenum << 12,
+				 tce.wholeTce );
+	if ( set_tce_rc ) {
+		printk("tce_free_one_pSeriesLP: plpar_tce_put failed\n");
+		printk("\trc      = %ld\n", set_tce_rc);
+		printk("\tindex   = 0x%lx\n", (u64)tbl->index);
+		printk("\ttcenum  = 0x%lx\n", (u64)tcenum);
+		printk("\ttce val = 0x%lx\n", tce.wholeTce );
 	}
 
-	/* Make sure the update is visible to hardware. */
-	__asm__ __volatile__ ("sync" : : : "memory");
-
-	free_tce_range( tbl, freeTce, order );
 }
 
 /* PowerPC Interrupts for lpar. */
@@ -769,8 +714,13 @@ static int udbg_getc_pollLP(void)
 		/* get some more chars. */
 		inbuflen = 0;
 		rc = plpar_get_term_char(vtermno, &inbuflen, buf);
-		if (inbuflen == 0 && rc == H_Success)
-			return -1;
+		if (rc != H_Success)
+			inbuflen = 0;	/* otherwise inbuflen is garbage */
+	}
+	if (inbuflen <= 0 || inbuflen > 16) {
+		/* Catch error case as well as other oddities (corruption) */
+		inbuflen = 0;
+		return -1;
 	}
 	ch = buf[0];
 	for (i = 1; i < inbuflen; i++)	/* shuffle them down. */
@@ -810,7 +760,7 @@ void pSeriesLP_init_early(void)
 	ppc_md.hpte_find	 = hpte_find_pSeriesLP;
 
 	ppc_md.tce_build	 = tce_build_pSeriesLP;
-	ppc_md.tce_free		 = tce_free_pSeriesLP;
+	ppc_md.tce_free_one	 = tce_free_one_pSeriesLP;
 
 #ifdef CONFIG_SMP
 	smp_init_pSeries();
@@ -846,7 +796,7 @@ void pSeriesLP_init_early(void)
 	}
 }
 
-/* Confidential code for hvc_console.  Should move it back eventually. */
+/* Code for hvc_console.  Should move it back eventually. */
 
 int hvc_get_chars(int index, char *buf, int count)
 {

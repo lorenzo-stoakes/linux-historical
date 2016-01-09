@@ -30,12 +30,10 @@
 #include <asm/uaccess.h>
 #include <asm/flight_recorder.h>
 #include <asm/ppcdebug.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 #include <asm/pci_dma.h>
 #include <asm/machdep.h>
-#ifdef CONFIG_PPC_EEH
 #include <asm/eeh.h>
-#endif
 
 #include "pci.h"
 
@@ -61,11 +59,7 @@ void        fixup_resources(struct pci_dev* dev);
 void   iSeries_pcibios_init(void);
 void   pSeries_pcibios_init(void);
 
-
-extern struct Naca *naca;
-
-int pci_assign_all_busses = 0;
-
+int    pci_assign_all_busses = 0;
 struct pci_controller* hose_head;
 struct pci_controller** hose_tail = &hose_head;
 
@@ -550,23 +544,23 @@ void __init pcibios_fixup_bus(struct pci_bus *bus)
 				/* Transparent resource -- don't try to "fix" it. */
 				continue;
 			}
-#ifdef CONFIG_PPC_EEH
-			if (res->flags & (IORESOURCE_IO|IORESOURCE_MEM)) {
-				res->start = eeh_token(phb->global_number, bus->number, 0, 0);
-				res->end = eeh_token(phb->global_number, bus->number, 0xff, 0xffffffff);
-			}
-#else
-			if (res->flags & IORESOURCE_IO) {
-				res->start += (unsigned long)phb->io_base_virt;
-				res->end += (unsigned long)phb->io_base_virt;
-			} else if (phb->pci_mem_offset
-				   && (res->flags & IORESOURCE_MEM)) {
-				if (res->start < phb->pci_mem_offset) {
-					res->start += phb->pci_mem_offset;
-					res->end += phb->pci_mem_offset;
+			if (is_eeh_implemented()) {
+				if (res->flags & (IORESOURCE_IO|IORESOURCE_MEM)) {
+					res->start = eeh_token(phb->global_number, bus->number, 0, 0);
+					res->end = eeh_token(phb->global_number, bus->number, 0xff, 0xffffffff);
+				}
+			} else {
+				if (res->flags & IORESOURCE_IO) {
+					res->start += (unsigned long)phb->io_base_virt;
+					res->end += (unsigned long)phb->io_base_virt;
+				} else if (phb->pci_mem_offset
+					   && (res->flags & IORESOURCE_MEM)) {
+					if (res->start < phb->pci_mem_offset) {
+						res->start += phb->pci_mem_offset;
+						res->end += phb->pci_mem_offset;
+					}
 				}
 			}
-#endif
 		}
 	}
 #endif	
@@ -759,8 +753,7 @@ __pci_mmap_set_pgprot(struct pci_dev *dev, struct vm_area_struct *vma,
 
 	/* XXX would be nice to have a way to ask for write-through */
 	prot |= _PAGE_NO_CACHE;
-	if (!write_combine)
-		prot |= _PAGE_GUARDED;
+	prot |= _PAGE_GUARDED;
 	vma->vm_page_prot = __pgprot(prot);
 }
 

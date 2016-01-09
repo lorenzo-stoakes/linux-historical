@@ -31,6 +31,8 @@
  **************************************************************************
  *
  * History
+ * Mar 28, 2002 Randolph Bentson <bentson@holmsjoen.com>
+ *	corrections to support WM9707 in ViewPad 1000
  * v0.4 Mar 15 2000 Ollie Lho
  *	dual codecs support verified with 4 channels output
  * v0.3 Feb 22 2000 Ollie Lho
@@ -59,12 +61,15 @@ static int ac97_mixer_ioctl(struct ac97_codec *codec, unsigned int cmd, unsigned
 
 static int ac97_init_mixer(struct ac97_codec *codec);
 
-static int wolfson_init(struct ac97_codec * codec);
+static int wolfson_init00(struct ac97_codec * codec);
+static int wolfson_init03(struct ac97_codec * codec);
+static int wolfson_init04(struct ac97_codec * codec);
 static int tritech_init(struct ac97_codec * codec);
 static int tritech_maestro_init(struct ac97_codec * codec);
 static int sigmatel_9708_init(struct ac97_codec *codec);
 static int sigmatel_9721_init(struct ac97_codec *codec);
 static int sigmatel_9744_init(struct ac97_codec *codec);
+static int ad1886_init(struct ac97_codec *codec);
 static int eapd_control(struct ac97_codec *codec, int);
 static int crystal_digital_control(struct ac97_codec *codec, int mode);
 
@@ -87,13 +92,16 @@ static int crystal_digital_control(struct ac97_codec *codec, int mode);
  
 static struct ac97_ops null_ops = { NULL, NULL, NULL };
 static struct ac97_ops default_ops = { NULL, eapd_control, NULL };
-static struct ac97_ops wolfson_ops = { wolfson_init, NULL, NULL };
+static struct ac97_ops wolfson_ops00 = { wolfson_init00, NULL, NULL };
+static struct ac97_ops wolfson_ops03 = { wolfson_init03, NULL, NULL };
+static struct ac97_ops wolfson_ops04 = { wolfson_init04, NULL, NULL };
 static struct ac97_ops tritech_ops = { tritech_init, NULL, NULL };
 static struct ac97_ops tritech_m_ops = { tritech_maestro_init, NULL, NULL };
 static struct ac97_ops sigmatel_9708_ops = { sigmatel_9708_init, NULL, NULL };
 static struct ac97_ops sigmatel_9721_ops = { sigmatel_9721_init, NULL, NULL };
 static struct ac97_ops sigmatel_9744_ops = { sigmatel_9744_init, NULL, NULL };
 static struct ac97_ops crystal_digital_ops = { NULL, eapd_control, crystal_digital_control };
+static struct ac97_ops ad1886_ops = { ad1886_init, eapd_control, NULL };
 
 /* sorted by vendor/device id */
 static const struct {
@@ -107,7 +115,7 @@ static const struct {
 	{0x41445360, "Analog Devices AD1885",	&default_ops},
 	{0x41445361, "Analog Devices AD1886",	&default_ops},
 	{0x41445460, "Analog Devices AD1885",	&default_ops},
-	{0x41445461, "Analog Devices AD1886",	&default_ops},
+	{0x41445461, "Analog Devices AD1886",	&ad1886_ops},
 	{0x414B4D00, "Asahi Kasei AK4540",	&null_ops},
 	{0x414B4D01, "Asahi Kasei AK4542",	&null_ops},
 	{0x414B4D02, "Asahi Kasei AK4543",	&null_ops},
@@ -133,9 +141,9 @@ static const struct {
 	{0x54524106, "TriTech TR28026",		&null_ops},
 	{0x54524108, "TriTech TR28028",		&tritech_ops},
 	{0x54524123, "TriTech TR A5",		&null_ops},
-	{0x574D4C00, "Wolfson WM9704",		&wolfson_ops},
-	{0x574D4C03, "Wolfson WM9703/9704",	&wolfson_ops},
-	{0x574D4C04, "Wolfson WM9704 (quad)",	&wolfson_ops},
+	{0x574D4C00, "Wolfson WM9700A",		&wolfson_ops00},
+	{0x574D4C03, "Wolfson WM9703/WM9707",	&wolfson_ops03},
+	{0x574D4C04, "Wolfson WM9704M/WM9704Q",	&wolfson_ops04},
 	{0x83847600, "SigmaTel STAC????",	&null_ops},
 	{0x83847604, "SigmaTel STAC9701/3/4/5", &null_ops},
 	{0x83847605, "SigmaTel STAC9704",	&null_ops},
@@ -835,7 +843,38 @@ static int sigmatel_9744_init(struct ac97_codec * codec)
 }
 
 
-static int wolfson_init(struct ac97_codec * codec)
+static int wolfson_init00(struct ac97_codec * codec)
+{
+	/* This initialization is suspect, but not known to be wrong.
+	   It was copied from the initialization for the WM9704Q, but
+	   that same sequence is known to fail for the WM9707.  Thus
+	   this warning may help someone with hardware to test
+	   this code. */
+	codec->codec_write(codec, 0x72, 0x0808);
+	codec->codec_write(codec, 0x74, 0x0808);
+
+	// patch for DVD noise
+	codec->codec_write(codec, 0x5a, 0x0200);
+
+	// init vol as PCM vol
+	codec->codec_write(codec, 0x70,
+		codec->codec_read(codec, AC97_PCMOUT_VOL));
+
+	codec->codec_write(codec, AC97_SURROUND_MASTER, 0x0000);
+	return 0;
+}
+
+
+static int wolfson_init03(struct ac97_codec * codec)
+{
+	/* this is known to work for the ViewSonic ViewPad 1000 */
+	codec->codec_write(codec, 0x72, 0x0808);
+	codec->codec_write(codec, 0x20, 0x8000);
+	return 0;
+}
+
+
+static int wolfson_init04(struct ac97_codec * codec)
 {
 	codec->codec_write(codec, 0x72, 0x0808);
 	codec->codec_write(codec, 0x74, 0x0808);
@@ -871,6 +910,26 @@ static int tritech_maestro_init(struct ac97_codec * codec)
 	codec->codec_write(codec, 0x2C, 0XFFFF);
 	return 0;
 }
+
+
+
+/* 
+ *	Presario700 workaround 
+ * 	for Jack Sense/SPDIF Register misetting causing
+ *	no audible output
+ *	by Santiago Nullo 04/05/2002
+ */
+
+#define AC97_AD1886_JACK_SENSE 0x72
+
+static int ad1886_init(struct ac97_codec * codec)
+{
+	/* from AD1886 Specs */
+	codec->codec_write(codec, AC97_AD1886_JACK_SENSE, 0x0010);
+	return 0;
+}
+
+
 
 
 /*

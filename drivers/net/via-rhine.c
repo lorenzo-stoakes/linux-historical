@@ -317,7 +317,8 @@ enum pci_flags_bit {
 enum via_rhine_chips {
 	VT86C100A = 0,
 	VT6102,
-	VT3043,
+	VT6105,
+	VT6105M
 };
 
 struct via_rhine_chip_info {
@@ -345,15 +346,18 @@ static struct via_rhine_chip_info via_rhine_chip_info[] __devinitdata =
 	  CanHaveMII | ReqTxAlign },
 	{ "VIA VT6102 Rhine-II", RHINE_IOTYPE, 256,
 	  CanHaveMII | HasWOL },
-	{ "VIA VT3043 Rhine",    RHINE_IOTYPE, 128,
-	  CanHaveMII | ReqTxAlign }
+	{ "VIA VT6105 Rhine-III", RHINE_IOTYPE, 256,
+	  CanHaveMII | HasWOL },	  
+	{ "VIA VT6105M Rhine-III", RHINE_IOTYPE, 256,
+	  CanHaveMII | HasWOL },	  	  	 
 };
 
 static struct pci_device_id via_rhine_pci_tbl[] __devinitdata =
 {
-	{0x1106, 0x6100, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VT86C100A},
+	{0x1106, 0x3043, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VT86C100A},
 	{0x1106, 0x3065, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VT6102},
-	{0x1106, 0x3043, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VT3043},
+	{0x1106, 0x3106, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VT6105},
+	{0x1106, 0x3053, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VT6105M},	
 	{0,}			/* terminate list */
 };
 MODULE_DEVICE_TABLE(pci, via_rhine_pci_tbl);
@@ -510,7 +514,7 @@ static void wait_for_reset(struct net_device *dev, char *name)
 	int i;
 
 	/* 3043 may need long delay after reset (dlink) */
-	if (chip_id == VT3043 || chip_id == VT86C100A)
+	if (chip_id == VT86C100A)
 		udelay(100);
 
 	i = 0;
@@ -531,7 +535,7 @@ static void wait_for_reset(struct net_device *dev, char *name)
 static void __devinit enable_mmio(long ioaddr, int chip_id)
 {
 	int n;
-	if (chip_id == VT3043 || chip_id == VT86C100A) {
+	if (chip_id == VT86C100A) {
 		/* More recent docs say that this bit is reserved ... */
 		n = inb(ioaddr + ConfigA) | 0x20;
 		outb(n, ioaddr + ConfigA);

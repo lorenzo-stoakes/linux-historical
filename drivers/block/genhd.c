@@ -195,7 +195,6 @@ extern void console_map_init(void);
 extern int soc_probe(void);
 extern int atmdev_init(void);
 extern int i2o_init(void);
-extern int cpqarray_init(void);
 
 int __init device_init(void)
 {
@@ -211,9 +210,6 @@ int __init device_init(void)
 #ifdef CONFIG_FC4_SOC
 	/* This has to be done before scsi_dev_init */
 	soc_probe();
-#endif
-#ifdef CONFIG_BLK_CPQ_DA
-	cpqarray_init();
 #endif
 #ifdef CONFIG_NET
 	net_dev_init();

@@ -74,7 +74,10 @@ static struct buffer_head **hash_table;
 static rwlock_t hash_table_lock = RW_LOCK_UNLOCKED;
 
 static struct buffer_head *lru_list[NR_LIST];
-static spinlock_t lru_list_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+
+static spinlock_cacheline_t lru_list_lock_cacheline = {SPIN_LOCK_UNLOCKED};
+#define lru_list_lock  lru_list_lock_cacheline.lock
+
 static int nr_buffers_type[NR_LIST];
 static unsigned long size_buffers_type[NR_LIST];
 
@@ -84,6 +87,7 @@ static spinlock_t unused_list_lock = SPIN_LOCK_UNLOCKED;
 static DECLARE_WAIT_QUEUE_HEAD(buffer_wait);
 
 static int grow_buffers(kdev_t dev, unsigned long block, int size);
+static int osync_buffers_list(struct list_head *);
 static void __refile_buffer(struct buffer_head *);
 
 /* This is used by some architectures to estimate available memory. */
@@ -801,9 +805,10 @@ still_busy:
 	return;
 }
 
-inline void set_buffer_async_io(struct buffer_head *bh) {
-    bh->b_end_io = end_buffer_io_async ;
-    mark_buffer_async(bh, 1);
+inline void set_buffer_async_io(struct buffer_head *bh)
+{
+	bh->b_end_io = end_buffer_io_async;
+	mark_buffer_async(bh, 1);
 }
 
 /*
@@ -825,8 +830,7 @@ inline void set_buffer_async_io(struct buffer_head *bh) {
  * the osync code to catch these locked, dirty buffers without requeuing
  * any newly dirty buffers for write.
  */
-
-int fsync_inode_buffers(struct inode *inode)
+int fsync_buffers_list(struct list_head *list)
 {
 	struct buffer_head *bh;
 	struct inode tmp;
@@ -836,8 +840,8 @@ int fsync_inode_buffers(struct inode *inode)
 	
 	spin_lock(&lru_list_lock);
 
-	while (!list_empty(&inode->i_dirty_buffers)) {
-		bh = BH_ENTRY(inode->i_dirty_buffers.next);
+	while (!list_empty(list)) {
+		bh = BH_ENTRY(list->next);
 		list_del(&bh->b_inode_buffers);
 		if (!buffer_dirty(bh) && !buffer_locked(bh))
 			bh->b_inode = NULL;
@@ -867,56 +871,7 @@ int fsync_inode_buffers(struct inode *inode)
 	}
 	
 	spin_unlock(&lru_list_lock);
-	err2 = osync_inode_buffers(inode);
-
-	if (err)
-		return err;
-	else
-		return err2;
-}
-
-int fsync_inode_data_buffers(struct inode *inode)
-{
-	struct buffer_head *bh;
-	struct inode tmp;
-	int err = 0, err2;
-	
-	INIT_LIST_HEAD(&tmp.i_dirty_data_buffers);
-	
-	spin_lock(&lru_list_lock);
-
-	while (!list_empty(&inode->i_dirty_data_buffers)) {
-		bh = BH_ENTRY(inode->i_dirty_data_buffers.next);
-		list_del(&bh->b_inode_buffers);
-		if (!buffer_dirty(bh) && !buffer_locked(bh))
-			bh->b_inode = NULL;
-		else {
-			bh->b_inode = &tmp;
-			list_add(&bh->b_inode_buffers, &tmp.i_dirty_data_buffers);
-			if (buffer_dirty(bh)) {
-				get_bh(bh);
-				spin_unlock(&lru_list_lock);
-				ll_rw_block(WRITE, 1, &bh);
-				brelse(bh);
-				spin_lock(&lru_list_lock);
-			}
-		}
-	}
-
-	while (!list_empty(&tmp.i_dirty_data_buffers)) {
-		bh = BH_ENTRY(tmp.i_dirty_data_buffers.prev);
-		remove_inode_queue(bh);
-		get_bh(bh);
-		spin_unlock(&lru_list_lock);
-		wait_on_buffer(bh);
-		if (!buffer_uptodate(bh))
-			err = -EIO;
-		brelse(bh);
-		spin_lock(&lru_list_lock);
-	}
-	
-	spin_unlock(&lru_list_lock);
-	err2 = osync_inode_data_buffers(inode);
+	err2 = osync_buffers_list(list);
 
 	if (err)
 		return err;
@@ -930,24 +885,21 @@ int fsync_inode_data_buffers(struct inode *inode)
  * writes to the disk.
  *
  * To do O_SYNC writes, just queue the buffer writes with ll_rw_block as
- * you dirty the buffers, and then use osync_inode_buffers to wait for
+ * you dirty the buffers, and then use osync_buffers_list to wait for
  * completion.  Any other dirty buffers which are not yet queued for
  * write will not be flushed to disk by the osync.
  */
-
-int osync_inode_buffers(struct inode *inode)
+static int osync_buffers_list(struct list_head *list)
 {
 	struct buffer_head *bh;
-	struct list_head *list;
+	struct list_head *p;
 	int err = 0;
 
 	spin_lock(&lru_list_lock);
 	
  repeat:
-	
-	for (list = inode->i_dirty_buffers.prev; 
-	     bh = BH_ENTRY(list), list != &inode->i_dirty_buffers;
-	     list = bh->b_inode_buffers.prev) {
+	list_for_each_prev(p, list) {
+		bh = BH_ENTRY(p);
 		if (buffer_locked(bh)) {
 			get_bh(bh);
 			spin_unlock(&lru_list_lock);
@@ -963,36 +915,6 @@ int osync_inode_buffers(struct inode *inode)
 	spin_unlock(&lru_list_lock);
 	return err;
 }
-
-int osync_inode_data_buffers(struct inode *inode)
-{
-	struct buffer_head *bh;
-	struct list_head *list;
-	int err = 0;
-
-	spin_lock(&lru_list_lock);
-	
- repeat:
-
-	for (list = inode->i_dirty_data_buffers.prev; 
-	     bh = BH_ENTRY(list), list != &inode->i_dirty_data_buffers;
-	     list = bh->b_inode_buffers.prev) {
-		if (buffer_locked(bh)) {
-			get_bh(bh);
-			spin_unlock(&lru_list_lock);
-			wait_on_buffer(bh);
-			if (!buffer_uptodate(bh))
-				err = -EIO;
-			brelse(bh);
-			spin_lock(&lru_list_lock);
-			goto repeat;
-		}
-	}
-
-	spin_unlock(&lru_list_lock);
-	return err;
-}
-
 
 /*
  * Invalidate any and all dirty buffers on a given inode.  We are
@@ -2222,8 +2144,8 @@ static void end_buffer_io_kiobuf(struct buffer_head *bh, int uptodate)
 	mark_buffer_uptodate(bh, uptodate);
 
 	kiobuf = bh->b_private;
-	end_kio_request(kiobuf, uptodate);
 	unlock_buffer(bh);
+	end_kio_request(kiobuf, uptodate);
 }
 
 /*

@@ -7,7 +7,7 @@
  *
  *  Ideas also taken from arch/arm.
  *
- *  Copyright (C) 2000, 2001 Axis Communications AB
+ *  Copyright (C) 2000, 2001, 2002 Axis Communications AB
  *
  *  Authors:  Bjorn Wesen (bjornw@axis.com)
  *

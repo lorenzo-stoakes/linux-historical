@@ -558,7 +558,7 @@ static int emu10k1_private_mixer(struct emu10k1_card *card, unsigned int cmd, un
 
 				card->tankmem.size = size;
 
-				sblive_writeptr_tag(card, 0, TCB, card->tankmem.dma_handle, TCBS, size_reg, TAGLIST_END);
+				sblive_writeptr_tag(card, 0, TCB,(u32) card->tankmem.dma_handle, TCBS, size_reg, TAGLIST_END);
 
 				emu10k1_writefn0(card, HCFG_LOCKTANKCACHE, 0);
 			}

@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI Core.
  *
- * $Id: hci_core.c,v 1.5 2002/03/26 17:56:44 maxk Exp $
+ * $Id: hci_core.c,v 1.6 2002/04/17 17:37:16 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -53,8 +53,8 @@
 #include <net/bluetooth/hci_core.h>
 
 #ifndef HCI_CORE_DEBUG
-#undef  DBG
-#define DBG( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
 #endif
 
 static void hci_cmd_task(unsigned long arg);
@@ -98,7 +98,7 @@ void hci_notify(struct hci_dev *hdev, int event)
 
 void hci_req_complete(struct hci_dev *hdev, int result)
 {
-	DBG("%s result 0x%2.2x", hdev->name, result);
+	BT_DBG("%s result 0x%2.2x", hdev->name, result);
 
 	if (hdev->req_status == HCI_REQ_PEND) {
 		hdev->req_result = result;
@@ -109,7 +109,7 @@ void hci_req_complete(struct hci_dev *hdev, int result)
 
 void hci_req_cancel(struct hci_dev *hdev, int err)
 {
-	DBG("%s err 0x%2.2x", hdev->name, err);
+	BT_DBG("%s err 0x%2.2x", hdev->name, err);
 
 	if (hdev->req_status == HCI_REQ_PEND) {
 		hdev->req_result = err;
@@ -124,7 +124,7 @@ static int __hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *hdev,
 	DECLARE_WAITQUEUE(wait, current);
 	int err = 0;
 
-	DBG("%s start", hdev->name);
+	BT_DBG("%s start", hdev->name);
 
 	hdev->req_status = HCI_REQ_PEND;
 
@@ -156,7 +156,7 @@ static int __hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *hdev,
 
 	hdev->req_status = hdev->req_result = 0;
 
-	DBG("%s end: err %d", hdev->name, err);
+	BT_DBG("%s end: err %d", hdev->name, err);
 
 	return err;
 }
@@ -176,7 +176,7 @@ static inline int hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *
 
 static void hci_reset_req(struct hci_dev *hdev, unsigned long opt)
 {
-	DBG("%s %ld", hdev->name, opt);
+	BT_DBG("%s %ld", hdev->name, opt);
 
 	/* Reset device */
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_RESET, 0, NULL);
@@ -187,7 +187,7 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 	set_event_flt_cp ef;
 	__u16 param;
 
-	DBG("%s %ld", hdev->name, opt);
+	BT_DBG("%s %ld", hdev->name, opt);
 
 	/* Mandatory initialization */
 
@@ -232,7 +232,7 @@ static void hci_scan_req(struct hci_dev *hdev, unsigned long opt)
 {
 	__u8 scan = opt;
 
-	DBG("%s %x", hdev->name, scan);
+	BT_DBG("%s %x", hdev->name, scan);
 
 	/* Inquiry and Page scans */
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_WRITE_SCAN_ENABLE, 1, &scan);
@@ -242,7 +242,7 @@ static void hci_auth_req(struct hci_dev *hdev, unsigned long opt)
 {
 	__u8 auth = opt;
 
-	DBG("%s %x", hdev->name, auth);
+	BT_DBG("%s %x", hdev->name, auth);
 
 	/* Authentication */
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_WRITE_AUTH_ENABLE, 1, &auth);
@@ -252,7 +252,7 @@ static void hci_encrypt_req(struct hci_dev *hdev, unsigned long opt)
 {
 	__u8 encrypt = opt;
 
-	DBG("%s %x", hdev->name, encrypt);
+	BT_DBG("%s %x", hdev->name, encrypt);
 
 	/* Authentication */
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_WRITE_ENCRYPT_MODE, 1, &encrypt);
@@ -265,7 +265,7 @@ struct hci_dev *hci_dev_get(int index)
 	struct hci_dev *hdev;
 	struct list_head *p;
 
-	DBG("%d", index);
+	BT_DBG("%d", index);
 
 	if (index < 0)
 		return NULL;
@@ -290,7 +290,7 @@ void inquiry_cache_flush(struct hci_dev *hdev)
 	struct inquiry_cache *cache = &hdev->inq_cache;
 	struct inquiry_entry *next  = cache->list, *e;
 
-	DBG("cache %p", cache);
+	BT_DBG("cache %p", cache);
 
 	cache->list = NULL;
 	while ((e = next)) {
@@ -304,7 +304,7 @@ struct inquiry_entry *inquiry_cache_lookup(struct hci_dev *hdev, bdaddr_t *bdadd
 	struct inquiry_cache *cache = &hdev->inq_cache;
 	struct inquiry_entry *e;
 
-	DBG("cache %p, %s", cache, batostr(bdaddr));
+	BT_DBG("cache %p, %s", cache, batostr(bdaddr));
 
 	for (e = cache->list; e; e = e->next)
 		if (!bacmp(&e->info.bdaddr, bdaddr))
@@ -317,7 +317,7 @@ void inquiry_cache_update(struct hci_dev *hdev, inquiry_info *info)
 	struct inquiry_cache *cache = &hdev->inq_cache;
 	struct inquiry_entry *e;
 
-	DBG("cache %p, %s", cache, batostr(&info->bdaddr));
+	BT_DBG("cache %p, %s", cache, batostr(&info->bdaddr));
 
 	if (!(e = inquiry_cache_lookup(hdev, &info->bdaddr))) {
 		/* Entry not in the cache. Add new one. */
@@ -343,7 +343,7 @@ int inquiry_cache_dump(struct hci_dev *hdev, int num, __u8 *buf)
 	for (e = cache->list; e && copied < num; e = e->next, copied++)
 		memcpy(info++, &e->info, sizeof(inquiry_info));
 
-	DBG("cache %p, copied %d", cache, copied);
+	BT_DBG("cache %p, copied %d", cache, copied);
 	return copied;
 }
 
@@ -352,7 +352,7 @@ static void hci_inq_req(struct hci_dev *hdev, unsigned long opt)
 	struct hci_inquiry_req *ir = (struct hci_inquiry_req *) opt;
 	inquiry_cp ic;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	if (test_bit(HCI_INQUIRY, &hdev->flags))
 		return;
@@ -403,7 +403,7 @@ int hci_inquiry(unsigned long arg)
 	ir.num_rsp = inquiry_cache_dump(hdev, ir.num_rsp, buf);
 	hci_dev_unlock_bh(hdev);
 
-	DBG("num_rsp %d", ir.num_rsp);
+	BT_DBG("num_rsp %d", ir.num_rsp);
 
 	if (!verify_area(VERIFY_WRITE, ptr, sizeof(ir) + 
 				(sizeof(inquiry_info) * ir.num_rsp))) {
@@ -430,7 +430,7 @@ int hci_dev_open(__u16 dev)
 	if (!(hdev = hci_dev_get(dev)))
 		return -ENODEV;
 
-	DBG("%s %p", hdev->name, hdev);
+	BT_DBG("%s %p", hdev->name, hdev);
 
 	hci_req_lock(hdev);
 
@@ -486,7 +486,7 @@ done:
 
 static int hci_dev_do_close(struct hci_dev *hdev)
 {
-	DBG("%s %p", hdev->name, hdev);
+	BT_DBG("%s %p", hdev->name, hdev);
 
 	hci_req_cancel(hdev, ENODEV);
 	hci_req_lock(hdev);
@@ -763,7 +763,7 @@ int hci_register_dev(struct hci_dev *hdev)
 	struct list_head *head = &hdev_list, *p;
 	int id = 0;
 
-	DBG("%p name %s type %d", hdev, hdev->name, hdev->type);
+	BT_DBG("%p name %s type %d", hdev, hdev->name, hdev->type);
 
 	if (!hdev->open || !hdev->close || !hdev->destruct)
 		return -EINVAL;
@@ -819,7 +819,7 @@ int hci_register_dev(struct hci_dev *hdev)
 /* Unregister HCI device */
 int hci_unregister_dev(struct hci_dev *hdev)
 {
-	DBG("%p name %s type %d", hdev, hdev->name, hdev->type);
+	BT_DBG("%p name %s type %d", hdev, hdev->name, hdev->type);
 
 	spin_lock_bh(&hdev_list_lock);
 	list_del(&hdev->list);
@@ -845,7 +845,7 @@ int hci_recv_frame(struct sk_buff *skb)
 		return -1;
 	}
 
-	DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
+	BT_DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
 
 	/* Incomming skb */
 	bluez_cb(skb)->incomming = 1;
@@ -867,7 +867,7 @@ int hci_register_proto(struct hci_proto *hp)
 {
 	int err = 0;
 
-	DBG("%p name %s id %d", hp, hp->name, hp->id);
+	BT_DBG("%p name %s id %d", hp, hp->name, hp->id);
 
 	if (hp->id >= HCI_MAX_PROTO)
 		return -EINVAL;
@@ -888,7 +888,7 @@ int hci_unregister_proto(struct hci_proto *hp)
 {
 	int err = 0;
 
-	DBG("%p name %s id %d", hp, hp->name, hp->id);
+	BT_DBG("%p name %s id %d", hp, hp->name, hp->id);
 
 	if (hp->id >= HCI_MAX_PROTO)
 		return -EINVAL;
@@ -914,7 +914,7 @@ static int hci_send_frame(struct sk_buff *skb)
 		return -ENODEV;
 	}
 
-	DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
+	BT_DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
 
 	if (atomic_read(&hdev->promisc)) {
 		/* Time stamp */
@@ -939,7 +939,7 @@ int hci_send_raw(struct sk_buff *skb)
 		return -ENODEV;
 	}
 
-	DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
+	BT_DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
 
 	if (!test_bit(HCI_RAW, &hdev->flags)) {
 		/* Queue frame according it's type */
@@ -970,10 +970,10 @@ int hci_send_cmd(struct hci_dev *hdev, __u16 ogf, __u16 ocf, __u32 plen, void *p
 	hci_command_hdr *hc;
 	struct sk_buff *skb;
 
-	DBG("%s ogf 0x%x ocf 0x%x plen %d", hdev->name, ogf, ocf, plen);
+	BT_DBG("%s ogf 0x%x ocf 0x%x plen %d", hdev->name, ogf, ocf, plen);
 
 	if (!(skb = bluez_skb_alloc(len, GFP_ATOMIC))) {
-		ERR("%s Can't allocate memory for HCI command", hdev->name);
+		BT_ERR("%s Can't allocate memory for HCI command", hdev->name);
 		return -ENOMEM;
 	}
 	
@@ -984,7 +984,7 @@ int hci_send_cmd(struct hci_dev *hdev, __u16 ogf, __u16 ocf, __u32 plen, void *p
 	if (plen)
 		memcpy(skb_put(skb, plen), param, plen);
 
-	DBG("skb len %d", skb->len);
+	BT_DBG("skb len %d", skb->len);
 
 	skb->pkt_type = HCI_COMMAND_PKT;
 	skb->dev = (void *) hdev;
@@ -1007,7 +1007,7 @@ void *hci_sent_cmd_data(struct hci_dev *hdev, __u16 ogf, __u16 ocf)
 	if (hc->opcode != __cpu_to_le16(cmd_opcode_pack(ogf, ocf)))
 		return NULL;
 
-	DBG("%s ogf 0x%x ocf 0x%x", hdev->name, ogf, ocf);
+	BT_DBG("%s ogf 0x%x ocf 0x%x", hdev->name, ogf, ocf);
 
 	return hdev->sent_cmd->data + HCI_COMMAND_HDR_SIZE;
 }
@@ -1030,7 +1030,7 @@ int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 flags)
 	struct hci_dev *hdev = conn->hdev;
 	struct sk_buff *list;
 
-	DBG("%s conn %p flags 0x%x", hdev->name, conn, flags);
+	BT_DBG("%s conn %p flags 0x%x", hdev->name, conn, flags);
 
 	skb->dev = (void *) hdev;
 	skb->pkt_type = HCI_ACLDATA_PKT;
@@ -1038,12 +1038,12 @@ int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 flags)
 
 	if (!(list = skb_shinfo(skb)->frag_list)) {
 		/* Non fragmented */
-		DBG("%s nonfrag skb %p len %d", hdev->name, skb, skb->len);
+		BT_DBG("%s nonfrag skb %p len %d", hdev->name, skb, skb->len);
 		
 		skb_queue_tail(&conn->data_q, skb);
 	} else {
 		/* Fragmented */
-		DBG("%s frag %p len %d", hdev->name, skb, skb->len);
+		BT_DBG("%s frag %p len %d", hdev->name, skb, skb->len);
 
 		skb_shinfo(skb)->frag_list = NULL;
 
@@ -1058,7 +1058,7 @@ int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 flags)
 			skb->pkt_type = HCI_ACLDATA_PKT;
 			hci_add_acl_hdr(skb, conn->handle, flags | ACL_CONT);
 		
-			DBG("%s frag %p len %d", hdev->name, skb, skb->len);
+			BT_DBG("%s frag %p len %d", hdev->name, skb, skb->len);
 
 			__skb_queue_tail(&conn->data_q, skb);
 		} while (list);
@@ -1076,7 +1076,7 @@ int hci_send_sco(struct hci_conn *conn, struct sk_buff *skb)
 	struct hci_dev *hdev = conn->hdev;
 	hci_sco_hdr hs;
 
-	DBG("%s len %d", hdev->name, skb->len);
+	BT_DBG("%s len %d", hdev->name, skb->len);
 
 	if (skb->len > hdev->sco_mtu) {
 		kfree_skb(skb);
@@ -1130,7 +1130,7 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 	} else
 		*quote = 0;
 
-	DBG("conn %p quote %d", conn, *quote);
+	BT_DBG("conn %p quote %d", conn, *quote);
 	return conn;
 }
 
@@ -1140,16 +1140,16 @@ static inline void hci_sched_acl(struct hci_dev *hdev)
 	struct sk_buff *skb;
 	int quote;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	if (!hdev->acl_cnt && (jiffies - hdev->acl_last_tx) > HZ*5) {
-		ERR("%s ACL tx timeout", hdev->name);
+		BT_ERR("%s ACL tx timeout", hdev->name);
 		hdev->acl_cnt++;
 	}
 	
 	while (hdev->acl_cnt && (conn = hci_low_sent(hdev, ACL_LINK, &quote))) {
 		while (quote && (skb = skb_dequeue(&conn->data_q))) {
-			DBG("skb %p len %d", skb, skb->len);
+			BT_DBG("skb %p len %d", skb, skb->len);
 
 			hci_send_frame(skb);
 			hdev->acl_last_tx = jiffies;
@@ -1168,11 +1168,11 @@ static inline void hci_sched_sco(struct hci_dev *hdev)
 	struct sk_buff *skb;
 	int quote;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	while ((conn = hci_low_sent(hdev, SCO_LINK, &quote))) {
 		while (quote && (skb = skb_dequeue(&conn->data_q))) {
-			DBG("skb %p len %d", skb, skb->len);
+			BT_DBG("skb %p len %d", skb, skb->len);
 
 			hci_send_frame(skb);
 
@@ -1190,7 +1190,7 @@ static void hci_tx_task(unsigned long arg)
 
 	read_lock(&hci_task_lock);
 
-	DBG("%s acl %d sco %d", hdev->name, hdev->acl_cnt, hdev->sco_cnt);
+	BT_DBG("%s acl %d sco %d", hdev->name, hdev->acl_cnt, hdev->sco_cnt);
 
 	/* Schedule queues and send stuff to HCI driver */
 
@@ -1221,7 +1221,7 @@ static inline void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 	flags  = acl_flags(handle);
 	handle = acl_handle(handle);
 
-	DBG("%s len %d handle 0x%x flags 0x%x", hdev->name, skb->len, handle, flags);
+	BT_DBG("%s len %d handle 0x%x flags 0x%x", hdev->name, skb->len, handle, flags);
 
 	hdev->stat.acl_rx++;
 
@@ -1238,7 +1238,7 @@ static inline void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 			return;
 		}
 	} else {
-		ERR("%s ACL packet for unknown connection handle %d", 
+		BT_ERR("%s ACL packet for unknown connection handle %d", 
 			hdev->name, handle);
 	}
 
@@ -1256,7 +1256,7 @@ static inline void hci_scodata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 
 	handle = __le16_to_cpu(sh->handle);
 
-	DBG("%s len %d handle 0x%x", hdev->name, skb->len, handle);
+	BT_DBG("%s len %d handle 0x%x", hdev->name, skb->len, handle);
 
 	hdev->stat.sco_rx++;
 
@@ -1273,7 +1273,7 @@ static inline void hci_scodata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 			return;
 		}
 	} else {
-		ERR("%s SCO packet for unknown connection handle %d", 
+		BT_ERR("%s SCO packet for unknown connection handle %d", 
 			hdev->name, handle);
 	}
 
@@ -1285,7 +1285,7 @@ void hci_rx_task(unsigned long arg)
 	struct hci_dev *hdev = (struct hci_dev *) arg;
 	struct sk_buff *skb;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	read_lock(&hci_task_lock);
 
@@ -1317,12 +1317,12 @@ void hci_rx_task(unsigned long arg)
 			break;
 
 		case HCI_ACLDATA_PKT:
-			DBG("%s ACL data packet", hdev->name);
+			BT_DBG("%s ACL data packet", hdev->name);
 			hci_acldata_packet(hdev, skb);
 			break;
 
 		case HCI_SCODATA_PKT:
-			DBG("%s SCO data packet", hdev->name);
+			BT_DBG("%s SCO data packet", hdev->name);
 			hci_scodata_packet(hdev, skb);
 			break;
 
@@ -1340,10 +1340,10 @@ static void hci_cmd_task(unsigned long arg)
 	struct hci_dev *hdev = (struct hci_dev *) arg;
 	struct sk_buff *skb;
 
-	DBG("%s cmd %d", hdev->name, atomic_read(&hdev->cmd_cnt));
+	BT_DBG("%s cmd %d", hdev->name, atomic_read(&hdev->cmd_cnt));
 
 	if (!atomic_read(&hdev->cmd_cnt) && (jiffies - hdev->cmd_last_tx) > HZ) {
-		ERR("%s command tx timeout", hdev->name);
+		BT_ERR("%s command tx timeout", hdev->name);
 		atomic_set(&hdev->cmd_cnt, 1);
 	}
 	

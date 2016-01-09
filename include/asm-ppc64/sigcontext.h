@@ -18,17 +18,4 @@ struct sigcontext_struct {
 	struct pt_regs 	*regs;
 };
 
-#ifdef __KERNEL__
-
-struct sigcontext32_struct {
-	unsigned int	_unused[4];
-	int		signal;
-	unsigned int	handler;
-	unsigned int	oldmask;
-	u32 regs;  /* 4 byte pointer to the pt_regs32 structure. */
-};
-
-#endif /* __KERNEL__ */
-
-
 #endif /* _ASM_PPC64_SIGCONTEXT_H */

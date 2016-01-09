@@ -19,12 +19,9 @@
 #define WANT_PPCDBG_TAB /* Only defined here */
 #include <asm/ppcdebug.h>
 #include <asm/processor.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 #include <asm/uaccess.h>
 #include <asm/machdep.h>
-
-extern struct Naca *naca;
-extern int _machine;
 
 struct NS16550 {
 	/* this struct must be packed */
@@ -87,7 +84,7 @@ udbg_putc(unsigned char c)
 				/* wait for idle */;
 			udbg_comport->thr = '\r'; eieio();
 		}
-	} else if ( _machine == _MACH_iSeries ) {
+	} else if (naca->platform == PLATFORM_ISERIES_LPAR) {
 		/* ToDo: switch this via ppc_md */
 		printk("%c", c);
 	}
@@ -181,7 +178,7 @@ udbg_puthex(unsigned long val)
 void
 udbg_printSP(const char *s)
 {
-	if (_machine == _MACH_pSeries) {
+	if (naca->platform == PLATFORM_PSERIES) {
 		unsigned long sp;
 		asm("mr %0,1" : "=r" (sp) :);
 		if (s)
@@ -209,10 +206,10 @@ udbg_printf(const char *fmt, ...)
 
 /* Special print used by PPCDBG() macro */
 void
-udbg_ppcdbg(unsigned long flags, const char *fmt, ...)
+udbg_ppcdbg(unsigned long debug_flags, const char *fmt, ...)
 {
 	unsigned long flags;
-	unsigned long active_debugs = flags & naca->debug_switch;
+	unsigned long active_debugs = debug_flags & naca->debug_switch;
 
 	if ( active_debugs ) {
 		va_list ap;

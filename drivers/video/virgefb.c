@@ -1007,7 +1007,7 @@ static int virgefb_encode_fix(struct fb_fix_screeninfo *fix,
 	fix->xpanstep = 0;
 	fix->ypanstep = 0;
 	fix->ywrapstep = 0;
-	fix->line_length = 0;
+	fix->line_length = par->var.xres_virtual*par->var.bits_per_pixel/8;
 	fix->accel = FB_ACCEL_S3_VIRGE;
 	DPRINTK("EXIT v_ram_phys = 0x%8.8lx\n", (unsigned long)fix->smem_start);
 	return 0;
@@ -1539,7 +1539,8 @@ static void virgefb_set_disp(int con, struct fb_info *info)
 	display->ywrapstep = fix.ywrapstep;
 	display->can_soft_blank = 1;
 	display->inverse = virgefb_inverse;
-	display->line_length = display->var.xres * (display->var.bits_per_pixel / 8);
+	display->line_length = display->var.xres_virtual*
+			       display->var.bits_per_pixel/8;
 
 	switch (display->var.bits_per_pixel) {
 #ifdef FBCON_HAS_CFB8

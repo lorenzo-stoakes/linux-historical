@@ -215,7 +215,7 @@ static int fop_open(struct inode * inode, struct file * file)
 		case WATCHDOG_MINOR:
 			/* Just in case we're already talking to someone... */
 			if(test_and_set_bit(0, &wdt_is_open)) {
-				spin_unlock(&fop_spinlock);
+				spin_unlock(&wdt_is_open);
 				return -EBUSY;
 			}
 			/* Good, fire up the show */
@@ -320,7 +320,6 @@ static int __init w83877f_wdt_init(void)
 	int rc = -EBUSY;
 
 	spin_lock_init(&wdt_spinlock);
-	spin_lock_init(&fop_spinlock);
 
 	if (!request_region(ENABLE_W83877F_PORT, 2, "W83877F WDT"))
 		goto err_out;

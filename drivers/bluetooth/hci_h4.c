@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI UART(H4) protocol.
  *
- * $Id: hci_h4.c,v 1.1.1.1 2002/03/08 21:03:15 maxk Exp $    
+ * $Id: hci_h4.c,v 1.2 2002/04/17 17:37:20 maxk Exp $    
  */
 #define VERSION "1.1"
 
@@ -57,10 +57,10 @@
 #include "hci_h4.h"
 
 #ifndef HCI_UART_DEBUG
-#undef  DBG
-#define DBG( A... )
-#undef  DMP
-#define DMP( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
+#undef  BT_DMP
+#define BT_DMP( A... )
 #endif
 
 /* Initialize protocol */
@@ -68,7 +68,7 @@ static int h4_open(struct n_hci *n_hci)
 {
 	struct h4_struct *h4;
 	
-	DBG("n_hci %p", n_hci);
+	BT_DBG("n_hci %p", n_hci);
 	
 	h4 = kmalloc(sizeof(*h4), GFP_ATOMIC);
 	if (!h4)
@@ -82,7 +82,7 @@ static int h4_open(struct n_hci *n_hci)
 /* Flush protocol data */
 static int h4_flush(struct n_hci *n_hci)
 {
-	DBG("n_hci %p", n_hci);
+	BT_DBG("n_hci %p", n_hci);
 	return 0;
 }
 
@@ -92,7 +92,7 @@ static int h4_close(struct n_hci *n_hci)
 	struct h4_struct *h4 = n_hci->priv;
 	n_hci->priv = NULL;
 
-	DBG("n_hci %p", n_hci);
+	BT_DBG("n_hci %p", n_hci);
 
 	if (h4->rx_skb)
 		kfree_skb(h4->rx_skb);
@@ -106,7 +106,7 @@ static int h4_send(struct n_hci *n_hci, void *data, int len)
 {
 	struct tty_struct *tty = n_hci->tty;
 	
-	DBG("n_hci %p len %d", n_hci, len);
+	BT_DBG("n_hci %p len %d", n_hci, len);
 
 	/* Send frame to TTY driver */
 	tty->flags |= (1 << TTY_DO_WRITE_WAKEUP);
@@ -116,7 +116,7 @@ static int h4_send(struct n_hci *n_hci, void *data, int len)
 /* Init frame before queueing (padding, crc, etc) */
 static struct sk_buff* h4_preq(struct n_hci *n_hci, struct sk_buff *skb)
 {
-	DBG("n_hci %p skb %p", n_hci, skb);
+	BT_DBG("n_hci %p skb %p", n_hci, skb);
 
 	/* Prepend skb with frame type */
 	memcpy(skb_push(skb, 1), &skb->pkt_type, 1);
@@ -127,12 +127,12 @@ static inline int h4_check_data_len(struct h4_struct *h4, int len)
 {
 	register int room = skb_tailroom(h4->rx_skb);
 
-	DBG("len %d room %d", len, room);
+	BT_DBG("len %d room %d", len, room);
 	if (!len) {
-		DMP(h4->rx_skb->data, h4->rx_skb->len);
+		BT_DMP(h4->rx_skb->data, h4->rx_skb->len);
 		hci_recv_frame(h4->rx_skb);
 	} else if (len > room) {
-		ERR("Data length is to large");
+		BT_ERR("Data length is to large");
 		kfree_skb(h4->rx_skb);
 	} else {
 		h4->rx_state = H4_W4_DATA;
@@ -156,7 +156,7 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 	hci_sco_hdr   *sh;
 	register int len, type, dlen;
 
-	DBG("n_hci %p count %d rx_state %ld rx_count %ld", n_hci, count, h4->rx_state, h4->rx_count);
+	BT_DBG("n_hci %p count %d rx_state %ld rx_count %ld", n_hci, count, h4->rx_state, h4->rx_count);
 
 	ptr = data;
 	while (count) {
@@ -170,9 +170,9 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 
 			switch (h4->rx_state) {
 			case H4_W4_DATA:
-				DBG("Complete data");
+				BT_DBG("Complete data");
 
-				DMP(h4->rx_skb->data, h4->rx_skb->len);
+				BT_DMP(h4->rx_skb->data, h4->rx_skb->len);
 
 				hci_recv_frame(h4->rx_skb);
 
@@ -183,7 +183,7 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 			case H4_W4_EVENT_HDR:
 				eh = (hci_event_hdr *) h4->rx_skb->data;
 
-				DBG("Event header: evt 0x%2.2x plen %d", eh->evt, eh->plen);
+				BT_DBG("Event header: evt 0x%2.2x plen %d", eh->evt, eh->plen);
 
 				h4_check_data_len(h4, eh->plen);
 				continue;
@@ -192,7 +192,7 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 				ah = (hci_acl_hdr *) h4->rx_skb->data;
 				dlen = __le16_to_cpu(ah->dlen);
 
-				DBG("ACL header: dlen %d", dlen);
+				BT_DBG("ACL header: dlen %d", dlen);
 
 				h4_check_data_len(h4, dlen);
 				continue;
@@ -200,7 +200,7 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 			case H4_W4_SCO_HDR:
 				sh = (hci_sco_hdr *) h4->rx_skb->data;
 
-				DBG("SCO header: dlen %d", sh->dlen);
+				BT_DBG("SCO header: dlen %d", sh->dlen);
 
 				h4_check_data_len(h4, sh->dlen);
 				continue;
@@ -210,28 +210,28 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 		/* H4_W4_PACKET_TYPE */
 		switch (*ptr) {
 		case HCI_EVENT_PKT:
-			DBG("Event packet");
+			BT_DBG("Event packet");
 			h4->rx_state = H4_W4_EVENT_HDR;
 			h4->rx_count = HCI_EVENT_HDR_SIZE;
 			type = HCI_EVENT_PKT;
 			break;
 
 		case HCI_ACLDATA_PKT:
-			DBG("ACL packet");
+			BT_DBG("ACL packet");
 			h4->rx_state = H4_W4_ACL_HDR;
 			h4->rx_count = HCI_ACL_HDR_SIZE;
 			type = HCI_ACLDATA_PKT;
 			break;
 
 		case HCI_SCODATA_PKT:
-			DBG("SCO packet");
+			BT_DBG("SCO packet");
 			h4->rx_state = H4_W4_SCO_HDR;
 			h4->rx_count = HCI_SCO_HDR_SIZE;
 			type = HCI_SCODATA_PKT;
 			break;
 
 		default:
-			ERR("Unknown HCI packet type %2.2x", (__u8)*ptr);
+			BT_ERR("Unknown HCI packet type %2.2x", (__u8)*ptr);
 			n_hci->hdev.stat.err_rx++;
 			ptr++; count--;
 			continue;
@@ -241,7 +241,7 @@ static int h4_recv(struct n_hci *n_hci, void *data, int count)
 		/* Allocate packet */
 		h4->rx_skb = bluez_skb_alloc(HCI_MAX_FRAME_SIZE, GFP_ATOMIC);
 		if (!h4->rx_skb) {
-			ERR("Can't allocate mem for new packet");
+			BT_ERR("Can't allocate mem for new packet");
 			h4->rx_state = H4_W4_PACKET_TYPE;
 			h4->rx_count = 0;
 			return 0;

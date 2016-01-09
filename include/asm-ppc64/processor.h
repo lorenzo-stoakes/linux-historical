@@ -10,6 +10,7 @@
  * 2 of the License, or (at your option) any later version.
  */
 
+#include <linux/stringify.h>
 #ifndef __ASSEMBLY__
 #include <asm/atomic.h>
 #include <asm/ppcdebug.h>
@@ -52,36 +53,36 @@
 #define MSR_LE_LG	0 		/* Little Endian */
 
 #ifdef __ASSEMBLY__
-#define MASK(X)		(1<<(X))
+#define __MASK(X)	(1<<(X))
 #else
-#define MASK(X)		(1UL<<(X))
+#define __MASK(X)	(1UL<<(X))
 #endif
 
-#define MSR_SF		MASK(MSR_SF_LG)  /* Enable 64 bit mode */
-#define MSR_ISF		MASK(MSR_ISF_LG) /* Interrupt 64b mode valid on 630 */
-#define MSR_HV 		MASK(MSR_HV_LG)	 /* Hypervisor state */
-#define MSR_VEC		MASK(MSR_VEC_LG) /* Enable AltiVec */
-#define MSR_POW		MASK(MSR_POW_LG) /* Enable Power Management */
-#define MSR_WE		MASK(MSR_WE_LG)	 /* Wait State Enable */
-#define MSR_TGPR	MASK(MSR_TGPR_LG)/* TLB Update registers in use */
-#define MSR_CE		MASK(MSR_CE_LG)	 /* Critical Interrupt Enable */
-#define MSR_ILE		MASK(MSR_ILE_LG) /* Interrupt Little Endian */
-#define MSR_EE		MASK(MSR_EE_LG)	 /* External Interrupt Enable */
-#define MSR_PR		MASK(MSR_PR_LG)	 /* Problem State / Privilege Level */
-#define MSR_FP		MASK(MSR_FP_LG)	 /* Floating Point enable */
-#define MSR_ME		MASK(MSR_ME_LG)	 /* Machine Check Enable */
-#define MSR_FE0		MASK(MSR_FE0_LG) /* Floating Exception mode 0 */
-#define MSR_SE		MASK(MSR_SE_LG)	 /* Single Step */
-#define MSR_BE		MASK(MSR_BE_LG)	 /* Branch Trace */
-#define MSR_DE		MASK(MSR_DE_LG)	 /* Debug Exception Enable */
-#define MSR_FE1		MASK(MSR_FE1_LG) /* Floating Exception mode 1 */
-#define MSR_IP		MASK(MSR_IP_LG)	 /* Exception prefix 0x000/0xFFF */
-#define MSR_IR		MASK(MSR_IR_LG)	 /* Instruction Relocate */
-#define MSR_DR		MASK(MSR_DR_LG)	 /* Data Relocate */
-#define MSR_PE		MASK(MSR_PE_LG)	 /* Protection Enable */
-#define MSR_PX		MASK(MSR_PX_LG)	 /* Protection Exclusive Mode */
-#define MSR_RI		MASK(MSR_RI_LG)	 /* Recoverable Exception */
-#define MSR_LE		MASK(MSR_LE_LG)	 /* Little Endian */
+#define MSR_SF		__MASK(MSR_SF_LG)	/* Enable 64 bit mode */
+#define MSR_ISF		__MASK(MSR_ISF_LG)	/* Interrupt 64b mode valid on 630 */
+#define MSR_HV 		__MASK(MSR_HV_LG)	/* Hypervisor state */
+#define MSR_VEC		__MASK(MSR_VEC_LG)	/* Enable AltiVec */
+#define MSR_POW		__MASK(MSR_POW_LG)	/* Enable Power Management */
+#define MSR_WE		__MASK(MSR_WE_LG)	/* Wait State Enable */
+#define MSR_TGPR	__MASK(MSR_TGPR_LG)	/* TLB Update registers in use */
+#define MSR_CE		__MASK(MSR_CE_LG)	/* Critical Interrupt Enable */
+#define MSR_ILE		__MASK(MSR_ILE_LG)	/* Interrupt Little Endian */
+#define MSR_EE		__MASK(MSR_EE_LG)	/* External Interrupt Enable */
+#define MSR_PR		__MASK(MSR_PR_LG)	/* Problem State / Privilege Level */
+#define MSR_FP		__MASK(MSR_FP_LG)	/* Floating Point enable */
+#define MSR_ME		__MASK(MSR_ME_LG)	/* Machine Check Enable */
+#define MSR_FE0		__MASK(MSR_FE0_LG)	/* Floating Exception mode 0 */
+#define MSR_SE		__MASK(MSR_SE_LG)	/* Single Step */
+#define MSR_BE		__MASK(MSR_BE_LG)	/* Branch Trace */
+#define MSR_DE		__MASK(MSR_DE_LG)	/* Debug Exception Enable */
+#define MSR_FE1		__MASK(MSR_FE1_LG)	/* Floating Exception mode 1 */
+#define MSR_IP		__MASK(MSR_IP_LG)	/* Exception prefix 0x000/0xFFF */
+#define MSR_IR		__MASK(MSR_IR_LG)	/* Instruction Relocate */
+#define MSR_DR		__MASK(MSR_DR_LG)	/* Data Relocate */
+#define MSR_PE		__MASK(MSR_PE_LG)	/* Protection Enable */
+#define MSR_PX		__MASK(MSR_PX_LG)	/* Protection Exclusive Mode */
+#define MSR_RI		__MASK(MSR_RI_LG)	/* Recoverable Exception */
+#define MSR_LE		__MASK(MSR_LE_LG)	/* Little Endian */
 
 #define MSR_		MSR_ME | MSR_RI | MSR_IR | MSR_DR | MSR_ISF
 #define MSR_KERNEL      MSR_ | MSR_SF | MSR_HV
@@ -489,18 +490,10 @@
 #define	PV_630        	0x0040
 #define	PV_630p	        0x0041
 
-/* Platforms supported by PPC64.  _machine is actually a set of flags */
-#define _MACH_pSeriesHW 0x00010000
-#define _MACH_iSeriesHW 0x00020000
-#define _MACH_LPAR	0x00000001
-
-#define _MACH_unknown	0x00000000
-#define _MACH_pSeries	(_MACH_pSeriesHW)
-#define _MACH_pSeriesLP	(_MACH_pSeriesHW | _MACH_LPAR)
-#define _MACH_iSeries	(_MACH_iSeriesHW | _MACH_LPAR)
-
-/* Compat defines for drivers */
-#define _MACH_Pmac	0xf0000000	/* bogus value */
+/* Platforms supported by PPC64 */
+#define PLATFORM_PSERIES      0x0100
+#define PLATFORM_PSERIES_LPAR 0x0101
+#define PLATFORM_ISERIES_LPAR 0x0201
 	
 /*
  * List of interrupt controllers.
@@ -509,8 +502,6 @@
 #define IC_OPEN_PIC   1
 #define IC_PPC_XIC    2
 
-#define stringify(s)	tostring(s)
-#define tostring(s)	#s
 #define XGLUE(a,b) a##b
 #define GLUE(a,b) XGLUE(a,b)
 
@@ -569,7 +560,7 @@ GLUE(.LT,NAME): ;\
 	.long GLUE(.LT,NAME)-GLUE(.,NAME) ;\
 	.short GLUE(GLUE(.LT,NAME),_procname_end)-GLUE(GLUE(.LT,NAME),_procname_start) ;\
 GLUE(GLUE(.LT,NAME),_procname_start): ;\
-	.ascii stringify(NAME) ;\
+	.ascii __stringify(NAME) ;\
 GLUE(GLUE(.LT,NAME),_procname_end):
 
 #endif /* __ASSEMBLY__ */
@@ -583,9 +574,9 @@ GLUE(GLUE(.LT,NAME),_procname_end):
 #define mtmsrd(v)	asm volatile("mtmsrd %0" : : "r" (v))
 
 #define mfspr(rn)	({unsigned long rval; \
-			asm volatile("mfspr %0," stringify(rn) \
+			asm volatile("mfspr %0," __stringify(rn) \
 				     : "=r" (rval)); rval;})
-#define mtspr(rn, v)	asm volatile("mtspr " stringify(rn) ",%0" : : "r" (v))
+#define mtspr(rn, v)	asm volatile("mtspr " __stringify(rn) ",%0" : : "r" (v))
 
 #define mftb()		({unsigned long rval;	\
 			asm volatile("mftb %0" : "=r" (rval)); rval;})
@@ -609,7 +600,6 @@ GLUE(GLUE(.LT,NAME),_procname_end):
 			asm volatile("mfasr %0" : "=r" (rval)); rval;})
 
 #ifndef __ASSEMBLY__
-extern int _machine;
 extern int have_of;
 
 struct task_struct;

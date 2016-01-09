@@ -76,12 +76,15 @@ lmb_init(void)
 void
 lmb_analyze(void)
 {
-	unsigned long i, physbase = 0;
+	unsigned long i;
 	unsigned long mem_size = 0;
 	unsigned long io_size = 0;
 	unsigned long size_mask = 0;
 	unsigned long offset = reloc_offset();
 	struct lmb *_lmb = PTRRELOC(&lmb);
+#ifdef CONFIG_MSCHUNKS
+	unsigned long physbase = 0;
+#endif
 
 	for (i=0; i < _lmb->memory.cnt ;i++) {
 		unsigned long lmb_type = _lmb->memory.region[i].type;
@@ -102,6 +105,7 @@ lmb_analyze(void)
 		size_mask |= lmb_size;
 	}
 
+#ifdef CONFIG_MSCHUNKS
 	for (i=0; i < _lmb->memory.cnt ;i++) {
 		unsigned long lmb_type = _lmb->memory.region[i].type;
 		unsigned long lmb_size;
@@ -111,15 +115,12 @@ lmb_analyze(void)
 
 		lmb_size = _lmb->memory.region[i].size;
 
-#ifdef CONFIG_MSCHUNKS
 		_lmb->memory.region[i].physbase = physbase;
 		physbase += lmb_size;
-#else
-		_lmb->memory.region[i].physbase = _lmb->memory.region[i].base;
-#endif
 		io_size += lmb_size;
 		size_mask |= lmb_size;
 	}
+#endif /* CONFIG_MSCHUNKS */
 
 	_lmb->memory.size = mem_size;
 	_lmb->memory.iosize = io_size;
@@ -138,6 +139,7 @@ lmb_add(unsigned long base, unsigned long size)
 
 }
 
+#ifdef CONFIG_MSCHUNKS
 /* This routine called with relocation disabled. */
 long
 lmb_add_io(unsigned long base, unsigned long size)
@@ -149,6 +151,7 @@ lmb_add_io(unsigned long base, unsigned long size)
 	return lmb_add_region(_rgn, base, size, LMB_IO_AREA);
 
 }
+#endif /* CONFIG_MSCHUNKS */
 
 long
 lmb_reserve(unsigned long base, unsigned long size)
@@ -282,7 +285,16 @@ lmb_phys_mem_size(void)
 {
 	unsigned long offset = reloc_offset();
 	struct lmb *_lmb = PTRRELOC(&lmb);
+#ifdef CONFIG_MSCHUNKS
 	return _lmb->memory.size;
+#else
+	struct lmb_region *_mem = &(_lmb->memory);
+	unsigned long idx = _mem->cnt-1;
+	unsigned long lastbase = _mem->region[idx].physbase;
+	unsigned long lastsize = _mem->region[idx].size;
+	
+	return (lastbase + lastsize);
+#endif /* CONFIG_MSCHUNKS */
 }
 
 unsigned long
@@ -291,10 +303,9 @@ lmb_end_of_DRAM(void)
 	unsigned long offset = reloc_offset();
 	struct lmb *_lmb = PTRRELOC(&lmb);
 	struct lmb_region *_mem = &(_lmb->memory);
-	unsigned long idx = _mem->cnt-1;
+	unsigned long idx;
 
 	for(idx=_mem->cnt-1; idx >= 0 ;idx--) {
-		unsigned long lastbase, lastsize;
 		if ( _mem->region[idx].type != LMB_MEMORY_AREA )
 			continue;
 #ifdef CONFIG_MSCHUNKS

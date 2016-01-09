@@ -1916,3 +1916,13 @@ Changes for patch v199.12
 - Updated README from master HTML file
 
 - Changed fs/devfs/util.c to kdev_t compatibility macros
+===============================================================================
+Changes for patch v199.13
+
+- Updated fs/devfs/util.c to fix shift warning on 64 bit machines
+  Thanks to Anton Blanchard <anton@samba.org>
+
+- Updated README from master HTML file
+
+- Do not put miscellaneous character devices in /dev/misc if they
+  specify their own directory (i.e. contain a '/' character)

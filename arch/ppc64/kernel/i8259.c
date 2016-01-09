@@ -20,7 +20,7 @@ unsigned char cached_8259[2] = { 0xff, 0xff };
 #define cached_A1 (cached_8259[0])
 #define cached_21 (cached_8259[1])
 
-static spinlock_t i8259_lock ____cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+static spinlock_t i8259_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
 
 int i8259_pic_irq_offset;
 

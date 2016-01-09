@@ -52,7 +52,7 @@ EXPORT_SYMBOL(vm_max_readahead);
 EXPORT_SYMBOL(vm_min_readahead);
 
 
-spinlock_t pagecache_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+spinlock_cacheline_t pagecache_lock_cacheline  = {SPIN_LOCK_UNLOCKED};
 /*
  * NOTE: to avoid deadlocking you must never acquire the pagemap_lru_lock 
  *	with the pagecache_lock held.
@@ -62,7 +62,7 @@ spinlock_t pagecache_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
  *		pagemap_lru_lock ->
  *			pagecache_lock
  */
-spinlock_t pagemap_lru_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+spinlock_cacheline_t pagemap_lru_lock_cacheline = {SPIN_LOCK_UNLOCKED};
 
 #define CLUSTER_PAGES		(1 << page_cluster)
 #define CLUSTER_OFFSET(x)	(((x) >> page_cluster) << page_cluster)

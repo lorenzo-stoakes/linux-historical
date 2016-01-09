@@ -50,6 +50,12 @@ if [ "$CONFIG_WAN" = "y" ]; then
 
    tristate '  LanMedia Corp. SSI/V.35, T1/E1, HSSI, T3 boards' CONFIG_LANMEDIA
 
+#
+# ATI's sync/async boards. Currently 2520, 4020, 4520, 8520 -- 0 in second digit means async only
+#
+
+   tristate '  Aurora Technology, Inc. synchronous asynchronous PCI cards V2' CONFIG_ATI_XX20
+
 # There is no way to detect a Sealevel board. Force it modular
 
    dep_tristate '  Sealevel Systems 4021 support' CONFIG_SEALEVEL_4021 m

@@ -22,7 +22,7 @@
 #define PPCDBG_BITVAL(X)     ((1UL)<<((unsigned long)(X)))
 
 /* Defined below are the bit positions of various debug flags in the
- * debug_switch variable (defined in Naca.h).
+ * debug_switch variable (defined in naca.h).
  * -- When adding new values, please enter them into trace names below -- 
  *
  * Values 62 & 63 can be used to stress the hardware page table management
@@ -110,6 +110,10 @@ extern char *trace_names[64];
 
 #ifndef PPCDBG_ENTER_DEBUGGER
 #define PPCDBG_ENTER_DEBUGGER() do {;} while(0)
+#endif
+
+#ifndef PPCDBG_ENTER_DEBUGGER_REGS
+#define PPCDBG_ENTER_DEBUGGER_REGS(A) do {;} while(0)
 #endif
 
 #endif /*__PPCDEBUG_H */

@@ -58,17 +58,6 @@ typedef struct {
 #define SIGRTMIN	32
 #define SIGRTMAX	(_NSIG-1)
 
-
-
-#if defined(__KERNEL__) || defined(__WANT_POSIX1B_SIGNALS__)
-#define __old_sigset_t32	old_sigset_t32
-#define __old_sigaction32	old_sigaction32
-#else
-#endif
-
-
-
-
 /*
  * SA_FLAGS values:
  *
@@ -148,55 +137,10 @@ struct k_sigaction {
 	struct sigaction sa;
 };
 
-#ifdef __KERNEL__
-
-typedef unsigned int __old_sigset_t32;
-struct __old_sigaction32 {
-	unsigned		sa_handler;
-	__old_sigset_t32  	sa_mask;
-	unsigned int    	sa_flags;
-	unsigned		sa_restorer;     /* not used by Linux/SPARC yet */
-};
-
-
-
-#define _PPC32_NSIG	       64
-#define _PPC32_NSIG_BPW	       32
-#define _PPC32_NSIG_WORDS	       (_PPC32_NSIG / _PPC32_NSIG_BPW)
-
-typedef struct {
-       unsigned int sig[_PPC32_NSIG_WORDS];
-} sigset32_t;
-
-struct sigaction32 {
-       unsigned int  sa_handler;	/* Really a pointer, but need to deal 
-					     with 32 bits */
-       unsigned int sa_flags;
-       unsigned int sa_restorer;	/* Another 32 bit pointer */
-       sigset32_t sa_mask;		/* A 32 bit mask */
-};
-
-#endif /* __KERNEL__ */
-
-
 typedef struct sigaltstack {
 	void *ss_sp;
 	int ss_flags;
 	size_t ss_size;
 } stack_t;
-
-#ifdef __KERNEL__
-#include <asm/sigcontext.h>
-    
-typedef struct sigaltstack_32 {
-	unsigned int ss_sp;
-	int ss_flags;
-	__kernel_size_t32 ss_size;
-} stack_32_t;
-
-
-
-
-#endif
 
 #endif /* _ASMPPC64_SIGNAL_H */

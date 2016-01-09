@@ -574,6 +574,12 @@ setup_rt_frame(struct k_sigaction *ka, struct pt_regs *regs,
 	regs->u_regs[UREG_I0] = signo;
 	regs->u_regs[UREG_I1] = (unsigned long) &sf->info;
 
+	/* The sigcontext is passed in this way because of how it
+	 * is defined in GLIBC's /usr/include/bits/sigcontext.h
+	 * for sparc64.  It includes the 128 bytes of siginfo_t.
+	 */
+	regs->u_regs[UREG_I2] = (unsigned long) &sf->info;
+
 	/* 5. signal handler */
 	regs->tpc = (unsigned long) ka->sa.sa_handler;
 	regs->tnpc = (regs->tpc + 4);
@@ -709,9 +715,23 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 		signr = dequeue_signal(&current->blocked, &info);
 		spin_unlock_irq(&current->sigmask_lock);
 		
-		if (!signr) break;
+		if (!signr)
+			break;
 
 		if ((current->ptrace & PT_PTRACED) && signr != SIGKILL) {
+			/* Do the syscall restart before we let the debugger
+			 * look at the child registers.
+			 */
+			if (restart_syscall &&
+			    (regs->u_regs[UREG_I0] == ERESTARTNOHAND ||
+			     regs->u_regs[UREG_I0] == ERESTARTSYS ||
+			     regs->u_regs[UREG_I0] == ERESTARTNOINTR)) {
+				regs->u_regs[UREG_I0] = orig_i0;
+				regs->tpc -= 4;
+				regs->tnpc -= 4;
+				restart_syscall = 0;
+			}
+
 			current->exit_code = signr;
 			current->state = TASK_STOPPED;
 			notify_parent(current, SIGCHLD);
@@ -740,8 +760,8 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 		
 		ka = &current->sig->action[signr-1];
 		
-		if(ka->sa.sa_handler == SIG_IGN) {
-			if(signr != SIGCHLD)
+		if (ka->sa.sa_handler == SIG_IGN) {
+			if (signr != SIGCHLD)
 				continue;
 
                         /* sys_wait4() grabs the master kernel lock, so
@@ -749,16 +769,16 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
                          * threaded and would not be that difficult to
                          * do anyways.
                          */
-                        while(sys_wait4(-1, NULL, WNOHANG, NULL) > 0)
+                        while (sys_wait4(-1, NULL, WNOHANG, NULL) > 0)
                                 ;
 			continue;
 		}
-		if(ka->sa.sa_handler == SIG_DFL) {
+		if (ka->sa.sa_handler == SIG_DFL) {
 			unsigned long exit_code = signr;
 			
-			if(current->pid == 1)
+			if (current->pid == 1)
 				continue;
-			switch(signr) {
+			switch (signr) {
 			case SIGCONT: case SIGCHLD: case SIGWINCH:
 				continue;
 
@@ -771,8 +791,8 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 					continue;
 				current->state = TASK_STOPPED;
 				current->exit_code = signr;
-				if(!(current->p_pptr->sig->action[SIGCHLD-1].sa.sa_flags &
-				     SA_NOCLDSTOP))
+				if (!(current->p_pptr->sig->action[SIGCHLD-1].sa.sa_flags &
+				      SA_NOCLDSTOP))
 					notify_parent(current, SIGCHLD);
 				schedule();
 				continue;
@@ -791,8 +811,8 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 					struct reg_window *rw = (struct reg_window *)(regs->u_regs[UREG_FP] + STACK_BIAS);
 					unsigned long ins[8];
                                                 
-					while(rw &&
-					      !(((unsigned long) rw) & 0x3)) {
+					while (rw &&
+					       !(((unsigned long) rw) & 0x3)) {
 					        copy_from_user(ins, &rw->ins[0], sizeof(ins));
 						printk("Caller[%016lx](%016lx,%016lx,%016lx,%016lx,%016lx,%016lx)\n", ins[7], ins[0], ins[1], ins[2], ins[3], ins[4], ins[5]);
 						rw = (struct reg_window *)(unsigned long)(ins[6] + STACK_BIAS);
@@ -810,15 +830,15 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 				/* NOT REACHED */
 			}
 		}
-		if(restart_syscall)
+		if (restart_syscall)
 			syscall_restart(orig_i0, regs, &ka->sa);
 		handle_signal(signr, ka, &info, oldset, regs);
 		return 1;
 	}
-	if(restart_syscall &&
-	   (regs->u_regs[UREG_I0] == ERESTARTNOHAND ||
-	    regs->u_regs[UREG_I0] == ERESTARTSYS ||
-	    regs->u_regs[UREG_I0] == ERESTARTNOINTR)) {
+	if (restart_syscall &&
+	    (regs->u_regs[UREG_I0] == ERESTARTNOHAND ||
+	     regs->u_regs[UREG_I0] == ERESTARTSYS ||
+	     regs->u_regs[UREG_I0] == ERESTARTNOINTR)) {
 		/* replay the system call when we are done */
 		regs->u_regs[UREG_I0] = orig_i0;
 		regs->tpc -= 4;

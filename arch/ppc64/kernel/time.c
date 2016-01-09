@@ -53,6 +53,7 @@
 #include <asm/nvram.h>
 #include <asm/cache.h>
 #include <asm/machdep.h>
+#include <asm/init.h>
 #ifdef CONFIG_PPC_ISERIES
 #include <asm/iSeries/HvCallXm.h>
 #endif
@@ -97,6 +98,10 @@ extern unsigned int * prof_buffer;
 extern unsigned long prof_len;
 extern unsigned long prof_shift;
 extern char _stext;
+
+void ppc_adjtimex(void);
+
+static unsigned adjusting_time = 0;
 
 static inline void ppc_do_profile (unsigned long nip)
 {
@@ -245,8 +250,8 @@ int timer_interrupt(struct pt_regs * regs)
 {
 	int next_dec;
 	unsigned long cur_tb;
-	struct Paca * paca = (struct Paca *)mfspr(SPRG3);
-	unsigned long cpu = paca->xPacaIndex;
+	struct paca_struct *lpaca = get_paca();
+	unsigned long cpu = lpaca->xPacaIndex;
 	struct ItLpQueue * lpq;
 
 	irq_enter(cpu);
@@ -256,30 +261,32 @@ int timer_interrupt(struct pt_regs * regs)
 		ppc_do_profile(instruction_pointer(regs));
 #endif
 
-	paca->xLpPaca.xIntDword.xFields.xDecrInt = 0;
+	lpaca->xLpPaca.xIntDword.xFields.xDecrInt = 0;
 
-	while (paca->next_jiffy_update_tb <= (cur_tb = get_tb())) {
+	while (lpaca->next_jiffy_update_tb <= (cur_tb = get_tb())) {
 
 #ifdef CONFIG_SMP
 		smp_local_timer_interrupt(regs);
 #endif
 		if (cpu == 0) {
 			write_lock(&xtime_lock);
-			tb_last_stamp = paca->next_jiffy_update_tb;
+			tb_last_stamp = lpaca->next_jiffy_update_tb;
 			do_timer(regs);
 			timer_sync_xtime( cur_tb );
 			timer_check_rtc();
 			write_unlock(&xtime_lock);
+			if ( adjusting_time && (time_adjust == 0) )
+				ppc_adjtimex();
 		}
-		paca->next_jiffy_update_tb += tb_ticks_per_jiffy;
+		lpaca->next_jiffy_update_tb += tb_ticks_per_jiffy;
 	}
 	
-	next_dec = paca->next_jiffy_update_tb - cur_tb;
-	if (next_dec > paca->default_decr)
-        	next_dec = paca->default_decr;
+	next_dec = lpaca->next_jiffy_update_tb - cur_tb;
+	if (next_dec > lpaca->default_decr)
+        	next_dec = lpaca->default_decr;
 	set_dec(next_dec);
 
-	lpq = paca->lpQueuePtr;
+	lpq = lpaca->lpQueuePtr;
 	if (lpq && ItLpQueue_isLpIntPending(lpq))
 		lpEvent_count += ItLpQueue_process(lpq, regs); 
 
@@ -448,6 +455,7 @@ void __init time_init(void)
 	tb_last_stamp = get_tb();
 	do_gtod.tb_orig_stamp = tb_last_stamp;
 	do_gtod.varp = &do_gtod.vars[0];
+	do_gtod.var_idx = 0;
 	do_gtod.varp->stamp_xsec = xtime.tv_sec * XSEC_PER_SEC;
 	do_gtod.tb_ticks_per_sec = tb_ticks_per_sec;
 	do_gtod.varp->tb_to_xs = tb_to_xs;
@@ -455,6 +463,8 @@ void __init time_init(void)
 
 	xtime_sync_interval = tb_ticks_per_sec - (tb_ticks_per_sec/8);
 	next_xtime_sync_tb = tb_last_stamp + xtime_sync_interval;
+
+	time_freq = 0;
 
 	xtime.tv_usec = 0;
 	last_rtc_update = xtime.tv_sec;
@@ -474,9 +484,11 @@ void __init time_init(void)
  * to microseconds to keep do_gettimeofday synchronized 
  * with ntpd.
 
- * Use the time_freq and time_offset computed by adjtimex to 
+ * Use the time_adjust, time_freq and time_offset computed by adjtimex to 
  * adjust the frequency.
 */
+
+/* #define DEBUG_PPC_ADJTIMEX 1 */
 
 void ppc_adjtimex(void)
 {
@@ -486,7 +498,12 @@ void ppc_adjtimex(void)
 	struct div_result divres; 
 	unsigned long flags;
 	struct gettimeofday_vars * temp_varp;
+	unsigned temp_idx;
+	long singleshot_ppm = 0;
 
+	/* Compute parts per million frequency adjustment to accomplish the time adjustment
+	   implied by time_offset to be applied over the elapsed time indicated by time_constant.
+	   Use SHIFT_USEC to get it into the same units as time_freq. */
 	if ( time_offset < 0 ) {
 		ltemp = -time_offset;
 		ltemp <<= SHIFT_USEC - SHIFT_UPDATE;
@@ -498,8 +515,40 @@ void ppc_adjtimex(void)
 		ltemp <<= SHIFT_USEC - SHIFT_UPDATE;
 		ltemp >>= SHIFT_KG + time_constant;
 	}
-	delta_freq = time_freq + ltemp;
-
+	
+	/* If there is a single shot time adjustment in progress */
+	if ( time_adjust ) {
+#ifdef DEBUG_PPC_ADJTIMEX
+		printk("ppc_adjtimex: ");
+		if ( adjusting_time == 0 )
+			printk("starting ");
+		printk("single shot time_adjust = %ld\n", time_adjust);
+#endif	
+	
+		adjusting_time = 1;
+		
+		/* Compute parts per million frequency adjustment to match time_adjust */
+		singleshot_ppm = tickadj * HZ;	
+		/* The adjustment should be tickadj*HZ to match the code in linux/kernel/timer.c, but
+		   experiments show that this is too large. 3/4 of tickadj*HZ seems about right */
+		singleshot_ppm -= singleshot_ppm / 4;
+		/* Use SHIFT_USEC to get it into the same units as time_freq */	
+		singleshot_ppm <<= SHIFT_USEC;
+		if ( time_adjust < 0 )
+			singleshot_ppm = -singleshot_ppm;
+	}
+	else {
+#ifdef DEBUG_PPC_ADJTIMEX
+		if ( adjusting_time )
+			printk("ppc_adjtimex: ending single shot time_adjust\n");
+#endif
+		adjusting_time = 0;
+	}
+	
+	/* Add up all of the frequency adjustments */
+	delta_freq = time_freq + ltemp + singleshot_ppm;
+	
+	/* Compute a new value for tb_ticks_per_sec based on the frequency adjustment */
 	den = 1000000 * (1 << (SHIFT_USEC - 8));
 	if ( delta_freq < 0 ) {
 		tb_ticks_per_sec_delta = ( tb_ticks_per_sec * ( (-delta_freq) >> (SHIFT_USEC - 8))) / den;
@@ -509,6 +558,16 @@ void ppc_adjtimex(void)
 		tb_ticks_per_sec_delta = ( tb_ticks_per_sec * ( delta_freq >> (SHIFT_USEC - 8))) / den;
 		new_tb_ticks_per_sec = tb_ticks_per_sec - tb_ticks_per_sec_delta;
 	}
+	
+#ifdef DEBUG_PPC_ADJTIMEX
+	printk("ppc_adjtimex: ltemp = %ld, time_freq = %ld, singleshot_ppm = %ld\n", ltemp, time_freq, singleshot_ppm);
+	printk("ppc_adjtimex: tb_ticks_per_sec - base = %ld  new = %ld\n", tb_ticks_per_sec, new_tb_ticks_per_sec);
+#endif
+				
+	/* Compute a new value of tb_to_xs (used to convert tb to microseconds and a new value of 
+	   stamp_xsec which is the time (in 1/2^20 second units) corresponding to tb_orig_stamp.  This 
+	   new value of stamp_xsec compensates for the change in frequency (implied by the new tb_to_xs)
+	   which guarantees that the current time remains the same */ 
 	tb_ticks = get_tb() - do_gtod.tb_orig_stamp;
 	div128_by_32( 1024*1024, 0, new_tb_ticks_per_sec, &divres );
 	new_tb_to_xs = divres.result_low;
@@ -518,14 +577,23 @@ void ppc_adjtimex(void)
 	old_xsec = mulhdu( tb_ticks, do_gtod.varp->tb_to_xs );
 	new_stamp_xsec = do_gtod.varp->stamp_xsec + old_xsec - new_xsec;
 
-	if (do_gtod.varp == &do_gtod.vars[0])
+	/* There are two copies of tb_to_xs and stamp_xsec so that no lock is needed to access and use these
+	   values in do_gettimeofday.  We alternate the copies and as long as a reasonable time elapses between
+	   changes, there will never be inconsistent values.  ntpd has a minimum of one minute between updates */
+
+	if (do_gtod.var_idx == 0) {
 		temp_varp = &do_gtod.vars[1];
-	else
+		temp_idx  = 1;
+	}
+	else {
 		temp_varp = &do_gtod.vars[0];
+		temp_idx  = 0;
+	}
 	temp_varp->tb_to_xs = new_tb_to_xs;
 	temp_varp->stamp_xsec = new_stamp_xsec;
 	mb();
 	do_gtod.varp = temp_varp;
+	do_gtod.var_idx = temp_idx;
 
 	write_unlock_irqrestore( &xtime_lock, flags );
 

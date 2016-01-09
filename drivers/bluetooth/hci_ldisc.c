@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI UART driver.
  *
- * $Id: hci_ldisc.c,v 1.1.1.1 2002/03/08 21:03:15 maxk Exp $    
+ * $Id: hci_ldisc.c,v 1.2 2002/04/17 17:37:20 maxk Exp $    
  */
 #define VERSION "2.0"
 
@@ -56,10 +56,10 @@
 #include "hci_uart.h"
 
 #ifndef HCI_UART_DEBUG
-#undef  DBG
-#define DBG( A... )
-#undef  DMP
-#define DMP( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
+#undef  BT_DMP
+#define BT_DMP( A... )
 #endif
 
 static struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
@@ -99,7 +99,7 @@ static struct hci_uart_proto *n_hci_get_proto(unsigned int id)
 /* Initialize device */
 static int n_hci_open(struct hci_dev *hdev)
 {
-	DBG("%s %p", hdev->name, hdev);
+	BT_DBG("%s %p", hdev->name, hdev);
 
 	/* Nothing to do for UART driver */
 
@@ -113,7 +113,7 @@ static int n_hci_flush(struct hci_dev *hdev)
 	struct n_hci *n_hci  = (struct n_hci *) hdev->driver_data;
 	struct tty_struct *tty = n_hci->tty;
 
-	DBG("hdev %p tty %p", hdev, tty);
+	BT_DBG("hdev %p tty %p", hdev, tty);
 
 	/* Drop TX queue */
 	skb_queue_purge(&n_hci->txq);
@@ -134,7 +134,7 @@ static int n_hci_flush(struct hci_dev *hdev)
 /* Close device */
 static int n_hci_close(struct hci_dev *hdev)
 {
-	DBG("hdev %p", hdev);
+	BT_DBG("hdev %p", hdev);
 
 	if (!test_and_clear_bit(HCI_RUNNING, &hdev->flags))
 		return 0;
@@ -152,7 +152,7 @@ static int n_hci_tx_wakeup(struct n_hci *n_hci)
 		return 0;
 	}
 
-	DBG("");
+	BT_DBG("");
 	do {
 		register struct sk_buff *skb;
 		register int len;
@@ -201,7 +201,7 @@ static int n_hci_send_frame(struct sk_buff *skb)
 	struct n_hci *n_hci;
 
 	if (!hdev) {
-		ERR("Frame for uknown device (hdev=NULL)");
+		BT_ERR("Frame for uknown device (hdev=NULL)");
 		return -ENODEV;
 	}
 
@@ -211,7 +211,7 @@ static int n_hci_send_frame(struct sk_buff *skb)
 	n_hci = (struct n_hci *) hdev->driver_data;
 	tty = n_hci->tty;
 
-	DBG("%s: type %d len %d", hdev->name, skb->pkt_type, skb->len);
+	BT_DBG("%s: type %d len %d", hdev->name, skb->pkt_type, skb->len);
 
 	if (n_hci->proto->preq) {
 		skb = n_hci->proto->preq(n_hci, skb);
@@ -230,7 +230,7 @@ static void n_hci_destruct(struct hci_dev *hdev)
 
 	if (!hdev) return;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	n_hci = (struct n_hci *) hdev->driver_data;
 	kfree(n_hci);
@@ -252,13 +252,13 @@ static int n_hci_tty_open(struct tty_struct *tty)
 {
 	struct n_hci *n_hci = (void *)tty->disc_data;
 
-	DBG("tty %p", tty);
+	BT_DBG("tty %p", tty);
 
 	if (n_hci)
 		return -EEXIST;
 
 	if (!(n_hci = kmalloc(sizeof(struct n_hci), GFP_KERNEL))) {
-		ERR("Can't allocate controll structure");
+		BT_ERR("Can't allocate controll structure");
 		return -ENFILE;
 	}
 	memset(n_hci, 0, sizeof(struct n_hci));
@@ -289,7 +289,7 @@ static void n_hci_tty_close(struct tty_struct *tty)
 {
 	struct n_hci *n_hci = (void *)tty->disc_data;
 
-	DBG("tty %p", tty);
+	BT_DBG("tty %p", tty);
 
 	/* Detach from the tty */
 	tty->disc_data = NULL;
@@ -319,7 +319,7 @@ static void n_hci_tty_wakeup( struct tty_struct *tty )
 {
 	struct n_hci *n_hci = (void *)tty->disc_data;
 
-	DBG("");
+	BT_DBG("");
 
 	if (!n_hci)
 		return;
@@ -381,7 +381,7 @@ static int n_hci_register_dev(struct n_hci *n_hci)
 {
 	struct hci_dev *hdev;
 
-	DBG("");
+	BT_DBG("");
 
 	/* Initialize and register HCI device */
 	hdev = &n_hci->hdev;
@@ -396,7 +396,7 @@ static int n_hci_register_dev(struct n_hci *n_hci)
 	hdev->destruct = n_hci_destruct;
 
 	if (hci_register_dev(hdev) < 0) {
-		ERR("Can't register HCI device %s", hdev->name);
+		BT_ERR("Can't register HCI device %s", hdev->name);
 		return -ENODEV;
 	}
 	MOD_INC_USE_COUNT;
@@ -445,7 +445,7 @@ static int n_hci_tty_ioctl(struct tty_struct *tty, struct file * file,
 	struct n_hci *n_hci = (void *)tty->disc_data;
 	int err = 0;
 
-	DBG("");
+	BT_DBG("");
 
 	/* Verify the status of the device */
 	if (!n_hci)
@@ -502,9 +502,9 @@ int __init n_hci_init(void)
 	static struct tty_ldisc n_hci_ldisc;
 	int err;
 
-	INF("BlueZ HCI UART driver ver %s Copyright (C) 2000,2001 Qualcomm Inc", 
+	BT_INFO("BlueZ HCI UART driver ver %s Copyright (C) 2000,2001 Qualcomm Inc", 
 		VERSION);
-	INF("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
+	BT_INFO("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
 
 	/* Register the tty discipline */
 
@@ -522,7 +522,7 @@ int __init n_hci_init(void)
 	n_hci_ldisc.write_wakeup= n_hci_tty_wakeup;
 
 	if ((err = tty_register_ldisc(N_HCI, &n_hci_ldisc))) {
-		ERR("Can't register HCI line discipline (%d)", err);
+		BT_ERR("Can't register HCI line discipline (%d)", err);
 		return err;
 	}
 
@@ -543,7 +543,7 @@ void n_hci_cleanup(void)
 
 	/* Release tty registration of line discipline */
 	if ((err = tty_register_ldisc(N_HCI, NULL)))
-		ERR("Can't unregister HCI line discipline (%d)", err);
+		BT_ERR("Can't unregister HCI line discipline (%d)", err);
 }
 
 module_init(n_hci_init);

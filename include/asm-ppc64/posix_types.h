@@ -11,13 +11,22 @@
  * as published by the Free Software Foundation; either version
  * 2 of the License, or (at your option) any later version.
  */
+#if 0
+# define DRENG_TYPES
+#endif
 
+#ifdef DRENG_TYPES
+typedef unsigned long	__kernel_dev_t;
+typedef unsigned long	__kernel_ino_t;
+typedef unsigned long  	__kernel_nlink_t;
+#else
 typedef unsigned int	__kernel_dev_t;
 typedef unsigned int	__kernel_ino_t;
-typedef unsigned int	__kernel_mode_t;
 typedef unsigned int  	__kernel_nlink_t;
+#endif
+typedef unsigned int	__kernel_mode_t;
 typedef long		__kernel_off_t;
-typedef long long	        __kernel_loff_t;
+typedef long long	__kernel_loff_t;
 typedef int		__kernel_pid_t;
 typedef int             __kernel_ipc_pid_t;
 typedef unsigned int	__kernel_uid_t;
@@ -41,30 +50,6 @@ typedef unsigned int	__kernel_old_gid_t;
 typedef struct {
 	int	val[2];
 } __kernel_fsid_t;
-
-
-/* These are here to support 32-bit syscalls on a 64-bit kernel. */
-typedef unsigned int           __kernel_size_t32;
-typedef int                    __kernel_ssize_t32;
-typedef int                    __kernel_ptrdiff_t32;
-typedef int                    __kernel_time_t32;
-typedef int                    __kernel_clock_t32;
-typedef int                    __kernel_pid_t32;
-typedef unsigned short         __kernel_ipc_pid_t32;
-typedef unsigned int           __kernel_uid_t32;
-typedef unsigned int           __kernel_gid_t32;
-typedef unsigned int           __kernel_dev_t32;
-typedef unsigned int           __kernel_ino_t32;
-typedef unsigned int           __kernel_mode_t32;
-typedef unsigned int           __kernel_umode_t32;
-typedef short                  __kernel_nlink_t32;
-typedef int                    __kernel_daddr_t32;
-typedef int                    __kernel_off_t32;
-typedef unsigned int           __kernel_caddr_t32;
-typedef int 		       __kernel_loff_t32;
-/* typedef __kernel_fsid_t        __kernel_fsid_t32; */
-
-
 
 #ifndef __GNUC__
 

@@ -9,30 +9,9 @@
  */
 
 #ifndef __KERNEL_STRICT_NAMES
-
 #include <linux/types.h>
-
 typedef __kernel_fsid_t	fsid_t;
-typedef __kernel_fsid_t __kernel_fsid_t32;
-
 #endif
-
-/* 
- * Both SPARC64 & IA64 also define the following -
- */
-
-struct statfs32 {
-	int f_type;
-	int f_bsize;
-	int f_blocks;
-	int f_bfree;
-	int f_bavail;
-	int f_files;
-	int f_ffree;
-	__kernel_fsid_t32 f_fsid;
-	int f_namelen;  /* SunOS ignores this field. */
-	int f_spare[6];
-};
 
 struct statfs {
 	long f_type;
@@ -48,6 +27,3 @@ struct statfs {
 };
 
 #endif  /* _PPC64_STATFS_H */
-
-
-

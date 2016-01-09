@@ -1209,7 +1209,7 @@ static void __init dcache_init(unsigned long mempages)
 			__get_free_pages(GFP_ATOMIC, order);
 	} while (dentry_hashtable == NULL && --order >= 0);
 
-	printk("Dentry-cache hash table entries: %d (order: %ld, %ld bytes)\n",
+	printk(KERN_INFO "Dentry cache hash table entries: %d (order: %ld, %ld bytes)\n",
 			nr_hash, order, (PAGE_SIZE << order));
 
 	if (!dentry_hashtable)

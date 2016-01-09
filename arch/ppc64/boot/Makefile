@@ -27,7 +27,9 @@ BOOTCC = $(CROSS32_COMPILE)gcc
 BOOTCFLAGS = $(HOSTCFLAGS) -I$(HPATH)
 BOOTLD = $(CROSS32_COMPILE)ld
 BOOTAS = $(CROSS32_COMPILE)as
-BOOTAFLAGS = -D__ASSEMBLY__ $(HOSTCFLAGS)
+BOOTAFLAGS = -D__ASSEMBLY__ $(HOSTCFLAGS) -I$(HPATH)
+
+OBJCOPYFLAGS = contents,alloc,load,readonly,data
 
 .c.o:
 	$(BOOTCC) $(BOOTCFLAGS) -c -o $*.o $<
@@ -37,7 +39,7 @@ BOOTAFLAGS = -D__ASSEMBLY__ $(HOSTCFLAGS)
 CFLAGS	= $(CPPFLAGS) -O -fno-builtin -DSTDC_HEADERS
 LD_ARGS = -Ttext 0x00400000 -e _start
 
-OBJS = crt0.o start.o main.o zlib.o image.o imagesize.o
+OBJS = crt0.o string.o prom.o zImage.o zlib.o imagesize.o
 #LIBS = $(TOPDIR)/lib/lib.a
 LIBS =
 
@@ -83,43 +85,37 @@ endif
 znetboot.initrd: zImage.initrd
 	cp zImage.initrd $(TFTPIMAGE)
 
-floppy: zImage
-	mcopy zImage a:zImage
-
-piggyback: piggyback.c
-	$(HOSTCC) $(HOSTCFLAGS) -DKERNELBASE=$(KERNELBASE) -o piggyback piggyback.c
-
 addnote: addnote.c
 	$(HOSTCC) $(HOSTCFLAGS) -o addnote addnote.c
 
-image.o: piggyback vmlinux.gz
-	./piggyback image < vmlinux.gz | $(BOOTAS) -o image.o
 
-sysmap.o: piggyback ../../../System.map
-	./piggyback sysmap < ../../../System.map | $(BOOTAS) -o sysmap.o
+imagesize.c: $(TOPDIR)/vmlinux
+	ls -l $(TOPDIR)/vmlinux | awk '{printf "/* generated -- do not edit! */\nunsigned long vmlinux_filesize = %d;\n", $$5}' > imagesize.c
+	$(CROSS_COMPILE)nm -n $(TOPDIR)/vmlinux | tail -1 | awk '{printf "unsigned long vmlinux_memsize = 0x%s;\n", substr($$1,8)}' >> imagesize.c
 
-initrd.o: ramdisk.image.gz piggyback
-	./piggyback initrd < ramdisk.image.gz | $(BOOTAS) -o initrd.o
+vmlinux .config System.map: % : $(TOPDIR)/%
+	gzip -cvf9 $(TOPDIR)/$@ > kernel-$@.gz
+	$(OBJCOPY) zImage.o \
+		--add-section=.kernel:$@=kernel-$@.gz \
+		--set-section-flags=.kernel:$@=$(OBJCOPYFLAGS)
 
-zImage: $(OBJS) no_initrd.o addnote
-	$(BOOTLD) $(LD_ARGS) -T zImage.lds -o $@ $(OBJS) no_initrd.o $(LIBS)
+initrd: ramdisk.image.gz
+	$(OBJCOPY) zImage.o \
+		--add-section=.kernel:$@=ramdisk.image.gz \
+		--set-section-flags=.kernel:$@=$(OBJCOPYFLAGS)
+
+zImage: $(OBJS) addnote vmlinux .config System.map
+	$(BOOTLD) $(LD_ARGS) -T zImage.lds -o $@ $(OBJS) $(LIBS)
 	./addnote $@
 
-zImage.initrd: $(OBJS) initrd.o addnote
-	$(BOOTLD) $(LD_ARGS) -T zImage.lds -o $@ $(OBJS) initrd.o $(LIBS)
+zImage.initrd: $(OBJS) addnote vmlinux .config System.map initrd
+	$(BOOTLD) $(LD_ARGS) -T zImage.lds -o $@ $(OBJS) $(LIBS)
 	./addnote $@
-
-
-vmlinux.gz: $(TOPDIR)/vmlinux
-	$(OBJCOPY) -S -O binary $(TOPDIR)/vmlinux vmlinux
-	ls -l vmlinux | awk '{printf "/* generated -- do not edit! */\nint uncompressed_size = %d;\n", $$5}' > imagesize.c
-	$(CROSS_COMPILE)nm -n $(TOPDIR)/vmlinux | tail -1 | awk '{printf "long vmlinux_end = 0x%s;\n", substr($$1,8)}' >> imagesize.c
-	gzip -vf9 vmlinux
-
-imagesize.c: vmlinux.gz
 
 clean:
-	rm -f piggyback note addnote $(OBJS) zImage zImage.initrd vmlinux.gz no_initrd.o imagesize.c addSystemMap vmlinux.sm addRamDisk vmlinux.initrd vmlinux.sminitrd 
+	rm -f add{note,RamDisk,SystemMap} $(OBJS) initrd.o \
+		vmlinux.{sm,initrd} zImage{,.initrd} imagesize.c \
+		kernel-{vmlinux,.config,System.map}.gz
 
 fastdep:
 	$(TOPDIR)/scripts/mkdep *.[Sch] > .depend

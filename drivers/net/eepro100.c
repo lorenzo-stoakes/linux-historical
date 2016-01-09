@@ -632,7 +632,7 @@ err_out_none:
 	return -ENODEV;
 }
 
-static int speedo_found1(struct pci_dev *pdev,
+static int __devinit speedo_found1(struct pci_dev *pdev,
 		long ioaddr, int card_idx, int acpi_idle_state)
 {
 	struct net_device *dev;
@@ -826,8 +826,9 @@ static int speedo_found1(struct pci_dev *pdev,
 	sp->phy[0] = eeprom[6];
 	sp->phy[1] = eeprom[7];
 	sp->rx_bug = (eeprom[3] & 0x03) == 3 ? 0 : 1;
-	if (((pdev->device > 0x1030 && (pdev->device < 0x1039))) 
-	    || (pdev->device == 0x2449)) {
+	if (((pdev->device > 0x1030 && (pdev->device < 0x103F))) 
+	    || (pdev->device == 0x2449) || (pdev->device == 0x2459) 
+            || (pdev->device == 0x245D)) {
 	    	sp->chip_id = 1;
 	}
 
@@ -865,7 +866,7 @@ static int speedo_found1(struct pci_dev *pdev,
    interval for serial EEPROM.  However, it looks like that there is an
    additional requirement dictating larger udelay's in the code below.
    2000/05/24  SAW */
-static int do_eeprom_cmd(long ioaddr, int cmd, int cmd_len)
+static int __devinit do_eeprom_cmd(long ioaddr, int cmd, int cmd_len)
 {
 	unsigned retval = 0;
 	long ee_addr = ioaddr + SCBeeprom;
@@ -2287,8 +2288,17 @@ static struct pci_device_id eepro100_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_INTEL, 0x1036, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1037, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1038, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x1039, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x103A, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x103B, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x103C, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x103D, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x103E, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1227, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1228, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x2449, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x2459, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x245D, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x5200, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x5201, PCI_ANY_ID, PCI_ANY_ID, },
 	{ 0,}

@@ -17,13 +17,11 @@
 #include <asm/io.h>
 #include <asm/pgtable.h>
 #include <asm/smp.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 #include <asm/rtas.h>
 #include "i8259.h"
 #include "xics.h"
 #include <asm/ppcdebug.h>
-
-extern struct Naca *naca;
 
 void xics_enable_irq(u_int irq);
 void xics_disable_irq(u_int irq);
@@ -256,6 +254,12 @@ void xics_ipi_action(int irq, void *dev_id, struct pt_regs *regs)
 			mb();
 			smp_message_recv(PPC_MSG_RESCHEDULE, regs);
 		}
+#ifdef CONFIG_XMON
+		if (test_and_clear_bit(PPC_MSG_XMON_BREAK, &xics_ipi_message[cpu])) {
+			mb();
+			smp_message_recv(PPC_MSG_XMON_BREAK, regs);
+		}
+#endif
 	}
 }
 
@@ -355,7 +359,7 @@ nextnode:
 		xics_irq_8259_cascade = virt_irq_create_mapping(xics_irq_8259_cascade_real);
 	}
 
-	if (_machine == _MACH_pSeries) {
+	if (naca->platform == PLATFORM_PSERIES) {
 #ifdef CONFIG_SMP
 		for (i = 0; i < naca->processorCount; ++i) {
 			xics_info.per_cpu[i] =
@@ -369,7 +373,7 @@ nextnode:
 	/* actually iSeries does not use any of xics...but it has link dependencies
 	 * for now, except this new one...
 	 */
-	} else if (_machine == _MACH_pSeriesLP) {
+	} else if (naca->platform == PLATFORM_PSERIES_LPAR) {
 		ops = &pSeriesLP_ops;
 #endif
 	}

@@ -45,6 +45,13 @@ subdir-$(CONFIG_LANMEDIA) += lmc
 ifeq ($(CONFIG_LANMEDIA),y)
   obj-y += lmc/lmc.o
 endif
+
+subdir-$(CONFIG_ATI_XX20) += 8253x
+
+ifeq ($(CONFIG_ATI_XX20),y)
+  obj-y += 8253x/ASLX.o
+endif
+
  
 obj-$(CONFIG_DLCI)		+= dlci.o 
 obj-$(CONFIG_SDLA)		+= sdla.o

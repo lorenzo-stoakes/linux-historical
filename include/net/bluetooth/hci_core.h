@@ -23,7 +23,7 @@
 */
 
 /* 
- * $Id: hci_core.h,v 1.2 2002/03/26 17:54:57 maxk Exp $ 
+ * $Id: hci_core.h,v 1.3 2002/04/17 18:55:21 maxk Exp $ 
  */
 
 #ifndef __HCI_CORE_H
@@ -63,7 +63,7 @@ struct hci_dev {
 	atomic_t 	refcnt;
 
 	char		name[8];
-	__u32	 	flags;
+	unsigned long	flags;
 	__u16		id;
 	__u8	 	type;
 	bdaddr_t	bdaddr;
@@ -131,7 +131,7 @@ struct hci_conn {
 	__u8		 type;
 	__u8		 out;
 	__u32		 link_mode;
-	__u32		 pend;
+	unsigned long	 pend;
 	
 	unsigned int	 sent;
 	

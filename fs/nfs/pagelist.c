@@ -96,7 +96,7 @@ nfs_create_request(struct rpc_cred *cred, struct inode *inode,
 			continue;
 		if (signalled() && (server->flags & NFS_MOUNT_INTR))
 			return ERR_PTR(-ERESTARTSYS);
-		current->policy = SCHED_YIELD;
+		current->policy |= SCHED_YIELD;
 		schedule();
 	}
 

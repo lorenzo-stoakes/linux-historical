@@ -1,8 +1,6 @@
 #ifndef _PPC64_PGTABLE_H
 #define _PPC64_PGTABLE_H
 
-#define NEW_HPT 1
-
 /*
  * This file contains the functions and defines necessary to modify and use
  * the ppc64 hashed page table.
@@ -18,7 +16,6 @@
  * within a page table are directly modified.  Thus, the following
  * hook is made available.
  */
-
 
 /* PMD_SHIFT determines what a second-level page table entry can map */
 #define PMD_SHIFT	(PAGE_SHIFT + PAGE_SHIFT - 3)
@@ -409,7 +406,10 @@ extern void paging_init(void);
 #define update_mmu_cache(vma, addr, pte)	do { } while (0)
 
 extern void flush_hash_segments(unsigned low_vsid, unsigned high_vsid);
-extern void flush_hash_page(unsigned long context, unsigned long ea, pte_t pte);
+extern void flush_hash_page(unsigned long context, unsigned long ea, pte_t *ptep);
+extern void build_valid_hpte(unsigned long vsid, unsigned long ea, 
+			     unsigned long pa, pte_t * ptep, 
+			     unsigned hpteflags, unsigned bolted );
 
 /* Encode and de-code a swap entry */
 #define SWP_TYPE(entry)			(((entry).val >> 1) & 0x3f)

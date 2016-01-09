@@ -14,15 +14,14 @@
 #include <asm/pgtable.h>
 #include <asm/mmu.h>
 #include <asm/mmu_context.h>
-#include <asm/Paca.h>
-#include <asm/Naca.h>
+#include <asm/paca.h>
+#include <asm/naca.h>
 #include <asm/pmc.h>
 
 inline int make_ste(unsigned long stab, 
 		    unsigned long esid, unsigned long vsid);
 inline void make_slbe(unsigned long esid, unsigned long vsid,
 		      int large);
-extern struct Naca *naca;
 
 /*
  * Build an entry for the base kernel segment and put it into
@@ -253,7 +252,7 @@ int ste_allocate ( unsigned long ea,
 	}
 	
 	/* Kernel or user address? */
-	if (REGION_ID(ea) >= KERNEL_REGION_ID) {
+	if (REGION_ID(ea)) {
 		kernel_segment = 1;
 		vsid = get_kernel_vsid( ea );
 	} else {
@@ -331,7 +330,7 @@ void flush_stab(void)
 			    entry++, ste++) {
 				unsigned long ea;
 				ea = ste->dw0.dw0.esid << SID_SHIFT;
-				if (STAB_PRESSURE || ea < KERNELBASE) {
+				if (STAB_PRESSURE || (!REGION_ID(ea))) {
 					ste->dw0.dw0.v = 0;
 					PMC_SW_PROCESSOR(stab_invalidations); 
 				}

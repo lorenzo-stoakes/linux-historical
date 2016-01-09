@@ -55,6 +55,7 @@
 #include <asm/ptrace.h>
 #include <asm/iSeries/LparData.h>
 #include <asm/machdep.h>
+#include <asm/paca.h>
 
 #include "local_irq.h"
 
@@ -557,14 +558,14 @@ int do_IRQ(struct pt_regs *regs, int isfake)
 {
 	int cpu = smp_processor_id();
 	int irq;
-	struct Paca * paca;
+	struct paca_struct *lpaca;
 	struct ItLpQueue * lpq;
 
 	/* if(cpu) udbg_printf("Entering do_IRQ\n");  */
 
         irq_enter(cpu);
 
-	if ( _machine != _MACH_iSeries ) {
+	if (naca->platform != PLATFORM_ISERIES_LPAR) {
 	
 		/* every arch is required to have a get_irq -- Cort */
 		irq = ppc_md.get_irq( regs );
@@ -584,23 +585,23 @@ int do_IRQ(struct pt_regs *regs, int isfake)
 	}
 	/* if on iSeries partition */
 	else {
-		paca = (struct Paca *)mfspr(SPRG3);
+		lpaca = get_paca();
 #ifdef CONFIG_SMP
-		if ( paca->xLpPaca.xIntDword.xFields.xIpiCnt ) {
-			paca->xLpPaca.xIntDword.xFields.xIpiCnt = 0;
+		if ( lpaca->xLpPaca.xIntDword.xFields.xIpiCnt ) {
+			lpaca->xLpPaca.xIntDword.xFields.xIpiCnt = 0;
 			iSeries_smp_message_recv( regs );
 		}
 #endif /* CONFIG_SMP */
-		lpq = paca->lpQueuePtr;
+		lpq = lpaca->lpQueuePtr;
 		if ( lpq && ItLpQueue_isLpIntPending( lpq ) )
 			lpEvent_count += ItLpQueue_process( lpq, regs );
 	}
 		
         irq_exit(cpu);
 
-	if ( _machine == _MACH_iSeries ) {
-		if ( paca->xLpPaca.xIntDword.xFields.xDecrInt ) {
-			paca->xLpPaca.xIntDword.xFields.xDecrInt = 0;
+	if (naca->platform == PLATFORM_ISERIES_LPAR) {
+		if ( lpaca->xLpPaca.xIntDword.xFields.xDecrInt ) {
+			lpaca->xLpPaca.xIntDword.xFields.xDecrInt = 0;
 			/* Signal a fake decrementer interrupt */
 			timer_interrupt( regs );
 		}
@@ -899,11 +900,11 @@ static int prof_cpu_mask_write_proc (struct file *file, const char *buffer,
 #ifdef CONFIG_PPC_ISERIES
 	{
 		unsigned i;
-		for (i=0; i<maxPacas; ++i) {
-			if ( xPaca[i].prof_buffer && (new_value & 1) )
-				xPaca[i].prof_enabled = 1;
+		for (i=0; i<MAX_PACAS; ++i) {
+			if ( paca[i].prof_buffer && (new_value & 1) )
+				paca[i].prof_enabled = 1;
 			else
-				xPaca[i].prof_enabled = 0;
+				paca[i].prof_enabled = 0;
 			new_value >>= 1;
 		}
 	}

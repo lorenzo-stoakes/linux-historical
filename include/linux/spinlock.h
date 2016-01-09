@@ -155,4 +155,20 @@ typedef struct {
 extern int atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);
 #endif
 
+#ifdef CONFIG_SMP
+#include <linux/cache.h>
+
+typedef union {
+    spinlock_t lock;
+    char fill_up[(SMP_CACHE_BYTES)];
+} spinlock_cacheline_t __attribute__ ((aligned(SMP_CACHE_BYTES)));
+
+#else	/* SMP */
+
+typedef struct {
+    spinlock_t lock;
+} spinlock_cacheline_t;
+
+
+#endif
 #endif /* __LINUX_SPINLOCK_H */

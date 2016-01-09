@@ -142,7 +142,7 @@ unsigned int mca_pentium_flag;
 unsigned long pci_mem_start = 0x10000000;
 
 /* user-defined highmem size */
-static unsigned int highmem_pages = -1;
+static unsigned int highmem_pages __initdata = -1;
 
 /*
  * Setup options
@@ -414,7 +414,7 @@ static void __init probe_roms(void)
 	}
 }
 
-void __init limit_regions (unsigned long long size)
+static void __init limit_regions (unsigned long long size)
 {
 	int i;
 	unsigned long long current_size = 0;
@@ -1025,6 +1025,10 @@ void __init setup_arch(char **cmdline_p)
 	}
 #endif
 
+	if (test_bit(X86_FEATURE_HT, &boot_cpu_data.x86_capability[0]))
+		enable_acpi_smp_table = 1;
+	
+
 	/*
 	 * NOTE: before this point _nobody_ is allowed to allocate
 	 * any memory using the bootmem allocator.
@@ -1040,7 +1044,6 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	if (smp_found_config)
 		get_smp_config();
-	init_apic_mappings();
 #endif
 
 

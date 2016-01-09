@@ -107,7 +107,7 @@ do {	unsigned char flags = current->thread.flags;	\
 		flags &= ~SPARC_FLAG_32BIT;		\
 	if (flags != current->thread.flags) {		\
 		/* flush_thread will update pgd cache */\
-		current->thread.flags = flags;		\
+		current->thread.flags |= SPARC_FLAG_ABI_PENDING; \
 	}						\
 							\
 	if (ibcs2)					\

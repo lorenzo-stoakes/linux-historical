@@ -26,7 +26,6 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/init.h>
-#include <linux/ide.h>
 #include <linux/bootmem.h>
 
 #include <asm/io.h>
@@ -37,7 +36,7 @@
 #include <asm/init.h>
 #include <asm/pci-bridge.h>
 #include <asm/ppcdebug.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 #include <asm/pci_dma.h>
 
 #include "pci.h"

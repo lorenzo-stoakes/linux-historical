@@ -15,7 +15,6 @@
 #include <linux/string.h>
 #include <linux/interrupt.h>
 #include <linux/vt_kern.h>
-#include <linux/nvram.h>
 #include <linux/spinlock.h>
 #include <linux/console.h>
 #include <linux/irq.h>
@@ -33,9 +32,6 @@
 #include <asm/bitops.h>
 #include <asm/checksum.h>
 #include <asm/pgtable.h>
-#include <linux/adb.h>
-#include <linux/cuda.h>
-#include <linux/pmu.h>
 #include <asm/prom.h>
 #include <asm/system.h>
 #include <asm/pci-bridge.h>
@@ -74,7 +70,6 @@ long long __ashrdi3(long long, int);
 long long __ashldi3(long long, int);
 long long __lshrdi3(long long, int);
 int abs(int);
-extern unsigned long ret_to_user_hook;
 
 extern struct pci_dev * iSeries_veth_dev;
 extern struct pci_dev * iSeries_vio_dev;
@@ -199,11 +194,10 @@ EXPORT_SYMBOL(iSeries_Read_Word);
 EXPORT_SYMBOL(iSeries_Read_Byte);
 EXPORT_SYMBOL(iSeries_Write_Byte);
 #endif /* CONFIG_PPC_ISERIES */
-#ifdef CONFIG_PPC_EEH
+#ifndef CONFIG_PPC_ISERIES
 EXPORT_SYMBOL(eeh_check_failure);
 EXPORT_SYMBOL(eeh_total_mmio_ffs);
-EXPORT_SYMBOL(eeh_total_mmio_reads);
-#endif /* CONFIG_PPC_EEH */
+#endif /* CONFIG_PPC_ISERIES */
 #endif /* CONFIG_PCI */
 
 EXPORT_SYMBOL(iSeries_veth_dev);
@@ -233,9 +227,6 @@ EXPORT_SYMBOL(__no_use_cli);
 #endif
 #endif
 
-#ifndef CONFIG_MACH_SPECIFIC
-EXPORT_SYMBOL(_machine);
-#endif
 EXPORT_SYMBOL(ppc_md);
 
 EXPORT_SYMBOL(find_devices);
@@ -249,12 +240,7 @@ EXPORT_SYMBOL(get_property);
 
 #ifndef CONFIG_PPC_ISERIES
 EXPORT_SYMBOL(kd_mksound);
-EXPORT_SYMBOL_NOVERS(sys_ctrler); /* tibit */
 #endif
-#ifdef CONFIG_NVRAM
-EXPORT_SYMBOL(nvram_read_byte);
-EXPORT_SYMBOL(nvram_write_byte);
-#endif /* CONFIG_NVRAM */
 
 EXPORT_SYMBOL_NOVERS(__ashrdi3);
 EXPORT_SYMBOL_NOVERS(__ashldi3);
@@ -300,7 +286,5 @@ EXPORT_SYMBOL(debugger_fault_handler);
 #ifdef CONFIG_SMP
 EXPORT_SYMBOL(atomic_dec_and_lock);
 #endif
-
-EXPORT_SYMBOL(ret_to_user_hook);
 
 EXPORT_SYMBOL(tb_ticks_per_usec);

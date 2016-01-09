@@ -121,11 +121,546 @@ struct file_operations proc_rtas_log_operations = {
 	release:	rtas_log_release,
 };
 
+
+#define RTAS_ERR KERN_ERR "RTAS: "
+
+/* Extended error log header (12 bytes) */
+struct exthdr {
+	unsigned int valid:1;
+	unsigned int unrecoverable:1;
+	unsigned int recoverable:1;
+	unsigned int unrecoverable_bypassed:1;	/* i.e. degraded performance */
+	unsigned int predictive:1;
+	unsigned int newlog:1;
+	unsigned int bigendian:1;		/* always 1 */
+	unsigned int /* reserved */:1;
+
+	unsigned int platform_specific:1;	/* only in version 3+ */
+	unsigned int /* reserved */:3;
+	unsigned int platform_value:4;		/* valid iff platform_specific */
+
+	unsigned int power_pc:1;		/* always 1 */
+	unsigned int /* reserved */:2;
+	unsigned int addr_invalid:1;		/* failing_address is invalid */
+	unsigned int format_type:4;
+#define EXTLOG_FMT_CPU 1
+#define EXTLOG_FMT_MEMORY 2
+#define EXTLOG_FMT_IO 3
+#define EXTLOG_FMT_POST 4
+#define EXTLOG_FMT_ENV 5
+#define EXTLOG_FMT_POW 6
+#define EXTLOG_FMT_IBMDIAG 12
+#define EXTLOG_FMT_IBMSP 13
+
+	/* This group is in version 3+ only */
+	unsigned int non_hardware:1;		/* Firmware or software is suspect */
+	unsigned int hot_plug:1;		/* Failing component may be hot plugged */
+	unsigned int group_failure:1;		/* Group of components should be replaced */
+	unsigned int /* reserved */:1;
+
+	unsigned int residual:1;		/* Residual error from previous boot (maybe a crash) */
+	unsigned int boot:1;			/* Error during boot */
+	unsigned int config_change:1;		/* Configuration changed since last boot */
+	unsigned int post:1;			/* Error during POST */
+
+	unsigned int bcdtime:32;		/* Time of error in BCD HHMMSS00 */
+	unsigned int bcddate:32;		/* Time of error in BCD YYYYMMDD */
+};
+
+struct cpuhdr {
+	unsigned int internal:1;
+	unsigned int intcache:1;
+	unsigned int extcache_parity:1;	/* or multi-bit ECC */
+	unsigned int extcache_ecc:1;
+	unsigned int sysbus_timeout:1;
+	unsigned int io_timeout:1;
+	unsigned int sysbus_parity:1;
+	unsigned int sysbus_protocol:1;
+	unsigned int cpuid:8;
+	unsigned int element:16;
+	unsigned int failing_address_hi:32;
+	unsigned int failing_address_lo:32;
+
+	/* These are version 4+ */
+	unsigned int try_reboot:1;	/* 1 => fault may be fixed by reboot */
+	unsigned int /* reserved */:7;
+	/* 15 bytes reserved here */
+};
+
+struct memhdr {
+	unsigned int uncorrectable:1;
+	unsigned int ECC:1;
+	unsigned int threshold_exceeded:1;
+	unsigned int control_internal:1;
+	unsigned int bad_address:1;
+	unsigned int bad_data:1;
+	unsigned int bus:1;
+	unsigned int timeout:1;
+	unsigned int sysbus_parity:1;
+	unsigned int sysbus_timeout:1;
+	unsigned int sysbus_protocol:1;
+	unsigned int hostbridge_timeout:1;
+	unsigned int hostbridge_parity:1;
+	unsigned int reserved1:1;
+	unsigned int support:1;
+	unsigned int sysbus_internal:1;
+	unsigned int mem_controller_detected:8;	/* who detected fault? */
+	unsigned int mem_controller_faulted:8;	/* who caused fault? */
+	unsigned int failing_address_hi:32;
+	unsigned int failing_address_lo:32;
+	unsigned int ecc_syndrome:16;
+	unsigned int memory_card:8;
+	unsigned int reserved2:8;
+	unsigned int sub_elements:32;		/* one bit per element */
+	unsigned int element:16;
+};
+
+struct iohdr {
+	unsigned int bus_addr_parity:1;
+	unsigned int bus_data_parity:1;
+	unsigned int bus_timeout:1;
+	unsigned int bridge_internal:1;
+	unsigned int non_pci:1;		/* i.e. secondary bus such as ISA */
+	unsigned int mezzanine_addr_parity:1;
+	unsigned int mezzanine_data_parity:1;
+	unsigned int mezzanine_timeout:1;
+
+	unsigned int bridge_via_sysbus:1;
+	unsigned int bridge_via_mezzanine:1;
+	unsigned int bridge_via_expbus:1;
+	unsigned int detected_by_expbus:1;
+	unsigned int expbus_data_parity:1;
+	unsigned int expbus_timeout:1;
+	unsigned int expbus_connection_failure:1;
+	unsigned int expbus_not_operating:1;
+
+	/* IOA signalling the error */
+	unsigned int pci_sig_busno:8;
+	unsigned int pci_sig_devfn:8;
+	unsigned int pci_sig_deviceid:16;
+	unsigned int pci_sig_vendorid:16;
+	unsigned int pci_sig_revisionid:8;
+	unsigned int pci_sig_slot:8;	/* 00 => system board, ff => multiple */
+
+	/* IOA sending at time of error */
+	unsigned int pci_send_busno:8;
+	unsigned int pci_send_devfn:8;
+	unsigned int pci_send_deviceid:16;
+	unsigned int pci_send_vendorid:16;
+	unsigned int pci_send_revisionid:8;
+	unsigned int pci_send_slot:8;	/* 00 => system board, ff => multiple */
+};
+
+struct posthdr {
+	unsigned int firmware:1;
+	unsigned int config:1;
+	unsigned int cpu:1;
+	unsigned int memory:1;
+	unsigned int io:1;
+	unsigned int keyboard:1;
+	unsigned int mouse:1;
+	unsigned int display:1;
+
+	unsigned int ipl_floppy:1;
+	unsigned int ipl_controller:1;
+	unsigned int ipl_cdrom:1;
+	unsigned int ipl_disk:1;
+	unsigned int ipl_net:1;
+	unsigned int ipl_other:1;
+	unsigned int /* reserved */:1;
+	unsigned int firmware_selftest:1;
+
+	char         devname[12];
+	unsigned int post_code:4;
+	unsigned int firmware_rev:2;
+	unsigned int loc_code:8;	/* currently unused */
+};
+
+struct epowhdr {
+	unsigned int epow_sensor_value:32;
+	unsigned int sensor:1;
+	unsigned int power_fault:1;
+	unsigned int fan:1;
+	unsigned int temp:1;
+	unsigned int redundancy:1;
+	unsigned int CUoD:1;
+	unsigned int /* reserved */:2;
+
+	unsigned int general:1;
+	unsigned int power_loss:1;
+	unsigned int power_supply:1;
+	unsigned int power_switch:1;
+	unsigned int /* reserved */:4;
+
+	unsigned int /* reserved */:16;
+	unsigned int sensor_token:32;
+	unsigned int sensor_index:32;
+	unsigned int sensor_value:32;
+	unsigned int sensor_status:32;
+};
+
+struct pm_eventhdr {
+	unsigned int event_id:32;
+};
+
+struct sphdr {
+	unsigned int ibm:32;	/* "IBM\0" */
+
+	unsigned int timeout:1;
+	unsigned int i2c_bus:1;
+	unsigned int i2c_secondary_bus:1;
+	unsigned int sp_memory:1;
+	unsigned int sp_registers:1;
+	unsigned int sp_communication:1;
+	unsigned int sp_firmware:1;
+	unsigned int sp_hardware:1;
+
+	unsigned int vpd_eeprom:1;
+	unsigned int op_panel:1;
+	unsigned int power_controller:1;
+	unsigned int fan_sensor:1;
+	unsigned int thermal_sensor:1;
+	unsigned int voltage_sensor:1;
+	unsigned int reserved1:2;
+
+	unsigned int serial_port:1;
+	unsigned int nvram:1;
+	unsigned int rtc:1;
+	unsigned int jtag:1;
+	unsigned int tod_battery:1;
+	unsigned int reserved2:1;
+	unsigned int heartbeat:1;
+	unsigned int surveillance:1;
+
+	unsigned int pcn_connection:1;	/* power control network */
+	unsigned int pcn_node:1;
+	unsigned int reserved3:2;
+	unsigned int pcn_access:1;
+	unsigned int reserved:3;
+
+	unsigned int sensor_token:32;	/* zero if undef */
+	unsigned int sensor_index:32;	/* zero if undef */
+};
+
+
+static char *severity_names[] = {
+	"NO ERROR", "EVENT", "WARNING", "ERROR_SYNC", "ERROR", "FATAL", "(6)", "(7)"
+};
+static char *rtas_disposition_names[] = {
+	"FULLY RECOVERED", "LIMITED RECOVERY", "NOT RECOVERED", "(4)"
+};
+static char *entity_names[] = { /* for initiator & targets */
+	"UNKNOWN", "CPU", "PCI", "ISA", "MEMORY", "POWER MANAGEMENT", "HOT PLUG", "(7)", "(8)",
+	"(9)", "(10)", "(11)", "(12)", "(13)", "(14)", "(15)"
+};
+static char *error_type[] = {	/* Not all types covered here so need to bounds check */
+	"UNKNOWN", "RETRY", "TCE_ERR", "INTERN_DEV_FAIL",
+	"TIMEOUT", "DATA_PARITY", "ADDR_PARITY", "CACHE_PARITY",
+	"ADDR_INVALID", "ECC_UNCORR", "ECC_CORR",
+};
+
+static char *rtas_error_type(int type)
+{
+	if (type < 11)
+		return error_type[type];
+	if (type == 64)
+		return "SENSOR";
+	if (type >=96 && type <= 159)
+		return "POWER";
+	return error_type[0];
+}
+
+static void printk_cpu_failure(int version, struct exthdr *exthdr, char *data)
+{
+	struct cpuhdr cpuhdr;
+
+	memcpy(&cpuhdr, data, sizeof(cpuhdr));
+
+	if (cpuhdr.internal) printk(RTAS_ERR "Internal error (not cache)\n");
+	if (cpuhdr.intcache) printk(RTAS_ERR "Internal cache\n");
+	if (cpuhdr.extcache_parity) printk(RTAS_ERR "External cache parity (or multi-bit)\n");
+	if (cpuhdr.extcache_ecc) printk(RTAS_ERR "External cache ECC\n");
+	if (cpuhdr.sysbus_timeout) printk(RTAS_ERR "System bus timeout\n");
+	if (cpuhdr.io_timeout) printk(RTAS_ERR "I/O timeout\n");
+	if (cpuhdr.sysbus_parity) printk(RTAS_ERR "System bus parity\n");
+	if (cpuhdr.sysbus_protocol) printk(RTAS_ERR "System bus protocol/transfer\n");
+	printk(RTAS_ERR "CPU id: %d\n", cpuhdr.cpuid);
+	printk(RTAS_ERR "Failing element: 0x%04x\n", cpuhdr.element);
+	if (!exthdr->addr_invalid)
+		printk(RTAS_ERR "Failing address: %08x%08x\n", cpuhdr.failing_address_hi, cpuhdr.failing_address_lo);
+	if (version >= 4 && cpuhdr.try_reboot)
+		printk(RTAS_ERR "A reboot of the system may correct the problem\n");
+}
+
+static void printk_mem_failure(int version, struct exthdr *exthdr, char *data)
+{
+	struct memhdr memhdr;
+
+	memcpy(&memhdr, data, sizeof(memhdr));
+	if (memhdr.uncorrectable) printk(RTAS_ERR "Uncorrectable Memory error\n");
+	if (memhdr.ECC) printk(RTAS_ERR "ECC Correctable error\n");
+	if (memhdr.threshold_exceeded) printk(RTAS_ERR "Correctable threshold exceeded\n");
+	if (memhdr.control_internal) printk(RTAS_ERR "Memory Controller internal error\n");
+	if (memhdr.bad_address) printk(RTAS_ERR "Memory Address error\n");
+	if (memhdr.bad_data) printk(RTAS_ERR "Memory Data error\n");
+	if (memhdr.bus) printk(RTAS_ERR "Memory bus/switch internal error\n");
+	if (memhdr.timeout) printk(RTAS_ERR "Memory timeout\n");
+	if (memhdr.sysbus_parity) printk(RTAS_ERR "System bus parity\n");
+	if (memhdr.sysbus_timeout) printk(RTAS_ERR "System bus timeout\n");
+	if (memhdr.sysbus_protocol) printk(RTAS_ERR "System bus protocol/transfer\n");
+	if (memhdr.hostbridge_timeout) printk(RTAS_ERR "I/O Host Bridge timeout\n");
+	if (memhdr.hostbridge_parity) printk(RTAS_ERR "I/O Host Bridge parity\n");
+	if (memhdr.support) printk(RTAS_ERR "System support function error\n");
+	if (memhdr.sysbus_internal) printk(RTAS_ERR "System bus internal hardware/switch error\n");
+	printk(RTAS_ERR "Memory Controller that detected failure: %d\n", memhdr.mem_controller_detected);
+	printk(RTAS_ERR "Memory Controller that faulted: %d\n", memhdr.mem_controller_faulted);
+	if (!exthdr->addr_invalid)
+		printk(RTAS_ERR "Failing address: 0x%016x%016x\n", memhdr.failing_address_hi, memhdr.failing_address_lo);
+	printk(RTAS_ERR "ECC syndrome bits: 0x%04x\n", memhdr.ecc_syndrome);
+	printk(RTAS_ERR "Memory Card: %d\n", memhdr.memory_card);
+	printk(RTAS_ERR "Failing element: 0x%04x\n", memhdr.element);
+	printk(RTAS_ERR "Sub element bits: 0x%08x\n", memhdr.sub_elements);
+}
+
+static void printk_io_failure(int version, struct exthdr *exthdr, char *data)
+{
+	struct iohdr iohdr;
+
+	memcpy(&iohdr, data, sizeof(iohdr));
+	if (iohdr.bus_addr_parity) printk(RTAS_ERR "I/O bus address parity\n");
+	if (iohdr.bus_data_parity) printk(RTAS_ERR "I/O bus data parity\n");
+	if (iohdr.bus_timeout) printk(RTAS_ERR "I/O bus timeout, access or other\n");
+	if (iohdr.bridge_internal) printk(RTAS_ERR "I/O bus bridge/device internal\n");
+	if (iohdr.non_pci) printk(RTAS_ERR "Signaling IOA is a PCI to non-PCI bridge (e.g. ISA)\n");
+	if (iohdr.mezzanine_addr_parity) printk(RTAS_ERR "Mezzanine/System bus address parity\n");
+	if (iohdr.mezzanine_data_parity) printk(RTAS_ERR "Mezzanine/System bus data parity\n");
+	if (iohdr.mezzanine_timeout) printk(RTAS_ERR "Mezzanine/System bus timeout, transfer or protocol\n");
+	if (iohdr.bridge_via_sysbus) printk(RTAS_ERR "Bridge is connected to system bus\n");
+	if (iohdr.bridge_via_mezzanine) printk(RTAS_ERR "Bridge is connected to memory controller via mezzanine bus\n");
+	if (iohdr.bridge_via_expbus) printk(RTAS_ERR "Bridge is connected to I/O expansion bus\n");
+	if (iohdr.detected_by_expbus) printk(RTAS_ERR "Error on system bus detected by I/O expansion bus controller\n");
+	if (iohdr.expbus_data_parity) printk(RTAS_ERR "I/O expansion bus data error\n");
+	if (iohdr.expbus_timeout) printk(RTAS_ERR "I/O expansion bus timeout, access or other\n");
+	if (iohdr.expbus_connection_failure) printk(RTAS_ERR "I/O expansion bus connection failure\n");
+	if (iohdr.expbus_not_operating) printk(RTAS_ERR "I/O expansion unit not in an operating state (powered off, off-line)\n");
+
+	printk(RTAS_ERR "IOA Signaling the error: %d:%d.%d vendor:%04x device:%04x rev:%02x slot:%d\n",
+	       iohdr.pci_sig_busno, iohdr.pci_sig_devfn >> 3, iohdr.pci_sig_devfn & 0x7,
+	       iohdr.pci_sig_vendorid, iohdr.pci_sig_deviceid, iohdr.pci_sig_revisionid, iohdr.pci_sig_slot);
+	printk(RTAS_ERR "IOA Sending during the error: %d:%d.%d vendor:%04x device:%04x rev:%02x slot:%d\n",
+	       iohdr.pci_send_busno, iohdr.pci_send_devfn >> 3, iohdr.pci_send_devfn & 0x7,
+	       iohdr.pci_send_vendorid, iohdr.pci_send_deviceid, iohdr.pci_send_revisionid, iohdr.pci_send_slot);
+
+}
+
+static void printk_post_failure(int version, struct exthdr *exthdr, char *data)
+{
+	struct posthdr posthdr;
+
+	memcpy(&posthdr, data, sizeof(posthdr));
+
+	if (posthdr.devname[0]) printk(RTAS_ERR "Failing Device: %s\n", posthdr.devname);
+	if (posthdr.firmware) printk(RTAS_ERR "Firmware Error\n");
+	if (posthdr.config) printk(RTAS_ERR "Configuration Error\n");
+	if (posthdr.cpu) printk(RTAS_ERR "CPU POST Error\n");
+	if (posthdr.memory) printk(RTAS_ERR "Memory POST Error\n");
+	if (posthdr.io) printk(RTAS_ERR "I/O Subsystem POST Error\n");
+	if (posthdr.keyboard) printk(RTAS_ERR "Keyboard POST Error\n");
+	if (posthdr.mouse) printk(RTAS_ERR "Mouse POST Error\n");
+	if (posthdr.display) printk(RTAS_ERR "Display POST Error\n");
+
+	if (posthdr.ipl_floppy) printk(RTAS_ERR "Floppy IPL Error\n");
+	if (posthdr.ipl_controller) printk(RTAS_ERR "Drive Controller Error during IPL\n");
+	if (posthdr.ipl_cdrom) printk(RTAS_ERR "CDROM IPL Error\n");
+	if (posthdr.ipl_disk) printk(RTAS_ERR "Disk IPL Error\n");
+	if (posthdr.ipl_net) printk(RTAS_ERR "Network IPL Error\n");
+	if (posthdr.ipl_other) printk(RTAS_ERR "Other (tape,flash) IPL Error\n");
+	if (posthdr.firmware_selftest) printk(RTAS_ERR "Self-test error in firmware extended diagnostics\n");
+	printk(RTAS_ERR "POST Code: %d\n", posthdr.post_code);
+	printk(RTAS_ERR "Firmware Revision Code: %d\n", posthdr.firmware_rev);
+}
+
+static void printk_epow_warning(int version, struct exthdr *exthdr, char *data)
+{
+	struct epowhdr epowhdr;
+
+	memcpy(&epowhdr, data, sizeof(epowhdr));
+	printk(RTAS_ERR "EPOW Sensor Value:  0x%08x\n", epowhdr.epow_sensor_value); 
+	if (epowhdr.sensor) {
+		printk(RTAS_ERR "EPOW detected by a sensor\n");
+		printk(RTAS_ERR "Sensor Token:  0x%08x\n", epowhdr.sensor_token); 
+		printk(RTAS_ERR "Sensor Index:  0x%08x\n", epowhdr.sensor_index); 
+		printk(RTAS_ERR "Sensor Value:  0x%08x\n", epowhdr.sensor_value); 
+		printk(RTAS_ERR "Sensor Status: 0x%08x\n", epowhdr.sensor_status);
+	}
+	if (epowhdr.power_fault) printk(RTAS_ERR "EPOW caused by a power fault\n");
+	if (epowhdr.fan) printk(RTAS_ERR "EPOW caused by fan failure\n");
+	if (epowhdr.temp) printk(RTAS_ERR "EPOW caused by over-temperature condition\n");
+	if (epowhdr.redundancy) printk(RTAS_ERR "EPOW warning due to loss of redundancy\n");
+	if (epowhdr.CUoD) printk(RTAS_ERR "EPOW warning due to CUoD Entitlement Exceeded\n");
+
+	if (epowhdr.general) printk(RTAS_ERR "EPOW general power fault\n");
+	if (epowhdr.power_loss) printk(RTAS_ERR "EPOW power fault due to loss of power source\n");
+	if (epowhdr.power_supply) printk(RTAS_ERR "EPOW power fault due to internal power supply failure\n");
+	if (epowhdr.power_switch) printk(RTAS_ERR "EPOW power fault due to activation of power switch\n");
+}
+
+static void printk_pm_event(int version, struct exthdr *exthdr, char *data)
+{
+	struct pm_eventhdr pm_eventhdr;
+
+	memcpy(&pm_eventhdr, data, sizeof(pm_eventhdr));
+	printk(RTAS_ERR "Event id: 0x%08x\n", pm_eventhdr.event_id);
+}
+
+static void printk_sp_log_msg(int version, struct exthdr *exthdr, char *data)
+{
+	struct sphdr sphdr;
+	u32 eyecatcher;
+
+	memcpy(&sphdr, data, sizeof(sphdr));
+
+	eyecatcher = sphdr.ibm;
+	if (strcmp((char *)&eyecatcher, "IBM") != 0)
+		printk(RTAS_ERR "This log entry may be corrupt (IBM signature malformed)\n");
+	if (sphdr.timeout) printk(RTAS_ERR "Timeout on communication response from service processor\n");
+	if (sphdr.i2c_bus) printk(RTAS_ERR "I2C general bus error\n");
+	if (sphdr.i2c_secondary_bus) printk(RTAS_ERR "I2C secondary bus error\n");
+	if (sphdr.sp_memory) printk(RTAS_ERR "Internal service processor memory error\n");
+	if (sphdr.sp_registers) printk(RTAS_ERR "Service processor error accessing special registers\n");
+	if (sphdr.sp_communication) printk(RTAS_ERR "Service processor reports unknown communcation error\n");
+	if (sphdr.sp_firmware) printk(RTAS_ERR "Internal service processor firmware error\n");
+	if (sphdr.sp_hardware) printk(RTAS_ERR "Other internal service processor hardware error\n");
+	if (sphdr.vpd_eeprom) printk(RTAS_ERR "Service processor error accessing VPD EEPROM\n");
+	if (sphdr.op_panel) printk(RTAS_ERR "Service processor error accessing Operator Panel\n");
+	if (sphdr.power_controller) printk(RTAS_ERR "Service processor error accessing Power Controller\n");
+	if (sphdr.fan_sensor) printk(RTAS_ERR "Service processor error accessing Fan Sensor\n");
+	if (sphdr.thermal_sensor) printk(RTAS_ERR "Service processor error accessing Thermal Sensor\n");
+	if (sphdr.voltage_sensor) printk(RTAS_ERR "Service processor error accessing Voltage Sensor\n");
+	if (sphdr.serial_port) printk(RTAS_ERR "Service processor error accessing serial port\n");
+	if (sphdr.nvram) printk(RTAS_ERR "Service processor detected NVRAM error\n");
+	if (sphdr.rtc) printk(RTAS_ERR "Service processor error accessing real time clock\n");
+	if (sphdr.jtag) printk(RTAS_ERR "Service processor error accessing JTAG/COP\n");
+	if (sphdr.tod_battery) printk(RTAS_ERR "Service processor or RTAS detects loss of voltage from TOD battery\n");
+	if (sphdr.heartbeat) printk(RTAS_ERR "Loss of heartbeat from Service processor\n");
+	if (sphdr.surveillance) printk(RTAS_ERR "Service processor detected a surveillance timeout\n");
+	if (sphdr.pcn_connection) printk(RTAS_ERR "Power Control Network general connection failure\n");
+	if (sphdr.pcn_node) printk(RTAS_ERR "Power Control Network node failure\n");
+	if (sphdr.pcn_access) printk(RTAS_ERR "Service processor error accessing Power Control Network\n");
+
+	if (sphdr.sensor_token) printk(RTAS_ERR "Sensor Token 0x%08x (%d)\n", sphdr.sensor_token, sphdr.sensor_token);
+	if (sphdr.sensor_index) printk(RTAS_ERR "Sensor Index 0x%08x (%d)\n", sphdr.sensor_index, sphdr.sensor_index);
+}
+
+
+static void printk_ext_raw_data(char *data)
+{
+	int i;
+	printk(RTAS_ERR "raw ext data: ");
+	for (i = 0; i < 40; i++) {
+		printk("%02x", data[i]);
+	}
+	printk("\n");
+}
+
+static void printk_ext_log_data(int version, char *buf)
+{
+	char *data = buf+12;
+	struct exthdr exthdr;
+	memcpy(&exthdr, buf, sizeof(exthdr));	/* copy for alignment */
+	if (!exthdr.valid) {
+		if (exthdr.bigendian && exthdr.power_pc)
+			printk(RTAS_ERR "extended log data is not valid\n");
+		else
+			printk(RTAS_ERR "extended log data can not be decoded\n");
+		return;
+	}
+
+	/* Dump useful stuff in the exthdr */
+	printk(RTAS_ERR "Status:%s%s%s%s%s\n",
+	       exthdr.unrecoverable ? " unrecoverable" : "",
+	       exthdr.recoverable ? " recoverable" : "",
+	       exthdr.unrecoverable_bypassed ? " bypassed" : "",
+	       exthdr.predictive ? " predictive" : "",
+	       exthdr.newlog ? " new" : "");
+	printk(RTAS_ERR "Date/Time: %08x %08x\n", exthdr.bcddate, exthdr.bcdtime);
+	switch (exthdr.format_type) {
+	    case EXTLOG_FMT_CPU:
+		printk(RTAS_ERR "CPU Failure\n");
+		printk_cpu_failure(version, &exthdr, data);
+		break;
+	    case EXTLOG_FMT_MEMORY:
+		printk(RTAS_ERR "Memory Failure\n");
+		printk_mem_failure(version, &exthdr, data);
+		break;
+	    case EXTLOG_FMT_IO:
+		printk(RTAS_ERR "I/O Failure\n");
+		printk_io_failure(version, &exthdr, data);
+		break;
+	    case EXTLOG_FMT_POST:
+		printk(RTAS_ERR "POST Failure\n");
+		printk_post_failure(version, &exthdr, data);
+		break;
+	    case EXTLOG_FMT_ENV:
+		printk(RTAS_ERR "Environment and Power Warning\n");
+		printk_epow_warning(version, &exthdr, data);
+		break;
+	    case EXTLOG_FMT_POW:
+		printk(RTAS_ERR "Power Management Event\n");
+		printk_pm_event(version, &exthdr, data);
+		break;
+	    case EXTLOG_FMT_IBMDIAG:
+		printk(RTAS_ERR "IBM Diagnostic Log\n");
+		printk_ext_raw_data(data);
+		break;
+	    case EXTLOG_FMT_IBMSP:
+		printk(RTAS_ERR "IBM Service Processor Log\n");
+		printk_sp_log_msg(version, &exthdr, data);
+		break;
+	    default:
+		printk(RTAS_ERR "Unknown ext format type %d\n", exthdr.format_type);
+		printk_ext_raw_data(data);
+		break;
+	}
+}
+
+
+/* Yeah, the output here is ugly, but we want a CE to be
+ * able to grep RTAS /var/log/messages and see all the info
+ * collected together with obvious begin/end.
+ */
+static void printk_log_rtas(char *buf)
+{
+	struct rtas_error_log *err = (struct rtas_error_log *)buf;
+
+	printk(RTAS_ERR "-------- event-scan begin --------\n");
+	if (strcmp(buf+8+40, "IBM") == 0) {
+		/* Location code follows */
+		char *loc = buf+8+40+4;
+		if (*loc >= 'A' && *loc <= 'Z')	/* Sanity check */
+			printk(RTAS_ERR "Location Code: %s\n", loc);
+	}
+
+	printk(RTAS_ERR "%s: (%s) type: %s\n",
+	       severity_names[err->severity],
+	       rtas_disposition_names[err->disposition],
+	       rtas_error_type(err->type));
+	printk(RTAS_ERR "initiator: %s  target: %s\n",
+	       entity_names[err->initiator], entity_names[err->target]);
+	if (err->extended_log_length)
+		printk_ext_log_data(err->version, buf+8);
+	printk(RTAS_ERR "-------- event-scan end ----------\n");
+}
+
+
 static void log_rtas(char *buf)
 {
 	unsigned long offset;
 
 	DEBUG("logging rtas event\n");
+
+	/* Temporary -- perhaps we can do this when nobody has the log open? */
+	printk_log_rtas(buf);
 
 	spin_lock(&rtas_log_lock);
 

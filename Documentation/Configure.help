@@ -490,6 +490,23 @@ CONFIG_BLK_DEV_LOOP
 
   Most users will answer N here.
 
+Micro Memory MM5415 Battery Backed RAM support (EXPERIMENTAL)
+CONFIG_BLK_DEV_UMEM
+  Saying Y here will include support for the MM5415 family of
+  battery backed (Non-volatile) RAM cards.
+  http://www.umem.com/
+
+  The cards appear as block devices that can be partitioned into
+  as many as 15 partitions.
+
+  If you want to compile this driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read Documentation/modules.txt. The module will be
+  called umem.o.
+
+  The umem driver has been allocated block major number 116.
+  See Documentation/devices.txt for recommended device naming.
+
 Network block device support
 CONFIG_BLK_DEV_NBD
   Saying Y here will allow your computer to be a client for network
@@ -2048,6 +2065,11 @@ CONFIG_SGI_SN0_N_MODE
   configured in either N-Modes which allows for more nodes or M-Mode
   which allows for more memory.  Your system is most probably
   running in M-Mode, so you should say N here.
+
+Lasi ethernet
+CONFIG_LASI_82596
+  Say Y here to support the on-board Intel 82596 ethernet controller
+  built into Hewlett-Packard PA-RISC machines.
 
 MIPS JAZZ onboard SONIC Ethernet support
 CONFIG_MIPS_JAZZ_SONIC
@@ -4499,7 +4521,8 @@ Matrox unified accelerated driver
 CONFIG_FB_MATROX
   Say Y here if you have a Matrox Millennium, Millennium II, Mystique,
   Mystique 220, Productiva G100, Mystique G200, Millennium G200,
-  Marvel G200 video, G400, G450, or G550 card in your box.
+  Matrox G400, G450 or G550 card in your box. At this time, support for 
+  the G-series digital output is almost non-existant.
 
   This driver is also available as a module ( = code which can be
   inserted and removed from the running kernel whenever you want).
@@ -4538,6 +4561,10 @@ CONFIG_FB_MATROX_G100
   "I2C support" and "I2C bit-banging support" in the character devices
   section, and then to "Matrox I2C support" and "G400 second head
   support" here in the framebuffer section.
+  
+  If you have G550, you must also compile support for G450/G550 secondary
+  head into kernel, otherwise picture will be shown only on the output you
+  are probably not using...
 
   If you need support for G450 or G550 secondary head, say Y to
   "Matrox G450/G550 second head support" below.
@@ -4588,7 +4615,8 @@ CONFIG_FB_MATROX_MAVEN
 Matrox G450 second head support
 CONFIG_FB_MATROX_G450
   Say Y or M here if you want to use a secondary head (meaning two
-  monitors in parallel) on G450 or G550.
+  monitors in parallel) on G450, or if you are using analog output
+  of G550.
 
   If you compile it as module, two modules are created,
   matroxfb_crtc2.o and matroxfb_g450.o. Both modules are needed if you
@@ -4729,6 +4757,12 @@ IMS Twin Turbo display support
 CONFIG_FB_IMSTT
   The IMS Twin Turbo is a PCI-based frame buffer card bundled with
   many Macintosh and compatible computers.
+
+CONFIG_FB_TX3912
+  The TX3912 is a Toshiba RISC processor based on the MIPS 3900 core;
+  see <http://www.toshiba.com/taec/components/Generic/risc/tx3912.htm>.
+
+  Say Y here to enable kernel support for the on-board framebuffer.
 
 Virtual Frame Buffer support (ONLY FOR TESTING!)
 CONFIG_FB_VIRTUAL
@@ -6192,6 +6226,19 @@ CONFIG_ATM_CLIP_NO_ICMP
   briefly removed during revalidation. If you say Y here, packets to
   such neighbours are silently discarded instead.
 
+RFC1483/2684 Bridged protocols
+CONFIG_ATM_BR2684
+  ATM PVCs can carry ethernet PDUs according to rfc2684 (formerly 1483)
+  This device will act like an ethernet from the kernels point of view,
+  with the traffic being carried by ATM PVCs (currently 1 PVC/device).
+  This is sometimes used over DSL lines.  If in doubt, say N.
+
+Per-VC IP filter kludge
+CONFIG_ATM_BR2684_IPFILTER
+  This is an experimental mechanism for users who need to terminating a
+  large number of IP-only vcc's.  Do not enable this unless you are sure
+  you know what you are doing.
+
 LAN Emulation (LANE) support
 CONFIG_ATM_LANE
   LAN Emulation emulates services of existing LANs across an ATM
@@ -6515,6 +6562,12 @@ CONFIG_PHONE_IXJ
 
   If you do not have any Quicknet telephony cards, you can safely
   say N here.
+
+QuickNet Internet LineJack/PhoneJack PCMCIA support
+CONFIG_PHONE_IXJ_PCMCIA
+  Say Y here to configure in PCMCIA service support for the Quicknet
+  cards manufactured by Quicknet Technologies, Inc.  This builds an
+  additional support module for the PCMCIA version of the card.
 
 FORE Systems 200E-series
 CONFIG_ATM_FORE200E_MAYBE
@@ -7825,6 +7878,12 @@ CONFIG_SCSI_QLOGIC_FC
   The module will be called qlogicfc.o.  If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
+Include loadable firmware in driver
+CONFIG_SCSI_QLOGIC_FC_FIRMWARE
+  Say Y to include ISP2100 Fabric Initiator/Target Firmware, with
+  expanded LUN addressing and FcTape (FCP-2) support, in the
+  Qlogic QLA 1280 driver. This is required on some platforms.
+
 Qlogic QLA 1280 SCSI support
 CONFIG_SCSI_QLOGIC_1280
   Say Y if you have a QLogic ISP1x80/1x160 SCSI host adapter.
@@ -8987,6 +9046,19 @@ CONFIG_PCMCIA_XIRTULIP
   it as a module, say M here and read
   <file:Documentation/modules.txt>. If unsure, say N.
 
+Xircom CardBus support (new driver)
+CONFIG_PCMCIA_XIRCOM
+  This driver is for the Digital "Tulip" Ethernet CardBus adapters.
+  It should work with most DEC 21*4*-based chips/ethercards, as well
+  as with work-alike chips from Lite-On (PNIC) and Macronix (MXIC) and
+  ASIX.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called xircom_cb.o.  If you want to compile
+  it as a module, say M here and read
+  <file:Documentation/modules.txt>. If unsure, say N.
+
 PCMCIA Wireless LAN
 CONFIG_NET_PCMCIA_RADIO
   Say Y here if you would like to use a PCMCIA (PC-card) device to
@@ -9029,6 +9101,14 @@ CONFIG_PLX_HERMES
 
   Support for these adaptors is so far still incomplete and buggy.
   You have been warned.
+
+Prism 2.5 PCI 802.11b adaptor support
+CONFIG_PCI_HERMES
+  Enable support for PCI and mini-PCI 802.11b wireless NICs based on
+  the Prism 2.5 chipset.  These are true PCI cards, not the 802.11b
+  PCMCIA cards bundled with PCI<->PCMCIA adaptors which are also
+  common.  Some of the built-in wireless adaptors in laptops are of
+  this variety.
 
 Hermes support (Orinoco/WavelanIEEE/PrismII/Symbol 802.11b cards)
 CONFIG_PCMCIA_HERMES
@@ -9236,6 +9316,28 @@ CONFIG_SEALEVEL_4021
   inserted in and removed from the running kernel whenever you want).
   If you want to do that, say M here. The module will be called
   sealevel.o.
+
+TMPTX3912/PR31700 serial port support
+CONFIG_SERIAL_TX3912
+  The TX3912 is a Toshiba RISC processor based o the MIPS 3900 core;
+  see <http://www.toshiba.com/taec/components/Generic/risc/tx3912.htm>.
+  Say Y here to enable kernel support for the on-board serial port.
+
+Console on TMPTX3912/PR31700 serial port
+CONFIG_SERIAL_TX3912_CONSOLE
+  The TX3912 is a Toshiba RISC processor based o the MIPS 3900 core;
+  see <http://www.toshiba.com/taec/components/Generic/risc/tx3912.htm>.
+  Say Y here to direct console I/O to the on-board serial port.
+
+Enable Au1000 serial console
+CONFIG_AU1000_SERIAL_CONSOLE
+  If you have an Alchemy AU1000 processor (MIPS based) and you want
+  to use a console on a serial port, say Y.  Otherwise, say N.
+
+Enable Au1000 UART Support
+CONFIG_AU1000_UART
+  If you have an Alchemy AU1000 processor (MIPS based) and you want
+  to use serial ports, say Y.  Otherwise, say N.
 
 SyncLink HDLC/SYNCPPP support
 CONFIG_SYNCLINK_SYNCPPP
@@ -9698,7 +9800,7 @@ CONFIG_NET_PKTGEN
   This module will inject preconfigured packets, at a configurable
   rate, out of a given interface.  It is used for network interface
   stress testing and performance analysis.  If you don't understand
-  what was just said, you don't neet it: say N.
+  what was just said, you don't need it: say N.
 
   Documentation on how to use the packet generator can be found
   at <file:Documentation/networking/pktgen.txt>.
@@ -11232,6 +11334,12 @@ CONFIG_FEALNX
   cards. Specifications and data at
   <http://www.myson.com.hk/mtd/datasheet/>.
 
+LP486E on board Ethernet
+CONFIG_LP486E
+  Say Y here to support the 82596-based on-board Ethernet controller
+  for the Panther motherboard, which is one of the two shipped in the
+  Intel Professional Workstation.
+
 ICL EtherTeam 16i/32 support
 CONFIG_ETH16I
   If you have a network (Ethernet) card of this type, say Y and read
@@ -11581,6 +11689,24 @@ CONFIG_SMCTR
   inserted in and removed from the running kernel whenever you want).
   The module will be called smctr.o. If you want to compile it
   as a module, say M here and read <file:Documentation/modules.txt>.
+
+3COM 3C359 Token Link Velocity XL PCI adapter support
+CONFIG_3C359
+  This is support for the 3Com PCI Velocity XL cards, specifically
+  the 3Com 3C359, please note this is not for the 3C339 cards, you
+  should use the tms380 driver instead.
+
+  If you have such an adapter, say Y and read the Token-Ring
+  mini-HOWTO, available from <http://www.linuxdoc.org/docs.html#howto>.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will will be called 3c359.o. If you want to compile it
+  as a module, say M here and read Documentation/modules.txt.
+
+  Also read the file <file:Documentation/networking/3c359.txt> or check the 
+  Linux Token Ring Project site for the latest information at
+  <http://www.linuxtr.net>
 
 Sun Happy Meal 10/100baseT support
 CONFIG_HAPPYMEAL
@@ -16614,6 +16740,13 @@ CONFIG_COBALT_RULER
   If you have a Cobalt Networks system, you should say Y here,
   unless you are absolutely sure.
 
+IT8172G Sound
+CONFIG_SOUND_IT8172
+  Say Y here to support the on-board sound generator on the Integrated
+  Technology Express, Inc. ITE8172 SBC.  Vendor page at
+  <http://www.ite.com.tw/ia/brief_it8172bsp.htm>; picture of the
+  board at <http://www.mvista.com/allies/semiconductor/ite.html>.
+
 I2C support
 CONFIG_I2C
   I2C (pronounce: I-square-C) is a slow serial bus protocol used in
@@ -16711,6 +16844,28 @@ CONFIG_I2C_ELEKTOR
   it as a module, say M here and read
   <file:Documentation/modules.txt>.
   The module will be called i2c-elektor.o.
+
+ITE I2C Algorithm
+CONFIG_ITE_I2C_ALGO
+  This supports the use the ITE8172 I2C interface found on some MIPS
+  systems. Say Y if you have one of these. You should also say Y for
+  the ITE I2C peripheral driver support below.
+
+  This support is also available as a module. If you want to compile
+  it as a modules, say M here and read
+  <file:Documentation/modules.txt>.
+  The module will be called i2c-algo-ite.o.
+
+ITE I2C Adapter
+CONFIG_ITE_I2C_ADAP
+  This supports the ITE8172 I2C peripheral found on some MIPS
+  systems. Say Y if you have one of these. You should also say Y for
+  the ITE I2C driver algorithm support above.
+
+  This support is also available as a module. If you want to compile
+  it as a module, say M here and read
+  <file:Documentation/modules.txt>.
+  The module will be called i2c-adap-ite.o.
 
 I2C device interface
 CONFIG_I2C_CHARDEV
@@ -17771,6 +17926,17 @@ CONFIG_W83877F_WDT
   module, say M here and read <file:Documentation/modules.txt>.  Most
   people will say N.
 
+ALi M7101 Watchdog Timer
+CONFIG_ALIM7101_WDT
+  This is the driver for the hardware watchdog on the ALi M7101 PMU
+  as used in the x86 Cobalt servers.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module is called alim7101_wdt.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.  Most
+  people will say N.
+
 IB700 SBC Watchdog Timer
 CONFIG_IB700_WDT
   This is the driver for the hardware watchdog on the IB700 Single
@@ -17812,6 +17978,18 @@ CONFIG_MACHZ_WDT
   The module is called machzwd.o.  If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
+CONFIG_SC1200_WDT
+  This is a driver for National Semiconductor PC87307/PC97307 hardware
+  watchdog cards as found on the SC1200. This watchdog is mainly used
+  for power management purposes and can be used to power down the device
+  during inactivity periods (includes interrupt activity monitoring).
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module is called sc1200wdt.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.  Most
+  people will say N.
+
 SuperH 3/4 Watchdog
 CONFIG_SH_WDT
   This driver adds watchdog support for the integrated watchdog in the
@@ -17822,6 +18000,17 @@ CONFIG_SH_WDT
   inserted in and removed from the running kernel whenever you want).
   The module is called shwdt.o. If you want to compile it as a module,
   say M here and read Documentation/modules.txt.
+
+Wafer 5823 Watchdog
+CONFIG_WAFER_WDT
+  This is a driver for the hardware watchdog on the ICP Wafer 5823
+  Single Board Computer (and probably other similar models).
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  wafer5823wdt.o
 	      
 Machine Check Exception
 CONFIG_X86_MCE
@@ -17829,14 +18018,10 @@ CONFIG_X86_MCE
   kernel if it detects a problem (e.g. overheating, component failure).
   The action the kernel takes depends on the severity of the problem, 
   ranging from a warning message on the console, to halting the machine.
-  Your processor must be a Pentium or newer to support this - check the 
-  flags in /proc/cpuinfo for mce.  Note that some older Pentium systems
-  have a design flaw which leads to false MCE events - hence MCE is
-  disabled on all P5 processors, unless explicitly enabled with "mce"
-  as a boot argument.  Similarly, if MCE is built in and creates a
-  problem on some new non-standard machine, you can boot with "nomce" 
-  to disable it.  MCE support simply ignores non-MCE processors like
-  the 386 and 486, so nearly everyone can say Y here.
+  You can safely select this on machines that do not support this feature.
+
+  For pentium machines the mce support defaults to off as the mainboard
+  support is not always present. You must activate it as a boot option.
 
 Toshiba Laptop support
 CONFIG_TOSHIBA
@@ -17924,6 +18109,28 @@ CONFIG_EUROTECH_WDT
   Enable support for the watchdog timer on the Eurotech CPU-1220 and 
   CPU-1410 cards.  These are PC/104 SBCs. Spec sheets and product 
   information are at <http://www.eurotech.it/>.
+
+W83877F Watchdog Timer
+CONFIG_W83877F_WDT
+ This is the driver for the hardware watchdog on the W83877F chipset
+ as used in EMACS PC-104 motherboards (and may work on others). This
+ watchdog simply watches your kernel to make sure it doesn't freeze,
+ and if it does, it reboots your computer after a certain amount of
+ time.
+
+ You can compile this driver directly into the kernel, or use
+ it as a module.  The module will be called w83877f_wdt.o.
+
+SC520 (AMD Elan) Watchdog Timer
+CONFIG_SC520_WDT
+ This is the driver for the hardware watchdog built in to the
+ AMD "Elan" SC520 microcomputer commonly used in embedded systems.
+ This watchdog simply watches your kernel to make sure it doesn't
+ freeze, and if it does, it reboots your computer after a certain
+ amount of time.
+
+ You can compile this driver directly into the kernel, or use
+ it as a module.  The module will be called sc520_wdt.o.
 
 Enhanced Real Time Clock Support
 CONFIG_RTC
@@ -18419,7 +18626,7 @@ CONFIG_SOUND_DMAP
   then you can get the persistent DMA buffer functionality by passing
   the command-line argument "dmabuf=1" to the sound.o module.
 
-  Say Y unless you have 16MB or more RAM or a PCI sound card.
+  Say Y unless you have 16MB or less RAM or a PCI sound card.
 
 Support for Aztech Sound Galaxy (non-PnP) cards
 CONFIG_SOUND_SGALAXY
@@ -18594,6 +18801,12 @@ CONFIG_SOUND_VWSND
   able to use its on-board audio.  Read
   <file:Documentation/sound/vwsnd> for more info on this driver's
   capabilities.
+
+NEC Vrc5477 AC97 sound
+CONFIG_SOUND_VRC5477
+  Say Y here to enable sound support for the NEC Vrc5477 chip, an
+  integrated, multi-function controller chip for MIPS CPUs.  Works
+  with the AC97 codec.
 
 Ensoniq SoundScape support
 CONFIG_SOUND_SSCAPE
@@ -18942,6 +19155,12 @@ CONFIG_AEDSP16_MPU401
   driver as a module you have to specify the MPU I/O base address with
   the parameter 'mpu_base=0xNNN'.
 
+SC-6600 CDROM Interface (4=None, 3=IDE, 1=Panasonic, 0=?Sony?)
+CONFIG_SC6600_CDROM
+  This is used to activate the CD-ROM interface of the Audio Excel
+  DSP 16 card. Enter: 0 for Sony, 1 for Panasonic, 2 for IDE, 4 for no
+  CD-ROM present.
+
 C-Media PCI (CMI8338/8378)
 CONFIG_SOUND_CMPCI
   Say Y or M if you have a PCI sound card using the CMI8338
@@ -18984,6 +19203,41 @@ CONFIG_SOUND_CMPCI_SPDIFLOOP
   <http://member.nifty.ne.jp/Breeze/softwares/unix/cmictl-e.html>.
   This package will among other things help you enable SPDIF 
   out/in/loop/monitor.
+
+Enable legacy FM
+CONFIG_SOUND_CMPCI_FM
+  Say Y here to enable the legacy FM (frequency-modulation) synthesis
+  support on a card using the CMI8338 or CMI8378 chipset.
+
+FM I/O 388, 3C8, 3E0, 3E8
+CONFIG_SOUND_CMPCI_FMIO
+  Set the base I/O address for FM synthesis control on a card using
+  the CMI8338 or CMI8378 chipset.
+
+Enable legacy MPU-401
+CONFIG_SOUND_CMPCI_MIDI
+  Say Y here to enable the legacy MP401 MIDI synthesis support on a
+  card using the CMI8338 or CMI8378 chipset.
+
+MPU-401 I/O 330, 320, 310, 300
+CONFIG_SOUND_CMPCI_MPUIO
+  Set the base I/O address for MP401 MIDI synthesis control on a card
+  using the CMI8338 or CMI8378 chipset.
+
+Inverse S/PDIF in for CMI8738
+CONFIG_SOUND_CMPCI_SPDIFINVERSE
+  Say Y here to have the driver invert the signal presented on SPDIF IN
+  of a card using the CMI8338 or CMI8378 chipset.
+
+Use Line-in as Read-out
+CONFIG_SOUND_CMPCI_LINE_REAR
+  Say Y here to enable using line-in jack as an output jack for a rear
+  speaker.
+
+Use Line-in as Bass
+CONFIG_SOUND_CMPCI_LINE_BASS
+  Say Y here to enable using line-in jack as an output jack for a bass
+  speaker.
 
 Creative SBLive! (EMU10K1) based PCI sound cards
 CONFIG_SOUND_EMU10K1
@@ -19190,8 +19444,9 @@ CONFIG_SOUND_YMFPCI_LEGACY
 
 RME Hammerfall (RME96XX) support
 CONFIG_SOUND_RME96XX
-  Say Y or M if you have a Hammerfall, Hammerfall light or Hammerfall
-  DSP card from RME.
+  Say Y or M if you have a Hammerfall or Hammerfall light multichannel card 
+  from RME. If you want to acess advanced features of the card, read
+  Documentation/sound/rme96xx.
 
 Are you using a crosscompiler
 CONFIG_CROSSCOMPILE
@@ -20095,6 +20350,11 @@ CONFIG_PARPORT_SUNBPP
   This driver provides support for the bidirectional parallel port
   found on many Sun machines. Note that many of the newer Ultras
   actually have pc style hardware instead.
+
+SPARC power management support
+CONFIG_SUN_PM
+  Enable power management and CPU standby features on supported 
+  SPARC platforms. 
 
 /proc/hardware support
 CONFIG_PROC_HARDWARE
@@ -21976,6 +22236,18 @@ Include support for Iomega Buz
 CONFIG_VIDEO_ZORAN_BUZ
   Say Y here to include support for the Iomega Buz video card.  There
   is a Buz/Linux homepage at <http://www.lysator.liu.se/~gz/buz/>.
+
+Miro DC10(+) support
+CONFIG_VIDEO_ZORAN_DC10
+  Say Y to support the Pinnacle Systems Studio DC10 plus TV/Video
+  card.  Linux page at
+  <http://lhd.datapower.com/db/dispproduct.php3?DISP?1511>.  Vendor
+  page at <http://www.pinnaclesys.com/>.
+
+Linux Media Labs LML33 support
+CONFIG_VIDEO_ZORAN_LML33
+  Say Y here to support the Linux Media Labs LML33 TV/Video card.
+  Resources page is at <http://www.linuxmedialabs.com/lml33doc.html>.
 
 Zoran ZR36120/36125 Video For Linux
 CONFIG_VIDEO_ZR36120

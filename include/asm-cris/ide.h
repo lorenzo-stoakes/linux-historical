@@ -1,7 +1,7 @@
 /*
  *  linux/include/asm-cris/ide.h
  *
- *  Copyright (C) 2000  Axis Communications AB
+ *  Copyright (C) 2000, 2001, 2002  Axis Communications AB
  *
  *  Authors:    Bjorn Wesen
  *
@@ -100,14 +100,14 @@ typedef union {
 } select_t;
 
 typedef union {
-	unsigned all			: 8;	/* all of the bits together */
+	unsigned all                    : 8;    /* all of the bits together */
 	struct {
-		unsigned bit0		: 1;
-		unsigned nIEN		: 1;	/* device INTRQ to host */
-		unsigned SRST		: 1;	/* host soft reset bit */
-		unsigned bit3		: 1;	/* ATA-2 thingy */
-		unsigned reserved456	: 3;
-		unsigned HOB		: 1;	/* 48-bit address ordering */
+		unsigned bit0           : 1;
+		unsigned nIEN           : 1;    /* device INTRQ to host */
+		unsigned SRST           : 1;    /* host soft reset bit */
+		unsigned bit3           : 1;    /* ATA-2 thingy */
+		unsigned reserved456    : 3;
+		unsigned HOB            : 1;    /* 48-bit address ordering */
 	} b;
 } control_t;
 

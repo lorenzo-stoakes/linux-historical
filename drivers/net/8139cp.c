@@ -37,8 +37,8 @@
 	* Investigate using High Priority Tx Queue with skb->priority
 	* Adjust Rx FIFO threshold and Max Rx DMA burst on Rx FIFO error
 	* Adjust Tx FIFO threshold and Max Tx DMA burst on Tx FIFO error
-        * Implement Tx software interrupt mitigation via
-	          Tx descriptor bit
+	* Implement Tx software interrupt mitigation via
+	  Tx descriptor bit
 	* The real minimum of CP_MIN_MTU is 4 bytes.  However,
 	  for this to be supported, one must(?) turn on packet padding.
 
@@ -59,9 +59,9 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/ethtool.h>
-#include <linux/crc32.h>
 #include <linux/mii.h>
 #include <linux/if_vlan.h>
+#include <linux/crc32.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 

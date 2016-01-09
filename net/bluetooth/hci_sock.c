@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI socket layer.
  *
- * $Id: hci_sock.c,v 1.2 2002/03/26 17:56:44 maxk Exp $
+ * $Id: hci_sock.c,v 1.4 2002/04/18 22:26:14 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -54,8 +54,8 @@
 #include <net/bluetooth/hci_core.h>
 
 #ifndef HCI_SOCK_DEBUG
-#undef  DBG
-#define DBG( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
 #endif
 
 /* ----- HCI socket interface ----- */
@@ -88,7 +88,7 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct sock * sk;
 
-	DBG("hdev %p len %d", hdev, skb->len);
+	BT_DBG("hdev %p len %d", hdev, skb->len);
 
 	read_lock(&hci_sk_list.lock);
 	for (sk = hci_sk_list.head; sk; sk = sk->next) {
@@ -105,13 +105,13 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
 		/* Apply filter */
 		flt = &hci_pi(sk)->filter;
 
-		if (!test_bit((skb->pkt_type & HCI_FLT_TYPE_BITS), &flt->type_mask))
+		if (!hci_test_bit((skb->pkt_type & HCI_FLT_TYPE_BITS), &flt->type_mask))
 			continue;
 
 		if (skb->pkt_type == HCI_EVENT_PKT) {
 			register int evt = (*(__u8 *)skb->data & HCI_FLT_EVENT_BITS);
 			
-			if (!test_bit(evt, &flt->event_mask))
+			if (!hci_test_bit(evt, &flt->event_mask))
 				continue;
 
 			if (flt->opcode && ((evt == EVT_CMD_COMPLETE && 
@@ -139,7 +139,7 @@ static int hci_sock_release(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct hci_dev *hdev = hci_pi(sk)->hdev;
 
-	DBG("sock %p sk %p", sock, sk);
+	BT_DBG("sock %p sk %p", sock, sk);
 
 	if (!sk)
 		return 0;
@@ -197,7 +197,7 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long a
 	struct sock *sk = sock->sk;
 	int err;
 
-	DBG("cmd %x arg %lx", cmd, arg);
+	BT_DBG("cmd %x arg %lx", cmd, arg);
 
 	switch (cmd) {
 	case HCIGETDEVLIST:
@@ -259,7 +259,7 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr, int addr_le
 	struct hci_dev *hdev = NULL;
 	int err = 0;
 
-	DBG("sock %p sk %p", sock, sk);
+	BT_DBG("sock %p sk %p", sock, sk);
 
 	if (!haddr || haddr->hci_family != AF_BLUETOOTH)
 		return -EINVAL;
@@ -293,7 +293,7 @@ static int hci_sock_getname(struct socket *sock, struct sockaddr *addr, int *add
 	struct sockaddr_hci *haddr = (struct sockaddr_hci *) addr;
 	struct sock *sk = sock->sk;
 
-	DBG("sock %p sk %p", sock, sk);
+	BT_DBG("sock %p sk %p", sock, sk);
 
 	lock_sock(sk);
 
@@ -323,7 +323,7 @@ static int hci_sock_recvmsg(struct socket *sock, struct msghdr *msg, int len, in
 	struct sk_buff *skb;
 	int copied, err;
 
-	DBG("sock %p, sk %p", sock, sk);
+	BT_DBG("sock %p, sk %p", sock, sk);
 
 	if (flags & (MSG_OOB))
 		return -EOPNOTSUPP;
@@ -360,7 +360,7 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 	struct sk_buff *skb;
 	int err;
 
-	DBG("sock %p sk %p", sock, sk);
+	BT_DBG("sock %p sk %p", sock, sk);
 
 	if (msg->msg_flags & MSG_OOB)
 		return -EOPNOTSUPP;
@@ -398,7 +398,7 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 			__u16 ocf = cmd_opcode_ocf(opcode) & HCI_FLT_OCF_BITS;
 
 			if (ogf > HCI_SFLT_MAX_OGF ||
-					!test_bit(ocf, &hci_sec_filter.ocf_mask[ogf]))
+					!hci_test_bit(ocf, &hci_sec_filter.ocf_mask[ogf]))
 				goto drop;
 		} else
 			goto drop;
@@ -424,7 +424,7 @@ int hci_sock_setsockopt(struct socket *sock, int level, int optname, char *optva
 	struct hci_filter flt = { opcode: 0 };
 	int err = 0, opt = 0;
 
-	DBG("sk %p, opt %d", sk, optname);
+	BT_DBG("sk %p, opt %d", sk, optname);
 
 	lock_sock(sk);
 
@@ -544,7 +544,7 @@ static int hci_sock_create(struct socket *sock, int protocol)
 {
 	struct sock *sk;
 
-	DBG("sock %p", sock);
+	BT_DBG("sock %p", sock);
 
 	if (sock->type != SOCK_RAW)
 		return -ESOCKTNOSUPPORT;
@@ -573,7 +573,7 @@ static int hci_sock_dev_event(struct notifier_block *this, unsigned long event, 
 	struct hci_dev *hdev = (struct hci_dev *) ptr;
 	evt_si_device sd;
 	
-	DBG("hdev %s event %ld", hdev->name, event);
+	BT_DBG("hdev %s event %ld", hdev->name, event);
 
 	/* Send event to sockets */
 	sd.event  = event;
@@ -615,7 +615,7 @@ struct notifier_block hci_sock_nblock = {
 int hci_sock_init(void)
 {
 	if (bluez_sock_register(BTPROTO_HCI, &hci_sock_family_ops)) {
-		ERR("Can't register HCI socket");
+		BT_ERR("Can't register HCI socket");
 		return -EPROTO;
 	}
 
@@ -626,7 +626,7 @@ int hci_sock_init(void)
 int hci_sock_cleanup(void)
 {
 	if (bluez_sock_unregister(BTPROTO_HCI))
-		ERR("Can't unregister HCI socket");
+		BT_ERR("Can't unregister HCI socket");
 
 	hci_unregister_notifier(&hci_sock_nblock);
 	return 0;

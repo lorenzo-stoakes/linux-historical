@@ -1,12 +1,18 @@
-/* $Id: serial.c,v 1.29 2002/01/14 16:10:01 pkj Exp $
+/* $Id: serial.c,v 1.31 2002/04/22 11:20:03 johana Exp $
  *
  * Serial port driver for the ETRAX 100LX chip
  *
- *      Copyright (C) 1998, 1999, 2000, 2001  Axis Communications AB
+ *      Copyright (C) 1998, 1999, 2000, 2001, 2002  Axis Communications AB
  *
  *      Many, many authors. Based once upon a time on serial.c for 16x50.
  *
  * $Log: serial.c,v $
+ * Revision 1.31  2002/04/22 11:20:03  johana
+ * Updated copyright years.
+ *
+ * Revision 1.30  2002/04/22 09:39:12  johana
+ * RS-485 support compiles.
+ *
  * Revision 1.29  2002/01/14 16:10:01  pkj
  * Allocate the receive buffers dynamically. The static 4kB buffer was
  * too small for the peaks. This means that we can get rid of the extra
@@ -291,7 +297,7 @@
  *
  */
 
-static char *serial_version = "$Revision: 1.29 $";
+static char *serial_version = "$Revision: 1.31 $";
 
 #include <linux/config.h>
 #include <linux/version.h>
@@ -390,6 +396,9 @@ static void change_speed(struct e100_serial *info);
 static void rs_wait_until_sent(struct tty_struct *tty, int timeout);
 static int rs_write(struct tty_struct * tty, int from_user,
                     const unsigned char *buf, int count);
+static int 
+get_lsr_info(struct e100_serial * info, unsigned int *value);
+
 
 #define DEF_BAUD 0x99   /* 115.2 kbit/s */
 #define STD_FLAGS (ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST)
@@ -1005,10 +1014,8 @@ e100_write_rs485(struct tty_struct *tty,struct rs485_write *r)
 #endif
 
 	if (info->rs485.delay_rts_before_send > 0) {
-		current->timeout = jiffies + (info->rs485.delay_rts_before_send * HZ)/1000;
-		current->state = TASK_INTERRUPTIBLE;
-		schedule();
-		current->timeout = 0;
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule_timeout((info->rs485.delay_rts_before_send * HZ)/1000);
 	}
 	total = rs_write(tty, 1, (*r).outc, (*r).outc_size);
 
@@ -3518,7 +3525,7 @@ done:
 static void 
 show_serial_version(void)
 {
-	printk("ETRAX 100LX serial-driver %s, (c) 2000 Axis Communications AB\r\n",
+	printk("ETRAX 100LX serial-driver %s, (c) 2000, 2001, 2002 Axis Communications AB\r\n",
 	       serial_version);
 }
 

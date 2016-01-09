@@ -162,7 +162,8 @@ extern const char *print_tainted(void);
 #define max_t(type,x,y) \
 	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
 
-extern void out_of_line_bug(void) ATTRIB_NORET;
+extern void __out_of_line_bug(int line) ATTRIB_NORET;
+#define out_of_line_bug() __out_of_line_bug(__LINE__)
 
 #endif /* __KERNEL__ */
 

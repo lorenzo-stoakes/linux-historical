@@ -8,7 +8,8 @@
 #include <linux/sched.h>
 #include <asm/current.h>
 
-extern spinlock_t kernel_flag;
+extern spinlock_cacheline_t kernel_flag_cacheline;  
+#define kernel_flag kernel_flag_cacheline.lock      
 
 #define kernel_locked()		spin_is_locked(&kernel_flag)
 

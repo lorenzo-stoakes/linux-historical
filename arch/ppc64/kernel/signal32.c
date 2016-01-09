@@ -47,7 +47,7 @@
 #include <asm/ipc.h>
 #include <asm/uaccess.h>
 #include <linux/elf.h>
-/* #include <asm/ppc32.h> */
+#include <asm/ppc32.h>
 #include <asm/ppcdebug.h>
 #include <asm/unistd.h>
 #include <asm/ucontext.h>
@@ -64,35 +64,6 @@
  * handler, even if the handler returns.
  */
 #define MSR_USERCHANGE	(MSR_FE0 | MSR_FE1)
-
-
-
-
-/* Use this to get at 32-bit user passed pointers. */
-/* Things to consider: the low-level assembly stub does
-   srl x, 0, x for first four arguments, so if you have
-   pointer to something in the first four arguments, just
-   declare it as a pointer, not u32. On the other side, 
-   arguments from 5th onwards should be declared as u32
-   for pointers, and need AA() around each usage.
-   A() macro should be used for places where you e.g.
-   have some internal variable u32 and just want to get
-   rid of a compiler warning. AA() has to be used in
-   places where you want to convert a function argument
-   to 32bit pointer or when you e.g. access pt_regs
-   structure and want to consider 32bit registers only.
-   -
- */
-#define A(__x) ((unsigned long)(__x))
-#define AA(__x)				\
-({	unsigned long __ret;		\
-	__asm__ ("clrldi	%0, %0, 32"	\
-		 : "=r" (__ret)		\
-		 : "0" (__x));		\
-	__ret;				\
-})
-
-
 
 struct timespec32 {
 	s32    tv_sec;

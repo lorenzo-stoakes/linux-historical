@@ -1,5 +1,5 @@
 /*
- *	i810-tco 0.03:	TCO timer driver for i8xx chipsets
+ *	i810-tco 0.04:	TCO timer driver for i8xx chipsets
  *
  *	(c) Copyright 2000 kernel concepts <nils@kernelconcepts.de>, All Rights Reserved.
  *				http://www.kernelconcepts.de

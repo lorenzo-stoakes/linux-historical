@@ -109,6 +109,7 @@ extern inline int pci_dma_supported(struct pci_dev *hwdev, u64 mask)
 /* Return the index of the PCI controller for device PDEV. */
 extern int pci_controller_num(struct pci_dev *pdev);
 
+struct vm_area_struct;
 /* Map a range of PCI memory or I/O space for a device into user space */
 int pci_mmap_page_range(struct pci_dev *pdev, struct vm_area_struct *vma,
 			enum pci_mmap_state mmap_state, int write_combine);
@@ -139,6 +140,12 @@ int pci_mmap_page_range(struct pci_dev *pdev, struct vm_area_struct *vma,
 
 #define pci_dac_dma_supported(pci_dev, mask)	(0)
 
+/* The PCI address space does equal the physical memory
+ * address space.  The networking and block device layers use
+ * this boolean for bounce buffer decisions.
+ */
+#define PCI_DMA_BUS_IS_PHYS	(0)
+	
 #endif	/* __KERNEL__ */
 
 #endif /* __PPC64_PCI_H */

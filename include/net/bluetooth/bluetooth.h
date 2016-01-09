@@ -23,7 +23,7 @@
 */
 
 /*
- *  $Id: bluetooth.h,v 1.6 2002/04/01 01:57:14 maxk Exp $
+ *  $Id: bluetooth.h,v 1.8 2002/04/17 17:37:20 maxk Exp $
  */
 
 #ifndef __BLUETOOTH_H
@@ -73,14 +73,18 @@
 
 extern void bluez_dump(char *pref, __u8 *buf, int count);
 
-#define INF(fmt, arg...) printk(KERN_INFO fmt "\n" , ## arg)
-#define DBG(fmt, arg...) printk(KERN_INFO "%s: " fmt "\n" ,__func__, ## arg)
-#define ERR(fmt, arg...) printk(KERN_ERR  "%s: " fmt "\n" ,__func__, ## arg)
+#if __GNUC__ <= 2 && __GNUC_MINOR__ < 95
+#define __func__ __FUNCTION__
+#endif
+
+#define BT_INFO(fmt, arg...) printk(KERN_INFO fmt "\n" , ## arg)
+#define BT_DBG(fmt, arg...)  printk(KERN_INFO "%s: " fmt "\n" , __func__ , ## arg)
+#define BT_ERR(fmt, arg...)  printk(KERN_ERR  "%s: " fmt "\n" , __func__ , ## arg)
 
 #ifdef HCI_DATA_DUMP
-#define DMP(buf, len)    bluez_dump(__func__, buf, len)
+#define BT_DMP(buf, len)    bluez_dump(__func__, buf, len)
 #else
-#define DMP(D...)
+#define BT_DMP(D...)
 #endif
 
 /* Connection and socket states */

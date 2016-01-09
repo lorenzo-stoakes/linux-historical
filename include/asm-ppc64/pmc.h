@@ -85,6 +85,9 @@ extern char *ppc64_pmc_stab(int file);
 extern char *ppc64_pmc_htab(int file);
 extern char *ppc64_pmc_hw(int file);
 
+void *btmalloc(unsigned long size);
+void btfree(void *addr);
+
 #if 1
 #define PMC_SW_PROCESSOR(F)      pmc_sw_cpu[smp_processor_id()].F++
 #define PMC_SW_PROCESSOR_A(F, E) (pmc_sw_cpu[smp_processor_id()].F[(E)])++
@@ -109,5 +112,10 @@ extern char *ppc64_pmc_hw(int file);
 
 #define PMC_CONTROL_CPI 1
 #define PMC_CONTROL_TLB 2
+
+/* To find an entry in the bolted page-table-directory */
+#define pgd_offset_b(address) (bolted_pgd + pgd_index(address))
+#define BTMALLOC_START 0xB000000000000000
+#define BTMALLOC_END   0xB0000000ffffffff /* 4 GB Max-more or less arbitrary */
 
 #endif /* _PMC_H */

@@ -171,13 +171,6 @@ good_area:
 		goto out_of_memory;
 	}
 
-	/* There seems to be a missing invalidate somewhere in do_no_page.
-	 * Until I found it, this one cures the problem and makes
-	 * 1.2 run on the 68040 (Martin Apel).
-	 */
-	#warning should be obsolete now...
-	if (CPU_IS_040_OR_060)
-		flush_tlb_page(vma, address);
 	up_read(&mm->mmap_sem);
 	return 0;
 

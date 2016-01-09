@@ -1163,9 +1163,13 @@ static inline void mark_buffer_clean(struct buffer_head * bh)
 extern void FASTCALL(__mark_dirty(struct buffer_head *bh));
 extern void FASTCALL(__mark_buffer_dirty(struct buffer_head *bh));
 extern void FASTCALL(mark_buffer_dirty(struct buffer_head *bh));
+extern void FASTCALL(buffer_insert_inode_queue(struct buffer_head *, struct inode *));
 extern void FASTCALL(buffer_insert_inode_data_queue(struct buffer_head *, struct inode *));
 
-#define atomic_set_buffer_dirty(bh) test_and_set_bit(BH_Dirty, &(bh)->b_state)
+static inline int atomic_set_buffer_dirty(struct buffer_head *bh)
+{
+	return test_and_set_bit(BH_Dirty, &bh->b_state);
+}
 
 static inline void mark_buffer_async(struct buffer_head * bh, int on)
 {
@@ -1190,7 +1194,6 @@ static inline void buffer_IO_error(struct buffer_head * bh)
 	bh->b_end_io(bh, 0);
 }
 
-extern void buffer_insert_inode_queue(struct buffer_head *, struct inode *);
 static inline void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode *inode)
 {
 	mark_buffer_dirty(bh);
@@ -1218,10 +1221,15 @@ extern int fsync_dev(kdev_t);
 extern int fsync_super(struct super_block *);
 extern int fsync_no_super(kdev_t);
 extern void sync_inodes_sb(struct super_block *);
-extern int osync_inode_buffers(struct inode *);
-extern int osync_inode_data_buffers(struct inode *);
-extern int fsync_inode_buffers(struct inode *);
-extern int fsync_inode_data_buffers(struct inode *);
+extern int fsync_buffers_list(struct list_head *);
+static inline int fsync_inode_buffers(struct inode *inode)
+{
+	return fsync_buffers_list(&inode->i_dirty_buffers);
+}
+static inline int fsync_inode_data_buffers(struct inode *inode)
+{
+	return fsync_buffers_list(&inode->i_dirty_data_buffers);
+}
 extern int inode_has_buffers(struct inode *);
 extern int filemap_fdatasync(struct address_space *);
 extern int filemap_fdatawait(struct address_space *);
@@ -1375,6 +1383,8 @@ static inline void bforget(struct buffer_head *buf)
 		__bforget(buf);
 }
 extern int set_blocksize(kdev_t, int);
+extern int sb_set_blocksize(struct super_block *, int);
+extern int sb_min_blocksize(struct super_block *, int);
 extern struct buffer_head * bread(kdev_t, int, int);
 static inline struct buffer_head * sb_bread(struct super_block *sb, int block)
 {

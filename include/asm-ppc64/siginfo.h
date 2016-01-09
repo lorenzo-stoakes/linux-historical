@@ -16,18 +16,6 @@ typedef union sigval {
 	void *sival_ptr;
 } sigval_t;
 
-
-#ifdef __KERNEL__
-
-typedef union sigval32 {
-	int sival_int;
-	unsigned int sival_ptr;
-} sigval_t32;
-
-
-#endif /* __KERNEL__ */
-
-
 #define SI_MAX_SIZE	128
 #define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 3)
 
@@ -80,62 +68,6 @@ typedef struct siginfo {
 	} _sifields;
 } siginfo_t;
 
-
-#ifdef __KERNEL__
-                
-typedef struct siginfo32 {
-	int si_signo;
-	int si_errno;
-	int si_code;
-
-	union {
-		int _pad[SI_PAD_SIZE];
-
-		/* kill() */
-		struct {
-			__kernel_pid_t32 _pid;		/* sender's pid */
-			unsigned int _uid;		/* sender's uid */
-		} _kill;
-
-		/* POSIX.1b timers */
-		struct {
-			unsigned int _timer1;
-			unsigned int _timer2;
-		} _timer;
-
-		/* POSIX.1b signals */
-		struct {
-			__kernel_pid_t32 _pid;		/* sender's pid */
-			unsigned int _uid;		/* sender's uid */
-			sigval_t32 _sigval;
-		} _rt;
-
-		/* SIGCHLD */
-		struct {
-			__kernel_pid_t32 _pid;		/* which child */
-			unsigned int _uid;		/* sender's uid */
-			int _status;			/* exit code */
-			__kernel_clock_t32 _utime;
-			__kernel_clock_t32 _stime;
-		} _sigchld;
-
-		/* SIGILL, SIGFPE, SIGSEGV, SIGBUS, SIGEMT */
-		struct {
-			u32 _addr; /* faulting insn/memory ref. */
-			int _trapno;
-		} _sigfault;
-
-		/* SIGPOLL */
-		struct {
-			int _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
-			int _fd;
-		} _sigpoll;
-	} _sifields;
-} siginfo_t32;
-
-#endif /* __KERNEL__ */
-
-
 /*
  * How these fields are to be accessed.
  */
@@ -181,6 +113,8 @@ typedef struct siginfo32 {
 #define SI_MESGQ	-3		/* sent by real time mesq state change */
 #define SI_ASYNCIO	-4		/* sent by AIO completion */
 #define SI_SIGIO	-5		/* sent by queued SIGIO */
+#define SI_TKILL	-6		/* sent by tkill system call */
+#define SI_DETHREAD	-7		/* sent by execve() killing subsidiary threads */
 
 #define SI_FROMUSER(siptr)	((siptr)->si_code <= 0)
 #define SI_FROMKERNEL(siptr)	((siptr)->si_code > 0)

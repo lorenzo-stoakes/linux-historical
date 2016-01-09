@@ -11,6 +11,13 @@
  * partition split defined below.
  *
  * $Log: axisflashmap.c,v $
+ * Revision 1.19  2002/03/15 17:10:28  bjornw
+ * Changed comment about cached access since we changed this before
+ *
+ * Revision 1.18  2002/03/05 17:06:15  jonashg
+ * Try amd_flash probe before cfi_probe since amd_flash driver can handle two
+ * (or more) flash chips of different model and the cfi driver cannot.
+ *
  * Revision 1.17  2001/11/12 19:42:38  pkj
  * Fixed compiler warnings.
  *
@@ -106,9 +113,8 @@ extern unsigned long romfs_start, romfs_length, romfs_in_flash; /* From head.S *
 /* 
  * Map driver
  *
- * Ok this is the scoop - we need to access the flash both with and without
- * the cache - without when doing all the fancy flash interfacing, and with
- * when we do actual copying because otherwise it will be slow like molasses.
+ * We run into tricky coherence situations if we mix cached with uncached
+ * accesses to we use the uncached version here.
  */
 
 static __u8 flash_read8(struct map_info *map, unsigned long ofs)
@@ -248,13 +254,13 @@ init_axis_flash(void)
 	printk(KERN_NOTICE "Axis flash mapping: %x at %lx\n",
 	       WINDOW_SIZE, FLASH_CACHED_ADDR);
 
-#ifdef CONFIG_MTD_CFI
-	mymtd = (struct mtd_info *)do_map_probe("cfi_probe", &axis_map);
+#ifdef CONFIG_MTD_AMDSTD
+	mymtd = (struct mtd_info *)do_map_probe("amd_flash", &axis_map);
 #endif
 
-#ifdef CONFIG_MTD_AMDSTD
+#ifdef CONFIG_MTD_CFI
 	if (!mymtd) {
-		mymtd = (struct mtd_info *)do_map_probe("amd_flash", &axis_map);
+		mymtd = (struct mtd_info *)do_map_probe("cfi_probe", &axis_map);
 	}
 #endif
 

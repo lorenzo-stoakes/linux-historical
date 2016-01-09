@@ -51,7 +51,6 @@ extern int have_print;
 #define outl(data,addr)		writel(data,((unsigned long)(addr)))
 #else
 #define IS_MAPPED_VADDR(port)	((unsigned long)(port) >> 60UL)
-#ifdef CONFIG_PPC_EEH
 #define readb(addr)		eeh_readb((void*)(addr))  
 #define readw(addr)		eeh_readw((void*)(addr))  
 #define readl(addr)		eeh_readl((void*)(addr))
@@ -61,17 +60,6 @@ extern int have_print;
 #define memset_io(a,b,c)	eeh_memset((void *)(a),(b),(c))
 #define memcpy_fromio(a,b,c)	eeh_memcpy_fromio((a),(void *)(b),(c))
 #define memcpy_toio(a,b,c)	eeh_memcpy_toio((void *)(a),(b),(c))
-#else
-#define readb(addr)		in_8((volatile u8 *)(addr))
-#define writeb(b,addr)		out_8((volatile u8 *)(addr), (b))
-#define readw(addr)		in_le16((volatile u16 *)(addr))
-#define readl(addr)		in_le32((volatile u32 *)(addr))
-#define writew(b,addr)		out_le16((volatile u16 *)(addr),(b))
-#define writel(b,addr)		out_le32((volatile u32 *)(addr),(b))
-#define memset_io(a,b,c)	memset((void *)(a),(b),(c))
-#define memcpy_fromio(a,b,c)	memcpy((a),(void *)(b),(c))
-#define memcpy_toio(a,b,c)	memcpy((void *)(a),(b),(c))
-#endif
 #define inb(port)		_inb((unsigned long)port)
 #define outb(val, port)		_outb(val, (unsigned long)port)
 #define inw(port)		_inw((unsigned long)port)
@@ -180,25 +168,28 @@ extern inline void iosync(void)
 
 /*
  * 8, 16 and 32 bit, big and little endian I/O operations, with barrier.
+ * Until we can validate all required device drivers are weakc safe, an
+ * excess of syncs before the MMIO operations will make things work.  On 
+ * sstar, sync time is << than mmio time, so this should not be a big impact.
  */
 extern inline int in_8(volatile unsigned char *addr)
 {
 	int ret;
 
-	__asm__ __volatile__("eieio; lbz%U1%X1 %0,%1" : "=r" (ret) : "m" (*addr));
+	__asm__ __volatile__("sync; lbz%U1%X1 %0,%1; sync" : "=r" (ret) : "m" (*addr));
 	return ret;
 }
 
 extern inline void out_8(volatile unsigned char *addr, int val)
 {
-	__asm__ __volatile__("stb%U0%X0 %1,%0" : "=m" (*addr) : "r" (val));
+	__asm__ __volatile__("sync; stb%U0%X0 %1,%0; sync" : "=m" (*addr) : "r" (val));
 }
 
 extern inline int in_le16(volatile unsigned short *addr)
 {
 	int ret;
 
-	__asm__ __volatile__("eieio; lhbrx %0,0,%1" : "=r" (ret) :
+	__asm__ __volatile__("sync; lhbrx %0,0,%1; sync" : "=r" (ret) :
 			      "r" (addr), "m" (*addr));
 	return ret;
 }
@@ -207,26 +198,26 @@ extern inline int in_be16(volatile unsigned short *addr)
 {
 	int ret;
 
-	__asm__ __volatile__("eieio; lhz%U1%X1 %0,%1" : "=r" (ret) : "m" (*addr));
+	__asm__ __volatile__("sync; lhz%U1%X1 %0,%1; sync" : "=r" (ret) : "m" (*addr));
 	return ret;
 }
 
 extern inline void out_le16(volatile unsigned short *addr, int val)
 {
-	__asm__ __volatile__("sthbrx %1,0,%2" : "=m" (*addr) :
+	__asm__ __volatile__("sync; sthbrx %1,0,%2; sync" : "=m" (*addr) :
 			      "r" (val), "r" (addr));
 }
 
 extern inline void out_be16(volatile unsigned short *addr, int val)
 {
-	__asm__ __volatile__("sth%U0%X0 %1,%0" : "=m" (*addr) : "r" (val));
+	__asm__ __volatile__("sync; sth%U0%X0 %1,%0; sync" : "=m" (*addr) : "r" (val));
 }
 
 extern inline unsigned in_le32(volatile unsigned *addr)
 {
 	unsigned ret;
 
-	__asm__ __volatile__("eieio; lwbrx %0,0,%1" : "=r" (ret) :
+	__asm__ __volatile__("sync; lwbrx %0,0,%1; sync" : "=r" (ret) :
 			     "r" (addr), "m" (*addr));
 	return ret;
 }
@@ -235,26 +226,24 @@ extern inline unsigned in_be32(volatile unsigned *addr)
 {
 	unsigned ret;
 
-	__asm__ __volatile__("eieio; lwz%U1%X1 %0,%1" : "=r" (ret) : "m" (*addr));
+	__asm__ __volatile__("sync; lwz%U1%X1 %0,%1; sync" : "=r" (ret) : "m" (*addr));
 	return ret;
 }
 
 extern inline void out_le32(volatile unsigned *addr, int val)
 {
-	__asm__ __volatile__("stwbrx %1,0,%2" : "=m" (*addr) :
+	__asm__ __volatile__("sync; stwbrx %1,0,%2; sync" : "=m" (*addr) :
 			     "r" (val), "r" (addr));
 }
 
 extern inline void out_be32(volatile unsigned *addr, int val)
 {
-	__asm__ __volatile__("stw%U0%X0 %1,%0" : "=m" (*addr) : "r" (val));
+	__asm__ __volatile__("sync; stw%U0%X0 %1,%0; sync" : "=m" (*addr) : "r" (val));
 }
 
-#ifdef CONFIG_PPC_EEH
-#include <asm/eeh.h>
-#endif
-
 #ifndef CONFIG_PPC_ISERIES 
+#include <asm/eeh.h>
+
 static inline u8 _inb(unsigned long port) {
 	if (IS_MAPPED_VADDR(port))
 		return readb((void *)port);

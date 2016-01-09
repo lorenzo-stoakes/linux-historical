@@ -86,7 +86,7 @@ void (*mach_process_int) (int, struct pt_regs *) = NULL;
 /* machine dependent timer functions */
 unsigned long (*mach_gettimeoffset) (void);
 void (*mach_gettod) (int*, int*, int*, int*, int*, int*);
-int (*mach_hwclk) (int, struct hwclk_time*) = NULL;
+int (*mach_hwclk) (int, struct rtc_time*) = NULL;
 int (*mach_set_clock_mmss) (unsigned long) = NULL;
 void (*mach_reset)( void );
 void (*mach_halt)( void ) = NULL;

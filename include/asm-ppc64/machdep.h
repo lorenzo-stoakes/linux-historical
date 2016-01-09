@@ -48,10 +48,8 @@ struct machdep_calls {
 				     long tcenum,
 				     unsigned long uaddr,
 				     int direction);
-	void		(*tce_free)(struct TceTable *tbl,
-				    dma_addr_t dma_addr, 
-				    unsigned order,
-				    unsigned numPages);
+	void		(*tce_free_one)(struct TceTable *tbl,
+				        long tcenum);    
 
 	void		(*smp_message_pass)(int target,
 					    int msg, 
@@ -147,18 +145,6 @@ extern struct machdep_calls ppc_md;
 extern char cmd_line[512];
 
 extern void setup_pci_ptrs(void);
-
-/*
- * Power macintoshes have either a CUDA or a PMU controlling
- * system reset, power, NVRAM, RTC.
- */
-typedef enum sys_ctrler_kind {
-	SYS_CTRLER_UNKNOWN = 0,
-	SYS_CTRLER_CUDA = 1,
-	SYS_CTRLER_PMU = 2,
-} sys_ctrler_t;
-
-extern sys_ctrler_t sys_ctrler;
 
 #endif /* _PPC_MACHDEP_H */
 #endif /* __KERNEL__ */

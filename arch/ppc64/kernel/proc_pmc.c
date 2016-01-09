@@ -26,7 +26,7 @@
  */
 
 #include <asm/proc_fs.h>
-#include <asm/Paca.h>
+#include <asm/paca.h>
 #include <asm/iSeries/ItLpPaca.h>
 #include <asm/iSeries/ItLpQueue.h>
 #include <asm/iSeries/HvCallXm.h>
@@ -40,7 +40,7 @@
 #include <linux/spinlock.h>
 #include <asm/pmc.h>
 #include <asm/uaccess.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 
 /* pci Flight Recorder AHT */
 extern void proc_pciFr_init(struct proc_dir_entry *proc_ppc64_root);
@@ -53,9 +53,9 @@ static struct proc_dir_entry *proc_ppc64_pmc_system_root = NULL;
 static struct proc_dir_entry *proc_ppc64_pmc_cpu_root[NR_CPUS] = {NULL, };
 
 static spinlock_t proc_ppc64_lock;
-
-extern struct Naca *naca;
-
+static int proc_ppc64_page_read(char *page, char **start, off_t off,
+				int count, int *eof, void *data);
+static void proc_ppc64_create_paca(int num, struct proc_dir_entry *paca_dir);
 int proc_ppc64_pmc_find_file(void *data);
 int proc_ppc64_pmc_read(char *page, char **start, off_t off,
 			int count, int *eof, char *buffer);
@@ -107,12 +107,17 @@ void proc_ppc64_init(void)
 	if (!proc_ppc64_root) return;
 	spin_unlock(&proc_ppc64_lock);
 
+	/* /proc/ppc64/naca -- raw naca contents.  Only readable to root */
+	create_proc_read_entry("naca", S_IRUSR, proc_ppc64_root, proc_ppc64_page_read, naca);
+	/* /proc/ppc64/paca/XX -- raw paca contents.  Only readable to root */
+	ent = proc_mkdir("paca", proc_ppc64_root);
+	if (ent) {
+		for (i = 0; i < naca->processorCount; i++)
+			proc_ppc64_create_paca(i, ent);
+	}
+
 	/* Create the /proc/ppc64/pcifr for the Pci Flight Recorder.	 */
 	proc_pciFr_init(proc_ppc64_root);
-
-#ifdef CONFIG_PPC_EEH
-	eeh_init_proc(proc_ppc64_root);
-#endif
 
 	proc_ppc64_pmc_root = proc_mkdir("pmc", proc_ppc64_root);
 
@@ -182,6 +187,44 @@ void proc_ppc64_init(void)
 		ent->read_proc = (void *)proc_ppc64_pmc_hw_read;
 		ent->write_proc = (void *)proc_ppc64_pmc_hw_read;
 	}
+}
+
+/* Read a page of raw data.  "data" points to the start addr.
+ * Intended as a proc read function.
+ */
+static int proc_ppc64_page_read(char *page, char **start, off_t off,
+				int count, int *eof, void *data)
+{
+	int len = PAGE_SIZE - off;
+	char *p = (char *)data;
+
+	if (len > count)
+		len = count;
+	if (len <= 0)
+		return 0;
+	/* Rely on a "hack" in fs/proc/generic.c.
+	 * If we could return a ptr to our own data this would be
+	 * trivial (currently *start must be either an offset, or
+	 * point into the given page).
+	 */
+	memcpy(page, p+off, len);
+	*start = (char *)len;
+	return len;
+}
+
+/* NOTE: since paca data is always in flux the values will never be a consistant set.
+ * In theory it could be made consistent if we made the corresponding cpu
+ * copy the page for us (via an IPI).  Probably not worth it.
+ *
+ */
+static void proc_ppc64_create_paca(int num, struct proc_dir_entry *paca_dir)
+{
+	struct proc_dir_entry *ent;
+	struct paca_struct *lpaca = paca + num;
+	char buf[16];
+
+	sprintf(buf, "%02x", num);
+	ent = create_proc_read_entry(buf, S_IRUSR, paca_dir, proc_ppc64_page_read, lpaca);
 }
 
 /*
@@ -392,7 +435,7 @@ int proc_get_lpevents
 	len += sprintf( page+len, "\n  events processed by processor:\n" );
 	for (i=0; i<naca->processorCount; ++i) {
 		len += sprintf( page+len, "    CPU%02d  %10u\n",
-			i, xPaca[i].lpEvent_count );
+			i, paca[i].lpEvent_count );
 	}
 
 	return pmc_calc_metrics( page, start, off, count, eof, len );
@@ -594,7 +637,7 @@ static inline void proc_pmc_cpi(void)
 	proc_pmc_control_mode = PMC_CONTROL_CPI;
 	
 	/* Indicate to hypervisor that we are using the PMCs */
-	((struct Paca *)mfspr(SPRG3))->xLpPacaPtr->xPMCRegsInUse = 1;
+	get_paca()->xLpPacaPtr->xPMCRegsInUse = 1;
 
 	/* Freeze all counters */
 	mtspr( MMCR0, 0x80000000 );
@@ -645,7 +688,7 @@ static inline void proc_pmc_tlb(void)
 	proc_pmc_control_mode = PMC_CONTROL_TLB;
 	
 	/* Indicate to hypervisor that we are using the PMCs */
-	((struct Paca *)mfspr(SPRG3))->xLpPacaPtr->xPMCRegsInUse = 1;
+	get_paca()->xLpPacaPtr->xPMCRegsInUse = 1;
 
 	/* Freeze all counters */
 	mtspr( MMCR0, 0x80000000 );
@@ -695,9 +738,9 @@ int proc_pmc_set_mmcr0( struct file *file, const char *buffer, unsigned long cou
 	v = proc_pmc_conv_int( buffer, count );
 	v = v & ~0x04000000;	/* Don't allow interrupts for now */
 	if ( v & ~0x80000000 ) 	/* Inform hypervisor we are using PMCs */
-		((struct Paca *)mfspr(SPRG3))->xLpPacaPtr->xPMCRegsInUse = 1;
+		get_paca()->xLpPacaPtr->xPMCRegsInUse = 1;
 	else
-		((struct Paca *)mfspr(SPRG3))->xLpPacaPtr->xPMCRegsInUse = 0;
+		get_paca()->xLpPacaPtr->xPMCRegsInUse = 0;
 	mtspr( MMCR0, v );
 	
 	return count;	

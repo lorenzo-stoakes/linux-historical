@@ -25,7 +25,7 @@
 /*
  * HCI Events.
  *
- * $Id: hci_event.c,v 1.2 2002/03/26 17:56:44 maxk Exp $
+ * $Id: hci_event.c,v 1.3 2002/04/17 17:37:16 maxk Exp $
  */
 
 #include <linux/config.h>
@@ -53,8 +53,8 @@
 #include <net/bluetooth/hci_core.h>
 
 #ifndef HCI_CORE_DEBUG
-#undef  DBG
-#define DBG( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
 #endif
 
 /* Handle HCI Event packets */
@@ -62,11 +62,11 @@
 /* Command Complete OGF LINK_CTL  */
 static void hci_cc_link_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb)
 {
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	default:
-		DBG("%s Command complete: ogf LINK_CTL ocf %x", hdev->name, ocf);
+		BT_DBG("%s Command complete: ogf LINK_CTL ocf %x", hdev->name, ocf);
 		break;
 	};
 }
@@ -77,7 +77,7 @@ static void hci_cc_link_policy(struct hci_dev *hdev, __u16 ocf, struct sk_buff *
 	struct hci_conn *conn;
 	role_discovery_rp *rd;
 
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	case OCF_ROLE_DISCOVERY: 
@@ -100,7 +100,7 @@ static void hci_cc_link_policy(struct hci_dev *hdev, __u16 ocf, struct sk_buff *
 		break;
 
 	default:
-		DBG("%s: Command complete: ogf LINK_POLICY ocf %x", 
+		BT_DBG("%s: Command complete: ogf LINK_POLICY ocf %x", 
 				hdev->name, ocf);
 		break;
 	};
@@ -112,7 +112,7 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 	__u8 status, param;
 	void *sent;
 
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	case OCF_RESET:
@@ -123,9 +123,9 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 	case OCF_SET_EVENT_FLT:
 		status = *((__u8 *) skb->data);
 		if (status) {
-			DBG("%s SET_EVENT_FLT failed %d", hdev->name, status);
+			BT_DBG("%s SET_EVENT_FLT failed %d", hdev->name, status);
 		} else {
-			DBG("%s SET_EVENT_FLT succeseful", hdev->name);
+			BT_DBG("%s SET_EVENT_FLT succeseful", hdev->name);
 		}
 		break;
 
@@ -166,18 +166,18 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 	case OCF_WRITE_CA_TIMEOUT:
 		status = *((__u8 *) skb->data);
 		if (status) {
-			DBG("%s OCF_WRITE_CA_TIMEOUT failed %d", hdev->name, status);
+			BT_DBG("%s OCF_WRITE_CA_TIMEOUT failed %d", hdev->name, status);
 		} else {
-			DBG("%s OCF_WRITE_CA_TIMEOUT succeseful", hdev->name);
+			BT_DBG("%s OCF_WRITE_CA_TIMEOUT succeseful", hdev->name);
 		}
 		break;
 
 	case OCF_WRITE_PG_TIMEOUT:
 		status = *((__u8 *) skb->data);
 		if (status) {
-			DBG("%s OCF_WRITE_PG_TIMEOUT failed %d", hdev->name, status);
+			BT_DBG("%s OCF_WRITE_PG_TIMEOUT failed %d", hdev->name, status);
 		} else {
-			DBG("%s: OCF_WRITE_PG_TIMEOUT succeseful", hdev->name);
+			BT_DBG("%s: OCF_WRITE_PG_TIMEOUT succeseful", hdev->name);
 		}
 		break;
 
@@ -188,7 +188,7 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 		status = *((__u8 *) skb->data);
 		param  = *((__u8 *) sent);
 
-		DBG("param 0x%x", param);
+		BT_DBG("param 0x%x", param);
 
 		if (!status) {
 			clear_bit(HCI_PSCAN, &hdev->flags);
@@ -205,13 +205,13 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 	case OCF_HOST_BUFFER_SIZE:
 		status = *((__u8 *) skb->data);
 		if (status) {
-			DBG("%s OCF_BUFFER_SIZE failed %d", hdev->name, status);
+			BT_DBG("%s OCF_BUFFER_SIZE failed %d", hdev->name, status);
 			hci_req_complete(hdev, status);
 		}
 		break;
 
 	default:
-		DBG("%s Command complete: ogf HOST_CTL ocf %x", hdev->name, ocf);
+		BT_DBG("%s Command complete: ogf HOST_CTL ocf %x", hdev->name, ocf);
 		break;
 	};
 }
@@ -223,14 +223,14 @@ static void hci_cc_info_param(struct hci_dev *hdev, __u16 ocf, struct sk_buff *s
 	read_buffer_size_rp *bs;
 	read_bd_addr_rp *ba;
 
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	case OCF_READ_LOCAL_FEATURES:
 		lf = (read_local_features_rp *) skb->data;
 
 		if (lf->status) {
-			DBG("%s READ_LOCAL_FEATURES failed %d", hdev->name, lf->status);
+			BT_DBG("%s READ_LOCAL_FEATURES failed %d", hdev->name, lf->status);
 			break;
 		}
 
@@ -250,7 +250,7 @@ static void hci_cc_info_param(struct hci_dev *hdev, __u16 ocf, struct sk_buff *s
 		if (hdev->features[1] & LMP_HV3)
 			hdev->pkt_type |= (HCI_HV3);
 
-		DBG("%s: features 0x%x 0x%x 0x%x", hdev->name, lf->features[0], lf->features[1], lf->features[2]);
+		BT_DBG("%s: features 0x%x 0x%x 0x%x", hdev->name, lf->features[0], lf->features[1], lf->features[2]);
 
 		break;
 
@@ -258,7 +258,7 @@ static void hci_cc_info_param(struct hci_dev *hdev, __u16 ocf, struct sk_buff *s
 		bs = (read_buffer_size_rp *) skb->data;
 
 		if (bs->status) {
-			DBG("%s READ_BUFFER_SIZE failed %d", hdev->name, bs->status);
+			BT_DBG("%s READ_BUFFER_SIZE failed %d", hdev->name, bs->status);
 			hci_req_complete(hdev, bs->status);
 			break;
 		}
@@ -268,7 +268,7 @@ static void hci_cc_info_param(struct hci_dev *hdev, __u16 ocf, struct sk_buff *s
 		hdev->acl_pkts = hdev->acl_cnt = __le16_to_cpu(bs->acl_max_pkt);
 		hdev->sco_pkts = hdev->sco_cnt = __le16_to_cpu(bs->sco_max_pkt);
 
-		DBG("%s mtu: acl %d, sco %d max_pkt: acl %d, sco %d", hdev->name,
+		BT_DBG("%s mtu: acl %d, sco %d max_pkt: acl %d, sco %d", hdev->name,
 		    hdev->acl_mtu, hdev->sco_mtu, hdev->acl_pkts, hdev->sco_pkts);
 		break;
 
@@ -278,14 +278,14 @@ static void hci_cc_info_param(struct hci_dev *hdev, __u16 ocf, struct sk_buff *s
 		if (!ba->status) {
 			bacpy(&hdev->bdaddr, &ba->bdaddr);
 		} else {
-			DBG("%s: READ_BD_ADDR failed %d", hdev->name, ba->status);
+			BT_DBG("%s: READ_BD_ADDR failed %d", hdev->name, ba->status);
 		}
 
 		hci_req_complete(hdev, ba->status);
 		break;
 
 	default:
-		DBG("%s Command complete: ogf INFO_PARAM ocf %x", hdev->name, ocf);
+		BT_DBG("%s Command complete: ogf INFO_PARAM ocf %x", hdev->name, ocf);
 		break;
 	};
 }
@@ -303,7 +303,7 @@ static inline void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
 	
 	conn = conn_hash_lookup_ba(hdev, ACL_LINK, &cc->bdaddr);
 
-	DBG("%s status 0x%x bdaddr %s conn %p", hdev->name, 
+	BT_DBG("%s status 0x%x bdaddr %s conn %p", hdev->name, 
 			status, batostr(&cc->bdaddr), conn);
 
 	if (status) {
@@ -319,7 +319,7 @@ static inline void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
 				conn->out = 1;
 				conn->link_mode |= HCI_LM_MASTER;
 			} else
-				ERR("No memmory for new connection");
+				BT_ERR("No memmory for new connection");
 		}
 	}
 
@@ -328,7 +328,7 @@ static inline void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
 
 static void hci_cs_link_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 {
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	case OCF_CREATE_CONN:
@@ -347,7 +347,7 @@ static void hci_cs_link_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 
 			handle = __le16_to_cpu(cp->handle);
 
-			DBG("%s Add SCO error: handle %d status 0x%x", hdev->name, handle, status);
+			BT_DBG("%s Add SCO error: handle %d status 0x%x", hdev->name, handle, status);
 
 			hci_dev_lock(hdev);
 	
@@ -368,7 +368,7 @@ static void hci_cs_link_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 
 	case OCF_INQUIRY:
 		if (status) {
-			DBG("%s Inquiry error: status 0x%x", hdev->name, status);
+			BT_DBG("%s Inquiry error: status 0x%x", hdev->name, status);
 			hci_req_complete(hdev, status);
 		} else {
 			set_bit(HCI_INQUIRY, &hdev->flags);
@@ -376,7 +376,7 @@ static void hci_cs_link_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 		break;
 
 	default:
-		DBG("%s Command status: ogf LINK_CTL ocf %x status %d", 
+		BT_DBG("%s Command status: ogf LINK_CTL ocf %x status %d", 
 			hdev->name, ocf, status);
 		break;
 	};
@@ -385,11 +385,11 @@ static void hci_cs_link_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 /* Command Status OGF LINK_POLICY */
 static void hci_cs_link_policy(struct hci_dev *hdev, __u16 ocf, __u8 status)
 {
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	default:
-		DBG("%s Command status: ogf HOST_POLICY ocf %x", hdev->name, ocf);
+		BT_DBG("%s Command status: ogf HOST_POLICY ocf %x", hdev->name, ocf);
 		break;
 	};
 }
@@ -397,11 +397,11 @@ static void hci_cs_link_policy(struct hci_dev *hdev, __u16 ocf, __u8 status)
 /* Command Status OGF HOST_CTL */
 static void hci_cs_host_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 {
-	DBG("%s ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	default:
-		DBG("%s Command status: ogf HOST_CTL ocf %x", hdev->name, ocf);
+		BT_DBG("%s Command status: ogf HOST_CTL ocf %x", hdev->name, ocf);
 		break;
 	};
 }
@@ -409,11 +409,11 @@ static void hci_cs_host_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 /* Command Status OGF INFO_PARAM  */
 static void hci_cs_info_param(struct hci_dev *hdev, __u16 ocf, __u8 status)
 {
-	DBG("%s: hci_cs_info_param: ocf 0x%x", hdev->name, ocf);
+	BT_DBG("%s: hci_cs_info_param: ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
 	default:
-		DBG("%s Command status: ogf INFO_PARAM ocf %x", hdev->name, ocf);
+		BT_DBG("%s Command status: ogf INFO_PARAM ocf %x", hdev->name, ocf);
 		break;
 	};
 }
@@ -423,7 +423,7 @@ static inline void hci_inquiry_complete_evt(struct hci_dev *hdev, struct sk_buff
 {
 	__u8 status = *((__u8 *) skb->data);
 
-	DBG("%s status %d", hdev->name, status);
+	BT_DBG("%s status %d", hdev->name, status);
 
 	clear_bit(HCI_INQUIRY, &hdev->flags);
 	hci_req_complete(hdev, status);
@@ -435,7 +435,7 @@ static inline void hci_inquiry_result_evt(struct hci_dev *hdev, struct sk_buff *
 	inquiry_info *info = (inquiry_info *) (skb->data + 1);
 	int num_rsp = *((__u8 *) skb->data);
 
-	DBG("%s num_rsp %d", hdev->name, num_rsp);
+	BT_DBG("%s num_rsp %d", hdev->name, num_rsp);
 
 	hci_dev_lock(hdev);
 	for (; num_rsp; num_rsp--)
@@ -449,7 +449,7 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 	evt_conn_request *cr = (evt_conn_request *) skb->data;
 	int mask = hdev->link_mode;
 
-	DBG("%s Connection request: %s type 0x%x", hdev->name,
+	BT_DBG("%s Connection request: %s type 0x%x", hdev->name,
 			batostr(&cr->bdaddr), cr->link_type);
 
 	mask |= hci_proto_connect_ind(hdev, &cr->bdaddr, cr->link_type);
@@ -463,7 +463,7 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 		conn = conn_hash_lookup_ba(hdev, cr->link_type, &cr->bdaddr);
 		if (!conn) {
 			if (!(conn = hci_conn_add(hdev, cr->link_type, &cr->bdaddr))) {
-				ERR("No memmory for new connection");
+				BT_ERR("No memmory for new connection");
 				hci_dev_unlock(hdev);
 				return;
 			}
@@ -497,7 +497,7 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 	evt_conn_complete *cc = (evt_conn_complete *) skb->data;
 	struct hci_conn *conn = NULL;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	hci_dev_lock(hdev);
 	
@@ -567,7 +567,7 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	struct hci_conn *conn = NULL;
 	__u16 handle = __le16_to_cpu(dc->handle);
 
-	DBG("%s status %d", hdev->name, dc->status);
+	BT_DBG("%s status %d", hdev->name, dc->status);
 
 	if (dc->status)
 		return;
@@ -593,10 +593,10 @@ static inline void hci_num_comp_pkts_evt(struct hci_dev *hdev, struct sk_buff *s
 
 	skb_pull(skb, EVT_NUM_COMP_PKTS_SIZE);
 
-	DBG("%s num_hndl %d", hdev->name, nc->num_hndl);
+	BT_DBG("%s num_hndl %d", hdev->name, nc->num_hndl);
 
 	if (skb->len < nc->num_hndl * 4) {
-		DBG("%s bad parameters", hdev->name);
+		BT_DBG("%s bad parameters", hdev->name);
 		return;
 	}
 
@@ -633,7 +633,7 @@ static inline void hci_role_change_evt(struct hci_dev *hdev, struct sk_buff *skb
 	evt_role_change *rc = (evt_role_change *) skb->data;
 	struct hci_conn *conn = NULL;
 
-	DBG("%s status %d", hdev->name, rc->status);
+	BT_DBG("%s status %d", hdev->name, rc->status);
 
 	if (rc->status)
 		return;
@@ -658,7 +658,7 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 	struct hci_conn *conn = NULL;
 	__u16 handle = __le16_to_cpu(ac->handle);
 
-	DBG("%s status %d", hdev->name, ac->status);
+	BT_DBG("%s status %d", hdev->name, ac->status);
 
 	hci_dev_lock(hdev);
 	
@@ -695,7 +695,7 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
 	struct hci_conn *conn = NULL;
 	__u16 handle = __le16_to_cpu(ec->handle);
 
-	DBG("%s status %d", hdev->name, ec->status);
+	BT_DBG("%s status %d", hdev->name, ec->status);
 
 	hci_dev_lock(hdev);
 	
@@ -724,7 +724,7 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 
 	skb_pull(skb, HCI_EVENT_HDR_SIZE);
 
-	DBG("%s evt 0x%x", hdev->name, he->evt);
+	BT_DBG("%s evt 0x%x", hdev->name, he->evt);
 
 	switch (he->evt) {
 	case EVT_NUM_COMP_PKTS:
@@ -789,7 +789,7 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 			break;
 
 		default:
-			DBG("%s Command Status OGF %x", hdev->name, ogf);
+			BT_DBG("%s Command Status OGF %x", hdev->name, ogf);
 			break;
 		};
 
@@ -826,7 +826,7 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 			break;
 
 		default:
-			DBG("%s Command Completed OGF %x", hdev->name, ogf);
+			BT_DBG("%s Command Completed OGF %x", hdev->name, ogf);
 			break;
 		};
 

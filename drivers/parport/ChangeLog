@@ -1,3 +1,8 @@
+2002-04-25  Tim Waugh  <twaugh@redhat.com>
+
+	* parport_serial.c, parport_pc.c: Move some SIIG cards around.
+	Patch from Andrey Panin.
+
 2001-12-07  Tim Waugh  <twaugh@redhat.com>
 
 	* parport_pc.c (parport_pc_pci_probe): Hooks for PCI cards before

@@ -7,14 +7,11 @@
  *      2 of the License, or (at your option) any later version.
  */
 #include <linux/string.h>
-#include <asm/semaphore.h>
+#include <linux/kernel.h>
+#include <linux/sysrq.h>
 #include <asm/machdep.h>
 #include <asm/io.h>
 #include <asm/page.h>
-#include <linux/adb.h>
-#include <linux/pmu.h>
-#include <linux/kernel.h>
-#include <linux/sysrq.h>
 #include <asm/prom.h>
 #include <asm/processor.h>
 
@@ -54,8 +51,6 @@ void buf_access(void)
 	sccd[3] &= ~0x80;	/* reset DLAB */
 }
 #endif
-
-extern int adb_init(void);
 
 static void sysrq_handle_xmon(int key, struct pt_regs *pt_regs, struct kbd_struct *kbd, struct tty_struct *tty) 
 {
@@ -120,7 +115,6 @@ xmon_write(void *handle, void *ptr, int nb)
 }
 
 int xmon_wants_key;
-int xmon_adb_keycode;
 
 int
 xmon_read(void *handle, void *ptr, int nb)

@@ -447,7 +447,7 @@ void __init kmem_cache_sizes_init(void)
 		 * eliminates "false sharing".
 		 * Note for systems short on memory removing the alignment will
 		 * allow tighter packing of the smaller caches. */
-		sprintf(name,"size-%Zd",sizes->cs_size);
+		snprintf(name, sizeof(name), "size-%Zd",sizes->cs_size);
 		if (!(sizes->cs_cachep =
 			kmem_cache_create(name, sizes->cs_size,
 					0, SLAB_HWCACHE_ALIGN, NULL, NULL))) {
@@ -459,7 +459,7 @@ void __init kmem_cache_sizes_init(void)
 			offslab_limit = sizes->cs_size-sizeof(slab_t);
 			offslab_limit /= 2;
 		}
-		sprintf(name, "size-%Zd(DMA)",sizes->cs_size);
+		snprintf(name, sizeof(name), "size-%Zd(DMA)",sizes->cs_size);
 		sizes->cs_dmacachep = kmem_cache_create(name, sizes->cs_size, 0,
 			      SLAB_CACHE_DMA|SLAB_HWCACHE_ALIGN, NULL, NULL);
 		if (!sizes->cs_dmacachep)
@@ -1860,7 +1860,7 @@ out:
 			off -= len;		\
 			len = 0;		\
 		} else {			\
-			if (len-off > count)	\
+			if (len-off >= count)	\
 				goto t;		\
 		}				\
 	} while (0)
@@ -1873,7 +1873,7 @@ static int proc_getdata (char*page, char**start, off_t off, int count)
 	/* Output format version, so at least we can change it without _too_
 	 * many complaints.
 	 */
-	len += sprintf(page+len, "slabinfo - version: 1.1"
+	len += snprintf(page+len, PAGE_SIZE-len, "slabinfo - version: 1.1"
 #if STATS
 				" (statistics)"
 #endif
@@ -1921,7 +1921,8 @@ static int proc_getdata (char*page, char**start, off_t off, int count)
 		num_slabs+=active_slabs;
 		num_objs = num_slabs*cachep->num;
 
-		len += sprintf(page+len, "%-17s %6lu %6lu %6u %4lu %4lu %4u",
+		len += snprintf(page+len, PAGE_SIZE-len,
+			"%-17s %6lu %6lu %6u %4lu %4lu %4u",
 			cachep->name, active_objs, num_objs, cachep->objsize,
 			active_slabs, num_slabs, (1<<cachep->gfporder));
 
@@ -1933,7 +1934,8 @@ static int proc_getdata (char*page, char**start, off_t off, int count)
 			unsigned long reaped = cachep->reaped;
 			unsigned long allocs = cachep->num_allocations;
 
-			len += sprintf(page+len, " : %6lu %7lu %5lu %4lu %4lu",
+			len += snprintf(page+len, PAGE_SIZE-len,
+					" : %6lu %7lu %5lu %4lu %4lu",
 					high, allocs, grown, reaped, errors);
 		}
 #endif
@@ -1947,7 +1949,7 @@ static int proc_getdata (char*page, char**start, off_t off, int count)
 				limit = cc->limit;
 			else
 				limit = 0;
-			len += sprintf(page+len, " : %4u %4u",
+			len += snprintf(page+len, PAGE_SIZE-len, " : %4u %4u",
 					limit, batchcount);
 		}
 #endif
@@ -1957,21 +1959,27 @@ static int proc_getdata (char*page, char**start, off_t off, int count)
 			unsigned long allocmiss = atomic_read(&cachep->allocmiss);
 			unsigned long freehit = atomic_read(&cachep->freehit);
 			unsigned long freemiss = atomic_read(&cachep->freemiss);
-			len += sprintf(page+len, " : %6lu %6lu %6lu %6lu",
+			len += snprintf(page+len, PAGE_SIZE-len,
+					" : %6lu %6lu %6lu %6lu",
 					allochit, allocmiss, freehit, freemiss);
 		}
 #endif
-		len += sprintf(page+len,"\n");
+		len += snprintf(page+len, PAGE_SIZE-len, "\n");
 		spin_unlock_irq(&cachep->spinlock);
 		FIXUP(got_data_up);
 		p = cachep->next.next;
+		if (len > PAGE_SIZE - 512)
+			break;
 	} while (p != &cache_cache.next);
 got_data_up:
 	up(&cache_chain_sem);
 
 got_data:
-	*start = page+off;
-	return len;
+	if (off < len) {
+		*start = page+off;
+		return len;
+	}
+	return 0;
 }
 
 /**

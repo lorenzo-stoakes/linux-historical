@@ -1,8 +1,6 @@
 /*
  *  arch/ppc64/kernel/head.S
  *
- *
- *
  *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -23,7 +21,6 @@
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version
  *  2 of the License, or (at your option) any later version.
- *
  */
 
 #define SECONDARY_PROCESSORS
@@ -34,10 +31,17 @@
 #include <asm/page.h>
 #include <linux/config.h>
 #include <asm/mmu.h>
+// #include <asm/paca.h>
 
 #ifdef CONFIG_PPC_ISERIES
 #define DO_SOFT_DISABLE
 #endif
+
+/*
+ * hcall interface to pSeries LPAR
+ */
+#define HSC .long 0x44000022
+#define H_SET_ASR		0x30
 
 /*
  * We layout physical memory as follows:
@@ -47,7 +51,6 @@
  * 0x4000 - 0x4fff : NACA
  * 0x5000 - 0x5fff : Initial segment table
  * 0x6000          : iSeries and common interrupt prologs
- *
  */
 
 /*
@@ -58,7 +61,7 @@
  *   SPRG0             reserved for hypervisor
  *   SPRG1             temp - used to save gpr
  *   SPRG2             temp - used to save gpr
- *   SPRG3             virt addr of Paca
+ *   SPRG3             virt addr of paca
  */
 
 /*
@@ -167,14 +170,18 @@ _GLOBAL(__secondary_hold)
 #define EX_R23		40
 #define EX_DAR		48
 #define EX_DSISR	56
+#define EX_CCR   	60
+#define EX_TRAP   	60
 
-#define EXCEPTION_PROLOG_PSERIES(label)                                  \
+#define EXCEPTION_PROLOG_PSERIES(n,label)                                \
 	mtspr   SPRG2,r20;              /* use SPRG2 as scratch reg   */ \
 	mtspr   SPRG1,r21;              /* save r21                   */ \
-	mfspr   r20,SPRG3;              /* get Paca virt addr         */ \
+	mfspr   r20,SPRG3;              /* get paca virt addr         */ \
 	ld      r21,PACAEXCSP(r20);     /* get exception stack ptr    */ \
 	addi    r21,r21,EXC_FRAME_SIZE; /* make exception frame       */ \
 	std	r22,EX_R22(r21);	/* Save r22 in exc. frame     */ \
+	li	r22,n;                  /* Save the ex # in exc. frame*/ \
+	stw	r22,EX_TRAP(r21);	/*                            */ \
 	std	r23,EX_R23(r21);	/* Save r23 in exc. frame     */ \
 	mfspr   r22,SRR0;               /* EA of interrupted instr    */ \
 	std	r22,EX_SRR0(r21);	/* Save SRR0 in exc. frame    */ \
@@ -196,19 +203,21 @@ _GLOBAL(__secondary_hold)
  * This is the start of the interrupt handlers for i_series
  * This code runs with relocation on.
  */
-#define EXCEPTION_PROLOG_ISERIES	\
-	mtspr	SPRG2,r20;		    /* use SPRG2 as scratch reg */\
-	mtspr   SPRG1,r21;                  /* save r21 */\
-	mfspr	r20,SPRG3;		    /* get Paca */\
-	ld      r21,PACAEXCSP(r20);         /* get exception stack ptr */\
-	addi    r21,r21,EXC_FRAME_SIZE;     /* make exception frame */\
-	std	r22,EX_R22(r21);	    /* save r22 on exception frame */\
-	std	r23,EX_R23(r21);	    /* Save r23 in exc. frame */\
-	ld      r22,LPPACA+LPPACASRR0(r20); /* Get SRR0 from ItLpPaca */\
-	std	r22,EX_SRR0(r21);	    /* save SRR0 in exc. frame */\
-	ld      r23,LPPACA+LPPACASRR1(r20); /* Get SRR1 from ItLpPaca */\
-	std	r23,EX_SRR1(r21);	    /* save SRR1 in exc. frame */\
-	mfcr    r23;                        /* save CR in r23 */
+#define EXCEPTION_PROLOG_ISERIES(n)	                                      \
+	mtspr	SPRG2,r20;		    /* use SPRG2 as scratch reg    */ \
+	mtspr   SPRG1,r21;                  /* save r21                    */ \
+	mfspr	r20,SPRG3;		    /* get Paca                    */ \
+	ld      r21,PACAEXCSP(r20);         /* get exception stack ptr     */ \
+	addi    r21,r21,EXC_FRAME_SIZE;     /* make exception frame        */ \
+	std	r22,EX_R22(r21);	    /* save r22 on exception frame */ \
+	li	r22,n;                      /* Save the ex # in exc. frame */ \
+	stw	r22,EX_TRAP(r21);	    /*                             */ \
+	std	r23,EX_R23(r21);	    /* Save r23 in exc. frame      */ \
+	ld      r22,LPPACA+LPPACASRR0(r20); /* Get SRR0 from ItLpPaca      */ \
+	std	r22,EX_SRR0(r21);	    /* save SRR0 in exc. frame     */ \
+	ld      r23,LPPACA+LPPACASRR1(r20); /* Get SRR1 from ItLpPaca      */ \
+	std	r23,EX_SRR1(r21);	    /* save SRR1 in exc. frame     */ \
+	mfcr    r23;                        /* save CR in r23              */
 
 /*
  * The common exception prolog is used for all except a few exceptions
@@ -219,54 +228,54 @@ _GLOBAL(__secondary_hold)
  * On entry r20 points to the paca and r21 points to the exception
  * frame on entry, r23 contains the saved CR, and relocation is on.
  */
-#define EXCEPTION_PROLOG_COMMON                                             \
-	mfspr	r22,SPRG2;		/* Save r20 in exc. frame */ \
-	std	r22,EX_R20(r21);	\
-	mfspr	r22,SPRG1;		/* Save r21 in exc. frame */ \
-	std	r22,EX_R21(r21);	\
-	mfspr   r22,DAR;                /* Save DAR in exc. frame        */ \
-	std	r22,EX_DAR(r21);	\
-	std     r21,PACAEXCSP(r20);     /* update exception stack ptr    */ \
-		                        /*   iff no protection flt       */ \
-	mfspr	r22,DSISR;		/* Save DSISR in exc. frame */ \
-	std	r22,EX_DSISR(r21);	\
-	ld	r22,EX_SRR1(r21);	/* Get SRR1 from exc. frame */ \
-	andi.   r22,r22,MSR_PR;         /* Set CR for later branch       */ \
-	mr      r22,r1;                 /* Save r1                       */ \
-	subi    r1,r1,INT_FRAME_SIZE;    /* alloc frame on kernel stack  */ \
-	beq-    1f;                     \
-	ld      r1,PACAKSAVE(r20);      /* kernel stack to use */ \
-1:      std     r22,GPR1(r1);           /* save r1 in stackframe */ \
-	std     r22,0(r1);              /* make stack chain pointer */ \
-	std     r23,_CCR(r1);           /* save CR in stackframe */ \
-	ld	r22,EX_R20(r21);	/* move r20 to stackframe */ \
-	std	r22,GPR20(r1);		\
-	ld	r23,EX_R21(r21);	/* move r21 to stackframe */ \
-	std	r23,GPR21(r1);		\
-	ld	r22,EX_R22(r21);	/* move r22 to stackframe */ \
-	std	r22,GPR22(r1);		\
-	ld	r23,EX_R23(r21);	/* move r23 to stackframe */ \
-	std	r23,GPR23(r1);		\
-	mflr    r22;                    /* save LR in stackframe */ \
-	std     r22,_LINK(r1);          \
-	mfctr   r23;                    /* save CTR in stackframe */ \
-	std     r23,_CTR(r1);           \
-	mfspr   r22,XER;                /* save XER in stackframe */ \
-	std     r22,_XER(r1);           \
-	ld	r23,EX_DAR(r21);	/* move DAR to stackframe */ \
-	std	r23,_DAR(r1);		\
-	ld	r22,EX_DSISR(r21);	/* move DSISR to stackframe */ \
-	std	r22,_DSISR(r1);		\
-	lbz	r22,PACAPROCENABLED(r20); \
-	std	r22,SOFTE(r1);		\
-	ld	r22,EX_SRR0(r21);	/* get SRR0 from exc. frame */ \
-	ld	r23,EX_SRR1(r21);	/* get SRR1 from exc. frame */ \
-	addi    r21,r21,-EXC_FRAME_SIZE;/* pop off exception frame */ \
-	std     r21,PACAEXCSP(r20);     \
-	SAVE_GPR(0, r1);                /* save r0 in stackframe */ \
+#define EXCEPTION_PROLOG_COMMON                                           \
+	mfspr	r22,SPRG2;		/* Save r20 in exc. frame      */ \
+	std	r22,EX_R20(r21);	                                  \
+	mfspr	r22,SPRG1;		/* Save r21 in exc. frame      */ \
+	std	r22,EX_R21(r21);	                                  \
+	mfspr   r22,DAR;                /* Save DAR in exc. frame      */ \
+	std	r22,EX_DAR(r21);	                                  \
+	std     r21,PACAEXCSP(r20);     /* update exception stack ptr  */ \
+		                        /*   iff no protection flt     */ \
+	mfspr	r22,DSISR;		/* Save DSISR in exc. frame    */ \
+	stw	r22,EX_DSISR(r21);	                                  \
+	ld	r22,EX_SRR1(r21);	/* Get SRR1 from exc. frame    */ \
+	andi.   r22,r22,MSR_PR;         /* Set CR for later branch     */ \
+	mr      r22,r1;                 /* Save r1                     */ \
+	subi    r1,r1,INT_FRAME_SIZE;   /* alloc frame on kernel stack */ \
+	beq-    1f;                                                       \
+	ld      r1,PACAKSAVE(r20);      /* kernel stack to use         */ \
+1:      std     r22,GPR1(r1);           /* save r1 in stackframe       */ \
+	std     r22,0(r1);              /* make stack chain pointer    */ \
+	std     r23,_CCR(r1);           /* save CR in stackframe       */ \
+	ld	r22,EX_R20(r21);	/* move r20 to stackframe      */ \
+	std	r22,GPR20(r1);		                                  \
+	ld	r23,EX_R21(r21);	/* move r21 to stackframe      */ \
+	std	r23,GPR21(r1);		                                  \
+	ld	r22,EX_R22(r21);	/* move r22 to stackframe      */ \
+	std	r22,GPR22(r1);		                                  \
+	ld	r23,EX_R23(r21);	/* move r23 to stackframe      */ \
+	std	r23,GPR23(r1);		                                  \
+	mflr    r22;                    /* save LR in stackframe       */ \
+	std     r22,_LINK(r1);                                            \
+	mfctr   r23;                    /* save CTR in stackframe      */ \
+	std     r23,_CTR(r1);                                             \
+	mfspr   r22,XER;                /* save XER in stackframe      */ \
+	std     r22,_XER(r1);                                             \
+	ld	r23,EX_DAR(r21);	/* move DAR to stackframe      */ \
+	std	r23,_DAR(r1);		                                  \
+	lwz     r22,EX_DSISR(r21);	/* move DSISR to stackframe    */ \
+	std	r22,_DSISR(r1);		                                  \
+	lbz	r22,PACAPROCENABLED(r20);                                 \
+	std	r22,SOFTE(r1);		                                  \
+	ld	r22,EX_SRR0(r21);	/* get SRR0 from exc. frame    */ \
+	ld	r23,EX_SRR1(r21);	/* get SRR1 from exc. frame    */ \
+	addi    r21,r21,-EXC_FRAME_SIZE;/* pop off exception frame     */ \
+	std     r21,PACAEXCSP(r20);                                       \
+	SAVE_GPR(0, r1);                /* save r0 in stackframe       */ \
 	SAVE_8GPRS(2, r1);              /* save r2 - r13 in stackframe */ \
-	SAVE_4GPRS(10, r1);             \
-	ld      r2,PACATOC(r20);	\
+	SAVE_4GPRS(10, r1);                                               \
+	ld      r2,PACATOC(r20);	                                  \
 	ld      r13,PACACURRENT(r20)
 
 /*
@@ -281,18 +290,18 @@ _GLOBAL(__secondary_hold)
 	. = n;					\
 	.globl label##_Pseries;			\
 label##_Pseries:				\
-	EXCEPTION_PROLOG_PSERIES( label##_common )
+	EXCEPTION_PROLOG_PSERIES( n, label##_common )
 
-#define STD_EXCEPTION_ISERIES( label )		\
+#define STD_EXCEPTION_ISERIES( n, label )	\
 	.globl label##_Iseries;			\
 label##_Iseries:				\
-	EXCEPTION_PROLOG_ISERIES;		\
+	EXCEPTION_PROLOG_ISERIES( n );          \
 	b	label##_common
 
-#define MASKABLE_EXCEPTION_ISERIES( label )	\
+#define MASKABLE_EXCEPTION_ISERIES( n, label )	\
 	.globl label##_Iseries;			\
 label##_Iseries:				\
-	EXCEPTION_PROLOG_ISERIES;		\
+	EXCEPTION_PROLOG_ISERIES( n );		\
 	lbz	r22,PACAPROFENABLED(r20);	\
 	cmpi	0,r22,0;			\
 	bne-	label##_Iseries_profile;	\
@@ -348,26 +357,26 @@ __start_interupts:
 	STD_EXCEPTION_PSERIES( 0xf00, PerformanceMonitor )
 	STD_EXCEPTION_PSERIES( 0x1300, InstructionBreakpoint )
 
+	/* Space for the naca.  Architected to be located at real address
+	 * 0x4000.  Various tools rely on this location being fixed.
+	 * The first dword of the Naca is required by iSeries LPAR to
+	 * point to itVpdAreas.  On pSeries native, this value is not used.
+	 */
 	. = 0x4000
 	.globl __end_interupts
 	.globl __start_naca
 __end_interupts:
 __start_naca:
-	/* Save space for naca.
-	 * The first dword of the Naca is required by iSeries LPAR to
-	 * point to itVpdAreas.  On pSeries native, this value is not used.
-	 */
 	.llong itVpdAreas
 	.llong 0x0
 	.llong 0x0
-	.llong xPaca
+	.llong paca
 
 	/*
 	 * Space for the initial segment table
 	 * For LPAR, the hypervisor must fill in at least one entry
 	 * before we get control (with relocate on)
 	 */
-
 	. = 0x5000
 	.globl __end_naca
 	.globl __start_stab
@@ -406,26 +415,26 @@ __end_stab:
 
 /***  ISeries-LPAR interrupt handlers ***/
 
-	STD_EXCEPTION_ISERIES( MachineCheck )
-	STD_EXCEPTION_ISERIES( DataAccess )
-	STD_EXCEPTION_ISERIES( DataAccessSLB )
-	STD_EXCEPTION_ISERIES( InstructionAccess )
-	STD_EXCEPTION_ISERIES( InstructionAccessSLB )
-	MASKABLE_EXCEPTION_ISERIES( HardwareInterrupt )
-	STD_EXCEPTION_ISERIES( Alignment )
-	STD_EXCEPTION_ISERIES( ProgramCheck )
-	STD_EXCEPTION_ISERIES( FPUnavailable )
-	MASKABLE_EXCEPTION_ISERIES( Decrementer )
-	STD_EXCEPTION_ISERIES( Trap_0a )
-	STD_EXCEPTION_ISERIES( Trap_0b )
-	STD_EXCEPTION_ISERIES( SystemCall )
-	STD_EXCEPTION_ISERIES( SingleStep )
-	STD_EXCEPTION_ISERIES( Trap_0e )
-	STD_EXCEPTION_ISERIES( PerformanceMonitor )
+	STD_EXCEPTION_ISERIES( 0x200, MachineCheck )
+	STD_EXCEPTION_ISERIES( 0x300, DataAccess )
+	STD_EXCEPTION_ISERIES( 0x380, DataAccessSLB )
+	STD_EXCEPTION_ISERIES( 0x400, InstructionAccess )
+	STD_EXCEPTION_ISERIES( 0x480, InstructionAccessSLB )
+	MASKABLE_EXCEPTION_ISERIES( 0x500, HardwareInterrupt )
+	STD_EXCEPTION_ISERIES( 0x600, Alignment )
+	STD_EXCEPTION_ISERIES( 0x700, ProgramCheck )
+	STD_EXCEPTION_ISERIES( 0x800, FPUnavailable )
+	MASKABLE_EXCEPTION_ISERIES( 0x900, Decrementer )
+	STD_EXCEPTION_ISERIES( 0xa00, Trap_0a )
+	STD_EXCEPTION_ISERIES( 0xb00, Trap_0b )
+	STD_EXCEPTION_ISERIES( 0xc00, SystemCall )
+	STD_EXCEPTION_ISERIES( 0xd00, SingleStep )
+	STD_EXCEPTION_ISERIES( 0xe00, Trap_0e )
+	STD_EXCEPTION_ISERIES( 0xf00, PerformanceMonitor )
 
 	.globl SystemReset_Iseries
 SystemReset_Iseries:
-	mfspr	25,SPRG3		/* Get Paca address */
+	mfspr	25,SPRG3		/* Get paca address */
 	lhz	r24,PACAPACAINDEX(r25)	/* Get processor # */
 	cmpi	0,r24,0			/* Are we processor 0? */
 	beq	.__start_initialization_iSeries	/* Start up the first processor */
@@ -493,6 +502,24 @@ maskable_exception_exit:
 	mfspr	r20,SPRG2
 	rfid
 
+/*
+ * Data area reserved for FWNMI option.
+ */
+        .= 0x7000
+	.globl fwnmi_data_area
+fwnmi_data_area:
+
+/*
+ * Vectors for the FWNMI option.  Share common code.
+ */
+	. = 0x8000
+	.globl SystemReset_FWNMI
+SystemReset_FWNMI:
+	EXCEPTION_PROLOG_PSERIES(0x100, SystemReset_common)
+	.globl MachineCheck_FWNMI
+MachineCheck_FWNMI:
+	EXCEPTION_PROLOG_PSERIES(0x200, MachineCheck_common)
+
 /*** Common interrupt handlers ***/
 
 	STD_EXCEPTION_COMMON( 0x100, SystemReset, .SystemResetException )
@@ -528,7 +555,6 @@ fast_exception_return:
 	ld      r1,GPR1(r1)
 	rfid
 
-
 /*
  * Here r20 points to the PACA, r21 to the exception frame,
  * r23 contains the saved CR.
@@ -539,9 +565,10 @@ DataAccess_common:
 	mfspr   r22,DAR
 	srdi    r22,r22,60
 	cmpi    0,r22,0xc
-
-	/* Segment fault on a bolted segment. Go off and map that segment. */
 	beq     .do_stab_bolted
+	cmpi    0,r22,0xb
+	beq     .do_stab_bolted
+
 stab_bolted_user_return:
 	EXCEPTION_PROLOG_COMMON
 	ld      r3,_DSISR(r1)
@@ -576,8 +603,8 @@ DataAccessSLB_common:
 	mfspr   r22,DAR
 	srdi    r22,r22,60
 	cmpi    0,r22,0xc
-
-	/* Segment fault on a bolted segment. Go off and map that segment. */
+	beq     .do_slb_bolted
+	cmpi    0,r22,0xb
 	beq     .do_slb_bolted
 
 	EXCEPTION_PROLOG_COMMON
@@ -663,9 +690,9 @@ HardwareInterrupt_entry:
 	/*                                                                */
 	/*  The call to do_irq will preserve the value of r14 - r31       */
 	/*                                                                */
-	mfspr	r20,SPRG3 		    /* get Paca                   */
+	mfspr	r20,SPRG3 		    /* get paca                   */
 	lbz     r21,PACAHRDWINTCOUNT(r20)    /* get hardware interrupt cnt */
-	cmpi    0,r21,1                     /*                            */
+	cmpi    0,r21,0                     /*                            */
 	addi    r21,r21,1                   /* incr hardware interrupt cnt*/
 	stb     r21,PACAHRDWINTCOUNT(r20)   /*                            */
 	bne     2f                          /*                            */
@@ -825,7 +852,7 @@ _GLOBAL(do_hash_page_DSI)
  * We assume we aren't going to take any exceptions during this procedure.
  */
 _GLOBAL(do_stab_bolted)
-	std	r23,EX_DAR(r21)	/* save CR in exc. frame */
+	stw	r23,EX_CCR(r21)	/* save CR in exc. frame */
 
 	mfspr   r22,DSISR
 	andis.  r22,r22,0x0020
@@ -931,7 +958,7 @@ _GLOBAL(do_stab_bolted)
 	mfsprg  r20,3                   /* Load the PACA pointer  */
 	ld      r21,PACAEXCSP(r20)      /* Get the exception frame pointer */
 	addi    r21,r21,EXC_FRAME_SIZE
-	ld	r23,EX_DAR(r21)		/* get saved CR */
+	lwz	r23,EX_CCR(r21)		/* get saved CR */
 	/* note that this is almost identical to maskable_exception_exit */
 	mtcr    r23                     /* restore CR */
 	ld	r22,EX_SRR0(r21)	/* Get SRR0 from exc. frame */
@@ -952,7 +979,7 @@ _TRACEBACK(do_stab_bolted)
  * We assume we aren't going to take any exceptions during this procedure.
  */
 _GLOBAL(do_slb_bolted)
-	std     r23,48(r21)     /* save CR in exc. frame */
+	stw     r23,EX_CCR(r21) /* save CR in exc. frame */
 
 	/* (((ea >> 28) & 0x1fff) << 15) | (ea >> 60) */
 	mfspr	r21,DAR
@@ -1018,7 +1045,7 @@ SLB_NUM_ENTRIES = 64
 	mfsprg  r20,3                   /* Load the PACA pointer  */
 	ld      r21,PACAEXCSP(r20)      /* Get the exception frame pointer */
 	addi    r21,r21,EXC_FRAME_SIZE
-	ld	r23,EX_DAR(r21)		/* get saved CR */
+	lwz	r23,EX_CCR(r21)		/* get saved CR */
 	/* note that this is almost identical to maskable_exception_exit */
 	mtcr    r23                     /* restore CR */
 	ld	r22,EX_SRR0(r21)	/* Get SRR0 from exc. frame */
@@ -1137,7 +1164,7 @@ _GLOBAL(pseries_secondary_smp_init)
 	isync
 
 	/* Set up a Paca value for this processor. */
-	LOADADDR(r24, xPaca) 		 /* Get base vaddr of Paca array  */
+	LOADADDR(r24, paca) 		 /* Get base vaddr of Paca array  */
 	mulli	r25,r3,PACA_SIZE	 /* Calculate vaddr of right Paca */
 	add	r25,r25,r24              /* for this processor.           */
 
@@ -1288,7 +1315,7 @@ _STATIC(__after_prom_start)
 					/* this includes the code being   */
 					/* executed here.                 */
 
-	li	r0,4f@l			/* Jump to the copy of this code  */
+        LOADADDR(r0, 4f)                /* Jump to the copy of this code  */
 	mtctr	r0			/* that we just made              */
 	bctr
 
@@ -1439,8 +1466,6 @@ _GLOBAL(giveup_fpu)
 #endif /* CONFIG_SMP */
 	blr
 
-
-
 #ifdef CONFIG_SMP
 /*
  * This function is called after the master CPU has released the
@@ -1497,7 +1522,17 @@ _GLOBAL(__secondary_start)
 	ori	r3,r3,4			/* 0x8000000000000004 */
 	sc				/* HvCall_setASR */
 #else
+	/* set the ASR */
+	addi  r3,0,0x4000     /* r3 = ptr to naca */
+	lhz   r3,PLATFORM(r3) /* r3 = platform flags */
+	cmpldi r3,PLATFORM_PSERIES_LPAR
+	bne   98f
+	li	r3,H_SET_ASR  /* hcall = H_SET_ASR */
+	HSC     			    /* Invoking hcall */
+	b     99f
+98:             /* This is not a hypervisor machine */
 	mtasr	r4			/* set the stab location            */
+99:
 #endif
 	li	r7,0
 	mtlr	r7
@@ -1552,7 +1587,6 @@ _GLOBAL(enable_32b_mode)
 	isync
 	blr
 
-
 /*
  * This is where the main kernel code starts.
  */
@@ -1586,7 +1620,7 @@ _STATIC(start_here_pSeries)
 #ifdef CONFIG_SMP
 	/* All secondary cpus are now spinning on a common
 	 * spinloop, release them all now so they can start
-	 * to spin on their individual Paca spinloops.
+	 * to spin on their individual paca spinloops.
 	 * For non SMP kernels, the secondary cpus never
 	 * get out of the common spinloop.
 	 */
@@ -1623,12 +1657,25 @@ _STATIC(start_here_pSeries)
 	/* Get the pointer to the segment table which is used by           */
 	/* stab_initialize                                                 */
 	li	r27,0x4000
-	ld	r6,PACA(r27)            /* Get the base Paca pointer       */
+	ld	r6,PACA(r27)            /* Get the base paca pointer       */
 	sub	r6,r6,r26		/* convert to physical addr         */
 	mtspr	SPRG3,r6		/* PPPBBB: Temp... -Peter */
 	ld	r3,PACASTABREAL(r6)
 	ori	r4,r3,1			/* turn on valid bit                */
+	
+	/* set the ASR */
+	addi  r3,0,0x4000     /* r3 = ptr to naca */
+	lhz   r3,PLATFORM(r3) /* r3 = platform flags */
+	cmpldi r3,PLATFORM_PSERIES_LPAR
+	bne   98f
+	li	r3,H_SET_ASR  /* hcall = H_SET_ASR */
+	HSC     			    /* Invoking hcall */
+	b     99f
+98:                 /* This is not a hypervisor machine */
 	mtasr	r4			/* set the stab location            */
+99:
+	mfspr	r6,SPRG3
+	ld	r3,PACASTABREAL(r6)     /* restore r3 for stab_initialize */
 
 	/* Initialize an initial memory mapping and turn on relocation.   */
 	bl	.stab_initialize
@@ -1713,10 +1760,7 @@ _STATIC(start_here_common)
 	li      r3,0
 	stb     r3,PACAHRDWINTCOUNT(r4)
 
-
-	/*
-	 * Restore the parms passed in from the bootloader.
-	 */
+	/* Restore the parms passed in from the bootloader. */
 	mr	r3,r31
 	mr	r4,r30
 	mr	r5,r29
@@ -1831,15 +1875,19 @@ swapper_pg_dir:
 ioremap_dir:
 	.space	4096
 
+	.globl	bolted_dir
+bolted_dir:
+	.space	4096
+
 	.globl  hardware_int_paca0
 hardware_int_paca0:
 	.space	8*4096
 
-
-/* 4096 * 31 bytes of storage */
+/* 1 page segment table per cpu (max 48, cpu0 allocated at 0x5000) */
 	.globl	stab_array
 stab_array:
-	.space	131072
+        .space	4096 * (48 - 1)
+	
 /*
  * This space gets a copy of optional info passed to us by the bootstrap
  * Used to pass parameters into the kernel like root=/dev/sda1, etc.

@@ -1,7 +1,5 @@
 /*
- *  arch/ppc/kernel/entry.S
- *
- *  
+ *  arch/ppc64/kernel/entry.S
  *
  *  PowerPC version 
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
@@ -20,9 +18,7 @@
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version
  *  2 of the License, or (at your option) any later version.
- *	
  */
-
 
 #include "ppc_asm.h"
 #include <asm/processor.h>
@@ -246,8 +242,8 @@ _GLOBAL(ppc64_rt_sigreturn)
  * SAVE_REGS macro), you'll have to change the fork code also.
  *
  * The code which creates the new task context is in 'copy_thread'
- * in arch/ppc/kernel/process.c
- */	
+ * in arch/ppc64/kernel/process.c
+ */
 _GLOBAL(_switch)
 	stdu	r1,-INT_FRAME_SIZE(r1)
 	ld	r6,0(r1)
@@ -523,7 +519,6 @@ _STATIC(rtas_restore_regs)
 	mtlr    r0
         blr				/* return to caller */
 
-
 _GLOBAL(enter_prom)
 	mflr	r0
 	std	r0,16(r1)
@@ -613,4 +608,3 @@ _GLOBAL(enter_prom)
 
 	mtlr    r0
         blr				/* return to caller */
-

@@ -893,8 +893,8 @@ static int meye_release(struct inode *inode, struct file *file) {
 	return 0;
 }
 
-static int meye_ioctl(struct inode *inode, struct file *file,
-		      unsigned int cmd, void *arg) {
+static int meye_do_ioctl(struct inode *inode, struct file *file,
+			 unsigned int cmd, void *arg) {
 
 	switch (cmd) {
 
@@ -1169,6 +1169,12 @@ static int meye_ioctl(struct inode *inode, struct file *file,
 	return 0;
 }
 
+static int meye_ioctl(struct inode *inode, struct file *file,
+		     unsigned int cmd, unsigned long arg)
+{
+	return video_usercopy(inode, file, cmd, arg, meye_do_ioctl);
+}
+
 static int meye_mmap(struct file *file, struct vm_area_struct *vma) {
 	unsigned long start = vma->vm_start;
 	unsigned long size  = vma->vm_end - vma->vm_start;
@@ -1209,7 +1215,7 @@ static struct file_operations meye_fops = {
 	open:		meye_open,
 	release:	meye_release,
 	mmap:		meye_mmap,
-	ioctl:		video_generic_ioctl,
+	ioctl:		meye_ioctl,
 	llseek:		no_llseek,
 };
 
@@ -1219,7 +1225,6 @@ static struct video_device meye_template = {
 	type:		VID_TYPE_CAPTURE,
 	hardware:	VID_HARDWARE_MEYE,
 	fops:		&meye_fops,
-	kernel_ioctl:	meye_ioctl,
 };
 
 static int __devinit meye_probe(struct pci_dev *pcidev, 
@@ -1237,7 +1242,6 @@ static int __devinit meye_probe(struct pci_dev *pcidev,
 	sonypi_camera_command(SONYPI_COMMAND_SETCAMERA, 1);
 
 	meye.mchip_dev = pcidev;
-	meye.mchip_irq = pcidev->irq;
 	memcpy(&meye.video_dev, &meye_template, sizeof(meye_template));
 
 	if (mchip_dma_alloc()) {
@@ -1251,6 +1255,7 @@ static int __devinit meye_probe(struct pci_dev *pcidev,
 		goto out3;
 	}
 
+	meye.mchip_irq = pcidev->irq;
 	mchip_adr = pci_resource_start(meye.mchip_dev,0);
 	if (!mchip_adr) {
 		printk(KERN_ERR "meye: mchip has no device base address\n");
@@ -1414,6 +1419,27 @@ static int __init meye_init_module(void) {
 static void __exit meye_cleanup_module(void) {
 	pci_unregister_driver(&meye_driver);
 }
+
+#ifndef MODULE
+static int __init meye_setup(char *str) {
+	int ints[4];
+
+	str = get_options(str, ARRAY_SIZE(ints), ints);
+	if (ints[0] <= 0) 
+		goto out;
+	gbuffers = ints[1];
+	if (ints[0] == 1)
+		goto out;
+	gbufsize = ints[2];
+	if (ints[0] == 2)
+		goto out;
+	video_nr = ints[3];
+out:
+	return 1;
+}
+
+__setup("meye=", meye_setup);
+#endif
 
 MODULE_AUTHOR("Stelian Pop <stelian.pop@fr.alcove.com>");
 MODULE_DESCRIPTION("video4linux driver for the MotionEye camera");

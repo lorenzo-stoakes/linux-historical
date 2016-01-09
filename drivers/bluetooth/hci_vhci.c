@@ -25,7 +25,7 @@
 /*
  * BlueZ HCI virtual device driver.
  *
- * $Id: hci_vhci.c,v 1.2 2002/03/18 19:16:40 maxk Exp $ 
+ * $Id: hci_vhci.c,v 1.3 2002/04/17 17:37:20 maxk Exp $ 
  */
 #define VERSION "1.1"
 
@@ -94,7 +94,7 @@ static int hci_vhci_send_frame(struct sk_buff *skb)
 	struct hci_vhci_struct *hci_vhci;
 
 	if (!hdev) {
-		ERR("Frame for uknown device (hdev=NULL)");
+		BT_ERR("Frame for uknown device (hdev=NULL)");
 		return -ENODEV;
 	}
 
@@ -299,7 +299,7 @@ static int hci_vhci_chr_close(struct inode *inode, struct file *file)
 	struct hci_vhci_struct *hci_vhci = (struct hci_vhci_struct *) file->private_data;
 
 	if (hci_unregister_dev(&hci_vhci->hdev) < 0) {
-		ERR("Can't unregister HCI device %s", hci_vhci->hdev.name);
+		BT_ERR("Can't unregister HCI device %s", hci_vhci->hdev.name);
 	}
 
 	file->private_data = NULL;
@@ -327,12 +327,12 @@ static struct miscdevice hci_vhci_miscdev=
 
 int __init hci_vhci_init(void)
 {
-	INF("BlueZ VHCI driver ver %s Copyright (C) 2000,2001 Qualcomm Inc",  
+	BT_INFO("BlueZ VHCI driver ver %s Copyright (C) 2000,2001 Qualcomm Inc",  
 		VERSION);
-	INF("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
+	BT_INFO("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
 
 	if (misc_register(&hci_vhci_miscdev)) {
-		ERR("Can't register misc device %d\n", VHCI_MINOR);
+		BT_ERR("Can't register misc device %d\n", VHCI_MINOR);
 		return -EIO;
 	}
 

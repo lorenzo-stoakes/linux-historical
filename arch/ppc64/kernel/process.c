@@ -1,7 +1,5 @@
 /*
- * 
- *
- *  linux/arch/ppc/kernel/process.c
+ *  linux/arch/ppc64/kernel/process.c
  *
  *  Derived from "arch/i386/kernel/process.c"
  *    Copyright (C) 1995  Linus Torvalds
@@ -16,7 +14,6 @@
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version
  *  2 of the License, or (at your option) any later version.
- *
  */
 
 #include <linux/config.h>
@@ -47,7 +44,6 @@
 #include <asm/iSeries/HvCallHpt.h>
 
 int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpregs);
-extern unsigned long _get_SP(void);
 
 struct task_struct *last_task_used_math = NULL;
 static struct fs_struct init_fs = INIT_FS;
@@ -73,84 +69,6 @@ unsigned long sysmap_size = 0;
 extern char __toc_start;
 
 #undef SHOW_TASK_SWITCHES
-#undef CHECK_STACK
-
-#if defined(CHECK_STACK)
-unsigned long
-kernel_stack_top(struct task_struct *tsk)
-{
-	return ((unsigned long)tsk) + sizeof(union task_union);
-}
-
-unsigned long
-task_top(struct task_struct *tsk)
-{
-	return ((unsigned long)tsk) + sizeof(struct task_struct);
-}
-
-/* check to make sure the kernel stack is healthy */
-int check_stack(struct task_struct *tsk)
-{
-	unsigned long stack_top = kernel_stack_top(tsk);
-	unsigned long tsk_top = task_top(tsk);
-	int ret = 0;
-
-#if 0	
-	/* check thread magic */
-	if ( tsk->thread.magic != THREAD_MAGIC )
-	{
-		ret |= 1;
-		printk("thread.magic bad: %08x\n", tsk->thread.magic);
-	}
-#endif
-
-	if ( !tsk )
-		printk("check_stack(): tsk bad tsk %p\n",tsk);
-	
-	/* check if stored ksp is bad */
-	if ( (tsk->thread.ksp > stack_top) || (tsk->thread.ksp < tsk_top) )
-	{
-		printk("stack out of bounds: %s/%d\n"
-		       " tsk_top %08lx ksp %08lx stack_top %08lx\n",
-		       tsk->comm,tsk->pid,
-		       tsk_top, tsk->thread.ksp, stack_top);
-		ret |= 2;
-	}
-	
-	/* check if stack ptr RIGHT NOW is bad */
-	if ( (tsk == current) && ((_get_SP() > stack_top ) || (_get_SP() < tsk_top)) )
-	{
-		printk("current stack ptr out of bounds: %s/%d\n"
-		       " tsk_top %08lx sp %08lx stack_top %08lx\n",
-		       current->comm,current->pid,
-		       tsk_top, _get_SP(), stack_top);
-		ret |= 4;
-	}
-
-#if 0	
-	/* check amount of free stack */
-	for ( i = (unsigned long *)task_top(tsk) ; i < kernel_stack_top(tsk) ; i++ )
-	{
-		if ( !i )
-			printk("check_stack(): i = %p\n", i);
-		if ( *i != 0 )
-		{
-			/* only notify if it's less than 900 bytes */
-			if ( (i - (unsigned long *)task_top(tsk))  < 900 )
-				printk("%d bytes free on stack\n",
-				       i - task_top(tsk));
-			break;
-		}
-	}
-#endif
-
-	if (ret)
-	{
-		panic("bad kernel stack");
-	}
-	return(ret);
-}
-#endif /* defined(CHECK_STACK) */
 
 void
 enable_kernel_fp(void)
@@ -183,10 +101,6 @@ _switch_to(struct task_struct *prev, struct task_struct *new,
 	
 	__save_flags(s);
 	__cli();
-#if CHECK_STACK
-	check_stack(prev);
-	check_stack(new);
-#endif
 
 #ifdef SHOW_TASK_SWITCHES
 	printk("%s/%d -> %s/%d NIP %08lx cpu %d root %x/%x\n",
@@ -465,7 +379,7 @@ void free_task_struct(struct task_struct * task_ptr)
 
 void initialize_paca_hardware_interrupt_stack(void)
 {
-	extern struct Naca *naca;
+	extern struct naca_struct *naca;
 
 	int i;
 	unsigned long stack;
@@ -482,8 +396,8 @@ void initialize_paca_hardware_interrupt_stack(void)
 
 
 		/* Store the stack value in the PACA for the processor */
-		xPaca[i].xHrdIntStack = stack + (8*PAGE_SIZE) - STACK_FRAME_OVERHEAD;
-		xPaca[i].xHrdIntCount = 0;
+		paca[i].xHrdIntStack = stack + (8*PAGE_SIZE) - STACK_FRAME_OVERHEAD;
+		paca[i].xHrdIntCount = 0;
 
 	}
 
@@ -496,7 +410,7 @@ void initialize_paca_hardware_interrupt_stack(void)
 
 	for (i=0; i < naca->processorCount; i++) {
 		/* set page at the top of stack to be protected - prevent overflow */
-		end_of_stack = xPaca[i].xHrdIntStack - (8*PAGE_SIZE - STACK_FRAME_OVERHEAD);
+		end_of_stack = paca[i].xHrdIntStack - (8*PAGE_SIZE - STACK_FRAME_OVERHEAD);
 		ppc_md.hpte_updateboltedpp(PP_RXRX,end_of_stack);
 	}
 }

@@ -1151,7 +1151,7 @@ void __init inode_init(unsigned long mempages)
 			__get_free_pages(GFP_ATOMIC, order);
 	} while (inode_hashtable == NULL && --order >= 0);
 
-	printk("Inode-cache hash table entries: %d (order: %ld, %ld bytes)\n",
+	printk(KERN_INFO "Inode cache hash table entries: %d (order: %ld, %ld bytes)\n",
 			nr_hash, order, (PAGE_SIZE << order));
 
 	if (!inode_hashtable)

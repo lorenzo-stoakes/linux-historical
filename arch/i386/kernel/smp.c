@@ -103,9 +103,9 @@
  */
 
 /* The 'big kernel lock' */
-spinlock_t kernel_flag __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+spinlock_cacheline_t kernel_flag_cacheline = {SPIN_LOCK_UNLOCKED};
 
-struct tlb_state cpu_tlbstate[NR_CPUS] = {[0 ... NR_CPUS-1] = { &init_mm, 0 }};
+struct tlb_state cpu_tlbstate[NR_CPUS] __cacheline_aligned = {[0 ... NR_CPUS-1] = { &init_mm, 0, }};
 
 /*
  * the following functions deal with sending IPIs between CPUs.
@@ -528,7 +528,7 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
  * remote CPUs are nearly ready to execute <<func>> or are or have executed.
  *
  * You must not call this function with disabled interrupts or from a
- * hardware interrupt handler, you may call it from a bottom half handler.
+ * hardware interrupt handler or from a bottom half handler.
  */
 {
 	struct call_data_struct data;
@@ -544,7 +544,7 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
 	if (wait)
 		atomic_set(&data.finished, 0);
 
-	spin_lock_bh(&call_lock);
+	spin_lock(&call_lock);
 	call_data = &data;
 	wmb();
 	/* Send a message to all other CPUs and wait for them to respond */
@@ -557,7 +557,7 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
 	if (wait)
 		while (atomic_read(&data.finished) != cpus)
 			barrier();
-	spin_unlock_bh(&call_lock);
+	spin_unlock(&call_lock);
 
 	return 0;
 }

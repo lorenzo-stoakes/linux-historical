@@ -1,12 +1,44 @@
-/* $Id: ethernet.c,v 1.22 2002/01/30 07:48:22 matsfg Exp $
+/* $Id: ethernet.c,v 1.28 2002/04/22 11:47:21 johana Exp $
  *
  * e100net.c: A network driver for the ETRAX 100LX network controller.
  *
- * Copyright (c) 1998-2001 Axis Communications AB.
+ * Copyright (c) 1998-2002 Axis Communications AB.
  *
  * The outline of this driver comes from skeleton.c.
  *
+ * TODO:
+ *   - Transmit-buffers should go into a DMA queue instead of treating
+ *     them one by one by interrupts
+ *   - Received buffers should not be a static buffer, but allocated using
+ *     alloc_skb, so we can send the big ones straight up into the net code.
+ *     Smaller buffers will be copied to avoid wasting too much memory though.
+ *   - Received buffers that should go back into the DMA or newly allocated
+ *     receivebuffers should go into a queue, and when the queue gets over a
+ *     threshold, the cache is flushed (to counter the Etrax RX dma bug) and
+ *     they are added to the live DMA rx list.
+ *
  * $Log: ethernet.c,v $
+ * Revision 1.28  2002/04/22 11:47:21  johana
+ * Fix according to 2.4.19-pre7. time_after/time_before and
+ * missing end of comment.
+ * The patch has a typo for ethernet.c in e100_clear_network_leds(),
+ *  that is fixed here.
+ *
+ * Revision 1.27  2002/04/12 11:55:11  bjornw
+ * Added TODO
+ *
+ * Revision 1.26  2002/03/15 17:11:02  bjornw
+ * Use prepare_rx_descriptor after the CPU has touched the receiving descs
+ *
+ * Revision 1.25  2002/03/08 13:07:53  bjornw
+ * Unnecessary spinlock removed
+ *
+ * Revision 1.24  2002/02/20 12:57:43  fredriks
+ * Replaced MIN() with min().
+ *
+ * Revision 1.23  2002/02/20 10:58:14  fredriks
+ * Strip the Ethernet checksum (4 bytes) before forwarding a frame to upper layers.
+ *
  * Revision 1.22  2002/01/30 07:48:22  matsfg
  * Initiate R_NETWORK_TR_CTRL
  *
@@ -127,7 +159,6 @@
 //#define ETHDEBUG
 #define D(x)
 
-
 /*
  * The name of the card. Is used for messages and in the requests for
  * io regions, irqs and dma channels
@@ -224,10 +255,10 @@ static etrax_dma_descr *myNextRxDesc;  /* Points to the next descriptor to
 static etrax_dma_descr *myLastRxDesc;  /* The last processed descriptor */
 static etrax_dma_descr *myPrevRxDesc;  /* The descriptor right before myNextRxDesc */
 
-static unsigned char RxBuf[RX_BUF_SIZE];
+static unsigned char RxBuf[RX_BUF_SIZE] __attribute__ ((aligned(32)));
 
-static etrax_dma_descr RxDescList[NBR_OF_RX_DESC] __attribute__ ((aligned(4)));
-static etrax_dma_descr TxDesc __attribute__ ((aligned(4)));
+static etrax_dma_descr RxDescList[NBR_OF_RX_DESC] __attribute__ ((aligned(32)));
+static etrax_dma_descr TxDesc __attribute__ ((aligned(32)));
 
 static struct sk_buff *tx_skb;
 
@@ -355,6 +386,7 @@ etrax_ethernet_init(struct net_device *dev)
 		RxDescList[i].buf    = virt_to_phys(RxBuf + anOffset);
 		RxDescList[i].status = 0;
 		RxDescList[i].hw_len = 0;
+		prepare_rx_descriptor(&RxDescList[i]);
 		anOffset += RX_DESC_BUF_SIZE;
 	}
 
@@ -364,6 +396,7 @@ etrax_ethernet_init(struct net_device *dev)
 	RxDescList[i].buf    = virt_to_phys(RxBuf + anOffset);
 	RxDescList[i].status = 0;
 	RxDescList[i].hw_len = 0;
+	prepare_rx_descriptor(&RxDescList[i]);
 
 	/* Initialise initial pointers */
 
@@ -866,7 +899,7 @@ e100_send_packet(struct sk_buff *skb, struct net_device *dev)
 #ifdef ETHDEBUG
 	printk("send packet len %d\n", length);
 #endif
-	spin_lock_irq(&np->lock);  /* protect from tx_interrupt */
+	spin_lock_irq(&np->lock);  /* protect from tx_interrupt and ourself */
 
 	tx_skb = skb; /* remember it so we can free it in the tx irq handler later */
 	dev->trans_start = jiffies;
@@ -937,11 +970,6 @@ e100tx_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 
 	/* check for a dma0_eop interrupt */
 	if (irqbits & IO_STATE(R_IRQ_MASK2_RD, dma0_eop, active)) { 
-		/* This protects us from concurrent execution of
-		 * our dev->hard_start_xmit function above.
-		 */
-
-		spin_lock(&np->lock);
 		
 		/* acknowledge the eop interrupt */
 
@@ -960,7 +988,6 @@ e100tx_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 			       cardname);
 		}
 
-		spin_unlock(&np->lock);
 	}
 }
 
@@ -998,6 +1025,7 @@ e100_rx(struct net_device *dev)
 {
 	struct sk_buff *skb;
 	int length = 0;
+	int remain;
 	struct net_local *np = (struct net_local *)dev->priv;
 	struct etrax_dma_descr *mySaveRxDesc = myNextRxDesc;
 	unsigned char *skb_data_ptr;
@@ -1027,6 +1055,7 @@ e100_rx(struct net_device *dev)
 	}
 
 	length += myNextRxDesc->hw_len; /* use hw_len for the last descr */
+	length -= 4; /* Exclude last 4 bytes which is the Ethernet checksum. */
 	((struct net_local *)dev->priv)->stats.rx_bytes += length;
 
 #ifdef ETHDEBUG
@@ -1060,15 +1089,20 @@ e100_rx(struct net_device *dev)
 
 	/* this loop can be made using max two memcpy's if optimized */
 
+	/* Make sure we don't copy the last 4 bytes which is the checksum. */
+	remain = length;
 	while (mySaveRxDesc != myNextRxDesc) {
 		memcpy(skb_data_ptr, phys_to_virt(mySaveRxDesc->buf),
-		       mySaveRxDesc->sw_len);
+		       min((int)mySaveRxDesc->sw_len, remain));
 		skb_data_ptr += mySaveRxDesc->sw_len;
+		prepare_rx_descriptor(mySaveRxDesc);
 		mySaveRxDesc = phys_to_virt(mySaveRxDesc->next);
+		remain -= min((int)mySaveRxDesc->sw_len, remain);
 	}
 
 	memcpy(skb_data_ptr, phys_to_virt(mySaveRxDesc->buf),
-	       mySaveRxDesc->hw_len);
+	       min((int)mySaveRxDesc->hw_len, remain));
+	prepare_rx_descriptor(mySaveRxDesc);
 
 	skb->dev = dev;
 	skb->protocol = eth_type_trans(skb, dev);
@@ -1322,7 +1356,7 @@ e100_hardware_send_packet(char *buf, int length)
 static void
 e100_clear_network_leds(unsigned long dummy)
 {
-	if (led_active && jiffies > time_after(jiffies, led_next_time)) {
+	if (led_active && time_after(jiffies, led_next_time)) {
 		e100_set_network_leds(NO_NETWORK_ACTIVITY);
 
 		/* Set the earliest time we may set the LED */

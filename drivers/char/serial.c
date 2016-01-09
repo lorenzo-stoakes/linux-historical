@@ -4096,12 +4096,14 @@ pci_plx9050_fn(struct pci_dev *dev, struct pci_board *board, int enable)
  * interface chip and different configuration methods:
  *     - 10x cards have control registers in IO and/or memory space;
  *     - 20x cards have control registers in standard PCI configuration space.
+ *
+ * SIIG initialization functions exported for use by parport_serial.c module.
  */
 
 #define PCI_DEVICE_ID_SIIG_1S_10x (PCI_DEVICE_ID_SIIG_1S_10x_550 & 0xfffc)
 #define PCI_DEVICE_ID_SIIG_2S_10x (PCI_DEVICE_ID_SIIG_2S_10x_550 & 0xfff8)
 
-static int __devinit
+int __devinit
 pci_siig10x_fn(struct pci_dev *dev, struct pci_board *board, int enable)
 {
        u16 data, *p;
@@ -4126,11 +4128,12 @@ pci_siig10x_fn(struct pci_dev *dev, struct pci_board *board, int enable)
        iounmap(p);
        return 0;
 }
+EXPORT_SYMBOL(pci_siig10x_fn);
 
 #define PCI_DEVICE_ID_SIIG_2S_20x (PCI_DEVICE_ID_SIIG_2S_20x_550 & 0xfffc)
 #define PCI_DEVICE_ID_SIIG_2S1P_20x (PCI_DEVICE_ID_SIIG_2S1P_20x_550 & 0xfffc)
 
-static int __devinit
+int __devinit
 pci_siig20x_fn(struct pci_dev *dev, struct pci_board *board, int enable)
 {
        u8 data;
@@ -4149,6 +4152,7 @@ pci_siig20x_fn(struct pci_dev *dev, struct pci_board *board, int enable)
        }
        return 0;
 }
+EXPORT_SYMBOL(pci_siig20x_fn);
 
 /* Added for EKF Intel i960 serial boards */
 static int __devinit
@@ -4719,15 +4723,6 @@ static struct pci_device_id serial_pci_tbl[] __devinitdata = {
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S_10x_850,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig10x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S1P_10x_550,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig10x_1 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S1P_10x_650,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig10x_1 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S1P_10x_850,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig10x_1 },
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S_10x_550,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig10x_2 },
@@ -4735,15 +4730,6 @@ static struct pci_device_id serial_pci_tbl[] __devinitdata = {
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig10x_2 },
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S_10x_850,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig10x_2 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S1P_10x_550,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig10x_2 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S1P_10x_650,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig10x_2 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S1P_10x_850,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig10x_2 },
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_4S_10x_550,
@@ -4764,24 +4750,6 @@ static struct pci_device_id serial_pci_tbl[] __devinitdata = {
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S_20x_850,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig20x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S1P_20x_550,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S1P_20x_650,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_1S1P_20x_850,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2P1S_20x_550,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2P1S_20x_650,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_0 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2P1S_20x_850,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_0 },
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S_20x_550,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig20x_2 },
@@ -4789,15 +4757,6 @@ static struct pci_device_id serial_pci_tbl[] __devinitdata = {
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig20x_2 },
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S_20x_850,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_2 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S1P_20x_550,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_2 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S1P_20x_650,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-		pbn_siig20x_2 },
-	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_2S1P_20x_850,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_siig20x_2 },
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_4S_20x_550,

@@ -134,8 +134,10 @@ int tainted = 0;
  * tells us what we want to know.
  */
 
-void out_of_line_bug(void)
+void __out_of_line_bug(int line)
 {
+	printk("kernel BUG in header file at line %d\n", line);
+
 	BUG();
 
 	/* Satisfy __attribute__((noreturn)) */

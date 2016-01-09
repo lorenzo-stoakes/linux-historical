@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 by David Brownell
+ * Copyright (c) 2000-2002 by David Brownell
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,10 +31,6 @@
 #include <linux/list.h>
 #include <linux/interrupt.h>
 
-#ifndef CONFIG_USB_DEBUG
-	#define CONFIG_USB_DEBUG	/* this is still experimental! */
-#endif
-
 #ifdef CONFIG_USB_DEBUG
 	#define DEBUG
 #else
@@ -44,6 +40,7 @@
 #include <linux/usb.h>
 #include "../hcd.h"
 
+#include <asm/byteorder.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/system.h>
@@ -72,25 +69,22 @@
  *	...
  *
  * HISTORY:
+ *
  * 2002-01-14	Minor cleanup; version synch.
  * 2002-01-08	Fix roothub handoff of FS/LS to companion controllers.
  * 2002-01-04	Control/Bulk queuing behaves.
+ *
  * 2001-12-12	Initial patch version for Linux 2.5.1 kernel.
+ * 2001-June	Works with usb-storage and NEC EHCI on 2.4
  */
 
-#define DRIVER_VERSION "$Revision: 1.1 $"
+#define DRIVER_VERSION "$Revision: 0.24+ $"
 #define DRIVER_AUTHOR "David Brownell"
 #define DRIVER_DESC "USB 2.0 'Enhanced' Host Controller (EHCI) Driver"
 
 
 // #define EHCI_VERBOSE_DEBUG
 // #define have_iso
-
-#ifdef	CONFIG_DEBUG_SLAB
-#	define	EHCI_SLAB_FLAGS		(SLAB_POISON)
-#else
-#	define	EHCI_SLAB_FLAGS		0
-#endif
 
 /* magic numbers that can affect system performance */
 #define	EHCI_TUNE_CERR		3	/* 0-3 qtd retries; 0 == don't stop */
@@ -191,7 +185,7 @@ static int ehci_start (struct usb_hcd *hcd)
 	 * periodic_size can shrink by USBCMD update if hcc_params allows.
 	 */
 	ehci->periodic_size = DEFAULT_I_TDPS;
-	if ((retval = ehci_mem_init (ehci, EHCI_SLAB_FLAGS | SLAB_KERNEL)) < 0)
+	if ((retval = ehci_mem_init (ehci, SLAB_KERNEL)) < 0)
 		return retval;
 	hcc_params = readl (&ehci->caps->hcc_params);
 
@@ -215,16 +209,17 @@ static int ehci_start (struct usb_hcd *hcd)
 	/*
 	 * hcc_params controls whether ehci->regs->segment must (!!!)
 	 * be used; it constrains QH/ITD/SITD and QTD locations.
-	 * By default, pci_alloc_consistent() won't hand out addresses
-	 * above 4GB (via pdev->dma_mask) so we know this value.
-	 *
-	 * NOTE:  that pdev->dma_mask setting means that all DMA mappings
-	 * for I/O buffers will have the same restriction, though it's
-	 * neither necessary nor desirable in that case.
+	 * pci_pool consistent memory always uses segment zero.
 	 */
 	if (HCC_64BIT_ADDR (hcc_params)) {
 		writel (0, &ehci->regs->segment);
-		info ("using segment 0 for 64bit DMA addresses ...");
+		/*
+		 * FIXME Enlarge pci_set_dma_mask() when possible.  The DMA
+		 * mapping API spec now says that'll affect only single shot
+		 * mappings, and the pci_pool data will stay safe in seg 0.
+		 * That's what we want:  no extra copies for USB transfers.
+		 */
+		info ("restricting 64bit DMA mappings to segment 0 ...");
 	}
 
 	/* clear interrupt enables, set irq latency */
@@ -234,6 +229,9 @@ static int ehci_start (struct usb_hcd *hcd)
 	temp |= 1 << (16 + log2_irq_thresh);
 	// keeping default periodic framelist size
 	temp &= ~(CMD_IAAD | CMD_ASE | CMD_PSE),
+	// Philips, Intel, and maybe others need CMD_RUN before the
+	// root hub will detect new devices (why?); NEC doesn't
+	temp |= CMD_RUN;
 	writel (temp, &ehci->regs->command);
 	dbg_cmd (ehci, "init", temp);
 
@@ -260,7 +258,7 @@ done2:
 	readl (&ehci->regs->command);	/* unblock posted write */
 
         /* PCI Serial Bus Release Number is at 0x60 offset */
-	pci_read_config_byte(hcd->pdev, 0x60, &tempbyte);
+	pci_read_config_byte (hcd->pdev, 0x60, &tempbyte);
 	temp = readw (&ehci->caps->hci_version);
 	info ("USB %x.%x support enabled, EHCI rev %x.%2x",
 	      ((tempbyte & 0xf0)>>4),
@@ -391,6 +389,8 @@ static int ehci_resume (struct usb_hcd *hcd)
 // restore pci FLADJ value
 	// khubd and drivers will set HC running, if needed;
 	hcd->state = USB_STATE_READY;
+	// FIXME Philips/Intel/... etc don't really have a "READY"
+	// state ... turn on CMD_RUN too
 	for (i = 0; i < ports; i++) {
 		int	temp = readl (&ehci->regs->port_status [i]);
 
@@ -439,20 +439,20 @@ static void ehci_irq (struct usb_hcd *hcd)
 {
 	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
 	u32			status = readl (&ehci->regs->status);
-	int			bh = 0;
+	int			bh;
+
+	status &= INTR_MASK;
+	if (!status)			/* irq sharing? */
+		return;
 
 	/* clear (just) interrupts */
-	status &= INTR_MASK;
 	writel (status, &ehci->regs->status);
 	readl (&ehci->regs->command);	/* unblock posted write */
-
-	if (unlikely (hcd->state == USB_STATE_HALT))	/* irq sharing? */
-		return;
+	bh = 0;
 
 #ifdef	EHCI_VERBOSE_DEBUG
 	/* unrequested/ignored: Port Change Detect, Frame List Rollover */
-	if (status & INTR_MASK)
-		dbg_status (ehci, "irq", status);
+	dbg_status (ehci, "irq", status);
 #endif
 
 	/* INT, ERR, and IAA interrupt rates can be throttled */
@@ -746,9 +746,9 @@ MODULE_LICENSE ("GPL");
 static int __init init (void) 
 {
 	dbg (DRIVER_INFO);
-	dbg ("block sizes: qh %d qtd %d itd %d sitd %d",
-		(int) sizeof (struct ehci_qh), (int) sizeof (struct ehci_qtd),
-		(int) sizeof (struct ehci_itd), (int) sizeof (struct ehci_sitd));
+	dbg ("block sizes: qh %Zd qtd %Zd itd %Zd sitd %Zd",
+		sizeof (struct ehci_qh), sizeof (struct ehci_qtd),
+		sizeof (struct ehci_itd), sizeof (struct ehci_sitd));
 
 	return pci_module_init (&ehci_pci_driver);
 }

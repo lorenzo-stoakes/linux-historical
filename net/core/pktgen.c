@@ -18,6 +18,7 @@
  * MAC address typo fixed. 010417 --ro
  * Integrated.  020301 --DaveM
  * Added multiskb option 020301 --DaveM
+ * Scaling of results. 020417--sigurdur@linpro.no
  *
  * See Documentation/networking/pktgen.txt for how to use this.
  */
@@ -56,7 +57,7 @@
 #define cycles()	((u32)get_cycles())
 
 static char version[] __initdata = 
-  "pktgen.c: v1.0 010812: Packet Generator for packet performance testing.\n";
+  "pktgen.c: v1.1 020418: Packet Generator for packet performance testing.\n";
 
 /* Parameters */
 static char pg_outdev[32], pg_dst[32];
@@ -72,6 +73,9 @@ static int pg_cpu_speed;
 static int pg_busy;
 
 static __u8 hh[14] = { 
+
+  /* Overrun by /proc config  */
+
     0x00, 0x80, 0xC8, 0x79, 0xB3, 0xCB, 
 
     /* We fill in SRC address later */
@@ -283,7 +287,10 @@ static void pg_inject(void)
 	struct sk_buff *skb;
 	struct timeval start, stop;
 	u32 total, idle;
-	int pc, lcount;
+	u32 pc, lcount;
+	char *p = pg_result;
+	u32  pkt_rate, data_rate;
+	char rate_unit;
 
 	odev = pg_setup_inject(&saddr);
 	if (!odev)
@@ -372,18 +379,45 @@ static void pg_inject(void)
 	total = (stop.tv_sec - start.tv_sec) * 1000000 +
 		stop.tv_usec - start.tv_usec;
 
+	if (total == 0) total = 1;  /* division by zero protection */
+ 
 	idle = (((idle_acc_hi<<20)/pg_cpu_speed)<<12)+idle_acc_lo/pg_cpu_speed;
 
-        {
-		char *p = pg_result;
-    
-		p += sprintf(p, "OK: %u(c%u+d%u) usec, %u (%dbyte,%dfrags) %upps %uMB/sec",
-			     total, total-idle, idle,
-			     pc, skb->len, skb_shinfo(skb)->nr_frags,
-			     ((pc*1000)/(total/1000)),
-			     (((pc*1000)/(total/1000))*pkt_size)/1024/1024
-			     );
+	
+	/* 
+	   Rounding errors is around 1% on pkt_rate when total
+	   is just over 100.000. When total is big (total >=
+	   4.295 sec) pc need to be more than 430 to keep
+	   rounding errors below 1%. Shouldn't be a problem:)
+	   
+	   */
+
+	if (total < 100000) 
+		pkt_rate = (pc*1000000)/total;
+	else if (total < 0xFFFFFFFF/1000)        /* overflow protection: 2^32/1000 */
+		pkt_rate = (pc*1000)/(total/1000);		  
+	else if (total <  0xFFFFFFFF/100)     
+		pkt_rate = (pc*100)/(total/10000);		  
+	else if (total < 0xFFFFFFFF/10)     
+		pkt_rate = (pc*10)/(total/100000);		  
+	else
+		pkt_rate = (pc/(total/1000000));
+	
+	data_rate = (pkt_rate*pkt_size);
+	if (data_rate > 1024*1024 ) {   /* 10 MB/s */
+		data_rate = data_rate / (1024*1024);
+		rate_unit = 'M';
+	} else {
+		data_rate = data_rate / 1024;
+		rate_unit = 'K';
 	}
+	
+	p += sprintf(p, "OK: %u(c%u+d%u) usec, %u (%dbyte,%dfrags) %upps %u%cB/sec",
+		     total, total-idle, idle,
+		     pc, skb->len, skb_shinfo(skb)->nr_frags,
+		     pkt_rate, data_rate, rate_unit
+		);
+	
 
 out_relskb:
 	kfree_skb(skb);
@@ -568,8 +602,11 @@ static int proc_pg_write(struct file *file, const char *buffer,
 	if (!strcmp(name, "count")) {
 		len = num_arg(&buffer[i], 10, &value);
 		i += len;
-		pg_count = value;
-		sprintf(pg_result, "OK: count=%u", pg_count);
+		if (value != 0) {
+			pg_count = value;
+			sprintf(pg_result, "OK: count=%u", pg_count);
+		} else 
+			sprintf(pg_result, "ERROR: no point in sending 0 packets. Leaving count=%u", pg_count);
 		return count;
 	}
 	if (!strcmp(name, "odev")) {

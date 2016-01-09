@@ -2212,7 +2212,7 @@ static ssize_t cs_write(struct file *file, const char *buffer, size_t count, lof
 	if(!state)
 		return -ENODEV;
 	if (!access_ok(VERIFY_READ, buffer, count))
-		return EFAULT;
+		return -EFAULT;
 	dmabuf = &state->dmabuf;
 
 	if (ppos != &file->f_pos)

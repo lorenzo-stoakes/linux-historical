@@ -282,11 +282,11 @@ int __init sun3_82586_probe(struct net_device *dev)
 	unsigned long ioaddr, iopte;
 	static int found = 0;
 	
-	/* check that this machine has an onboard lance */
+	/* check that this machine has an onboard 82586 */
 	switch(idprom->id_machtype) {
 	case SM_SUN3|SM_3_160:
 	case SM_SUN3|SM_3_260:
-		/* these machines have lance */
+		/* these machines have 82586 */
 		break;
 
 	default:

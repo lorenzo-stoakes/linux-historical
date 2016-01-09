@@ -22,7 +22,7 @@ typedef unsigned long mm_context_t;
  * Define the size of the cache used for segment table entries.  The first
  * entry is used as a cache pointer, therefore the actual number of entries
  * stored is one less than defined here.  Do not change this value without
- * considering the impact it will have on the layout of the paca in Paca.h.
+ * considering the impact it will have on the layout of the paca in paca.h.
  */
 #define STAB_CACHE_SIZE 16
 
@@ -90,7 +90,7 @@ typedef struct _SLBE {
 } SLBE;
 
 /*
- * This structure is used in Paca.h where the layout depends on the 
+ * This structure is used in paca.h where the layout depends on the 
  * size being 24B.
  */
 typedef struct {
@@ -108,7 +108,7 @@ typedef struct {
 	unsigned long :     2; /* Software use */
 	unsigned long bolted: 1; /* HPTE is "bolted" */
 	unsigned long :     1; /* Software use */
-  unsigned long l:    1; /* Virtual page is large (L=1) or 4 KB (L=0) */
+	unsigned long l:    1; /* Virtual page is large (L=1) or 4 KB (L=0) */
 	unsigned long h:    1; /* Hash function identifier */
 	unsigned long v:    1; /* Valid (v=1) or invalid (v=0) */
 } Hpte_dword0;

@@ -37,14 +37,12 @@
 #include <linux/ctype.h>
 #include <linux/cache.h>
 #include <asm/uaccess.h>
-#include <asm/Naca.h>
+#include <asm/naca.h>
 #include <asm/system.h>
 #include <asm/pmc.h>
 #include <asm/machdep.h>
 #include <asm/lmb.h>
-#ifdef CONFIG_PPC_EEH
 #include <asm/eeh.h>
-#endif
 
 /* For iSeries */
 #include <asm/iSeries/HvCallHpt.h>
@@ -69,7 +67,6 @@ extern void cacheable_memzero( void *, unsigned int );
 
 extern unsigned long _SDR1;
 extern unsigned long klimit;
-extern struct Naca *naca;
 
 extern unsigned long _ASR;
 extern inline void make_ste(unsigned long stab,
@@ -77,7 +74,7 @@ extern inline void make_ste(unsigned long stab,
 
 extern char _stext[], _etext[], __start_naca[], __end_stab[];
 
-static spinlock_t hash_table_lock ____cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+static spinlock_t hash_table_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
 
 #define PTRRELOC(x)	((typeof(x))((unsigned long)(x) - offset))
 #define PTRUNRELOC(x)	((typeof(x))((unsigned long)(x) + offset))
@@ -117,7 +114,7 @@ htab_initialize(void)
 	unsigned long pteg_count;
 	unsigned long mode_ro, mode_rw, mask;
 	unsigned long offset = reloc_offset();
-	struct Naca *_naca = RELOC(naca);
+	struct naca_struct *_naca = RELOC(naca);
 	HTAB *_htab_data = PTRRELOC(&htab_data);
 
 	/*
@@ -136,7 +133,7 @@ htab_initialize(void)
 	_htab_data->htab_num_ptegs = pteg_count;
 	_htab_data->htab_hash_mask = pteg_count - 1;
 
-	if(_machine == _MACH_pSeries) {
+	if(_naca->platform == PLATFORM_PSERIES) {
 		/* Find storage for the HPT.  Must be contiguous in
 		 * the absolute address space.
 		 */
@@ -203,7 +200,7 @@ void make_pte(HPTE *htab,
 	unsigned long vpn;
 
 #ifdef CONFIG_PPC_PSERIES
-	if(_machine == _MACH_pSeriesLP) {
+	if(naca->platform == PLATFORM_PSERIES_LPAR) {
 		make_pte_LPAR(htab, va, pa, mode, hash_mask, large); 
 		return;
 	}
@@ -827,13 +824,11 @@ int hash_page( unsigned long ea, unsigned long access )
 		mm = &init_mm;
 		vsid = get_kernel_vsid( ea );
 		break;
-#ifdef CONFIG_PPC_EEH
 	case IO_UNMAPPED_REGION_ID:
 		udbg_printf("EEH Error ea = 0x%lx\n", ea);
  		PPCDBG_ENTER_DEBUGGER();
 		panic("EEH Error ea = 0x%lx\n", ea);
 		break;
-#endif
 	case KERNEL_REGION_ID:
 		/* As htab_initialize is now, we shouldn't ever get here since
 		 * we're bolting the entire 0xC0... region.
@@ -990,6 +985,10 @@ int hash_page( unsigned long ea, unsigned long access )
  			 */
 			slot = ppc_md.hpte_selectslot( vpn );
 
+			/* If hpte_selectslot returns 0x8000000000000000 that means
+			 * that there was already an entry in the HPT even though
+			 * the linux PTE said there couldn't be. 
+			 */
 			/* Debug code */
 			if ( slot == 0x8000000000000000 ) {
 				unsigned long xold_pte = pte_val(old_pte);
@@ -1004,7 +1003,6 @@ int hash_page( unsigned long ea, unsigned long access )
 			
 				panic("hash_page: hpte already exists\n");
 			}
-
 			hash_ind = 0;
 			if ( slot < 0 ) {
 				slot = -slot;
@@ -1046,7 +1044,7 @@ int hash_page( unsigned long ea, unsigned long access )
 	return rc;
 }
 
-void flush_hash_page( unsigned long context, unsigned long ea, pte_t pte )
+void flush_hash_page( unsigned long context, unsigned long ea, pte_t *ptep )
 {
 	unsigned long vsid, vpn, va, hash, secondary, slot, flags;
 	/* Local copy of first doubleword of HPTE */
@@ -1054,6 +1052,7 @@ void flush_hash_page( unsigned long context, unsigned long ea, pte_t pte )
 		unsigned long d;
 		Hpte_dword0   h;
 	} hpte_dw0;
+	pte_t pte;
 
 	if ( (ea >= USER_START ) && ( ea <= USER_END ) )
 		vsid = get_vsid( context, ea );
@@ -1062,39 +1061,42 @@ void flush_hash_page( unsigned long context, unsigned long ea, pte_t pte )
 	va = (vsid << 28) | (ea & 0x0fffffff);
 	vpn = va >> PAGE_SHIFT;
 	hash = hpt_hash(vpn, 0);
-	secondary = (pte_val(pte) & _PAGE_SECONDARY) >> 15;
-	if ( secondary )
-		hash = ~hash;
-	slot = (hash & htab_data.htab_hash_mask) * HPTES_PER_GROUP;
-	slot += (pte_val(pte) & _PAGE_GROUP_IX) >> 12;
-	/* If there is an HPTE for this page it is indexed by slot */
 
 	spin_lock_irqsave( &hash_table_lock, flags);
-	hpte_dw0.d = ppc_md.hpte_getword0( slot );
-	if ( (hpte_dw0.h.avpn == (vpn >> 11) ) &&
-	     (hpte_dw0.h.v) && 
-	     (hpte_dw0.h.h == secondary ) ){
-		/* HPTE matches */
-		ppc_md.hpte_invalidate( slot );	
-	}
-	else {
-		unsigned k;
-		/* Temporarily lets check for the hpte in all possible slots */
-		for ( secondary = 0; secondary < 2; ++secondary ) {
-			hash = hpt_hash(vpn, 0);
-			if ( secondary )
-				hash = ~hash;
-			slot = (hash & htab_data.htab_hash_mask) * HPTES_PER_GROUP;
-			for ( k=0; k<8; ++k ) {
-				hpte_dw0.d = ppc_md.hpte_getword0( slot+k );
-				if ( ( hpte_dw0.h.avpn == (vpn >> 11) ) &&
-				     ( hpte_dw0.h.v ) &&
-				     ( hpte_dw0.h.h == secondary ) ) {
-					while (1) ;
+	pte = __pte(pte_update(ptep, _PAGE_HPTEFLAGS, 0));
+	if ( pte_val(pte) & _PAGE_HASHPTE ) {
+		secondary = (pte_val(pte) & _PAGE_SECONDARY) >> 15;
+		if ( secondary )
+			hash = ~hash;
+		slot = (hash & htab_data.htab_hash_mask) * HPTES_PER_GROUP;
+		slot += (pte_val(pte) & _PAGE_GROUP_IX) >> 12;
+		/* If there is an HPTE for this page it is indexed by slot */
+
+		hpte_dw0.d = ppc_md.hpte_getword0( slot );
+		if ( (hpte_dw0.h.avpn == (vpn >> 11) ) &&
+		     (hpte_dw0.h.v) && 
+		     (hpte_dw0.h.h == secondary ) ){
+			/* HPTE matches */
+			ppc_md.hpte_invalidate( slot );	
+		}
+		else {
+			unsigned k;
+			/* Temporarily lets check for the hpte in all possible slots */
+			for ( secondary = 0; secondary < 2; ++secondary ) {
+				hash = hpt_hash(vpn, 0);
+				if ( secondary )
+					hash = ~hash;
+				slot = (hash & htab_data.htab_hash_mask) * HPTES_PER_GROUP;
+				for ( k=0; k<8; ++k ) {
+					hpte_dw0.d = ppc_md.hpte_getword0( slot+k );
+					if ( ( hpte_dw0.h.avpn == (vpn >> 11) ) &&
+					     ( hpte_dw0.h.v ) &&
+					     ( hpte_dw0.h.h == secondary ) ) {
+						while (1) ;
+					}
 				}
 			}
 		}
-		
 	}
 	spin_unlock_irqrestore( &hash_table_lock, flags );
 }

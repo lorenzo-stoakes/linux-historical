@@ -226,9 +226,14 @@ int sys32_ptrace(long request, long pid, unsigned long addr, unsigned long data)
 		{
 			if (child->thread.regs->msr & MSR_FP)
 				giveup_fpu(child);
-		}
-		tmp_reg_value = get_reg(child, numReg);
-		reg32bits = ((u32*)&tmp_reg_value)[part];
+		        if (numReg == PT_FPSCR) 
+			        tmp_reg_value = ((unsigned int *)child->thread.fpscr);
+		        else 
+			        tmp_reg_value = ((unsigned long int *)child->thread.fpr)[numReg - PT_FPR0];
+		} else { /* register within PT_REGS struct */
+		    tmp_reg_value = get_reg(child, numReg);
+		} 
+                reg32bits = ((u32*)&tmp_reg_value)[part];
 		ret = put_user(reg32bits, (u32*)data);  /* copy 4 bytes of data into the user location specified by the 8 byte pointer in "data". */
 		break;
 	}

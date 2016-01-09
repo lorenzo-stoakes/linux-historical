@@ -3,6 +3,9 @@
  * HISTORY:
  *
  * $Log: pgtable.h,v $
+ * Revision 1.15  2002/04/23 15:37:52  bjornw
+ * Removed page_address and added flush_icache_user_range
+ *
  * Revision 1.14  2001/12/10 03:08:50  bjornw
  * Added pgtable_cache_init dummy
  *

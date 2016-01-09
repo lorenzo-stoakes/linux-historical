@@ -57,10 +57,8 @@
 #include <asm/smp.h>
 #include <asm/machdep.h>
 #include <asm/tlb.h>
-#include <asm/Naca.h>
-#ifdef CONFIG_PPC_EEH
+#include <asm/naca.h>
 #include <asm/eeh.h>
-#endif
 
 #include <asm/ppcdebug.h>
 
@@ -85,7 +83,6 @@ extern struct _of_tce_table of_tce_table[];
 extern char _start[], _end[];
 extern char _stext[], etext[];
 extern struct task_struct *current_set[NR_CPUS];
-extern struct Naca *naca;
 
 void mm_init_ppc64(void);
 
@@ -134,7 +131,6 @@ void show_mem(void)
 {
 	int i,free = 0,total = 0,reserved = 0;
 	int shared = 0, cached = 0;
-	struct task_struct *p;
 
 	printk("Mem-info:\n");
 	show_free_areas();
@@ -158,49 +154,6 @@ void show_mem(void)
 	printk("%d pages swap cached\n",cached);
 	printk("%d pages in page table cache\n",(int)pgtable_cache_size);
 	show_buffers();
-	printk("%-8s %3s %8s %8s %8s %9s %8s", "Process", "Pid",
-	       "Ctx", "Ctx<<4", "Last Sys", "pc", "task");
-#ifdef CONFIG_SMP
-	printk(" %3s", "CPU");
-#endif /* CONFIG_SMP */
-	printk("\n");
-	for_each_task(p)
-	{
-		printk("%-8.8s %3d %8ld %8ld %8ld %c%08lx %08lx ",
-		       p->comm,p->pid,
-		       (p->mm)?p->mm->context:0,
-		       (p->mm)?(p->mm->context<<4):0,
-		       p->thread.last_syscall,
-		       (p->thread.regs)?user_mode(p->thread.regs) ? 'u' : 'k' : '?',
-		       (p->thread.regs)?p->thread.regs->nip:0,
-		       (ulong)p);
-		{
-			int iscur = 0;
-#ifdef CONFIG_SMP
-			printk("%3d ", p->processor);
-			if ( (p->processor != NO_PROC_ID) &&
-			     (p == current_set[p->processor]) )
-			{
-				iscur = 1;
-				printk("current");
-			}
-#else
-			if ( p == current )
-			{
-				iscur = 1;
-				printk("current");
-			}
-			
-			if ( p == last_task_used_math )
-			{
-				if ( iscur )
-					printk(",");
-				printk("last math");
-			}			
-#endif /* CONFIG_SMP */
-			printk("\n");
-		}
-	}
 }
 
 void si_meminfo(struct sysinfo *val)
@@ -220,13 +173,11 @@ ioremap(unsigned long addr, unsigned long size)
 #ifdef CONFIG_PPC_ISERIES
 	return (void*)addr;
 #else
-#ifdef CONFIG_PPC_EEH
 	if(mem_init_done && (addr >> 60UL)) {
 		if (IS_EEH_TOKEN_DISABLED(addr))
 			return IO_TOKEN_TO_ADDR(addr);
 		return (void*)addr; /* already mapped address or EEH token. */
 	}
-#endif
 	return __ioremap(addr, size, _PAGE_NO_CACHE);
 #endif
 }
@@ -323,7 +274,6 @@ static void map_io_page(unsigned long ea, unsigned long pa, int flags)
 	}
 }
 
-#if 0
 void
 local_flush_tlb_all(void)
 {
@@ -332,7 +282,6 @@ local_flush_tlb_all(void)
 	 */
 	local_flush_tlb_range( NULL, VMALLOC_START, VMALLOC_END );
 }
-#endif
 
 void
 local_flush_tlb_mm(struct mm_struct *mm)
@@ -349,7 +298,6 @@ local_flush_tlb_mm(struct mm_struct *mm)
 		local_flush_tlb_range( mm, USER_START, USER_END );
 }
 
-
 /*
  * Callers should hold the mm->page_table_lock
  */
@@ -360,7 +308,6 @@ local_flush_tlb_page(struct vm_area_struct *vma, unsigned long vmaddr)
 	pgd_t *pgd;
 	pmd_t *pmd;
 	pte_t *ptep;
-	pte_t pte;
 	
 	switch( REGION_ID(vmaddr) ) {
 	case VMALLOC_REGION_ID:
@@ -378,16 +325,13 @@ local_flush_tlb_page(struct vm_area_struct *vma, unsigned long vmaddr)
 	
 	}
 
-
 	if (!pgd_none(*pgd)) {
 		pmd = pmd_offset(pgd, vmaddr);
 		if (!pmd_none(*pmd)) {
 			ptep = pte_offset(pmd, vmaddr);
 			/* Check if HPTE might exist and flush it if so */
-			pte = __pte(pte_update(ptep, _PAGE_HPTEFLAGS, 0));
-			if ( pte_val(pte) & _PAGE_HASHPTE ) {
-				flush_hash_page(context, vmaddr, pte);
-			}
+			if (pte_val(*ptep) & _PAGE_HASHPTE)
+				flush_hash_page(context, vmaddr, ptep);
 		}
 	}
 }
@@ -398,7 +342,6 @@ local_flush_tlb_range(struct mm_struct *mm, unsigned long start, unsigned long e
 	pgd_t *pgd;
 	pmd_t *pmd;
 	pte_t *ptep;
-	pte_t pte;
 	unsigned long pgd_end, pmd_end;
 	unsigned long context;
 
@@ -439,11 +382,8 @@ local_flush_tlb_range(struct mm_struct *mm, unsigned long start, unsigned long e
 				if ( !pmd_none( *pmd ) ) {
 					ptep = pte_offset( pmd, start );
 					do {
-						if ( pte_val(*ptep) & _PAGE_HASHPTE ) {
-							pte = __pte(pte_update(ptep, _PAGE_HPTEFLAGS, 0));
-							if ( pte_val(pte) & _PAGE_HASHPTE )
-								flush_hash_page( context, start, pte );
-						}
+						if ( pte_val(*ptep) & _PAGE_HASHPTE )
+							flush_hash_page( context, start, ptep );
 						start += PAGE_SIZE;
 						++ptep;
 					} while ( start < pmd_end );
@@ -500,7 +440,7 @@ void free_initrd_mem(unsigned long start, unsigned long end)
  * Do very early mm setup.
  */
 void __init mm_init_ppc64(void) {
-	struct Paca *paca;
+	struct paca_struct *lpaca;
 	unsigned long guard_page, index;
 
 	ppc_md.progress("MM:init", 0);
@@ -519,8 +459,8 @@ void __init mm_init_ppc64(void) {
 
 	/* Setup guard pages for the Paca's */
 	for (index = 0; index < NR_CPUS; index++) {
-		paca = &xPaca[index];
-		guard_page = ((unsigned long)paca) + 0x1000;
+		lpaca = &paca[index];
+		guard_page = ((unsigned long)lpaca) + 0x1000;
 		ppc_md.hpte_updateboltedpp(PP_RXRX, guard_page);
 	}
 
@@ -611,6 +551,8 @@ extern unsigned long dprof_shift;
 extern unsigned long dprof_len;
 extern unsigned int * dprof_buffer;
 
+void initialize_paca_hardware_interrupt_stack(void);
+
 void __init mem_init(void)
 {
 	extern char *sysmap; 
@@ -620,6 +562,7 @@ void __init mem_init(void)
 	int datapages = 0;
 	int initpages = 0;
 	unsigned long va_rtas_base = (unsigned long)__va(rtas.base);
+
 	max_mapnr = max_low_pfn;
 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
 	num_physpages = max_mapnr;	/* RAM is assumed contiguous */
@@ -661,8 +604,8 @@ void __init mem_init(void)
 	       PAGE_OFFSET, (unsigned long)__va(lmb_end_of_DRAM()));
 	mem_init_done = 1;
 
-    /* set the last page of each hardware interrupt stack to be protected       */
-    initialize_paca_hardware_interrupt_stack();
+	/* set the last page of each hardware interrupt stack to be protected */
+	initialize_paca_hardware_interrupt_stack();
 
 #ifdef CONFIG_PPC_ISERIES
 	create_virtual_bus_tce_table();
@@ -672,8 +615,6 @@ void __init mem_init(void)
 	prof_buffer = dprof_buffer;
 #endif
 }
-
-
 
 /*
  * This is called when a page has been modified by the kernel.

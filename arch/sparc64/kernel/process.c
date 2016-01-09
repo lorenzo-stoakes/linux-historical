@@ -421,6 +421,9 @@ void flush_thread(void)
 {
 	struct thread_struct *t = &current->thread;
 
+	if (t->flags & SPARC_FLAG_ABI_PENDING)
+		t->flags ^= (SPARC_FLAG_ABI_PENDING |
+			     SPARC_FLAG_32BIT);
 	if (current->mm) {
 		unsigned long pgd_cache = 0UL;
 

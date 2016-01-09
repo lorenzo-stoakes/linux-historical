@@ -867,19 +867,19 @@ static int __devinit hw_init(struct emu10k1_card *card)
 	}
 
 	for (pagecount = 0; pagecount < MAXPAGES; pagecount++)
-		((u32 *) card->virtualpagetable.addr)[pagecount] = cpu_to_le32((card->silentpage.dma_handle * 2) | pagecount);
+		((u32 *) card->virtualpagetable.addr)[pagecount] = cpu_to_le32(((u32)card->silentpage.dma_handle * 2) | pagecount);
 
 	/* Init page table & tank memory base register */
 	sblive_writeptr_tag(card, 0,
-			    PTB, card->virtualpagetable.dma_handle,
+			    PTB, (u32)card->virtualpagetable.dma_handle,
 			    TCB, 0,
 			    TCBS, 0,
 			    TAGLIST_END);
 
 	for (nCh = 0; nCh < NUM_G; nCh++) {
 		sblive_writeptr_tag(card, nCh,
-				    MAPA, MAP_PTI_MASK | (card->silentpage.dma_handle * 2),
-				    MAPB, MAP_PTI_MASK | (card->silentpage.dma_handle * 2),
+				    MAPA, MAP_PTI_MASK |( (u32)card->silentpage.dma_handle * 2),
+				    MAPB, MAP_PTI_MASK |( (u32)card->silentpage.dma_handle * 2),
 				    TAGLIST_END);
 	}
 

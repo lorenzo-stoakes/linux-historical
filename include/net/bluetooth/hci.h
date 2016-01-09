@@ -23,7 +23,7 @@
 */
 
 /*
- *  $Id: hci.h,v 1.3 2002/03/26 17:54:57 maxk Exp $
+ *  $Id: hci.h,v 1.4 2002/04/18 22:26:15 maxk Exp $
  */
 
 #ifndef __HCI_H
@@ -667,6 +667,20 @@ struct hci_filter {
 #define HCI_FLT_EVENT_BITS	63
 #define HCI_FLT_OGF_BITS	63
 #define HCI_FLT_OCF_BITS	127
+
+#if BITS_PER_LONG == 64
+static inline void hci_set_bit(int nr, void *addr)
+{
+	*((__u32 *) addr + (nr >> 5)) |= ((__u32) 1 << (nr & 31));
+}
+static inline int hci_test_bit(int nr, void *addr)
+{
+	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
+}
+#else
+#define hci_set_bit	set_bit
+#define hci_test_bit	test_bit
+#endif
 
 /* Ioctl requests structures */
 struct hci_dev_stats {

@@ -132,7 +132,7 @@ void emu10k1_set_record_src(struct emu10k1_card *card, struct wiinst *wiinst)
 
 	DPD(2, "bus addx: %#lx\n", (unsigned long) buffer->dma_handle);
 
-	sblive_writeptr(card, buffer->addrreg, 0, buffer->dma_handle);
+	sblive_writeptr(card, buffer->addrreg, 0, (u32)buffer->dma_handle);
 
 	return;
 }

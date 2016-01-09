@@ -456,6 +456,8 @@ struct task_struct {
 #define MAX_COUNTER	(20*HZ/100)
 #define DEF_NICE	(0)
 
+asmlinkage long sys_sched_yield(void);
+#define yield()	sys_sched_yield()
 
 /*
  * The default (Linux) execution domain.

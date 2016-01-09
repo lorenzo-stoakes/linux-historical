@@ -381,7 +381,6 @@ if [ "$CONFIG_Q40" = "y" ]; then
 fi
 
 if [ "$CONFIG_SERIAL" = "y" ]; then
-   bool '  Support for console on serial port' CONFIG_SERIAL_CONSOLE
    bool '  Extended dumb serial driver options' CONFIG_SERIAL_EXTENDED
 fi
 
@@ -491,7 +490,8 @@ if [ "$CONFIG_AMIGA" = "y" -o "$CONFIG_ATARI" = "y" -o \
         "$CONFIG_ATARI_MIDI" = "y" -o "$CONFIG_MAC_SCC" = "y" -o \
         "$CONFIG_AMIGA_BUILTIN_SERIAL" = "y" -o \
         "$CONFIG_GVPIOEXT" = "y" -o "$CONFIG_MULTIFACE_III_TTY" = "y" -o \
-        "$CONFIG_HPDCA" = "y" -o "$CONFIG_SUN3X_ZS" = "y" ]; then
+        "$CONFIG_HPDCA" = "y" -o "$CONFIG_SUN3X_ZS" = "y" -o \
+	"$CONFIG_SERIAL" = "y" ]; then
       bool 'Support for serial port console' CONFIG_SERIAL_CONSOLE
    fi
 fi

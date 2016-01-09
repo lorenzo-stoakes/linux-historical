@@ -17,7 +17,7 @@
 
 extern unsigned long reloc_offset(void);
 
-#define MAX_LMB_REGIONS 32
+#define MAX_LMB_REGIONS 64
 
 union lmb_reg_property { 
 	struct reg_property32 addr32[MAX_LMB_REGIONS];
@@ -53,7 +53,9 @@ extern struct lmb lmb;
 extern void lmb_init(void);
 extern void lmb_analyze(void);
 extern long lmb_add(unsigned long, unsigned long);
+#ifdef CONFIG_MSCHUNKS
 extern long lmb_add_io(unsigned long base, unsigned long size);
+#endif /* CONFIG_MSCHUNKS */
 extern long lmb_reserve(unsigned long, unsigned long);
 extern unsigned long lmb_alloc(unsigned long, unsigned long);
 extern unsigned long lmb_phys_mem_size(void);

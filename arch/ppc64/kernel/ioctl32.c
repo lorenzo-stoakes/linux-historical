@@ -102,18 +102,8 @@
 #include <linux/usb.h>
 #include <linux/usbdevice_fs.h>
 #include <linux/nbd.h>
+#include <asm/ppc32.h>
 #include <asm/ppcdebug.h>
-
-/* Use this to get at 32-bit user passed pointers. 
-   See sys_sparc32.c for description about these. */
-#define A(__x) ((unsigned long)(__x))
-#define AA(__x)				\
-({	unsigned long __ret;		\
-	__asm__ ("clrldi	%0, %0, 32"	\
-		 : "=r" (__ret)		\
-		 : "0" (__x));		\
-	__ret;				\
-})
 
 /* Aiee. Someone does not find a difference between int and long */
 #define EXT2_IOC32_GETFLAGS               _IOR('f', 1, int)
@@ -4159,8 +4149,6 @@ COMPATIBLE_IOCTL(WDIOC_KEEPALIVE),
 COMPATIBLE_IOCTL(HCIDEVUP),
 COMPATIBLE_IOCTL(HCIDEVDOWN),
 COMPATIBLE_IOCTL(HCIDEVRESET),
-COMPATIBLE_IOCTL(HCIRESETSTAT),
-COMPATIBLE_IOCTL(HCIGETINFO),
 COMPATIBLE_IOCTL(HCIGETDEVLIST),
 COMPATIBLE_IOCTL(HCISETRAW),
 COMPATIBLE_IOCTL(HCISETSCAN),

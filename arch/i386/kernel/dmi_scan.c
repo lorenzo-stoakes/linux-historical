@@ -293,6 +293,62 @@ static __init int apm_is_horked(struct dmi_blacklist *d)
 	return 0;
 }
 
+/*
+ * Some machines, usually laptops, can't handle an enabled local APIC.
+ * The symptoms include hangs or reboots when suspending or resuming,
+ * attaching or detaching the power cord, or entering BIOS setup screens
+ * through magic key sequences.
+ */
+static int __init local_apic_kills_bios(struct dmi_blacklist *d)
+{
+#ifdef CONFIG_X86_LOCAL_APIC
+	extern int dont_enable_local_apic;
+	if (!dont_enable_local_apic) {
+		dont_enable_local_apic = 1;
+		printk(KERN_WARNING "%s with broken BIOS detected. "
+		       "Refusing to enable the local APIC.\n",
+		       d->ident);
+	}
+#endif
+	return 0;
+}
+
+/*
+ * The Microstar 6163-2 (a.k.a Pro) mainboard will hang shortly after
+ * resumes, and also at what appears to be asynchronous APM events,
+ * if the local APIC is enabled.
+ */
+static int __init apm_kills_local_apic(struct dmi_blacklist *d)
+{
+#ifdef CONFIG_X86_LOCAL_APIC
+	extern int dont_enable_local_apic;
+	if (apm_info.bios.version && !dont_enable_local_apic) {
+		dont_enable_local_apic = 1;
+		printk(KERN_WARNING "%s with broken BIOS detected. "
+		       "Refusing to enable the local APIC.\n",
+		       d->ident);
+	}
+#endif
+	return 0;
+}
+
+/*
+ * The Intel AL440LX mainboard will hang randomly if the local APIC
+ * timer is running and the APM BIOS hasn't been disabled.
+ */
+static int __init apm_kills_local_apic_timer(struct dmi_blacklist *d)
+{
+#ifdef CONFIG_X86_LOCAL_APIC
+	extern int dont_use_local_apic_timer;
+	if (apm_info.bios.version && !dont_use_local_apic_timer) {
+		dont_use_local_apic_timer = 1;
+		printk(KERN_WARNING "%s with broken BIOS detected. "
+		       "The local APIC timer will not be used.\n",
+		       d->ident);
+	}
+#endif
+	return 0;
+}
 
 /*
  *  Check for clue free BIOS implementations who use
@@ -555,6 +611,12 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_BIOS_DATE, "08/11/00"), NO_MATCH
 			} },
 
+	{ swab_apm_power_in_minutes, "Sony VAIO", {	/* Handle problems with APM on Sony Vaio PCG-Z600LEK(DE) */
+			MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
+			MATCH(DMI_BIOS_VERSION, "R0206Z3"),
+			MATCH(DMI_BIOS_DATE, "12/25/00"), NO_MATCH
+			} },
+
 	{ swab_apm_power_in_minutes, "Sony VAIO", {	/* Handle problems with APM on Sony Vaio PCG-Z505LS */
 			MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
 			MATCH(DMI_BIOS_VERSION, "R0203D0"),
@@ -589,6 +651,36 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_BIOS_VERSION, "R0204P1"),
 			MATCH(DMI_BIOS_DATE, "09/12/00"), NO_MATCH
 			} },
+
+	/* Machines which have problems handling enabled local APICs */
+
+	{ local_apic_kills_bios, "Dell Inspiron", {
+			MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
+			MATCH(DMI_PRODUCT_NAME, "Inspiron"),
+			NO_MATCH, NO_MATCH
+			} },
+
+	{ local_apic_kills_bios, "Dell Latitude", {
+			MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
+			MATCH(DMI_PRODUCT_NAME, "Latitude"),
+			NO_MATCH, NO_MATCH
+			} },
+
+	{ local_apic_kills_bios, "IBM Thinkpad T20", {
+			MATCH(DMI_BOARD_VENDOR, "IBM"),
+			MATCH(DMI_BOARD_NAME, "264741U"),
+			NO_MATCH, NO_MATCH
+			} },
+
+	{ apm_kills_local_apic, "Microstar 6163", {
+			MATCH(DMI_BOARD_VENDOR, "MICRO-STAR INTERNATIONAL CO., LTD"),
+			MATCH(DMI_BOARD_NAME, "MS-6163"),
+			NO_MATCH, NO_MATCH } },
+
+	{ apm_kills_local_apic_timer, "Intel AL440LX", {
+			MATCH(DMI_BOARD_VENDOR, "Intel Corporation"),
+			MATCH(DMI_BOARD_NAME, "AL440LX"),
+			NO_MATCH, NO_MATCH } },
 
 	/* Problem Intel 440GX bioses */
 

@@ -25,7 +25,7 @@
 /*
  * BlueZ Bluetooth address family and sockets.
  *
- * $Id: af_bluetooth.c,v 1.2 2002/03/18 19:16:40 maxk Exp $
+ * $Id: af_bluetooth.c,v 1.3 2002/04/17 17:37:15 maxk Exp $
  */
 #define VERSION "2.0"
 
@@ -52,8 +52,8 @@
 #include <net/bluetooth/bluetooth.h>
 
 #ifndef AF_BLUETOOTH_DEBUG
-#undef  DBG
-#define DBG( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
 #endif
 
 /* Bluetooth sockets */
@@ -135,7 +135,7 @@ void bluez_sock_unlink(struct bluez_sock_list *l, struct sock *sk)
 
 void bluez_accept_enqueue(struct sock *parent, struct sock *sk)
 {
-	DBG("parent %p, sk %p", parent, sk);
+	BT_DBG("parent %p, sk %p", parent, sk);
 
 	sock_hold(sk);
 	list_add_tail(&bluez_pi(sk)->accept_q, &bluez_pi(parent)->accept_q);
@@ -145,7 +145,7 @@ void bluez_accept_enqueue(struct sock *parent, struct sock *sk)
 
 static void bluez_accept_unlink(struct sock *sk)
 {
-	DBG("sk %p state %d", sk, sk->state);
+	BT_DBG("sk %p state %d", sk, sk->state);
 
 	list_del_init(&bluez_pi(sk)->accept_q);
 	bluez_pi(sk)->parent->ack_backlog--;
@@ -159,7 +159,7 @@ struct sock *bluez_accept_dequeue(struct sock *parent, struct socket *newsock)
 	struct bluez_pinfo *pi;
 	struct sock *sk;
 	
-	DBG("parent %p", parent);
+	BT_DBG("parent %p", parent);
 
 	list_for_each_safe(p, n, &bluez_pi(parent)->accept_q) {
 		pi = list_entry(p, struct bluez_pinfo, accept_q);
@@ -191,7 +191,7 @@ int bluez_sock_recvmsg(struct socket *sock, struct msghdr *msg, int len, int fla
 	struct sk_buff *skb;
 	int copied, err;
 
-	DBG("sock %p sk %p len %d", sock, sk, len);
+	BT_DBG("sock %p sk %p len %d", sock, sk, len);
 
 	if (flags & (MSG_OOB))
 		return -EOPNOTSUPP;
@@ -223,7 +223,7 @@ unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table
 	struct sock *sk = sock->sk;
 	unsigned int mask;
 
-	DBG("sock %p, sk %p", sock, sk);
+	BT_DBG("sock %p, sk %p", sock, sk);
 
 	poll_wait(file, sk->sleep, wait);
 	mask = 0;
@@ -256,7 +256,7 @@ int bluez_sock_w4_connect(struct sock *sk, int flags)
 	long timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
 	int err = 0;
 
-	DBG("sk %p", sk);
+	BT_DBG("sk %p", sk);
 
 	add_wait_queue(sk->sleep, &wait);
 	while (sk->state != BT_CONNECTED) {
@@ -296,9 +296,9 @@ struct net_proto_family bluez_sock_family_ops =
 
 int bluez_init(void)
 {
-	INF("BlueZ Core ver %s Copyright (C) 2000,2001 Qualcomm Inc",
+	BT_INFO("BlueZ Core ver %s Copyright (C) 2000,2001 Qualcomm Inc",
 		 VERSION);
-	INF("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
+	BT_INFO("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
 
 	proc_mkdir("bluetooth", NULL);
 

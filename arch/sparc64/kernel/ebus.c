@@ -32,7 +32,7 @@ static inline void *ebus_alloc(size_t size)
 
 	mem = kmalloc(size, GFP_ATOMIC);
 	if (!mem)
-		panic(__FUNCTION__ ": out of memory");
+		panic("ebus_alloc: out of memory");
 	memset((char *)mem, 0, size);
 	return mem;
 }
@@ -66,7 +66,7 @@ static void __init ebus_intmap_init(struct linux_ebus *ebus)
 				   (char *)&ebus->ebus_intmask,
 				   sizeof(ebus->ebus_intmask));
 	if (success == -1) {
-		prom_printf("%s: can't get interrupt-map-mask\n", __FUNCTION__);
+		prom_printf("ebus: can't get interrupt-map-mask\n");
 		prom_halt();
 	}
 }
@@ -125,7 +125,7 @@ void __init fill_ebus_child(int node, struct linux_prom_registers *preg,
 			if (rnum >= dev->parent->num_addrs) {
 				prom_printf("UGH: property for %s was %d, need < %d\n",
 					    dev->prom_name, len, dev->parent->num_addrs);
-				panic(__FUNCTION__);
+				panic("fill_ebus_child");
 			}
 			dev->resource[i].start = dev->parent->resource[i].start;
 			dev->resource[i].end = dev->parent->resource[i].end;

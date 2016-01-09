@@ -43,8 +43,8 @@
 #include <asm/io.h>
 #include <asm/prom.h>
 #include <asm/smp.h>
-#include <asm/Naca.h>
-#include <asm/Paca.h>
+#include <asm/naca.h>
+#include <asm/paca.h>
 #include <asm/iSeries/LparData.h>
 #include <asm/iSeries/HvCall.h>
 #include <asm/iSeries/HvCallCfg.h>
@@ -78,8 +78,6 @@ extern int cpu_idle(void *unused);
 void smp_call_function_interrupt(void);
 void smp_message_pass(int target, int msg, unsigned long data, int wait);
 static unsigned long iSeries_smp_message[NR_CPUS];
-extern struct Naca *naca;
-extern struct Paca xPaca[];
 
 void xics_setup_cpu(void);
 void xics_cause_IPI(int cpu);
@@ -129,7 +127,7 @@ static void smp_iSeries_message_pass(int target, int msg, unsigned long data, in
                     (target == i) || 
                     ((target == MSG_ALL_BUT_SELF) && (i != smp_processor_id())) ) {
 			set_bit( msg, &iSeries_smp_message[i] );
-			HvCall_sendIPI(&(xPaca[i]));
+			HvCall_sendIPI(&(paca[i]));
 		}
 	}
 }
@@ -140,8 +138,8 @@ static int smp_iSeries_numProcs(void)
 	struct ItLpPaca * lpPaca;
 
 	np = 0;
-        for (i=0; i < maxPacas; ++i) {
-                lpPaca = xPaca[i].xLpPacaPtr;
+        for (i=0; i < MAX_PACAS; ++i) {
+                lpPaca = paca[i].xLpPacaPtr;
                 if ( lpPaca->xDynProcStatus < 2 ) {
                         ++np;
                 }
@@ -156,11 +154,11 @@ static int smp_iSeries_probe(void)
 	struct ItLpPaca * lpPaca;
 
 	np = 0;
-	for (i=0; i < maxPacas; ++i) {
-		lpPaca = xPaca[i].xLpPacaPtr;
+	for (i=0; i < MAX_PACAS; ++i) {
+		lpPaca = paca[i].xLpPacaPtr;
 		if ( lpPaca->xDynProcStatus < 2 ) {
 			++np;
-			xPaca[i].next_jiffy_update_tb = xPaca[0].next_jiffy_update_tb;
+			paca[i].next_jiffy_update_tb = paca[0].next_jiffy_update_tb;
 		}
 	}
 	
@@ -173,18 +171,25 @@ static void smp_iSeries_kick_cpu(int nr)
 	struct ItLpPaca * lpPaca;
 	/* Verify we have a Paca for processor nr */
 	if ( ( nr <= 0 ) ||
-	     ( nr >= maxPacas ) )
+	     ( nr >= MAX_PACAS ) )
 		return;
 	/* Verify that our partition has a processor nr */
-	lpPaca = xPaca[nr].xLpPacaPtr;
+	lpPaca = paca[nr].xLpPacaPtr;
 	if ( lpPaca->xDynProcStatus >= 2 )
 		return;
+
+	/* The information for processor bringup must
+	 * be written out to main store before we release
+	 * the processor.
+	 */
+	mb();
+
 	/* The processor is currently spinning, waiting
 	 * for the xProcStart field to become non-zero
 	 * After we set xProcStart, the processor will
 	 * continue on to secondary_start in iSeries_head.S
 	 */
-	xPaca[nr].xProcStart = 1;
+	paca[nr].xProcStart = 1;
 }
 
 static void smp_iSeries_setup_cpu(int nr)
@@ -241,18 +246,34 @@ smp_kick_cpu(int nr)
 {
 	/* Verify we have a Paca for processor nr */
 	if ( ( nr <= 0 ) ||
-	     ( nr >= maxPacas ) )
+	     ( nr >= MAX_PACAS ) )
 		return;
+
+	/* The information for processor bringup must
+	 * be written out to main store before we release
+	 * the processor.
+	 */
+	mb();
 
 	/* The processor is currently spinning, waiting
 	 * for the xProcStart field to become non-zero
 	 * After we set xProcStart, the processor will
 	 * continue on to secondary_start in iSeries_head.S
 	 */
-	xPaca[nr].xProcStart = 1;
+	paca[nr].xProcStart = 1;
 }
 
 extern struct gettimeofday_struct do_gtod;
+
+static void smp_space_timers( unsigned nr )
+{
+	unsigned long offset, i;
+	
+	offset = tb_ticks_per_jiffy / nr;
+	for ( i=1; i<nr; ++i ) {
+		paca[i].next_jiffy_update_tb = paca[i-1].next_jiffy_update_tb + offset;
+	}
+}
 
 static void
 smp_chrp_setup_cpu(int cpu_nr)
@@ -260,9 +281,9 @@ smp_chrp_setup_cpu(int cpu_nr)
 	static atomic_t ready = ATOMIC_INIT(1);
 	static volatile int frozen = 0;
 
-	if (_machine == _MACH_pSeriesLP) {
+	if (naca->platform == PLATFORM_PSERIES_LPAR) {
 		/* timebases already synced under the hypervisor. */
-		xPaca[cpu_nr].next_jiffy_update_tb = tb_last_stamp = get_tb();
+		paca[cpu_nr].next_jiffy_update_tb = tb_last_stamp = get_tb();
 		if (cpu_nr == 0) {
 			do_gtod.tb_orig_stamp = tb_last_stamp;
 			/* Should update do_gtod.stamp_xsec.
@@ -282,7 +303,7 @@ smp_chrp_setup_cpu(int cpu_nr)
 			mb();
 			frozen = 1;
 			set_tb(0, 0);
-			xPaca[0].next_jiffy_update_tb = 0;
+			paca[0].next_jiffy_update_tb = 0;
 			smp_space_timers(smp_num_cpus);
 			while (atomic_read(&ready) < smp_num_cpus)
 				barrier();
@@ -391,17 +412,6 @@ void smp_message_recv(int msg, struct pt_regs *regs)
 
 void smp_send_reschedule(int cpu)
 {
-	/*
-	 * This is only used if `cpu' is running an idle task,
-	 * so it will reschedule itself anyway...
-	 *
-	 * This isn't the case anymore since the other CPU could be
-	 * sleeping and won't reschedule until the next interrupt (such
-	 * as the timer).
-	 *  -- Cort
-	 */
-	/* This is only used if `cpu' is running an idle task,
-	   so it will reschedule itself anyway... */
 	smp_message_pass(cpu, PPC_MSG_RESCHEDULE, 0, 0);
 }
 
@@ -430,7 +440,7 @@ void smp_send_stop(void)
  * static memory requirements. It also looks cleaner.
  * Stolen from the i386 version.
  */
-static spinlock_t call_lock ____cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
+static spinlock_t call_lock __cacheline_aligned_in_smp = SPIN_LOCK_UNLOCKED;
 
 static struct call_data_struct {
 	void (*func) (void *info);
@@ -540,22 +550,11 @@ void smp_call_function_interrupt(void)
 		atomic_inc(&call_data->finished);
 }
 
-static void smp_space_timers( unsigned nr )
-{
-	unsigned long offset, i;
-	
-	offset = tb_ticks_per_jiffy / nr;
-	for ( i=1; i<nr; ++i ) {
-		xPaca[i].next_jiffy_update_tb = xPaca[i-1].next_jiffy_update_tb + offset;
-	}
-}
-
 extern unsigned long decr_overclock;
 
 void __init smp_boot_cpus(void)
 {
 	extern struct current_set_struct current_set[];
-	struct Paca *paca;
 	extern void __secondary_start_chrp(void);
 	int i, cpu_nr;
 	struct task_struct *p;
@@ -578,9 +577,8 @@ void __init smp_boot_cpus(void)
 	init_idle();
 
 	for (i = 0; i < NR_CPUS; i++) {
-		paca = &xPaca[i];
-		paca->prof_counter=1;
-		paca->prof_multiplier = 1;
+		paca[i].prof_counter=1;
+		paca[i].prof_multiplier = 1;
 		if(i != 0) {
 		        /*
 			 * Processor 0's segment table is statically 
@@ -588,10 +586,10 @@ void __init smp_boot_cpus(void)
 			 * Other processor's tables are created and
 			 * initialized here.
 			 */
-			paca->xStab_data.virt = (unsigned long)&stab_array[PAGE_SIZE * (i-1)];
-			memset((void *)paca->xStab_data.virt, 0, PAGE_SIZE); 
-			paca->xStab_data.real = __v2a(paca->xStab_data.virt);
-			paca->default_decr = tb_ticks_per_jiffy / decr_overclock;
+			paca[i].xStab_data.virt = (unsigned long)&stab_array[PAGE_SIZE * (i-1)];
+			memset((void *)paca[i].xStab_data.virt, 0, PAGE_SIZE); 
+			paca[i].xStab_data.real = __v2a(paca[i].xStab_data.virt);
+			paca[i].default_decr = tb_ticks_per_jiffy / decr_overclock;
 		}
 	}
 
@@ -706,7 +704,7 @@ void __init smp_callin(void)
 	int cpu = current->processor;
 	
         smp_store_cpu_info(cpu);
-	set_dec(xPaca[cpu].default_decr);
+	set_dec(paca[cpu].default_decr);
 	cpu_callin_map[cpu] = 1;
 
 	ppc_md.smp_setup_cpu(cpu);
@@ -753,7 +751,7 @@ int __init setup_profiling_timer(unsigned int multiplier)
  */
 void __init smp_store_cpu_info(int id)
 {
-        xPaca[id].pvr = _get_PVR();
+        paca[id].pvr = _get_PVR();
 }
 
 static int __init maxcpus(char *str)

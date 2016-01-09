@@ -28,7 +28,7 @@
  *    Copyright (c) 2000 Greg Kroah-Hartman        <greg@kroah.com>
  *    Copyright (c) 2000 Mark Douglas Corner       <mcorner@umich.edu>
  *
- * $Id: hci_usb.c,v 1.5 2002/03/20 17:51:59 maxk Exp $    
+ * $Id: hci_usb.c,v 1.6 2002/04/17 17:37:20 maxk Exp $    
  */
 #define VERSION "2.0"
 
@@ -60,10 +60,10 @@
 #define HCI_MAX_PENDING (HCI_MAX_BULK_RX + HCI_MAX_BULK_TX + 1)
 
 #ifndef HCI_USB_DEBUG
-#undef  DBG
-#define DBG( A... )
-#undef  DMP
-#define DMP( A... )
+#undef  BT_DBG
+#define BT_DBG( A... )
+#undef  BT_DMP
+#define BT_DMP( A... )
 #endif
 
 #ifndef CONFIG_BLUEZ_USB_ZERO_PACKET
@@ -100,7 +100,7 @@ static purb_t hci_usb_get_completed(struct hci_usb *husb)
 		kfree_skb(skb);
 	}
 
-	DBG("%s urb %p", husb->hdev.name, urb);
+	BT_DBG("%s urb %p", husb->hdev.name, urb);
 	return urb;
 }
 
@@ -110,7 +110,7 @@ static int hci_usb_enable_intr(struct hci_usb *husb)
 	int pipe, size;
 	void *buf;
 
-	DBG("%s", husb->hdev.name);
+	BT_DBG("%s", husb->hdev.name);
 
  	if (!(urb = usb_alloc_urb(0)))
 		return -ENOMEM;
@@ -135,7 +135,7 @@ static int hci_usb_disable_intr(struct hci_usb *husb)
 	struct urb *urb = husb->intr_urb;
 	struct sk_buff *skb;
 
-	DBG("%s", husb->hdev.name);
+	BT_DBG("%s", husb->hdev.name);
 
 	usb_unlink_urb(urb); usb_free_urb(urb);
 	husb->intr_urb = NULL;
@@ -165,7 +165,7 @@ static int hci_usb_rx_submit(struct hci_usb *husb, struct urb *urb)
 		return -ENOMEM;
 	}
 	
-	DBG("%s urb %p", husb->hdev.name, urb);
+	BT_DBG("%s urb %p", husb->hdev.name, urb);
 
 	skb->dev = (void *) &husb->hdev;
 	skb->pkt_type = HCI_ACLDATA_PKT;
@@ -181,7 +181,7 @@ static int hci_usb_rx_submit(struct hci_usb *husb, struct urb *urb)
 	skb_queue_tail(&husb->pending_q, skb);
 	err = usb_submit_urb(urb);
 	if (err) {
-		ERR("%s bulk rx submit failed urb %p err %d",
+		BT_ERR("%s bulk rx submit failed urb %p err %d",
 				husb->hdev.name, urb, err);
 		skb_unlink(skb);
 		usb_free_urb(urb);
@@ -196,7 +196,7 @@ static int hci_usb_open(struct hci_dev *hdev)
 	int i, err;
 	long flags;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	if (test_and_set_bit(HCI_RUNNING, &hdev->flags))
 		return 0;
@@ -219,7 +219,7 @@ static int hci_usb_flush(struct hci_dev *hdev)
 {
 	struct hci_usb *husb = (struct hci_usb *) hdev->driver_data;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	skb_queue_purge(&husb->cmd_q);
 	skb_queue_purge(&husb->acl_q);
@@ -231,7 +231,7 @@ static inline void hci_usb_unlink_urbs(struct hci_usb *husb)
 	struct sk_buff *skb;
 	purb_t urb;
 
-	DBG("%s", husb->hdev.name);
+	BT_DBG("%s", husb->hdev.name);
 
 	while ((skb = skb_dequeue(&husb->pending_q))) {
 		urb = ((struct hci_usb_scb *) skb->cb)->urb;
@@ -252,7 +252,7 @@ static int hci_usb_close(struct hci_dev *hdev)
 	if (!test_and_clear_bit(HCI_RUNNING, &hdev->flags))
 		return 0;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	write_lock_irqsave(&husb->completion_lock, flags);
 	
@@ -290,14 +290,14 @@ static inline int hci_usb_send_ctrl(struct hci_usb *husb, struct sk_buff *skb)
 	FILL_CONTROL_URB(urb, husb->udev, pipe, (void *) dr,
 			skb->data, skb->len, hci_usb_tx_complete, skb);
 
-	DBG("%s urb %p len %d", husb->hdev.name, urb, skb->len);
+	BT_DBG("%s urb %p len %d", husb->hdev.name, urb, skb->len);
 
 	scb->urb = urb;
 
 	skb_queue_tail(&husb->pending_q, skb);
 	err = usb_submit_urb(urb);
 	if (err) {
-		ERR("%s ctrl tx submit failed urb %p err %d", 
+		BT_ERR("%s ctrl tx submit failed urb %p err %d", 
 				husb->hdev.name, urb, err);
 		skb_unlink(skb);
 		usb_free_urb(urb); kfree(dr);
@@ -320,14 +320,14 @@ static inline int hci_usb_send_bulk(struct hci_usb *husb, struct sk_buff *skb)
 	              hci_usb_tx_complete, skb);
 	urb->transfer_flags = USB_QUEUE_BULK | USB_ZERO_PACKET;
 
-	DBG("%s urb %p len %d", husb->hdev.name, urb, skb->len);
+	BT_DBG("%s urb %p len %d", husb->hdev.name, urb, skb->len);
 
 	scb->urb = urb;
 
 	skb_queue_tail(&husb->pending_q, skb);
 	err = usb_submit_urb(urb);
 	if (err) {
-		ERR("%s bulk tx submit failed urb %p err %d", 
+		BT_ERR("%s bulk tx submit failed urb %p err %d", 
 				husb->hdev.name, urb, err);
 		skb_unlink(skb);
 		usb_free_urb(urb);
@@ -339,7 +339,7 @@ static void hci_usb_tx_process(struct hci_usb *husb)
 {
 	struct sk_buff *skb;
 
-	DBG("%s", husb->hdev.name);
+	BT_DBG("%s", husb->hdev.name);
 
 	do {
 		clear_bit(HCI_USB_TX_WAKEUP, &husb->state);
@@ -382,7 +382,7 @@ int hci_usb_send_frame(struct sk_buff *skb)
 	struct hci_usb *husb;
 
 	if (!hdev) {
-		ERR("frame for uknown device (hdev=NULL)");
+		BT_ERR("frame for uknown device (hdev=NULL)");
 		return -ENODEV;
 	}
 
@@ -391,7 +391,7 @@ int hci_usb_send_frame(struct sk_buff *skb)
 
 	husb = (struct hci_usb *) hdev->driver_data;
 
-	DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
+	BT_DBG("%s type %d len %d", hdev->name, skb->pkt_type, skb->len);
 
 	read_lock(&husb->completion_lock);
 
@@ -427,13 +427,13 @@ static void hci_usb_interrupt(struct urb *urb)
 	int count = urb->actual_length;
 	int len = HCI_EVENT_HDR_SIZE;
 
-	DBG("%s urb %p count %d", husb->hdev.name, urb, count);
+	BT_DBG("%s urb %p count %d", husb->hdev.name, urb, count);
 
 	if (!test_bit(HCI_RUNNING, &husb->hdev.flags))
 		return;
 
 	if (urb->status || !count) {
-		DBG("%s intr status %d, count %d", 
+		BT_DBG("%s intr status %d, count %d", 
 				husb->hdev.name, urb->status, count);
 		return;
 	}
@@ -455,7 +455,7 @@ static void hci_usb_interrupt(struct urb *urb)
 
 		skb = bluez_skb_alloc(len, GFP_ATOMIC);
 		if (!skb) {
-			ERR("%s no memory for event packet", husb->hdev.name);
+			BT_ERR("%s no memory for event packet", husb->hdev.name);
 			goto done;
 		}
 		scb = (void *) skb->cb;
@@ -490,7 +490,7 @@ done:
 	return;
 
 bad_len:
-	ERR("%s bad frame len %d expected %d", husb->hdev.name, count, len);
+	BT_ERR("%s bad frame len %d expected %d", husb->hdev.name, count, len);
 	husb->hdev.stat.err_rx++;
 	read_unlock(&husb->completion_lock);
 }
@@ -501,7 +501,7 @@ static void hci_usb_tx_complete(struct urb *urb)
 	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
 	struct hci_usb *husb = (struct hci_usb *) hdev->driver_data;
 
-	DBG("%s urb %p status %d flags %x", husb->hdev.name, urb,
+	BT_DBG("%s urb %p status %d flags %x", husb->hdev.name, urb,
 			urb->status, urb->transfer_flags);
 
 	if (urb->pipe == usb_sndctrlpipe(husb->udev, 0)) {
@@ -536,7 +536,7 @@ static void hci_usb_rx_complete(struct urb *urb)
 	hci_acl_hdr *ah;
 	int dlen, size;
 
-	DBG("%s urb %p status %d count %d flags %x", husb->hdev.name, urb,
+	BT_DBG("%s urb %p status %d count %d flags %x", husb->hdev.name, urb,
 			urb->status, count, urb->transfer_flags);
 
 	if (!test_bit(HCI_RUNNING, &hdev->flags))
@@ -555,7 +555,7 @@ static void hci_usb_rx_complete(struct urb *urb)
 
 	/* Verify frame len and completeness */
 	if (count != size) {
-		ERR("%s corrupted ACL packet: count %d, dlen %d",
+		BT_ERR("%s corrupted ACL packet: count %d, dlen %d",
 				husb->hdev.name, count, dlen);
 		bluez_dump("hci_usb", skb->data, count);
 		husb->hdev.stat.err_rx++;
@@ -574,7 +574,7 @@ static void hci_usb_rx_complete(struct urb *urb)
 resubmit:
 	urb->dev = husb->udev;
 	status   = usb_submit_urb(urb);
-	DBG("%s URB resubmit status %d", husb->hdev.name, status);
+	BT_DBG("%s URB resubmit status %d", husb->hdev.name, status);
 	read_unlock(&husb->completion_lock);
 }
 
@@ -584,7 +584,7 @@ static void hci_usb_destruct(struct hci_dev *hdev)
 
 	if (!hdev) return;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	husb = (struct hci_usb *) hdev->driver_data;
 	kfree(husb);
@@ -608,7 +608,7 @@ static int hci_usb_fw_exec(void *dev)
 
 	err = exec_usermodehelper(FW_LOADER, argv, envp);
 	if (err)
-		ERR("failed to exec %s %s", FW_LOADER, (char *)dev);
+		BT_ERR("failed to exec %s %s", FW_LOADER, (char *)dev);
 	return err;
 }
 
@@ -621,7 +621,7 @@ static int hci_usb_fw_load(struct usb_device *udev)
 
 	/* Check if root fs is mounted */
 	if (!current->fs->root) {
-		ERR("root fs not mounted");
+		BT_ERR("root fs not mounted");
 		return -EPERM;
 	}
 
@@ -629,7 +629,7 @@ static int hci_usb_fw_load(struct usb_device *udev)
 
 	pid = kernel_thread(hci_usb_fw_exec, (void *)dev, 0);
 	if (pid < 0) {
-		ERR("fork failed, errno %d\n", -pid);
+		BT_ERR("fork failed, errno %d\n", -pid);
 		return pid;
 	}
 
@@ -649,7 +649,7 @@ static int hci_usb_fw_load(struct usb_device *udev)
 	spin_unlock_irq(&current->sigmask_lock);
 
 	if (result != pid) {
-		ERR("waitpid failed pid %d errno %d\n", pid, -result);
+		BT_ERR("waitpid failed pid %d errno %d\n", pid, -result);
 		return -result;
 	}
 	return 0;
@@ -671,7 +671,7 @@ static void * hci_usb_probe(struct usb_device *udev, unsigned int ifnum, const s
 	struct hci_dev *hdev;
 	int i, a, e, size, ifn, isoc_ifnum, isoc_alts;
 
-	DBG("udev %p ifnum %d", udev, ifnum);
+	BT_DBG("udev %p ifnum %d", udev, ifnum);
 
 	/* Check number of endpoints */
 	if (udev->actconfig->interface[ifnum].altsetting[0].bNumEndpoints < 3)
@@ -736,17 +736,17 @@ static void * hci_usb_probe(struct usb_device *udev, unsigned int ifnum, const s
 	}
 
 	if (!bulk_in_ep[0] || !bulk_out_ep[0] || !intr_in_ep[0]) {
-		DBG("Bulk endpoints not found");
+		BT_DBG("Bulk endpoints not found");
 		goto done;
 	}
 
 	if (!isoc_in_ep[1] || !isoc_out_ep[1]) {
-		DBG("Isoc endpoints not found");
+		BT_DBG("Isoc endpoints not found");
 		isoc_iface = NULL;
 	}
 
 	if (!(husb = kmalloc(sizeof(struct hci_usb), GFP_KERNEL))) {
-		ERR("Can't allocate: control structure");
+		BT_ERR("Can't allocate: control structure");
 		goto done;
 	}
 
@@ -761,7 +761,7 @@ static void * hci_usb_probe(struct usb_device *udev, unsigned int ifnum, const s
 
 	if (isoc_iface) {
 		if (usb_set_interface(udev, isoc_ifnum, isoc_alts)) {
-			ERR("Can't set isoc interface settings");
+			BT_ERR("Can't set isoc interface settings");
 			isoc_iface = NULL;
 		}
 		usb_driver_claim_interface(&hci_usb_driver, isoc_iface, husb);
@@ -791,7 +791,7 @@ static void * hci_usb_probe(struct usb_device *udev, unsigned int ifnum, const s
 	hdev->destruct = hci_usb_destruct;
 
 	if (hci_register_dev(hdev) < 0) {
-		ERR("Can't register HCI device");
+		BT_ERR("Can't register HCI device");
 		goto probe_error;
 	}
 
@@ -813,7 +813,7 @@ static void hci_usb_disconnect(struct usb_device *udev, void *ptr)
 	if (!husb)
 		return;
 
-	DBG("%s", hdev->name);
+	BT_DBG("%s", hdev->name);
 
 	hci_usb_close(hdev);
 
@@ -821,7 +821,7 @@ static void hci_usb_disconnect(struct usb_device *udev, void *ptr)
 		usb_driver_release_interface(&hci_usb_driver, husb->isoc_iface);
 
 	if (hci_unregister_dev(hdev) < 0)
-		ERR("Can't unregister HCI device %s", hdev->name);
+		BT_ERR("Can't unregister HCI device %s", hdev->name);
 }
 
 static struct usb_driver hci_usb_driver = {
@@ -835,12 +835,12 @@ int hci_usb_init(void)
 {
 	int err;
 
-	INF("BlueZ HCI USB driver ver %s Copyright (C) 2000,2001 Qualcomm Inc",  
+	BT_INFO("BlueZ HCI USB driver ver %s Copyright (C) 2000,2001 Qualcomm Inc",  
 		VERSION);
-	INF("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
+	BT_INFO("Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>");
 
 	if ((err = usb_register(&hci_usb_driver)) < 0)
-		ERR("Failed to register HCI USB driver");
+		BT_ERR("Failed to register HCI USB driver");
 
 	return err;
 }

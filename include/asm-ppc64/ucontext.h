@@ -1,6 +1,8 @@
 #ifndef _ASMPPC64_UCONTEXT_H
 #define _ASMPPC64_UCONTEXT_H
 
+#include <asm/sigcontext.h>
+
 /* Copied from i386. 
  *
  * This program is free software; you can redistribute it and/or
@@ -16,19 +18,5 @@ struct ucontext {
 	struct sigcontext_struct uc_mcontext;
 	sigset_t	  uc_sigmask;	/* mask last for extensibility */
 };
-
-#ifdef __KERNEL__
-
-
-struct ucontext32 { 
-	unsigned int	  uc_flags;
-	unsigned int 	  uc_link;
-	stack_32_t	  uc_stack;
-	struct sigcontext32_struct uc_mcontext;
-	sigset_t	  uc_sigmask;	/* mask last for extensibility */
-};
-
-#endif /* __KERNEL__ */
-
 
 #endif /* _ASMPPC64_UCONTEXT_H */

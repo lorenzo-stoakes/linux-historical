@@ -31,7 +31,7 @@
 
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
-#include <asm/Naca.h>
+#include <asm/naca.h>
 
 #define STRICT_MM_TYPECHECKS
 
@@ -42,6 +42,7 @@
 #define REGION_MASK   (((1UL<<REGION_SIZE)-1UL)<<REGION_SHIFT)
 #define REGION_STRIDE (1UL << REGION_SHIFT)
 
+#ifdef ___powerpc64__
 typedef union ppc64_va {
         struct {
                 unsigned long off : OFFSET_SIZE;  /* intra-region offset */
@@ -50,6 +51,7 @@ typedef union ppc64_va {
         unsigned long l;
         void *p;
 } ppc64_va;
+#endif /* ___powerpc64__ */
        
 static __inline__ void clear_page(void *addr)
 {
@@ -130,6 +132,13 @@ extern void xmon(struct pt_regs *excp);
 
 #define PAGE_BUG(page) do { BUG(); } while (0)
 
+/*
+ * XXX A bug in the current ppc64 compiler prevents an optimisation
+ * where a divide is replaced by a multiply by shifted inverse. For
+ * the moment use page->virtaul
+ */
+#define WANT_PAGE_VIRTUAL 1
+
 /* Pure 2^n version of get_order */
 extern __inline__ int get_order(unsigned long size)
 {
@@ -179,10 +188,12 @@ extern __inline__ int get_order(unsigned long size)
 #define KERNELBASE      PAGE_OFFSET
 #define VMALLOCBASE     0xD000000000000000
 #define IOREGIONBASE    0xE000000000000000
+#define BOLTEDBASE      0xB000000000000000
 
 #define IO_REGION_ID       (IOREGIONBASE>>REGION_SHIFT)
 #define VMALLOC_REGION_ID  (VMALLOCBASE>>REGION_SHIFT)
 #define KERNEL_REGION_ID   (KERNELBASE>>REGION_SHIFT)
+#define BOLTED_REGION_ID   (BOLTEDBASE>>REGION_SHIFT)
 #define USER_REGION_ID     (0UL)
 #define REGION_ID(X)	   (((unsigned long)(X))>>REGION_SHIFT)
 
@@ -193,7 +204,7 @@ extern __inline__ int get_order(unsigned long size)
 #define INVALID_EA_BITS (~(REGION_MASK|VALID_EA_BITS))
 
 #define IS_VALID_REGION_ID(x) \
-        (((x) == USER_REGION_ID) || ((x) >= KERNEL_REGION_ID))
+        (((x) == USER_REGION_ID) || ((x) >= BOLTED_REGION_ID))
 #define IS_VALID_EA(x) \
         ((!((x) & INVALID_EA_BITS)) && IS_VALID_REGION_ID(REGION_ID(x)))
 
@@ -220,6 +231,9 @@ extern __inline__ int get_order(unsigned long size)
 #define VALID_PAGE(page)    ((page - mem_map) < max_mapnr)
 
 #define MAP_NR(addr)        (__pa(addr) >> PAGE_SHIFT)
+
+#define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
+				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
 #endif /* __KERNEL__ */
 #endif /* _PPC64_PAGE_H */

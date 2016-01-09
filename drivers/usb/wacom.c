@@ -191,10 +191,6 @@ static void wacom_graphire_irq(struct urb *urb)
 	x = data[2] | ((__u32)data[3] << 8);
 	y = data[4] | ((__u32)data[5] << 8);
 
-	/* exponential smoothing to eliminate jitter */
-	x = (wacom->x * 2 + x) / 3;
-	y = (wacom->y * 2 + y) / 3;
-	
 	switch ((data[1] >> 5) & 3) {
 
 		case 0:	/* Pen */
@@ -292,10 +288,6 @@ static void wacom_intuos_irq(struct urb *urb)
 	x = ((__u32)data[2] << 8) | data[3];
 	y = ((__u32)data[4] << 8) | data[5];
 	
-	/* exponential smoothing to eliminate jitter */
-	wacom->x = (wacom->x * 2 + x) / 3;
-	wacom->y = (wacom->y * 2 + y) / 3;
-
 	input_report_abs(dev, ABS_X, wacom->x);
 	input_report_abs(dev, ABS_Y, wacom->y);
 	input_report_abs(dev, ABS_DISTANCE, data[9] >> 4);

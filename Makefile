@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 4
 SUBLEVEL = 19
-EXTRAVERSION = -pre7
+EXTRAVERSION = -pre8
 
 KERNELRELEASE=$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
@@ -363,9 +363,9 @@ fs lib mm ipc kernel drivers net: dummy
 	$(MAKE) CFLAGS="$(CFLAGS) $(CFLAGS_KERNEL)" $(subst $@, _dir_$@, $@)
 
 TAGS: dummy
-	etags `find include/asm-$(ARCH) -name '*.h'`
-	find include -type d \( -name "asm-*" -o -name config \) -prune -o -name '*.h' -print | xargs etags -a
-	find $(SUBDIRS) init -name '*.[ch]' | xargs etags -a
+	{ find include/asm-${ARCH} -name '*.h' -print ; \
+	find include -type d \( -name "asm-*" -o -name config \) -prune -o -name '*.h' -print ; \
+	find $(SUBDIRS) init -name '*.[ch]' ; } | grep -v SCCS | etags -
 
 # Exuberant ctags works better with -I
 tags: dummy

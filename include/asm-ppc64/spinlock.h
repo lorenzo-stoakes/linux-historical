@@ -67,7 +67,7 @@ static __inline__ void spin_lock(spinlock_t *lock)
 
 static __inline__ void spin_unlock(spinlock_t *lock)
 {
-	__asm__ __volatile__("eieio	# spin_unlock": : :"memory");
+	__asm__ __volatile__("lwsync	# spin_unlock": : :"memory");
 	lock->lock = 0;
 }
 
@@ -137,7 +137,7 @@ static __inline__ void read_unlock(rwlock_t *rw)
 	unsigned int tmp;
 
 	__asm__ __volatile__(
-	"eieio				# read_unlock\n\
+	"lwsync				# read_unlock\n\
 1:	lwarx		%0,0,%1\n\
 	addic		%0,%0,-1\n\
 	stwcx.		%0,0,%1\n\
@@ -192,7 +192,7 @@ static __inline__ void write_lock(rwlock_t *rw)
 
 static __inline__ void write_unlock(rwlock_t *rw)
 {
-	__asm__ __volatile__("eieio		# write_unlock": : :"memory");
+	__asm__ __volatile__("lwsync		# write_unlock": : :"memory");
 	rw->lock = 0;
 }
 
