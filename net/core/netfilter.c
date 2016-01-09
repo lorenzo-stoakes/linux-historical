@@ -126,9 +126,10 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg)
 	down(&nf_sockopt_mutex);
 	if (reg->use != 0) {
 		/* To be woken by nf_sockopt call... */
+		/* FIXME: Stuart Young's name appears gratuitously. */
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		reg->cleanup_task = current;
 		up(&nf_sockopt_mutex);
-		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 		goto restart;
 	}

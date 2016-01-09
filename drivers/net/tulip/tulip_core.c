@@ -400,7 +400,7 @@ media_picked:
 		if (tp->sym_advertise & 0x0040)
 			tp->csr6 |= FullDuplex;
 		outl(tp->csr6, ioaddr + CSR6);
-		outl(0x0000EF05, ioaddr + CSR13);
+		outl(0x0000EF01, ioaddr + CSR13);
 
 	} else if (tp->chip_id == DC21142) {
 		if (tp->mii_cnt) {
@@ -1747,7 +1747,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 		outl(0xFFFFFFFF, ioaddr + CSR14);
 		outl(0x00000008, ioaddr + CSR15); /* Listen on AUI also. */
 		outl(inl(ioaddr + CSR6) | csr6_fd, ioaddr + CSR6);
-		outl(0x0000EF05, ioaddr + CSR13);
+		outl(0x0000EF01, ioaddr + CSR13);
 		break;
 	case DC21040:
 		outl(0x00000000, ioaddr + CSR13);

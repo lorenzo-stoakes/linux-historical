@@ -8,10 +8,6 @@
 	* tulip_core.c (tulip_up, tulip_init_one):
 	More places to revert PHY autoconfiguration bit removal.
 
-2001-12-18  Jeff Garzik  <jgarzik@mandrakesoft.com>
-
-	* tulip.h: revert PHY autoconfiguration bit removal
-
 2001-12-16  Andrew Lambeth  <wal@vmware.com>
 
 	* tulip_core.c (tulip_start_xmit): Use the more-portable

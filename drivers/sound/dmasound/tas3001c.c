@@ -67,8 +67,8 @@
 
 static struct i2c_client * tumbler_client = NULL;
 
-static int tumbler_enter_sleep(void);
-static int tumbler_leave_sleep(void);
+int tumbler_enter_sleep(void);
+int tumbler_leave_sleep(void);
 
 static int tas_attach_adapter(struct i2c_adapter *adapter);
 static int tas_detect_client(struct i2c_adapter *adapter, int address);
@@ -298,7 +298,7 @@ tumbler_set_volume(uint left_vol, uint right_vol)
 	return 0;
 }
 
-static int
+int
 tumbler_leave_sleep(void)
 {
 	/* Stub for now, but I have the details on low-power mode */
@@ -308,7 +308,7 @@ tumbler_leave_sleep(void)
 	return 0;
 }
 
-static int
+int
 tumbler_enter_sleep(void)
 {
 	/* Stub for now, but I have the details on low-power mode */
