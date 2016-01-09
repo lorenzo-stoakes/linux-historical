@@ -1058,7 +1058,8 @@ again:
 		if (!nr_frags)
 			break;
 
-		buf = pci_map_single_high(dev->pci_dev, frag->page, 0,
+		buf = pci_map_single_high(dev->pci_dev, frag->page,
+					  frag->page_offset,
 					  frag->size, PCI_DMA_TODEVICE);
 		dprintk("frag: buf=%08Lx  page=%08lx\n",
 			(long long)buf, (long)(frag->page - mem_map));

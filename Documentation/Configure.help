@@ -2,7 +2,7 @@
 #	Eric S. Raymond <mailto:esr@thyrsus.com>
 #	Steven Cole <mailto:elenstev@mesatop.com>
 #
-# Merged version 2.67: current with 2.4.17-pre5/2.5.1-pre6.
+# Merged version 2.69: current with 2.4.17-pre8/2.5.1-pre10.
 #
 # This version of the Linux kernel configuration help texts
 # corresponds to kernel versions 2.4.x and 2.5.x.
@@ -69,7 +69,7 @@
 # Explain why someone configuring a kernel might want to select your
 # option.
 #
-# All this was shamelessly stolen from several different sources. Many
+# All this was shamelessly stolen from numerous different sources. Many
 # thanks to all the contributors. Feel free to use these help texts in
 # your own kernel configuration tools. The texts are copyrighted (c)
 # 1995-2000 by Axel Boldt and many others and are governed by the GNU
@@ -886,7 +886,7 @@ CONFIG_IDEDMA_PCI_AUTO
 
 IGNORE word93 Validation BITS
 CONFIG_IDEDMA_IVB
-  There are unclear terms is ATA-4 and ATA-5 standards how certain
+  There are unclear terms in ATA-4 and ATA-5 standards how certain
   hardware (an 80c ribbon) should be detected. Different interpretations
   of the standards have been released in hardware. This causes problems:
   for example, a host with Ultra Mode 4 (or higher) will not run
@@ -11067,17 +11067,6 @@ CONFIG_VIA_RHINE_MMIO
 
   If unsure, say N.
 
-VIA Rhine MMIO support (EXPERIMENTAL)
-CONFIG_VIA_RHINE_MMIO
-  This instructs the driver to use PCI shared memory (MMIO) instead of
-  programmed I/O ports (PIO). Enabling this gives an improvement in
-  processing time in parts of the driver.
-
-  It is not known if this works reliably on all "rhine" based cards,
-  but it has been tested successfully on some DFE-530TX adapters.
-
-  If unsure, say N.
-
 Davicom DM910x/DM980x support
 CONFIG_DM9102
   This driver is for DM9102(A)/DM9132/DM9801 compatible PCI cards from
@@ -12491,6 +12480,8 @@ CONFIG_MTD_BLKMTD
 Cirrus CDB89712 evaluation board mappings
 CONFIG_MTD_CDB89712
   This enables access to the flash or ROM chips on the CDB89712 board.
+  (This board has 8 MB of Intel Strataflash, a 128 byte boot ROM, and 48 KB of
+  internal SRAM.  This driver provides MTD devices for all three components.)
   If you have such a board, say 'Y'.
 
 Detect non-CFI AMD/JEDEC-compatible flash chips
@@ -13878,7 +13869,7 @@ CONFIG_EXT2_FS
 Ext3 journalling file system support (EXPERIMENTAL)
 CONFIG_EXT3_FS
   This is the journalling version of the Second extended file system
-  (often called ext2), the de facto standard Linux file system
+  (often called ext3), the de facto standard Linux file system
   (method to organize files on a storage device) for hard disks.
 
   The journalling code included in this driver means you do not have
@@ -17540,6 +17531,12 @@ CONFIG_60XX_WDT
  You can compile this driver directly into the kernel, or use
  it as a module.  The module will be called sbc60xxwdt.o.
 
+Eurotech CPU-1220/1410 Watchdog Timer
+CONFIG_EUROTECH_WDT
+  Enable support for the watchdog timer on the Eurotech CPU-1220 and 
+  CPU-1410 cards.  These are PC/104 SBCs. Spec sheets and product 
+  information are at <http://www.eurotech.it/>.
+
 Enhanced Real Time Clock Support
 CONFIG_RTC
   If you say Y here and create a character special file /dev/rtc with
@@ -19118,6 +19115,12 @@ HiSax Support for US NI1
 CONFIG_HISAX_NI1
   Enable this if you like to use ISDN in US on a NI1 basic rate
   interface.
+
+# 2.4 tree only
+Maximum number of cards supported by HiSax
+CONFIG_HISAX_MAX_CARDS
+  This is used to allocate a driver-internal structure array with one
+  entry for each HiSax card on your system.
 
 Teles 16.0/8.0
 CONFIG_HISAX_16_0
@@ -21944,6 +21947,20 @@ CONFIG_ARCH_PERSONAL_SERVER
   If you have any questions or comments about the  Compaq Personal
   Server, send e-mail to skiff@crl.dec.com.
 
+Cirrus Logic EDB-7211 evaluation board
+CONFIG_ARCH_EDB7211
+  Say Y here if you intend to run this kernel on a Cirrus Logic EDB-7211
+  evaluation board.
+
+EP7211 infrared support
+CONFIG_EP7211_IR
+  Say Y here if you wish to use the infrared port on the EP7211. Note
+  that you can't use the first UART and the infrared port at the same
+  time, and that the EP7211 only supports SIR mode, at speeds up to
+  115.2 kbps. To use the I/R port, you will need to get the source to
+  irda-utils and apply the patch at
+  <http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel/2001-June/003510.html>.
+
 Assabet
 CONFIG_SA1100_ASSABET
   Say Y here if you are using the Intel(R) StrongARM(R) SA-1110
@@ -21979,7 +21996,35 @@ GraphicsClient
 CONFIG_SA1100_GRAPHICSCLIENT
   Say Y here if you are using an Applied Data Systems Intel(R)
   StrongARM(R) SA-1100 based Graphics Client SBC.  See
-  <http://www.flatpanels.com/> for information on this system.
+  <http://www.applieddata.net/> for information on this system.
+
+GraphicsMaster
+CONFIG_SA1100_GRAPHICSMASTER
+  Say Y here if you are using an Applied Data Systems Intel(R)
+  StrongARM(R) SA-1100 based Graphics Master SBC with SA-1111
+  StrongARM companion chip.  See
+  <http://www.applieddata.net/products_masterSpec.asp> for information
+  on this system.
+
+ADSBitsy
+CONFIG_SA1100_ADSBITSY
+  Say Y here if you are using Applied Data Systems Intel(R)
+  StrongARM(R) 1110 based Bitsy, 3 x 5 inches in size, Compaq - IPAQ -
+  like platform. See
+  <http://www.applieddata.net/products_bitsySpec.asp> for more
+  information.
+
+ITSY
+CONFIG_SA1100_ITSY
+  Say Y here if you are using the Compaq Itsy experimental pocket
+  computer. See <http://research.compaq.com/wrl/projects/itsy/> for
+  more information.
+
+PLEB
+CONFIG_SA1100_PLEB
+  Say Y here if you are using a Portable Linux Embedded Board
+  (also known as PLEB). See <http://www.cse.unsw.edu.au/~pleb/>
+  for more information.
 
 CerfBoard
 CONFIG_SA1100_CERF
@@ -22106,6 +22151,50 @@ CONFIG_CPU_SA110
 
   Say Y if you want support for the SA-110 processor.
   Otherwise, say N.
+
+Tulsa
+CONFIG_SA1100_PFS168
+  The Radisys Corp. PFS-168 (aka Tulsa) is an Intel® StrongArm® SA-1110 based
+  computer which includes the SA-1111 Microprocessor Companion Chip and other
+  custom I/O designed to add connectivity and multimedia features for vending
+  and business machine applications. Say Y here if you require support for
+  this target.
+
+HP Jornada 720
+CONFIG_SA1100_JORNADA720
+  Say Y here if you want to build a kernel for the HP Jornada 720
+  handheld computer.  See <http://www.hp.com/jornada/products/720>
+  for details.
+
+InHand Electronics OmniMeter
+CONFIG_SA1100_OMNIMETER
+  Say Y here if you are using the inhand electronics OmniMeter.  See
+  <http://www.inhandelectronics.com/html/omni1.html> for details.
+
+Load kernel using Angel Debug Monitor
+CONFIG_ANGELBOOT
+  Say Y if you plan to load the kernel using Angel, ARM Ltd's target
+  debug stub.  If you are not using Angel, you must say N.  It is
+  important to get this setting correct.
+
+CDB89712
+CONFIG_ARCH_CDB89712
+  This is an evaluation board from Cirrus for the CS89712 processor.  The
+  board includes 2 serial ports, Ethernet, IRDA, and expansion headers.
+  It comes with 16 MB SDRAM and 8 MB flash ROM.
+
+CLPS-711X internal ROM bootstrap
+CONFIG_EP72XX_ROM_BOOT
+  If you say Y here, your CLPS711x-based kernel will use the bootstrap
+  mode memory map instead of the normal memory map.
+
+  Processors derived from the Cirrus CLPS-711X core support two boot modes.
+  Normal mode boots from the external memory device at CS0.  Bootstrap mode
+  rearranges parts of the memory map, placing an internal 128 byte bootstrap
+  ROM at CS0.  This option performs the address map changes required to
+  support booting in this mode.
+
+  You almost surely want to say N here.
 
 Math emulation
 CONFIG_FPE_NWFPE
@@ -22530,6 +22619,27 @@ CONFIG_USB_IRDA
 
   Please note that the driver is still experimental.  And of course,
   you will need both USB and IrDA support in your kernel...
+
+Datafab MDCFE-B Compact Flash Reader support
+CONFIG_USB_STORAGE_DATAFAB
+  This option enables a sub-driver of the USB Mass Storage driver.  These
+  sub-drivers are considered experimental, and should only be used by very
+  brave people.  System crashes and other bad things are likely to occur if
+  you use this driver.  If in doubt, select N.
+
+HP CD-Writer 82xx support
+CONFIG_USB_STORAGE_HP8200e
+  This option enables a sub-driver of the USB Mass Storage driver.  These
+  sub-drivers are considered experimental, and should only be used by very
+  brave people.  System crashes and other bad things are likely to occur if
+  you use this driver.  If in doubt, select N.
+
+Lexar Jumpshot Compact Flash Reader
+CONFIG_USB_STORAGE_JUMPSHOT       
+  This option enables a sub-driver of the USB Mass Storage driver.  These
+  sub-drivers are considered experimental, and should only be used by very
+  brave people.  System crashes and other bad things are likely to occur if
+  you use this driver.  If in doubt, select N.
 
 Winbond W83977AF IrDA Device Driver
 CONFIG_WINBOND_FIR

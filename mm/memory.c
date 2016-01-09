@@ -1114,6 +1114,8 @@ static int do_swap_page(struct mm_struct * mm,
 		ret = 2;
 	}
 
+	mark_page_accessed(page);
+
 	lock_page(page);
 
 	/*
@@ -1184,6 +1186,7 @@ static int do_anonymous_page(struct mm_struct * mm, struct vm_area_struct * vma,
 		flush_page_to_ram(page);
 		entry = pte_mkwrite(pte_mkdirty(mk_pte(page, vma->vm_page_prot)));
 		lru_cache_add(page);
+		mark_page_accessed(page);
 	}
 
 	set_pte(page_table, entry);
@@ -1231,8 +1234,10 @@ static int do_no_page(struct mm_struct * mm, struct vm_area_struct * vma,
 	 */
 	if (write_access && !(vma->vm_flags & VM_SHARED)) {
 		struct page * page = alloc_page(GFP_HIGHUSER);
-		if (!page)
+		if (!page) {
+			page_cache_release(new_page);
 			return -1;
+		}
 		copy_user_highpage(page, new_page, address);
 		page_cache_release(new_page);
 		lru_cache_add(page);

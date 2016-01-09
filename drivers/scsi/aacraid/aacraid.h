@@ -1,4 +1,4 @@
-#define dprintk(x)	printk x
+#define dprintk(x)
 
 #define AAC_NUM_FIB	128
 #define AAC_NUM_IO_FIB	116

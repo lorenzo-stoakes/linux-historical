@@ -329,6 +329,7 @@ struct block_device *bdget(dev_t dev)
 			inode->i_bdev = new_bdev;
 			inode->i_data.a_ops = &def_blk_aops;
 			inode->i_data.gfp_mask = GFP_USER;
+			inode->i_mode = S_IFBLK;
 			spin_lock(&bdev_lock);
 			bdev = bdfind(dev, head);
 			if (!bdev) {

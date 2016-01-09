@@ -100,6 +100,7 @@
 #include <linux/tqueue.h>
 #include <linux/bootmem.h>
 #include <linux/pm.h>
+#include <linux/smp_lock.h>
 
 #include <asm/io.h>
 #include <asm/system.h>
@@ -2348,17 +2349,25 @@ static void con_start(struct tty_struct *tty)
 	set_leds();
 }
 
+/*
+ * we can race here against con_close, so we grab the bkl
+ * and check the pointer before calling set_cursor
+ */
 static void con_flush_chars(struct tty_struct *tty)
 {
-	struct vt_struct *vt = (struct vt_struct *)tty->driver_data;
+	struct vt_struct *vt;
 
 	if (in_interrupt())	/* from flush_to_ldisc */
 		return;
 
 	pm_access(pm_con);
+	lock_kernel();
 	acquire_console_sem();
-	set_cursor(vt->vc_num);
+	vt = (struct vt_struct *)tty->driver_data;
+	if (vt)
+		set_cursor(vt->vc_num);
 	release_console_sem();
+	unlock_kernel();
 }
 
 /*
