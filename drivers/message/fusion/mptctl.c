@@ -34,7 +34,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptctl.c,v 1.58 2002/07/31 18:55:12 pdelaney Exp $
+ *  $Id: mptctl.c,v 1.59 2002/09/05 22:30:10 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -2330,7 +2330,7 @@ done_free_mem:
 			this_sge++;	/* go to next structure */
 			this_alloc = bufOut.len;
 			pci_free_consistent(ioc->pcidev,
-				this_alloc, (void *) &bufOut, dma_addr);
+				this_alloc, (void *)bufOut.kptr, dma_addr);
 		}
 
 		if (bufIn.kptr != NULL ) {
@@ -2338,7 +2338,7 @@ done_free_mem:
 			this_alloc = bufIn.len;
 
 			pci_free_consistent(ioc->pcidev,
-					this_alloc, (void *) &bufIn, dma_addr);
+					this_alloc, (void *)bufIn.kptr, dma_addr);
 		}
 
 		this_alloc = sgSize * sizeof(MptSge_t);

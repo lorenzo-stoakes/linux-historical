@@ -13,7 +13,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptbase.h,v 1.131 2002/07/31 18:55:11 pdelaney Exp $
+ *  $Id: mptbase.h,v 1.133 2002/09/05 22:30:09 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -80,8 +80,8 @@
 #define COPYRIGHT	"Copyright (c) 1999-2002 " MODULEAUTHOR
 #endif
 
-#define MPT_LINUX_VERSION_COMMON	"2.01.10"
-#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.01.10"
+#define MPT_LINUX_VERSION_COMMON	"2.02.01"
+#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.02.01"
 #define WHAT_MAGIC_STRING		"@" "(" "#" ")"
 
 #define show_mptmod_ver(s,ver)  \

@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.pmac_time.c 1.19 12/04/01 01:24:51 benh
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * Support for periodic interrupts (100 per second) and for getting
@@ -206,6 +206,8 @@ via_calibrate_decr(void)
 	printk(KERN_INFO "via_calibrate_decr: ticks per jiffy = %u (%u ticks)\n",
 	       tb_ticks_per_jiffy, dstart - dend);
 
+	iounmap(via);
+	
 	return 1;
 }
 

@@ -37,6 +37,7 @@
 #include <asm/time.h>
 #include <asm/open_pic.h>
 #include <asm/bootinfo.h>
+#include <asm/hardirq.h> /* for heartbeat */
 
 void gemini_find_bridges(void);
 static int gemini_get_clock_speed(void);
@@ -100,7 +101,7 @@ gemini_show_cpuinfo(struct seq_file *m)
 
 	reg = readb(GEMINI_BECO);
 
-	seq_printf(m, "machine\t\t: Gemini %s%d, rev %c, eco %d\n", 
+	seq_printf(m, "machine\t\t: Gemini %s%d, rev %c, eco %d\n",
 		   family, type, (rev + 'A'), (reg & 0xf));
 
 	seq_printf(m, "board\t\t: Gemini %s", family);
@@ -152,15 +153,19 @@ gemini_heartbeat(void)
 	static char direction = 8;
 
 	/* We only want to do this on 1 CPU */
-	if (smp_processor_id())
+	if (smp_processor_id()) {
+		static short ratelimit;
+		if (!ratelimit++)
+			printk(KERN_ERR "%s: unexpected heartbeat on cpu %d\n", 
+					__FUNCTION__, smp_processor_id());
 		return;
+	}
 	*(char *)led = 0;
 	if ( (led + direction) > (GEMINI_LEDBASE+(7*8)) ||
 	     (led + direction) < (GEMINI_LEDBASE+(4*8)) )
 		direction *= -1;
 	led += direction;
 	*(char *)led = 0xff;
-	ppc_md.heartbeat_count = ppc_md.heartbeat_reset;
 }
 
 void __init gemini_setup_arch(void)
@@ -184,8 +189,9 @@ void __init gemini_setup_arch(void)
 	printk("Boot arguments: %s\n", cmd_line);
 
 	ppc_md.heartbeat = gemini_heartbeat;
-	ppc_md.heartbeat_reset = HZ/8;
-	ppc_md.heartbeat_count = 1;
+	/* only run on cpu 0 */
+	heartbeat_reset(0) = HZ/8;
+	heartbeat_count(0) = 1;
 
 	/* Lookup PCI hosts */
 	gemini_find_bridges();

@@ -26,6 +26,7 @@
  */
 
 #include <linux/config.h>
+#include <linux/threads.h>
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
@@ -184,6 +185,17 @@ __after_mmu_off:
 	ori	r5,r5,0x0ccc
 	mtsr	12,r5
 #endif /* CONFIG_POWER4 */
+
+	/*
+	 * Call setup_cpu for CPU 0
+	 */
+	bl	reloc_offset
+	li	r24,0			/* cpu# */
+	bl	call_setup_cpu		/* Call setup_cpu for this CPU */
+#ifdef CONFIG_6xx
+	bl	reloc_offset
+	bl	init_idle_6xx
+#endif /* CONFIG_6xx */
 
 #ifndef CONFIG_APUS
 /*
@@ -772,6 +784,7 @@ transfer_to_handler:
 	SAVE_8GPRS(24, r21)
 	andi.	r23,r23,MSR_PR
 	mfspr	r23,SPRG3		/* if from user, fix up THREAD.regs */
+	addi	r2,r23,-THREAD		/* set r2 to current */
 	beq	2f
 	addi	r24,r1,STACK_FRAME_OVERHEAD
 	stw	r24,PT_REGS(r23)
@@ -781,7 +794,8 @@ BEGIN_FTR_SECTION
 	stw	r22,THREAD_VRSAVE(r23)
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 #endif /* CONFIG_ALTIVEC */
-2:	addi	r2,r23,-THREAD		/* set r2 to current */
+	.globl transfer_to_handler_cont
+transfer_to_handler_cont:
 	tovirt(r2,r2)
 	mflr	r23
 	andi.	r24,r23,0x3f00		/* get vector offset */
@@ -802,6 +816,23 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	mtlr	r23
 	SYNC
 	RFI				/* jump to handler, enable MMU */
+2:
+	/* Out of line case when returning to kernel,
+	 * check return from power_save_6xx
+	 */
+#ifdef CONFIG_6xx
+	
+	mfspr	r24,SPRN_HID0
+	mtcr	r24
+BEGIN_FTR_SECTION
+	bt-	8,power_save_6xx_restore	/* Check DOZE */
+END_FTR_SECTION_IFSET(CPU_FTR_CAN_DOZE)
+BEGIN_FTR_SECTION
+	bt-	9,power_save_6xx_restore	/* Check NAP */
+END_FTR_SECTION_IFSET(CPU_FTR_CAN_NAP)
+	b	transfer_to_handler_cont
+
+#endif /* CONFIG_6xx */
 
 /*
  * On kernel stack overflow, load up an initial stack pointer
@@ -1242,7 +1273,11 @@ __secondary_start:
 	mr	r4,r24
 	bl	identify_cpu
 	bl	call_setup_cpu		/* Call setup_cpu for this CPU */
-
+#ifdef CONFIG_6xx
+	lis	r3,-KERNELBASE@h
+	bl	init_idle_6xx
+#endif /* CONFIG_6xx */
+	
 	/* get current */
 	lis	r2,current_set@h
 	ori	r2,r2,current_set@l
@@ -1297,6 +1332,20 @@ _GLOBAL(__setup_cpu_750)
 	bl	setup_750_7400_hid0
 	mtlr	r4
 	blr
+_GLOBAL(__setup_cpu_750cx)
+	mflr	r4
+	bl	setup_common_caches
+	bl	setup_750_7400_hid0
+	bl	setup_750cx
+	mtlr	r4
+	blr
+_GLOBAL(__setup_cpu_750fx)
+	mflr	r4
+	bl	setup_common_caches
+	bl	setup_750_7400_hid0
+	bl	setup_750fx
+	mtlr	r4
+	blr
 _GLOBAL(__setup_cpu_7400)
 	mflr	r4
 	bl	setup_common_caches
@@ -1314,19 +1363,13 @@ _GLOBAL(__setup_cpu_7410)
 _GLOBAL(__setup_cpu_7450)
 	mflr	r4
 	bl	setup_common_caches
-	bl	setup_7450_hid0
-	mtlr	r4
-	blr
-_GLOBAL(__setup_cpu_7450_23)
-	mflr	r4
-	bl	setup_common_caches
-	bl	setup_7450_23_hid0
+	bl	setup_745x_specifics
 	mtlr	r4
 	blr
 _GLOBAL(__setup_cpu_7455)
 	mflr	r4
 	bl	setup_common_caches
-	bl	setup_7455_hid0
+	bl	setup_745x_specifics
 	mtlr	r4
 	blr
 _GLOBAL(__setup_cpu_power3)
@@ -1391,7 +1434,19 @@ setup_750_7400_hid0:
 	isync
 	blr
 
-/* 7450
+/* 750cx specific
+ * Looks like we have to disable NAP feature for some PLL settings...
+ * (waiting for confirmation)
+ */
+setup_750cx:
+	blr
+
+/* 750fx specific
+ */
+setup_750fx:
+	blr
+
+/* MPC 745x
  * Enable Store Gathering (SGE), Branch Folding (FOLD)
  * Branch History Table (BHTE), Branch Target ICache (BTIC)
  * Dynamic Power Management (DPM), Speculative (SPD)
@@ -1399,8 +1454,9 @@ setup_750_7400_hid0:
  * Timebase has to be running or we wouldn't have made it here,
  * just ensure we don't disable it.
  * Clear Instruction cache throttling (ICTC)
+ * Enable L2 HW prefetch
  */
-setup_7450_hid0:
+setup_745x_specifics:
 	/* We check for the presence of an L3 cache setup by
 	 * the firmware. If any, we disable NAP capability as
 	 * it's known to be bogus on rev 2.1 and earlier
@@ -1408,21 +1464,22 @@ setup_7450_hid0:
 	mfspr	r11,SPRN_L3CR
 	andis.	r11,r11,L3CR_L3E@h
 	beq	1f
-	li	r7,CPU_FTR_CAN_NAP
 	lwz	r6,CPU_SPEC_FEATURES(r5)
+	andi.	r0,r6,CPU_FTR_L3_DISABLE_NAP
+	beq	1f
+	li	r7,CPU_FTR_CAN_NAP
 	andc	r6,r6,r7
 	stw	r6,CPU_SPEC_FEATURES(r5)
 1:	
-setup_7450_23_hid0:
 	mfspr	r11,HID0
 
 	/* All of the bits we have to set.....
-	*/
+	 */
 	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE | HID0_BTIC | HID0_LRSTK
 	oris	r11,r11,HID0_DPM@h	/* enable dynamic power mgmt */
 
 	/* All of the bits we have to clear....
-	*/
+	 */
 	li	r3,HID0_SPD | HID0_NOPDST | HID0_NOPTI
 	andc	r11,r11,r3		/* clear SPD: enable speculative */
  	li	r3,0
@@ -1432,34 +1489,13 @@ setup_7450_23_hid0:
 	mtspr	HID0,r11
 	sync
 	isync
-	blr
 
-/* 7450
- * Enable Store Gathering (SGE), Branch Folding (FOLD)
- * Branch History Table (BHTE), Branch Target ICache (BTIC)
- * Dynamic Power Management (DPM), Speculative (SPD)
- * Ensure our data cache instructions really operate.
- * Timebase has to be running or we wouldn't have made it here,
- * just ensure we don't disable it.
- * Clear Instruction cache throttling (ICTC)
- */
-setup_7455_hid0:
-	mfspr	r11,HID0
-
-	/* All of the bits we have to set.....
-	*/
-	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE | HID0_BTIC | HID0_LRSTK
-	oris	r11,r11,HID0_DPM@h	/* enable dynamic power mgmt */
-
-	/* All of the bits we have to clear....
-	*/
-	li	r3,HID0_SPD | HID0_NOPDST | HID0_NOPTI
-	andc	r11,r11,r3		/* clear SPD: enable speculative */
- 	li	r3,0
-
- 	mtspr	ICTC,r3			/* Instruction Cache Throttling off */
-	isync
-	mtspr	HID0,r11
+	/* Enable L2 HW prefetch
+	 */
+	mfspr	r3,SPRN_MSSCR0
+	ori	r3,r3,3
+	sync
+	mtspr	SPRN_MSSCR0,r3
 	sync
 	isync
 	blr
@@ -1507,11 +1543,6 @@ load_up_mmu:
  * This is where the main kernel code starts.
  */
 start_here:
-	/* Call setup_cpu for CPU 0 */
-	li	r3,0		/* data offset */
-	li	r24,0		/* cpu# */
-	bl	call_setup_cpu
-
 	/* ptr to current */
 	lis	r2,init_task_union@h
 	ori	r2,r2,init_task_union@l
@@ -1625,7 +1656,7 @@ BEGIN_FTR_SECTION
 	DSSALL
 	sync
 END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
-3:
+3:	isync
 #ifdef CONFIG_PPC64BRIDGE
 	slbie	r4
 #endif /* CONFIG_PPC64BRIDGE */

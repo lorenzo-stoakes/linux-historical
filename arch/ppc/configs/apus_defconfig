@@ -32,6 +32,8 @@ CONFIG_6xx=y
 CONFIG_PPC_STD_MMU=y
 # CONFIG_ALL_PPC is not set
 CONFIG_APUS=y
+# CONFIG_SPRUCE is not set
+# CONFIG_PAL4 is not set
 # CONFIG_GEMINI is not set
 # CONFIG_SMP is not set
 # CONFIG_ALTIVEC is not set
@@ -840,6 +842,7 @@ CONFIG_DMASOUND=m
 # CONFIG_SOUND_ESSSOLO1 is not set
 # CONFIG_SOUND_MAESTRO is not set
 # CONFIG_SOUND_MAESTRO3 is not set
+# CONFIG_SOUND_FORTE is not set
 # CONFIG_SOUND_ICH is not set
 # CONFIG_SOUND_RME96XX is not set
 # CONFIG_SOUND_SONICVIBES is not set

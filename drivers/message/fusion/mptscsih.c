@@ -26,7 +26,7 @@
  *  (mailto:sjralston1@netscape.net)
  *  (mailto:Pam.Delaney@lsil.com)
  *
- *  $Id: mptscsih.c,v 1.100 2002/07/31 18:55:12 pdelaney Exp $
+ *  $Id: mptscsih.c,v 1.101 2002/09/05 22:30:11 pdelaney Exp $
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -4664,6 +4664,12 @@ int mpt_ScsiHost_ErrorReport(IO_Info_t *ioop)
 			return 0;
 		}
 	}
+	if (sk==SK_UNIT_ATTENTION) {
+		if (ioop->cdbPtr == NULL)
+			return 0;
+		else if (ioop->cdbPtr[0] == CMD_TestUnitReady)
+			return 0;
+	}
 
 	/*
 	 *  Protect ourselves...
@@ -4842,7 +4848,7 @@ void mptscsih_setTargetNegoParms(MPT_SCSI_HOST *hd, VirtDevice *target, char byt
 	/* Set flags based on Inquiry data
 	 */
 	if (target->tflags & MPT_TARGET_FLAGS_VALID_INQUIRY) {
-		version = target->inq_data[2] & 0x03;
+		version = target->inq_data[2] & 0x07;
 		if (version < 2) {
 			width = 0;
 			factor = MPT_ULTRA2;

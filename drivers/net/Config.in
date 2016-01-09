@@ -36,7 +36,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
 	 bool '    Use AAUI port instead of TP by default' CONFIG_MACE_AAUI_PORT
       fi
       dep_tristate '  BMAC (G3 ethernet) support' CONFIG_BMAC $CONFIG_ALL_PPC
-      dep_tristate '  GMAC (G4/iBook ethernet) support' CONFIG_GMAC $CONFIG_ALL_PPC
+      dep_tristate '  GMAC (G4/iBook ethernet) support (OBSOLETE, use Sun GEM)' CONFIG_GMAC $CONFIG_ALL_PPC
       if [ "$CONFIG_4xx" = "y" ]; then
          if [ "$CONFIG_STB03xxx" = "y" -o "$CONFIG_403GCX" = "y" ]; then
 	    tristate '  National DP83902AV (Oak ethernet) support' CONFIG_OAKNET
@@ -82,7 +82,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    dep_tristate '  Sun BigMAC 10/100baseT support (EXPERIMENTAL)' CONFIG_SUNBMAC $CONFIG_SBUS $CONFIG_EXPERIMENTAL
    dep_tristate '  Sun QuadEthernet support' CONFIG_SUNQE $CONFIG_SBUS
-   dep_tristate '  Sun GEM support' CONFIG_SUNGEM $CONFIG_PCI
+   dep_tristate '  Sun GEM & Apple GMAC support' CONFIG_SUNGEM $CONFIG_PCI
    bool '  3COM cards' CONFIG_NET_VENDOR_3COM
    if [ "$CONFIG_NET_VENDOR_3COM" = "y" ]; then
       dep_tristate '    3c501 "EtherLink" support' CONFIG_EL1 $CONFIG_ISA

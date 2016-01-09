@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: file.c,v 1.58.2.1 2002/02/23 14:25:36 dwmw2 Exp $
+ * $Id: file.c,v 1.58.2.3 2002/10/07 12:25:55 dwmw2 Exp $
  *
  */
 
@@ -315,18 +315,18 @@ int jffs2_do_readpage_unlock(struct inode *inode, struct page *pg)
 
 int jffs2_readpage (struct file *filp, struct page *pg)
 {
-	struct jffs2_inode_info *f = JFFS2_INODE_INFO(filp->f_dentry->d_inode);
+	struct jffs2_inode_info *f = JFFS2_INODE_INFO(pg->mapping->host);
 	int ret;
 	
 	down(&f->sem);
-	ret = jffs2_do_readpage_unlock(filp->f_dentry->d_inode, pg);
+	ret = jffs2_do_readpage_unlock(pg->mapping->host, pg);
 	up(&f->sem);
 	return ret;
 }
 
 int jffs2_prepare_write (struct file *filp, struct page *pg, unsigned start, unsigned end)
 {
-	struct inode *inode = filp->f_dentry->d_inode;
+	struct inode *inode = pg->mapping->host;
 	struct jffs2_inode_info *f = JFFS2_INODE_INFO(inode);
 	__u32 pageofs = pg->index << PAGE_CACHE_SHIFT;
 	int ret = 0;
@@ -394,10 +394,10 @@ int jffs2_prepare_write (struct file *filp, struct page *pg, unsigned start, uns
 	}
 	
 
-	/* Read in the page if it wasn't already present */
-	if (!Page_Uptodate(pg) && (start || end < PAGE_SIZE))
+	/* Read in the page if it wasn't already present, unless it's a whole page */
+	if (!Page_Uptodate(pg) && (start || end < PAGE_CACHE_SIZE))
 		ret = jffs2_do_readpage_nolock(inode, pg);
-	D1(printk(KERN_DEBUG "end prepare_write(). nrpages %ld\n", inode->i_mapping->nrpages));
+	D1(printk(KERN_DEBUG "end prepare_write(). pg->flags %lx\n", pg->flags));
 	up(&f->sem);
 	return ret;
 }
@@ -407,7 +407,7 @@ int jffs2_commit_write (struct file *filp, struct page *pg, unsigned start, unsi
 	/* Actually commit the write from the page cache page we're looking at.
 	 * For now, we write the full page out each time. It sucks, but it's simple
 	 */
-	struct inode *inode = filp->f_dentry->d_inode;
+	struct inode *inode = pg->mapping->host;
 	struct jffs2_inode_info *f = JFFS2_INODE_INFO(inode);
 	struct jffs2_sb_info *c = JFFS2_SB_INFO(inode->i_sb);
 	__u32 newsize = max_t(__u32, filp->f_dentry->d_inode->i_size, (pg->index << PAGE_CACHE_SHIFT) + end);
@@ -417,7 +417,15 @@ int jffs2_commit_write (struct file *filp, struct page *pg, unsigned start, unsi
 	int ret = 0;
 	ssize_t writtenlen = 0;
 
-	D1(printk(KERN_DEBUG "jffs2_commit_write(): ino #%lu, page at 0x%lx, range %d-%d, nrpages %ld\n", inode->i_ino, pg->index << PAGE_CACHE_SHIFT, start, end, filp->f_dentry->d_inode->i_mapping->nrpages));
+	D1(printk(KERN_DEBUG "jffs2_commit_write(): ino #%lu, page at 0x%lx, range %d-%d, flags %lx\n", inode->i_ino, pg->index << PAGE_CACHE_SHIFT, start, end, pg->flags));
+
+	if (!start && end == PAGE_CACHE_SIZE) {
+		/* We need to avoid deadlock with page_cache_read() in
+		   jffs2_garbage_collect_pass(). So we have to mark the
+		   page up to date, to prevent page_cache_read() from 
+		   trying to re-lock it. */
+		SetPageUptodate(pg);
+	}
 
 	ri = jffs2_alloc_raw_inode();
 	if (!ri)

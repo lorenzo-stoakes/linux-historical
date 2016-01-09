@@ -41,6 +41,35 @@
 
 extern unsigned long smp_chrp_cpu_nr;
 
+/*
+ * The CHRP RTAS note on multiprocessor systems:
+ * "In a multiprocessor system, each processor should
+ * call event-scan periodically, not always the same
+ * one.  The event-scan function needs to be called a
+ * total of rtas-event-scan-rate times a minute"
+ * 
+ * We must call on each cpu in on a regular basis
+ * so that firmware can watch for cpu unique errors.
+ */
+static void spread_heartbeat(void)
+{
+	unsigned count = heartbeat_count(0);
+	unsigned offset = count;
+	int i;
+
+	if (!count || smp_chrp_cpu_nr < 2)
+		return;
+
+	count *=  smp_chrp_cpu_nr;
+
+	for (i = 0; i < smp_chrp_cpu_nr ; i++)
+	{
+		heartbeat_reset(i) = count;
+		heartbeat_count(i) = i * offset;
+	}
+	printk("RTAS Event Scan now every %u jiffes on each cpu\n", count);
+}
+
 static int __init
 smp_chrp_probe(void)
 {

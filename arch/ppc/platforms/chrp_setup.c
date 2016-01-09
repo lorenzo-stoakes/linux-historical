@@ -86,6 +86,8 @@ extern unsigned long Hash_size, Hash_mask;
 extern int probingmem;
 extern unsigned long loops_per_jiffy;
 static int max_width;
+static int is_briq;
+unsigned int* briq_SPOR; /* To be replaced by RTAS when available */
 
 #ifdef CONFIG_SMP
 extern struct smp_ops_t chrp_smp_ops;
@@ -223,8 +225,6 @@ void __init
 chrp_setup_arch(void)
 {
 	struct device_node *device;
-	int i;
-	extern unsigned long smp_chrp_cpu_nr;
 
 	/* init to some ~sane value until calibrate_delay() runs */
 	loops_per_jiffy = 50000000/HZ;
@@ -268,17 +268,32 @@ chrp_setup_arch(void)
 	 */
 	if (rtas_data) {
 		struct property *p;
+		unsigned long rate, count;
 		device = find_devices("rtas");
 		for ( p = device->properties;
 		      p && strncmp(p->name, "rtas-event-scan-rate", 20);
 		      p = p->next )
 			/* nothing */ ;
-		if ( p && *(unsigned long *)p->value ) {
+		if (p && (rate = *(unsigned long *)p->value) > 0) {
+			/*
+			 * The value is the number of times per minute.
+			 * For now assign the full workload here to cpu 0.  
+			 *
+			 * We now split the rate and spread the heartbeats
+			 * when we kick secondary cpus so we can spread
+			 * the calls evenly.   
+			 */
 			ppc_md.heartbeat = chrp_event_scan;
-			ppc_md.heartbeat_reset = (HZ/(*(unsigned long *)p->value)*30)-1;
-			ppc_md.heartbeat_count = 1;
-			printk("RTAS Event Scan Rate: %lu (%lu jiffies)\n",
-			       *(unsigned long *)p->value, ppc_md.heartbeat_reset );
+			
+			count = (60*HZ) / rate;
+			if (!count)        /* XXX insane */
+				count = 1;
+
+			heartbeat_reset(0) = count;
+			heartbeat_count(0) = 1;
+
+			printk("RTAS Event Scan Rate: %lu calls/minute "
+			       "(every %lu jiffies)\n", rate, count );
 		}
 	}
 
@@ -293,7 +308,6 @@ chrp_event_scan(void)
 	/* XXX: we should loop until the hardware says no more error logs -- Cort */
 	call_rtas( "event-scan", 4, 1, &ret, 0xffffffff, 0,
 		   __pa(log), 1024 );
-	ppc_md.heartbeat_count = ppc_md.heartbeat_reset;
 }
 	
 void __chrp
@@ -327,6 +341,14 @@ chrp_irq_cannonicalize(u_int irq)
 	return irq;
 }
 
+static void __chrp
+briq_restart(char *cmd)
+{
+	cli();
+	if (briq_SPOR)
+		out_be32(briq_SPOR, 0);
+	for(;;) ;
+}
 
 /*
  * Finds the open-pic node and sets OpenPIC_Addr based on its reg property.
@@ -469,14 +491,19 @@ void __init chrp_init_IRQ(void)
 void __init
 chrp_init2(void)
 {
+ 
+	if (is_briq)
+		briq_SPOR = (unsigned int *)ioremap(0xff0000e8, 4);
 #ifdef CONFIG_NVRAM  
 /* Fix me: currently, a lot of pmac_nvram routines are marked __pmac, and
  * blindly calling pmac_nvram_init() on chrp cause bad results.
  * Among others, it cracks on briQ.
  * Please implement a CHRP specific version. --BenH
  */
-	pmac_nvram_init();
+	if (!is_briq)
+		pmac_nvram_init();
 #endif
+	/* This is to be replaced by RTAS when available */
 
 	request_region(0x20,0x20,"pic1");
 	request_region(0xa0,0x20,"pic2");
@@ -566,6 +593,10 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	DMA_MODE_WRITE = 0x48;
 	isa_io_base = CHRP_ISA_IO_BASE;		/* default value */
 
+	/* Check if it's a briq */
+	machine = get_property(root, "model", NULL);
+	is_briq = machine && strncmp(machine, "TotalImpact,BRIQ-1", 18) == 0;
+
 	ppc_md.setup_arch     = chrp_setup_arch;
 	ppc_md.show_percpuinfo = of_show_percpuinfo;
 	ppc_md.show_cpuinfo   = chrp_show_cpuinfo;
@@ -575,7 +606,7 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	ppc_md.init           = chrp_init2;
 
-	ppc_md.restart        = chrp_restart;
+	ppc_md.restart        = is_briq ? briq_restart : chrp_restart;
 	ppc_md.power_off      = chrp_power_off;
 	ppc_md.halt           = chrp_halt;
 

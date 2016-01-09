@@ -4,7 +4,7 @@
 /*
  *  arch/ppc/platform/pmac_feature.c
  *
- *  Copyright (C) 1996-2001 Paul Mackerras (paulus@cs.anu.edu.au)
+ *  Copyright (C) 1996-2002 Paul Mackerras (paulus@cs.anu.edu.au)
  *                          Ben. Herrenschmidt (benh@kernel.crashing.org)
  *
  *  This program is free software; you can redistribute it and/or
@@ -28,6 +28,8 @@
 #include <linux/spinlock.h>
 #include <linux/adb.h>
 #include <linux/pmu.h>
+#include <linux/ioport.h>
+#include <linux/pci.h>
 #include <asm/sections.h>
 #include <asm/errno.h>
 #include <asm/ohare.h>
@@ -39,6 +41,7 @@
 #include <asm/machdep.h>
 #include <asm/pmac_feature.h>
 #include <asm/dbdma.h>
+#include <asm/pci-bridge.h>
 
 #undef DEBUG_FEATURE
 
@@ -50,6 +53,7 @@
 
 /* Exported from arch/ppc/kernel/idle.c */
 extern unsigned long powersave_nap;
+extern unsigned long powersave_lowspeed;
 
 /*
  * We use a single global lock to protect accesses. Each driver has
@@ -598,6 +602,7 @@ heathrow_sleep(struct macio_chip* macio, int secondary)
 		/* This seems to be necessary as well or the fan
 		 * keeps coming up and battery drains fast */
 		MACIO_BIC(HEATHROW_FCR, HRW_IOBUS_ENABLE);
+		MACIO_BIC(HEATHROW_FCR, HRW_IDE0_RESET_N);
 		/* Make sure eth is down even if module or sleep
 		 * won't work properly */
 		MACIO_BIC(HEATHROW_FCR, HRW_BMAC_IO_ENABLE | HRW_BMAC_RESET);
@@ -762,7 +767,13 @@ core99_modem_enable(struct device_node* node, int param, int value)
 	struct macio_chip*	macio;
 	u8			gpio;
 	unsigned long		flags;
-	
+
+	/* Hack for internal USB modem */
+	if (node == NULL) {	
+		if (macio_chips[0].type != macio_keylargo)
+			return -ENODEV;
+		node = macio_chips[0].of_node;
+	}
 	macio = macio_find(node, 0);
 	if (!macio)
 		return -ENODEV;
@@ -1020,6 +1031,45 @@ core99_reset_cpu(struct device_node* node, int param, int value)
 	(void)MACIO_IN8(reset_io);
 	udelay(1);
 	MACIO_OUT8(reset_io, KEYLARGO_GPIO_OUTPUT_ENABLE | KEYLARGO_GPIO_OUTOUT_DATA);
+	(void)MACIO_IN8(reset_io);
+	UNLOCK(flags);
+
+	return 0;
+}
+
+static int __pmac
+rackmac_reset_cpu(struct device_node* node, int param, int value)
+{
+	int reset_io;
+	unsigned long flags;
+	struct macio_chip* macio;
+	struct device_node* np;
+	
+	macio = &macio_chips[0];
+	if (macio->type != macio_keylargo)
+		return -ENODEV;
+		
+	np = find_path_device("/cpus");
+	if (np == NULL)
+		return -ENODEV;
+	for (np = np->child; np != NULL; np = np->sibling) {
+		u32* num = (u32 *)get_property(np, "reg", NULL);
+		u32* rst = (u32 *)get_property(np, "soft-reset", NULL);
+		if (num == NULL || rst == NULL)
+			continue;
+		if (param == *num) {
+			reset_io = *rst;
+			break;
+		}
+	}
+	if (np == NULL)
+		return -ENODEV;
+	
+	LOCK(flags);
+	MACIO_OUT8(reset_io, KEYLARGO_GPIO_OUTPUT_ENABLE);
+	(void)MACIO_IN8(reset_io);
+	udelay(1);
+	MACIO_OUT8(reset_io, 0);
 	(void)MACIO_IN8(reset_io);
 	UNLOCK(flags);
 
@@ -1402,6 +1452,21 @@ core99_wake_up(void)
 static int __pmac
 core99_sleep_state(struct device_node* node, int param, int value)
 {
+	/* Param == 1 means to enter the "fake sleep" mode that is
+	 * used for CPU speed switch
+	 */
+	if (param == 1) {
+		if (value == 1) {
+			UN_OUT(UNI_N_HWINIT_STATE, UNI_N_HWINIT_STATE_SLEEPING);
+			UN_OUT(UNI_N_POWER_MGT, UNI_N_POWER_MGT_IDLE2);
+		} else {
+			UN_OUT(UNI_N_POWER_MGT, UNI_N_POWER_MGT_NORMAL);
+			udelay(10);
+			UN_OUT(UNI_N_HWINIT_STATE, UNI_N_HWINIT_STATE_RUNNING);
+			udelay(10);
+		}
+		return 0;
+	}
 	if ((pmac_mb.board_flags & PMAC_MB_CAN_SLEEP) == 0)
 		return -EPERM;
 	if (value == 1)
@@ -1418,6 +1483,12 @@ pangea_modem_enable(struct device_node* node, int param, int value)
 	u8			gpio;
 	unsigned long		flags;
 	
+	/* Hack for internal USB modem */
+	if (node == NULL) {	
+		if (macio_chips[0].type != macio_pangea)
+			return -ENODEV;
+		node = macio_chips[0].of_node;
+	}
 	macio = macio_find(node, 0);
 	if (!macio)
 		return -ENODEV;
@@ -1573,6 +1644,26 @@ static struct feature_table_entry core99_features[]  __pmacdata = {
 	{ 0, NULL }
 };
 
+/* RackMac
+ */
+static struct feature_table_entry rackmac_features[]  __pmacdata = {
+	{ PMAC_FTR_SCC_ENABLE,		core99_scc_enable },
+	{ PMAC_FTR_IDE_ENABLE,		core99_ide_enable },
+	{ PMAC_FTR_IDE_RESET,		core99_ide_reset },
+	{ PMAC_FTR_GMAC_ENABLE,		core99_gmac_enable },
+	{ PMAC_FTR_GMAC_PHY_RESET,	core99_gmac_phy_reset },
+	{ PMAC_FTR_USB_ENABLE,		core99_usb_enable },
+	{ PMAC_FTR_1394_ENABLE,		core99_firewire_enable },
+	{ PMAC_FTR_1394_CABLE_POWER,	core99_firewire_cable_power },
+	{ PMAC_FTR_SLEEP_STATE,		core99_sleep_state },
+#ifdef CONFIG_SMP
+	{ PMAC_FTR_RESET_CPU,		rackmac_reset_cpu },
+#endif /* CONFIG_SMP */
+	{ PMAC_FTR_READ_GPIO,		core99_read_gpio },
+	{ PMAC_FTR_WRITE_GPIO,		core99_write_gpio },
+	{ 0, NULL }
+};
+
 /* Pangea features
  */
 static struct feature_table_entry pangea_features[]  __pmacdata = {
@@ -1641,7 +1732,7 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 		PMAC_TYPE_WALLSTREET,		heathrow_laptop_features,
 		PMAC_MB_CAN_SLEEP
 	},
-	{	"AAPL,PowerBook1,1",		"PowerBook 101 (Lombard)",
+	{	"PowerBook1,1",			"PowerBook 101 (Lombard)",
 		PMAC_TYPE_101_PBOOK,		paddington_features,
 		PMAC_MB_CAN_SLEEP
 	},
@@ -1653,17 +1744,21 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 		PMAC_TYPE_PANGEA_IMAC,		pangea_features,
 		PMAC_MB_CAN_SLEEP
 	},
-	{	"PowerBook4,3",			"iBook 2 with 14\" LCD",
+	{	"PowerBook4,3",			"iBook 2 rev. 2",
 		PMAC_TYPE_IBOOK2,		pangea_features,
 		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
-	{	"PowerBook4,2",			"iBook 2 with 14\" LCD",
+	{	"PowerBook4,2",			"iBook 2",
 		PMAC_TYPE_IBOOK2,		pangea_features,
 		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
 	},
 	{	"PowerBook4,1",			"iBook 2",
 		PMAC_TYPE_IBOOK2,		pangea_features,
 		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
+	},
+	{	"PowerMac4,4",			"eMac",
+		PMAC_TYPE_EMAC,			core99_features,
+		PMAC_MB_CAN_SLEEP
 	},
 	{	"PowerMac4,2",			"Flat panel iMac",
 		PMAC_TYPE_FLAT_PANEL_IMAC,	pangea_features,
@@ -1679,34 +1774,35 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	},
 	{	"PowerBook2,1",			"iBook (first generation)",
 		PMAC_TYPE_ORIG_IBOOK,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac3,1",			"PowerMac G4 AGP Graphics",
 		PMAC_TYPE_SAWTOOTH,		core99_features,
-		0
+		PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac3,2",			"PowerMac G4 AGP Graphics",
 		PMAC_TYPE_SAWTOOTH,		core99_features,
-		0
+		PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac3,3",			"PowerMac G4 AGP Graphics",
 		PMAC_TYPE_SAWTOOTH,		core99_features,
-		0
+		PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac2,1",			"iMac FireWire",
 		PMAC_TYPE_FW_IMAC,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac2,2",			"iMac FireWire",
 		PMAC_TYPE_FW_IMAC,		core99_features,
-		PMAC_MB_CAN_SLEEP
+		PMAC_MB_CAN_SLEEP | PMAC_MB_OLD_CORE99
 	},
 	{	"PowerBook2,2",			"iBook FireWire",
 		PMAC_TYPE_FW_IBOOK,		core99_features,
-		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER | PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac5,1",			"PowerMac G4 Cube",
 		PMAC_TYPE_CUBE,			core99_features,
+		PMAC_MB_OLD_CORE99
 	},
 	{	"PowerMac3,4",			"PowerMac G4 Silver",
 		PMAC_TYPE_QUICKSILVER,		core99_features,
@@ -1718,7 +1814,7 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	},
 	{	"PowerBook3,1",			"PowerBook Pismo",
 		PMAC_TYPE_PISMO,		core99_features,
-		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
+		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER | PMAC_MB_OLD_CORE99
 	},
 	{	"PowerBook3,2",			"PowerBook Titanium",
 		PMAC_TYPE_TITANIUM,		core99_features,
@@ -1731,6 +1827,14 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 	{	"PowerBook3,4",			"PowerBook Titanium III",
 		PMAC_TYPE_TITANIUM3,		core99_features,
 		PMAC_MB_CAN_SLEEP | PMAC_MB_HAS_FW_POWER
+	},
+	{	"RackMac1,1",			"XServe",
+		PMAC_TYPE_RACKMAC,		rackmac_features,
+		0,
+	},
+	{	"PowerMac3,6",			"PowerMac G4 Windtunnel",
+		PMAC_TYPE_WINDTUNNEL,		rackmac_features,
+		0,
 	},
 };
 
@@ -1774,8 +1878,22 @@ probe_motherboard(void)
 {
 	int i;
 	struct macio_chip* macio = &macio_chips[0];
-
-	/* Lookup known motherboard type in device-tree */
+	const char* model = NULL;
+	struct device_node *dt;
+	
+	/* Lookup known motherboard type in device-tree. First try an
+	 * exact match on the "model" property, then try a "compatible"
+	 * match is none is found.
+	 */
+	dt = find_devices("device-tree");
+	if (dt != NULL)
+		model = (const char *) get_property(dt, "model", NULL);
+	for(i=0; model && i<(sizeof(pmac_mb_defs)/sizeof(struct pmac_mb_def)); i++) {
+	    if (strcmp(model, pmac_mb_defs[i].model_string) == 0) {
+		pmac_mb = pmac_mb_defs[i];
+		goto found;
+	    }
+	}
 	for(i=0; i<(sizeof(pmac_mb_defs)/sizeof(struct pmac_mb_def)); i++) {
 	    if (machine_is_compatible(pmac_mb_defs[i].model_string)) {
 		pmac_mb = pmac_mb_defs[i];
@@ -1839,7 +1957,6 @@ found:
 	 */
 	while (uninorth_base && uninorth_rev > 3) {
 		struct device_node* np = find_path_device("/cpus");
-		u32 pvr = mfspr(PVR);
 		if (!np || !np->child) {
 			printk(KERN_WARNING "Can't find CPU(s) in device tree !\n");
 			break;
@@ -1851,14 +1968,16 @@ found:
 		/* Nap mode not supported if flush-on-lock property is present */
 		if (get_property(np, "flush-on-lock", NULL))
 			break;
-		/* Some 7450 may have problem with NAP mode too ... */
-		if (((pvr >> 16) == 0x8000) && ((pvr & 0xffff) < 0x0201))
-			break;
 		powersave_nap = 1;
 		printk(KERN_INFO "Processor NAP mode on idle enabled.\n");
 		break;
 	}
 
+	/* On CPUs that support it (750FX), lowspeed by default during
+	 * NAP mode
+	 */
+	powersave_lowspeed = 1;
+	
 	printk(KERN_INFO "PowerMac motherboard: %s\n", pmac_mb.model_name);
 	return 0;
 }
@@ -1873,7 +1992,7 @@ probe_uninorth(void)
 	/* Locate core99 Uni-N */
 	uninorth_node = find_devices("uni-n");
 	if (uninorth_node && uninorth_node->n_addrs > 0) {
-		uninorth_base = ioremap(uninorth_node->addrs[0].address, 0x1000);
+		uninorth_base = ioremap(uninorth_node->addrs[0].address, 0x4000);
 		uninorth_rev = in_be32(UN_REG(UNI_N_VERSION));
 	} else
 		uninorth_node = NULL;
@@ -1883,15 +2002,23 @@ probe_uninorth(void)
 	
 	printk(KERN_INFO "Found Uninorth memory controller & host bridge, revision: %d\n",
 			uninorth_rev);
+	printk(KERN_INFO "Mapped at 0x%08lx\n", (unsigned long)uninorth_base);
 
 	/* Set the arbitrer QAck delay according to what Apple does
 	 */
-	if (uninorth_rev < 0x10) {
+	if (uninorth_rev < 0x11) {
 		actrl = UN_IN(UNI_N_ARB_CTRL) & ~UNI_N_ARB_CTRL_QACK_DELAY_MASK;
 		actrl |= ((uninorth_rev < 3) ? UNI_N_ARB_CTRL_QACK_DELAY105 :
 			UNI_N_ARB_CTRL_QACK_DELAY) << UNI_N_ARB_CTRL_QACK_DELAY_SHIFT;
 		UN_OUT(UNI_N_ARB_CTRL, actrl);
 	}
+
+	/* Some more magic as done by them in recent MacOS X on UniNorth
+	 * revs 1.5 to 2.O and Pangea. Seem to toggle the UniN Maxbus/PCI
+	 * memory timeout
+	 */
+	if ((uninorth_rev >= 0x11 && uninorth_rev <= 0x24) || uninorth_rev == 0xc0)
+		UN_OUT(0x2160, UN_IN(0x2160) & 0x00ffffff);
 }	
 
 static void __init
@@ -2095,9 +2222,6 @@ set_initial_features(void)
 		initial_serial_shutdown(np);
 		np = np->next;
 	}
-	
-	/* Let hardware settle down */
-	mdelay(10);
 }
 
 void __init

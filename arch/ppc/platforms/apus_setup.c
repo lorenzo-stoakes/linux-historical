@@ -34,6 +34,7 @@
 #include <asm/pgtable.h>
 #include <asm/dma.h>
 #include <asm/machdep.h>
+#include <asm/hardirq.h>
 #include <asm/keyboard.h>
 #include <asm/time.h>
 
@@ -71,7 +72,7 @@ void (*mach_floppy_setup) (char *, int *) __initdata = NULL;
 #endif
 #ifdef CONFIG_HEARTBEAT
 void (*mach_heartbeat) (int) = NULL;
-extern void apus_heartbeat (void);
+extern void apus_heartbeat(void);
 #endif
 
 extern unsigned long amiga_model;
@@ -831,7 +832,8 @@ void platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 #ifdef CONFIG_HEARTBEAT
 	ppc_md.heartbeat      = apus_heartbeat;
-	ppc_md.heartbeat_count = 1;
+	heartbeat_reset(0)    = 1;		/* assume UP for now */
+	heartbeat_count(0)    = 1;
 #endif
 #ifdef APUS_DEBUG
 	__debug_serinit();

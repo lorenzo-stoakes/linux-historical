@@ -23,7 +23,7 @@ CFLAGS_prom_init.o	+= -mrelocatable-lib
 CFLAGS_btext.o		+= -mrelocatable-lib
 
 # Start off with 'head.o', change as needed.
-HEAD-y				:= head.o
+HEAD-y				:= head.o idle_6xx.o
 HEAD-$(CONFIG_4xx)		:= head_4xx.o
 HEAD-$(CONFIG_8xx)		:= head_8xx.o
 
@@ -69,6 +69,7 @@ l2cr.o: l2cr.S ppc_defs.h
 head.o: head.S ppc_defs.h
 head_4xx.o: head_4xx.S ppc_defs.h
 head_8xx.o: head_8xx.S ppc_defs.h
+idle_6xx.o: idle_6xx.S ppc_defs.h
 
 ppc_defs.h: mk_defs.c ppc_defs.head \
 		$(TOPDIR)/include/asm/mmu.h \

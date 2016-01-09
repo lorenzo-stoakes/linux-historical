@@ -469,6 +469,7 @@ CONFIG_DE4X5=m
 # CONFIG_SIS900 is not set
 # CONFIG_EPIC100 is not set
 # CONFIG_SUNDANCE is not set
+# CONFIG_SUNDANCE_MMIO is not set
 # CONFIG_TLAN is not set
 # CONFIG_TC35815 is not set
 # CONFIG_VIA_RHINE is not set
@@ -891,6 +892,7 @@ CONFIG_DMASOUND=m
 # CONFIG_SOUND_ESSSOLO1 is not set
 # CONFIG_SOUND_MAESTRO is not set
 # CONFIG_SOUND_MAESTRO3 is not set
+# CONFIG_SOUND_FORTE is not set
 # CONFIG_SOUND_ICH is not set
 # CONFIG_SOUND_RME96XX is not set
 # CONFIG_SOUND_SONICVIBES is not set
@@ -1016,6 +1018,7 @@ CONFIG_USB_SERIAL_VISOR=m
 # CONFIG_USB_AUERSWALD is not set
 # CONFIG_USB_TIGL is not set
 # CONFIG_USB_BRLVGER is not set
+# CONFIG_USB_LCD is not set
 
 #
 # Bluetooth support

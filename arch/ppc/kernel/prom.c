@@ -152,7 +152,7 @@ finish_device_tree(void)
 			   match on /chosen.interrupt_controller */
 			if ((name != NULL
 			     && strcmp(name, "interrupt-controller") == 0)
-			    || (ic != NULL && iclen == 0)) {
+			    || (ic != NULL && iclen == 0 && strcmp(name, "AppleKiwi"))) {
 				if (n == 0)
 					dflt_interrupt_controller = np;
 				++n;

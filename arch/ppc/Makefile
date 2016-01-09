@@ -53,7 +53,7 @@ else
   ifdef CONFIG_8xx
     HEAD := arch/ppc/kernel/head_8xx.o
   else
-    HEAD := arch/ppc/kernel/head.o
+    HEAD := arch/ppc/kernel/head.o arch/ppc/kernel/idle_6xx.o
   endif
 endif
 

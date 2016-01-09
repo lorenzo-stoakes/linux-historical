@@ -513,7 +513,7 @@ Micro Memory MM5415 Battery Backed RAM support (EXPERIMENTAL)
 CONFIG_BLK_DEV_UMEM
   Saying Y here will include support for the MM5415 family of
   battery backed (Non-volatile) RAM cards.
-  http://www.umem.com/
+  <http://www.umem.com/>
 
   The cards appear as block devices that can be partitioned into
   as many as 15 partitions.
@@ -701,6 +701,12 @@ CONFIG_BLK_DEV_IDECS
   Support for outboard IDE disks, tape drives, and CD-ROM drives
   connected through a  PCMCIA card.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ide-cs.o
+
 Include IDE/ATAPI CD-ROM support
 CONFIG_BLK_DEV_IDECD
   If you have a CD-ROM drive using the ATAPI protocol, say Y. ATAPI is
@@ -846,6 +852,12 @@ CONFIG_BLK_DEV_IDESCSI
 
   If both this SCSI emulation and native ATAPI support are compiled
   into the kernel, the native support will be used.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ide-scsi.o
 
 Use the NOOP Elevator (WARNING)
 CONFIG_BLK_DEV_ELEVATOR_NOOP
@@ -1831,6 +1843,12 @@ CONFIG_BLK_DEV_MD
   <http://www.tldp.org/docs.html#howto>. There you will also learn
   where to get the supporting user space utilities raidtools.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  md.o
+
   If unsure, say N.
 
 Linear (append) mode
@@ -1920,6 +1938,12 @@ CONFIG_MD_MULTIPATH
   transparent failover to the backup path(s) happens if a IO errors
   arrives on the primary path.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  multipath.o
+
   If unsure, say N.
 
 Support for IDE Raid controllers
@@ -1933,6 +1957,12 @@ CONFIG_BLK_DEV_ATARAID
   data integrity with other OS-es, using the same disk array. Linux
   has its own Raid drivers, which you should use if you need better
   performance.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ataraid.o
 
 Support Promise software RAID (Fasttrak(tm))
 CONFIG_BLK_DEV_ATARAID_PDC
@@ -2690,7 +2720,7 @@ CONFIG_IP_NF_NAT_LOCAL
 
   Please note that you will need a recent version (>= 1.2.6a)
   of the iptables userspace program in order to use this feature.
-  See http://www.iptables.org/ for download instructions.
+  See <http://www.iptables.org/> for download instructions.
 
   If unsure, say 'N'.
 
@@ -2849,7 +2879,7 @@ CONFIG_IP_NF_TARGET_ULOG
   which can only be viewed through syslog.
 
   The appropriate userspace logging daemon (ulogd) may be obtained from
-  http://www.gnumonks.org/projects/ulogd
+  <http://www.gnumonks.org/projects/ulogd>
 
   If you want to compile it as a module, say M here and read
   Documentation/modules.txt.  If unsure, say `N'.
@@ -3420,7 +3450,7 @@ CONFIG_SYNCLINK_CS
 
   This driver may be built as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
-  The module will be called synclink_cs.o.  If you want to do that, say M
+  The module will be called synclinkmp.o.  If you want to do that, say M
   here.
 
 ACP Modem (Mwave) support
@@ -5162,6 +5192,12 @@ CONFIG_PARPORT_PC_PCMCIA
   Say Y here if you need PCMCIA support for your PC-style parallel
   ports. If unsure, say N.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  parport_cs.o
+
 Support foreign hardware
 CONFIG_PARPORT_OTHER
   Say Y here if you want to be able to load driver modules to support
@@ -5466,6 +5502,12 @@ CONFIG_NET_IPIP
   be inserted in and removed from the running kernel whenever you
   want). Most people won't need this and can say N.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ipip.o
+
 GRE tunnels over IP
 CONFIG_NET_IPGRE
   Tunneling means encapsulating data of one protocol type within
@@ -5477,6 +5519,12 @@ CONFIG_NET_IPGRE
   likes GRE much better than the other Linux tunneling driver ("IP
   tunneling" above). In addition, GRE allows multicast redistribution
   through the tunnel.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ip_gre.o
 
 Broadcast GRE over IP
 CONFIG_NET_IPGRE_BROADCAST
@@ -5558,14 +5606,6 @@ CONFIG_IPV6
   as a module, say M here and read <file:Documentation/modules.txt>.
 
   It is safe to say N here for now.
-
-# 2.5 tree only
-IPv6: routing messages via old netlink
-CONFIG_IPV6_NETLINK
-  You can say Y here to receive routing messages from the IPv6 code
-  through the old netlink interface. However, a better option is to
-  say Y to "Kernel/User network link driver" and to "Routing
-  messages" instead.
 
 Kernel httpd acceleration
 CONFIG_KHTTPD
@@ -5808,6 +5848,12 @@ CONFIG_LTPC
   This driver is experimental, which means that it may not work.
   See the file <file:Documentation/networking/ltpc.txt>.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ltpc.o
+
 COPS LocalTalk PC card support
 CONFIG_COPS
   This allows you to use COPS AppleTalk cards to connect to LocalTalk
@@ -5816,6 +5862,12 @@ CONFIG_COPS
   work. This driver will only work if you choose "AppleTalk DDP"
   networking support, above.
   Please read the file <file:Documentation/networking/cops.txt>.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  cops.o
 
 Dayna firmware support
 CONFIG_COPS_DAYNA
@@ -6327,34 +6379,6 @@ CONFIG_PACKET_MMAP
 
   If unsure, say N.
 
-# 2.5 tree only
-Kernel/User network link driver
-CONFIG_NETLINK
-  This driver allows for two-way communication between the kernel and
-  user processes.  It does so by creating a new socket family,
-  PF_NETLINK.  Over this socket, the kernel can send and receive
-  datagrams carrying information.  It is documented on many systems in
-  netlink(7).
-
-  So far, the kernel uses this feature to publish some network related
-  information if you say Y to "Routing messages", below. You also need
-  to say Y here if you want to use arpd, a daemon that helps keep the
-  internal ARP cache (a mapping between IP addresses and hardware
-  addresses on the local network) small.  The ethertap device, which
-  lets user space programs read and write raw Ethernet frames, also
-  needs the network link driver.
-
-  If unsure, say Y.
-
-# 2.5 tree only
-Routing messages
-CONFIG_RTNETLINK
-  If you say Y here, user space programs can receive some network
-  related routing information over the netlink. 'rtmon', supplied
-  with the iproute2 package (<ftp://ftp.inr.ac.ru/>), can read and
-  interpret this data.  Information sent to the kernel over this link
-  is ignored.
-
 Netlink device emulation
 CONFIG_NETLINK_DEV
   This option will be removed soon. Any programs that want to use
@@ -6362,6 +6386,12 @@ CONFIG_NETLINK_DEV
   number 36) need this option, and need to be rewritten soon to use
   the real netlink socket.
   This is a backward compatibility option, choose Y for now.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  netlink_dev.o
 
 Asynchronous Transfer Mode (ATM)
 CONFIG_ATM
@@ -6700,6 +6730,12 @@ CONFIG_BLK_CPQ_CISS_DA
   See <file:Documentation/cciss.txt> for the current list of
   boards supported by this driver, and for further information
   on the use of this driver.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  cciss.o
 
 SCSI tape drive support for Smart Array 5xxx
 CONFIG_CISS_SCSI_TAPE
@@ -9778,7 +9814,7 @@ CONFIG_NET_SCH_CBQ
 CONFIG_NET_SCH_HTB
   Say Y here if you want to use the Hierarchical Token Buckets (HTB)
   packet scheduling algorithm for some of your network devices. See
-  URL http://luxik.cdi.cz/~devik/qos/htb/ for complete manual and
+  URL <http://luxik.cdi.cz/~devik/qos/htb/> for complete manual and
   in-depth articles.
 
   HTB is very similar to the CBQ regarding its goals however is has 
@@ -10369,7 +10405,7 @@ CONFIG_COMX_HW_MUNICH
 
   Read linux/Documentation/networking/slicecom.txt for help on
   configuring and using SliceCOM interfaces. Further info on these cards
-  can be found at http://www.itc.hu or <info@itc.hu>.
+  can be found at <http://www.itc.hu> or <info@itc.hu>.
 
 Support for HDLC and syncPPP protocols on MultiGate boards
 CONFIG_COMX_PROTO_PPP
@@ -12622,6 +12658,12 @@ CONFIG_MTD
   them. It will also allow you to select individual drivers for 
   particular hardware and users of MTD devices. If unsure, say N.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  mtdcore.o
+
 MTD debugging support
 CONFIG_MTD_DEBUG
   This turns on low-level debugging for the entire MTD sub-system.
@@ -12633,6 +12675,12 @@ CONFIG_MTD_PARTITIONS
   into multiple 'partitions', each of which appears to the user as
   a separate MTD device, you require this option to be enabled. If
   unsure, say 'Y'.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  mtdpart.o
 
   Note, however, that you don't need this option for the DiskOnChip
   devices. Partitioning on NFTL 'devices' is a different - that's the
@@ -12653,6 +12701,12 @@ CONFIG_MTD_REDBOOT_PARTS
   for your particular device. It won't happen automatically. The
   SA1100 map driver (CONFIG_MTD_SA1100) has an option for this, for
   example.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  redboot.o
 
 Compaq bootldr partition table parsing
 CONFIG_MTD_BOOTLDR_PARTS
@@ -12695,6 +12749,12 @@ CONFIG_MTD_CHAR
   memory chips, and also use ioctl() to obtain information about
   the device, or to erase parts of it.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  mtdchar.o
+
 Caching block device access to MTD devices
 CONFIG_MTD_BLOCK
   Although most flash chips have an erase size too large to be useful
@@ -12715,6 +12775,12 @@ CONFIG_MTD_BLOCK
   You do not need this option for use with the DiskOnChip devices. For
   those, enable NFTL support (CONFIG_NFTL) instead.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  mtdblock.o
+
 Readonly block device access to MTD devices
 CONFIG_MTD_BLOCK_RO
   This allows you to mount read-only file systems (such as cramfs)
@@ -12723,6 +12789,12 @@ CONFIG_MTD_BLOCK_RO
 
   You do not need this option for use with the DiskOnChip devices. For
   those, enable NFTL support (CONFIG_NFTL) instead.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  mtdblock_ro.o
 
 FTL (Flash Translation Layer) support
 CONFIG_FTL
@@ -12738,6 +12810,12 @@ CONFIG_FTL
   permitted to copy, modify and distribute the code as you wish. Just
   not use it.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  ftl.o
+
 NFTL (NAND Flash Translation Layer) support
 CONFIG_NFTL
   This provides support for the NAND Flash Translation Layer which is
@@ -12751,6 +12829,12 @@ CONFIG_NFTL
   hardware, although under the terms of the GPL you're obviously
   permitted to copy, modify and distribute the code as you wish. Just
   not use it.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  nftl.o
 
 Write support for NFTL (EXPERIMENTAL)
 CONFIG_NFTL_RW
@@ -12767,6 +12851,12 @@ CONFIG_MTD_CFI
   support any device that is CFI-compliant, you need to enable this
   option. Visit <http://www.amd.com/products/nvd/overview/cfi.html>
   for more information on CFI.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  cfi_probe.o
 
 CFI Advanced configuration options
 CONFIG_MTD_CFI_ADV_OPTIONS
@@ -12860,6 +12950,12 @@ CONFIG_MTD_SHARP
   commands, including some which are not CFI-compatible and hence 
   cannot be used with the CONFIG_MTD_CFI_INTELxxx options.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  sharp.o
+
 AMD compatible flash chip support (non-CFI)
 CONFIG_MTD_AMDSTD
   This option enables support for flash chips using AMD-compatible
@@ -12868,15 +12964,33 @@ CONFIG_MTD_AMDSTD
 
   It also works on AMD compatible chips that do conform to CFI.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  amd_flash.o
+
 Support for RAM chips in bus mapping
 CONFIG_MTD_RAM
   This option enables basic support for RAM chips accessed through 
   a bus mapping driver.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  map_ram.o
+
 Support for ROM chips in bus mapping
 CONFIG_MTD_ROM
   This option enables basic support for ROM chips accessed through 
   a bus mapping driver.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  map_rom.o
 
 JEDEC device support
 CONFIG_MTD_JEDEC
@@ -12886,6 +13000,12 @@ CONFIG_MTD_JEDEC
   <http://www.jedec.org/> distributes the identification codes for the
   chips. WARNING!!!! This code does not compile and is incomplete as
   are the specific JEDEC devices drivers.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  jedec.o
 
 CFI Flash device mapped on StrongARM SA11x0
 CONFIG_MTD_SA1100
@@ -12916,6 +13036,12 @@ CONFIG_MTD_PHYSMAP
   are mapped physically into the CPU's memory. You will need to
   configure the physical address and size of the flash chips on
   your particular board as well as the bus width.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  physmap.o
 
 Physical start location of flash chip mapping
 CONFIG_MTD_PHYSMAP_START
@@ -12969,6 +13095,12 @@ CONFIG_MTD_SC520CDP
   The SC520 CDP board has two banks of CFI-compliant chips and one
   Dual-in-line JEDEC chip. This 'mapping' driver supports that
   arrangement, implementing three MTD devices.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  sc520cdp.o
 
 Flash chip mapping on Arcom Control Systems SBC-MediaGX
 CONFIG_MTD_SBC_GXX
@@ -13067,6 +13199,12 @@ CONFIG_MTD_OCTAGON
   Computer. More information on the board is available at
   <http://www.octagonsystems.com/Products/5066/5066.html>.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  octagon-5066.o
+
 JEDEC Flash device mapped on Tempustech VMAX SBC301
 CONFIG_MTD_VMAX
   This provides a 'mapping' driver which supports the way in which
@@ -13074,10 +13212,22 @@ CONFIG_MTD_VMAX
   Board Computer. More information on the board is available at
   <http://www.tempustech.com/tt301.htm>.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  vmax301.o
+
 Support for NAND flash devices
 CONFIG_MTD_NAND
   This enables support for accessing all type of NAND flash
   devices.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  nand.o
 
 Support for software ECC algorithm
 CONFIG_MTD_NAND_ECC
@@ -13104,6 +13254,12 @@ CONFIG_MTD_DOC1000
   This provides an MTD device driver for the M-Systems DiskOnChip
   1000 devices, which are obsolete so you probably want to say 'N'.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  doc1000.o
+
 M-Systems Disk-On-Chip 2000 and Millennium support
 CONFIG_MTD_DOC2000
   This provides an MTD device driver for the M-Systems DiskOnChip
@@ -13119,6 +13275,12 @@ CONFIG_MTD_DOC2000
   emulate a block device by using a kind of file system on the flash
   chips.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  doc2000.o
+
 Alternative Disk-On-Chip Millennium support
 CONFIG_MTD_DOC2001
   This provides an alternative MTD device driver for the M-Systems 
@@ -13132,6 +13294,12 @@ CONFIG_MTD_DOC2001
   'NAND Flash Translation Layer' option below, which is used to
   emulate a block device by using a kind of file system on the flash
   chips.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  doc2001.o
 
 Probe for DiskOnChip devices
 CONFIG_MTD_DOCPROBE
@@ -13192,6 +13360,12 @@ CONFIG_MTD_PMC551
   particularly useful on the 2.2 kernels on PPC architectures as there
   was limited kernel space to deal with.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  pmc551.o
+
 PMC551 256M DRAM Bugfix
 CONFIG_MTD_PMC551_BUGFIX
   Some of Ramix's PMC551 boards with 256M configurations have invalid
@@ -13210,11 +13384,23 @@ CONFIG_MTD_SLRAM
   you can still use it for storage or swap by using this driver to
   present it to the system as a Memory Technology Device.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  slram.o
+
 Debugging RAM test driver
 CONFIG_MTD_MTDRAM
   This enables a test MTD device driver which uses vmalloc() to
   provide storage.  You probably want to say 'N' unless you're
   testing stuff.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  mtdram.o
 
 MTDRAM erase block size in KB
 CONFIG_MTDRAM_ERASE_SIZE
@@ -13258,6 +13444,12 @@ CONFIG_MTD_ABSENT
   the system regardless of media presence.  Device nodes created
   with this driver will return -ENODEV upon access.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  map_absent.o
+
 MTD emulation using block device
 CONFIG_MTD_BLKMTD
   This driver allows a block device to appear as an MTD. It would
@@ -13267,6 +13459,12 @@ CONFIG_MTD_BLKMTD
     the system as an ATA drive.
     Testing MTD users (eg JFFS2) on large media and media that might
     be removed during a write (using the floppy drive).
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  blkmtd.o
 
 Cirrus CDB89712 evaluation board mappings
 CONFIG_MTD_CDB89712
@@ -13285,12 +13483,24 @@ CONFIG_MTD_JEDECPROBE
   non-CFI Intel chips (that code is in MTD CVS and should shortly be sent
   for inclusion in Linus' tree)
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  jedec_probe.o
+
 BIOS flash chip on Intel L440GX boards
 CONFIG_MTD_L440GX
   Support for treating the BIOS flash chip on Intel L440GX motherboards
   as an MTD device - with this you can reprogram your BIOS.
 
   BE VERY CAREFUL.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  l440gx.o
 
 28F160xx flash driver for LART
 CONFIG_MTD_LART
@@ -14158,7 +14368,7 @@ Realtek RTL8150 based USB-Ethernet device support
 CONFIG_USB_RTL8150
   Say Y here if you have RTL8150 based usb-ethernet adapter.
   Send me (petkan@users.sourceforge.net) any comments you may have.
-  You can also check for updates at http://pegasus2.sourceforge.net/
+  You can also check for updates at <http://pegasus2.sourceforge.net/>
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -14926,6 +15136,35 @@ CONFIG_BUFFER_DEBUG
 
   Because this option adds considerably to the size of each buffer,
   most people will want to say N here.
+
+BeOS filesystem support (BeFS) (read only)
+CONFIG_BEFS_FS
+  The BeOS File System (BeFS) is the native file system of Be, Inc's
+  BeOS. Notable features include support for arbitrary attributes
+  on files and directories, and database-like indices on selected
+  attributes. (Also note that this driver doesn't make those features
+  available at this time). It is a 64 bit filesystem, so it supports
+  extremely large volumes and files.
+
+  If you use this filesystem, you should also say Y to at least one
+  of the NLS (native language support) options below.
+
+  If you don't know what this is about, say N.
+
+  If you want to compile this as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read Documentation/modules.txt. The module will be
+  called befs.o.
+
+Debug BeFS
+CONFIG_BEFS_DEBUG
+  If you say Y here, you can use the 'debug' mount option to enable
+  debugging output from the driver. This is unlike previous versions
+  of the driver, where enabling this option would turn on debugging
+  output automatically.
+
+  Example:
+  mount -t befs /dev/hda2 /mnt -o debug
 
 BFS file system support
 CONFIG_BFS_FS
@@ -18546,6 +18785,12 @@ CONFIG_TOSHIBA
   Toshiba Linux utilities web site at:
   <http://www.buzzard.org.uk/toshiba/>.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  toshiba.o
+
   Say Y if you intend to run this kernel on a Toshiba portable.
   Say N otherwise.
 
@@ -18561,6 +18806,12 @@ CONFIG_I8K
   but it should work on any Dell Inspiron or Latitude laptop.
   You can force loading on unsupported models by passing the
   parameter `force=1' to the module. Use at your own risk.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  i8k.o
 
   For more information on this driver and for utilities that make
   use of the module see the I8K Linux Utilities web site at:
@@ -18597,12 +18848,24 @@ CONFIG_X86_MSR
   MSR accesses are directed to a specific CPU on multi-processor
   systems.
 
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  msr.o
+
 /dev/cpu/*/cpuid - CPU information support
 CONFIG_X86_CPUID
   This device gives processes access to the x86 CPUID instruction to
   be executed on a specific processor.  It is a character device
   with major 203 and minors 0 to 31 for /dev/cpu/0/cpuid to
   /dev/cpu/31/cpuid.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  cpuid.o
 
 SBC-60XX Watchdog Timer
 CONFIG_60XX_WDT
@@ -20301,7 +20564,6 @@ CONFIG_HISAX_NI1
   Enable this if you like to use ISDN in US on a NI1 basic rate
   interface.
 
-# 2.4 tree only
 Maximum number of cards supported by HiSax
 CONFIG_HISAX_MAX_CARDS
   This is used to allocate a driver-internal structure array with one
@@ -22300,7 +22562,7 @@ CONFIG_EST8260
 
   CU824:
     VMEBus Board with PCI extension with MPC8240 CPU
-    Manufacturer: MicroSys GmbH, http://www.microsys.de/
+    Manufacturer: MicroSys GmbH, <http://www.microsys.de/>
     Date of Release: early 2001 (?)
     End of life: -
     URL: <http://www.microsys.de/html/cu824.html>
@@ -23249,6 +23511,12 @@ CONFIG_BLK_CPQ_DA
   <file:Documentation/cpqarray.txt> for the current list of boards
   supported by this driver, and for further information on the use of
   this driver.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>. The module will be called
+  cpqarray.o
 
 Show crashed user process info
 CONFIG_PROCESS_DEBUG
@@ -25705,7 +25973,7 @@ CONFIG_VLAN_8021Q
   ethernet interface does, including firewalling, bridging, and of course
   IP traffic.  You will need the 'vconfig' tool from the VLAN project in
   order to effectively use VLANs.  See the VLAN web page for more
-  information:  http://www.candelatech.com/~greear/vlan.html  If unsure,
+  information:  <http://www.candelatech.com/~greear/vlan.html>  If unsure,
   you can safely say 'N'.
 
 ARC console support

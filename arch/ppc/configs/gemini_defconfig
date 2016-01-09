@@ -32,6 +32,8 @@ CONFIG_6xx=y
 CONFIG_PPC_STD_MMU=y
 # CONFIG_ALL_PPC is not set
 # CONFIG_APUS is not set
+# CONFIG_SPRUCE is not set
+# CONFIG_PAL4 is not set
 CONFIG_GEMINI=y
 # CONFIG_SMP is not set
 CONFIG_ALTIVEC=y
