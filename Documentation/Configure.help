@@ -9684,6 +9684,26 @@ CONFIG_FARSYNC
   should add "alias syncX farsync" to /etc/modules.conf for each
   interface, where X is 0, 1, 2, ...
 
+CONFIG_HDLC_DEBUG_PKT
+  This option is for developers only - do NOT use on production
+  systems.
+
+CONFIG_HDLC_DEBUG_HARD_HEADER
+  This option is for developers only - do NOT use on production
+  systems.
+
+CONFIG_HDLC_DEBUG_ECN
+  This option is for developers only - do NOT use on production
+  systems.
+
+CONFIG_HDLC_DEBUG_RINGS
+  If you answer Y here you will be able to get a diagnostic dump of
+  port's TX and RX packet rings, using "sethdlc hdlcX private"
+  command. It does not affect normal operations.
+
+  If unsure, say Y here.
+
+
 Frame Relay (DLCI) support
 CONFIG_DLCI
   This is support for the frame relay protocol; frame relay is a fast
