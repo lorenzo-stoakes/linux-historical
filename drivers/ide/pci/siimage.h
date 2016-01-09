@@ -27,10 +27,10 @@ typedef struct ide_io_ops_s siimage_iops {
 #define siiprintk(x...)
 #endif
 
-#define ADJREG(B,R)	((B)|(R)|((hwif->channel)<<(4+(2*(hwif->mmio)))))
+#define ADJREG(B,R)	((B)|(R)|((hwif->channel)<<(4+(2*(!!hwif->mmio)))))
 #define SELREG(R)	ADJREG((0xA0),(R))
-#define SELADDR(R)	((((unsigned long)hwif->hwif_data)*(hwif->mmio))|SELREG((R)))
-#define HWIFADDR(R)	((((unsigned long)hwif->hwif_data)*(hwif->mmio))|(R))
+#define SELADDR(R)	((((unsigned long)hwif->hwif_data)*(!!hwif->mmio))|SELREG((R)))
+#define HWIFADDR(R)	((((unsigned long)hwif->hwif_data)*(!!hwif->mmio))|(R))
 #define DEVADDR(R)	(((unsigned long) pci_get_drvdata(dev))|(R))
 
 

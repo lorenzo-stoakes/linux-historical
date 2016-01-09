@@ -44,34 +44,43 @@
 	.previous
 	.endm
 			
+	.macro ignore L=.Lignore
+30:
+	.section __ex_table,"a"
+	.align 8
+	.quad 30b,\L
+	.previous
+	.endm
+	
+				
 	.globl csum_partial_copy_generic
 	.p2align 4
 csum_partial_copy_generic:
 	cmpl	 $3*64,%edx
-	jle	 1f
+	jle	 .Lignore
 
-	source
+	ignore
 	prefetch (%rdi)
-	source
+	ignore
 	prefetch 1*64(%rdi)
-	source
+	ignore
 	prefetch 2*64(%rdi)
-	source
+	ignore
 	prefetch 3*64(%rdi)
-	source
+	ignore
 	prefetch 4*64(%rdi)
-	dest
+	ignore
 	prefetchw (%rsi)
-	dest
+	ignore
 	prefetchw 1*64(%rsi)
-	dest
+	ignore
 	prefetchw 2*64(%rsi)
-	dest
+	ignore
 	prefetchw 3*64(%rsi)
-	dest
+	ignore
 	prefetchw 4*64(%rsi)
 
-1:			
+.Lignore:		
 	subq  $7*8,%rsp
 	movq  %rbx,2*8(%rsp)
 	movq  %r12,3*8(%rsp)
@@ -117,9 +126,9 @@ csum_partial_copy_generic:
 	source
 	movq  56(%rdi),%r13
 		
-	source
+	ignore 2f
 	prefetch 5*64(%rdi)
-						
+2:							
 	adcq  %rbx,%rax
 	adcq  %r8,%rax
 	adcq  %r11,%rax
@@ -149,8 +158,9 @@ csum_partial_copy_generic:
 	dest
 	movq %r13,56(%rsi)
 	
-	dest
+	ignore 3f
 	prefetchw 5*64(%rsi)
+3:
 	
 	leaq 64(%rdi),%rdi
 	leaq 64(%rsi),%rsi

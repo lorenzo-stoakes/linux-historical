@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.95 2003/04/03 09:46:54 ak Exp $		
+ *  $Id: entry.S,v 1.98 2003/05/12 14:39:00 ak Exp $		
  */
 
 /*
@@ -454,10 +454,10 @@ error_entry:
 	pushq %r11
 	cld
 	SAVE_REST
+	xorl %r15d,%r15d	
 	testl $3,CS(%rsp)
 	je error_kernelspace
 	swapgs	
-	movl $1,%r15d	
 error_action:
 	movq  %rdi,RDI(%rsp) 	
 	movq %rsp,%rdi
@@ -467,7 +467,7 @@ error_action:
 	/* r15d: swapgs flag */
 error_exit:
 	testl %r15d,%r15d
-	jz   error_restore
+	jnz   error_restore
 error_test:		
 	cli	
 	GET_CURRENT(%rcx)
@@ -482,15 +482,11 @@ error_restore:
 	jmp retint_restore_args
 	
 error_reschedule:
-	cmpl $2,%r15d
-	je  error_restore_swapgs
 	sti
 	call schedule
 	jmp  error_test
 
 error_signal:	
-	cmpl $2,%r15d
-	je  error_restore_swapgs	
 	sti
 	xorq %rsi,%rsi
 	movq %rsp,%rdi
@@ -505,15 +501,16 @@ error_signal_test:
 	jmp  error_signal_test
 	
 error_kernelspace:	
-	xorl %r15d,%r15d
+	incl %r15d
 	/* There are two places in the kernel that can potentially fault with
 	   usergs. Handle them here. */	   
 	cmpq $iret_label,RIP(%rsp)
 	je   1f
 	cmpq $gs_change,RIP(%rsp)
 	jne  error_action
-1:	movl $2,%r15d
-	swapgs
+	/* iret_label and gs_change are handled by exception handlers
+	   and the exit points run with kernelgs again */
+1:	swapgs
 	jmp error_action
 
 	/* Reload gs selector with exception handling */
@@ -524,7 +521,7 @@ ENTRY(load_gs_index)
 	swapgs
 gs_change:	
 	movl %edi,%gs	
-2:	mfence
+2:	mfence		/* workaround for opteron errata #88 */
 	swapgs
 	popf
 	ret
@@ -535,6 +532,7 @@ gs_change:
 	.previous
 
 bad_gs:
+	swapgs
 	xorl %eax,%eax
 	movl %eax,%gs
 	jmp 2b
@@ -630,15 +628,15 @@ ENTRY(device_not_available)
 	testl $3,CS(%rsp)
 	jz 1f
 	swapgs 
-	movl $1,%r15d
-1:	
-	movq  %cr0,%rax
+2:	movq  %cr0,%rax
 	leaq  math_state_restore(%rip),%rcx
 	leaq  math_emulate(%rip),%rbx
 	testl $0x4,%eax
 	cmoveq %rcx,%rbx
 	call  *%rbx
 	jmp  error_exit
+1:	incl %r15d
+	jmp  2b
 
 ENTRY(debug)
 	zeroentry do_debug

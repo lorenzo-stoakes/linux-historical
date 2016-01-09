@@ -22892,7 +22892,10 @@ CONFIG_MAC_ADBKEYCODES
   sysctl and with the "keyboard_sends_linux_keycodes=" kernel
   argument.
 
-  If unsure, say Y here.
+  This option is now deprecated and will be removed in a future
+  kernel release.
+  
+  If unsure, say N here.
 
 I2C/SPI Microcode Patch
 CONFIG_UCODE_PATCH

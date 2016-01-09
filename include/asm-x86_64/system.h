@@ -81,14 +81,14 @@ extern void load_gs_index(unsigned);
 		"2:\n"				\
 		".section .fixup,\"ax\"\n"	\
 		"3:\t"				\
-		"pushq $0 ; popq %% " #seg "\n\t"	\
+		"movl %1,%%" #seg "\n\t" \
 		"jmp 2b\n"			\
 		".previous\n"			\
 		".section __ex_table,\"a\"\n\t"	\
 		".align 4\n\t"			\
 		".quad 1b,3b\n"			\
 		".previous"			\
-		: :"r" ((int)(value)))
+		: :"r" ((int)(value)), "r" (0))
 
 #define set_debug(value,register) \
                 __asm__("movq %0,%%db" #register  \

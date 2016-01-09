@@ -573,7 +573,7 @@ sata_skip:
 static unsigned int setup_mmio_siimage (struct pci_dev *dev, const char *name)
 {
 	unsigned long bar5	= pci_resource_start(dev, 5);
-	unsigned long end5	= pci_resource_end(dev, 5);
+	unsigned long len5	= pci_resource_len(dev, 5);
 	u8 tmpbyte	= 0;
 	unsigned long addr;
 	void *ioaddr;
@@ -584,13 +584,13 @@ static unsigned int setup_mmio_siimage (struct pci_dev *dev, const char *name)
 	 *	spaces.
 	 */
 	 
-	if(check_mem_region(bar5, (end5-bar5)+1)!=0)
+	if(check_mem_region(bar5, len5)!=0)
 	{
 		printk(KERN_WARNING "siimage: IDE controller MMIO ports not available.\n");
 		return 0;
 	}
 		
-	ioaddr = ioremap_nocache(bar5, (end5 - bar5)+1);
+	ioaddr = ioremap_nocache(bar5, len5);
 
 	if (ioaddr == NULL)
 		return 0;
@@ -792,7 +792,7 @@ static void __init init_mmio_iops_siimage (ide_hwif_t *hwif)
 	hwif->dma_base			= DEVADDR((ch) ? 0x08 : 0x00);
 	hwif->dma_base2			= DEVADDR((ch) ? 0x18 : 0x10);
 #endif /* SIIMAGE_LARGE_DMA */
-	hwif->mmio			= 1;
+	hwif->mmio			= 2;
 }
 
 static void __init init_iops_siimage (ide_hwif_t *hwif)

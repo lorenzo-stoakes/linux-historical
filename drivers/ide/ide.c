@@ -121,8 +121,8 @@
  *
  */
 
-#define	REVISION	"Revision: 7.00beta3-.2.4"
-#define	VERSION		"Id: ide.c 7.00b3 20030422"
+#define	REVISION	"Revision: 7.00beta4-2.4"
+#define	VERSION		"Id: ide.c 7.00b4 20030520"
 
 #undef REALLY_SLOW_IO		/* most systems can safely undef this */
 
@@ -2015,13 +2015,8 @@ int __init ide_setup (char *s)
 				drive->remap_0_to_1 = 2;
 				goto done;
 			case -14: /* "scsi" */
-#if defined(CONFIG_BLK_DEV_IDESCSI) && defined(CONFIG_SCSI)
 				drive->scsi = 1;
 				goto done;
-#else
-				drive->scsi = 0;
-				goto bad_option;
-#endif /* defined(CONFIG_BLK_DEV_IDESCSI) && defined(CONFIG_SCSI) */
 			case 3: /* cyl,head,sect */
 				drive->media	= ide_disk;
 				drive->cyl	= drive->bios_cyl  = vals[0];
