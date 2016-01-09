@@ -35,11 +35,13 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
    if [ "$CONFIG_EXPERIMENTAL" = "y" -a "$CONFIG_CYCLADES" != "n" ]; then
       bool '    Cyclades-Z interrupt mode operation (EXPERIMENTAL)' CONFIG_CYZ_INTR
    fi
+   if [ "$CONFIG_X86_64" != "y" ]; then
    tristate '  Digiboard Intelligent Async Support' CONFIG_DIGIEPCA
    if [ "$CONFIG_DIGIEPCA" = "n" ]; then
       tristate '  Digiboard PC/Xx Support' CONFIG_DIGI
    fi
-   tristate '  Hayes ESP serial port support' CONFIG_ESPSERIAL
+   fi
+   dep_tristate '  Hayes ESP serial port support' CONFIG_ESPSERIAL $CONFIG_ISA
    tristate '  Moxa Intellio support' CONFIG_MOXA_INTELLIO
    tristate '  Moxa SmartIO support' CONFIG_MOXA_SMARTIO
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
@@ -48,6 +50,7 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
    tristate '  Microgate SyncLink card support' CONFIG_SYNCLINK
    tristate '  HDLC line discipline support' CONFIG_N_HDLC
    tristate '  SDL RISCom/8 card support' CONFIG_RISCOM8
+   if [ "$CONFIG_X86_64" != "y" ]; then
    tristate '  Specialix IO8+ card support' CONFIG_SPECIALIX
    if [ "$CONFIG_SPECIALIX" != "n" ]; then
       bool '  Specialix DTR/RTS pin is RTS' CONFIG_SPECIALIX_RTSCTS
@@ -56,6 +59,7 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
    tristate '  Specialix RIO system support' CONFIG_RIO
    if [ "$CONFIG_RIO" != "n" ]; then
      bool '    Support really old RIO/PCI cards' CONFIG_RIO_OLDPCI
+   fi
    fi
    bool '  Stallion multiport serial support' CONFIG_STALDRV
    if [ "$CONFIG_STALDRV" = "y" ]; then
@@ -239,7 +243,7 @@ fi
 tristate 'Double Talk PC internal speech card support' CONFIG_DTLK
 tristate 'Siemens R3964 line discipline' CONFIG_R3964
 tristate 'Applicom intelligent fieldbus card support' CONFIG_APPLICOM
-if [ "$CONFIG_EXPERIMENTAL" = "y" -a "$CONFIG_X86" = "y" ]; then
+if [ "$CONFIG_EXPERIMENTAL" = "y" -a "$CONFIG_X86" = "y" -a "$CONFIG_X86_64" != "y" ]; then
    dep_tristate 'Sony Vaio Programmable I/O Control Device support' CONFIG_SONYPI $CONFIG_PCI
 fi
 

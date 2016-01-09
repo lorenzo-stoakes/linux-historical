@@ -25,6 +25,10 @@ ifeq ($(CONFIG_TULIP),y)
   obj-y += tulip/tulip.o
 endif
 
+ifeq ($(CONFIG_E1000),y)
+  obj-y += e1000/e1000.o
+endif
+
 ifeq ($(CONFIG_ISDN_PPP),y)
   obj-$(CONFIG_ISDN) += slhc.o
 endif
@@ -40,6 +44,8 @@ subdir-$(CONFIG_ARCNET) += arcnet
 subdir-$(CONFIG_DEV_APPLETALK) += appletalk
 subdir-$(CONFIG_SK98LIN) += sk98lin
 subdir-$(CONFIG_SKFP) += skfp
+subdir-$(CONFIG_E100) += e100
+subdir-$(CONFIG_E1000) += e1000
 
 #
 # link order important here
@@ -80,6 +86,10 @@ obj-$(CONFIG_STNIC) += stnic.o 8390.o
 obj-$(CONFIG_FEALNX) += fealnx.o mii.o
 obj-$(CONFIG_TC35815) += tc35815.o
 obj-$(CONFIG_TIGON3) += tg3.o
+
+ifeq ($(CONFIG_E100),y)
+  obj-y += e100/e100.o
+endif
 
 ifeq ($(CONFIG_SK98LIN),y)
 obj-y += sk98lin/sk98lin.o

@@ -671,12 +671,14 @@ static inline void update_times(void)
 	 * need to save/restore the flags of the local CPU here. -arca
 	 */
 	write_lock_irq(&xtime_lock);
+	vxtime_lock();
 
 	ticks = jiffies - wall_jiffies;
 	if (ticks) {
 		wall_jiffies += ticks;
 		update_wall_time(ticks);
 	}
+	vxtime_unlock();
 	write_unlock_irq(&xtime_lock);
 	calc_load(ticks);
 }

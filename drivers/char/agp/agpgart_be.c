@@ -397,7 +397,7 @@ int agp_unbind_memory(agp_memory * curr)
 static void agp_generic_agp_enable(u32 mode)
 {
 	struct pci_dev *device = NULL;
-	u32 command, scratch, cap_id;
+	u32 command, scratch;
 	u8 cap_ptr;
 
 	pci_read_config_dword(agp_bridge.dev,
@@ -1406,7 +1406,7 @@ static int intel_8xx_fetch_size(void)
         /* Intel 815 chipsets have a _weird_ APSIZE register with only
          * one non-reserved bit, so mask the others out ... */
         if (agp_bridge.type == INTEL_I815) 
-          temp &= (1 << 3);
+		temp &= (1 << 3);
         
 	values = A_SIZE_8(agp_bridge.aperture_sizes);
 
@@ -4295,7 +4295,6 @@ static int __init agp_find_supported_device(void)
 {
 	struct pci_dev *dev = NULL;
 	u8 cap_ptr = 0x00;
-	u32 cap_id, scratch;
 
 	if ((dev = pci_find_class(PCI_CLASS_BRIDGE_HOST << 8, NULL)) == NULL)
 		return -ENODEV;

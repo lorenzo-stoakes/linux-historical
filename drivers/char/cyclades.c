@@ -5175,7 +5175,6 @@ cy_detect_pci(void)
 		/* Although we don't use this I/O region, we should
 		   request it from the kernel anyway, to avoid problems
 		   with other drivers accessing it. */
-		request_region(cy_pci_phys1, CyPCI_Zctl, "Cyclades-Z");
 		resource = request_region(cy_pci_phys1, CyPCI_Zctl, 
 					  "Cyclades-Z");
 		if (resource == NULL) {

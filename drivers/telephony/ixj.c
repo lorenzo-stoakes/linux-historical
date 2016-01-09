@@ -2807,7 +2807,10 @@ static void ulaw2alaw(unsigned char *buff, unsigned long len)
 	};
 
 	while (len--)
-		*buff++ = table_ulaw2alaw[*(unsigned char *)buff];
+	{
+		*buff = table_ulaw2alaw[*(unsigned char *)buff];
+		buff++;
+	}
 }
 
 static void alaw2ulaw(unsigned char *buff, unsigned long len)
@@ -2849,7 +2852,10 @@ static void alaw2ulaw(unsigned char *buff, unsigned long len)
 	};
 
         while (len--)
-                *buff++ = table_alaw2ulaw[*(unsigned char *)buff];
+        {
+                *buff = table_alaw2ulaw[*(unsigned char *)buff];
+                buff++;
+	}
 }
 
 static ssize_t ixj_read(struct file * file_p, char *buf, size_t length, loff_t * ppos)

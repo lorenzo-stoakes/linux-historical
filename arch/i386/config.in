@@ -5,7 +5,6 @@
 mainmenu_name "Linux Kernel Configuration"
 
 define_bool CONFIG_X86 y
-define_bool CONFIG_ISA y
 define_bool CONFIG_SBUS n
 
 define_bool CONFIG_UID16 y
@@ -201,6 +200,8 @@ else
    bool 'Multiquad NUMA system' CONFIG_MULTIQUAD
 fi
 
+bool 'ISA bus support' CONFIG_ISA
+
 if [ "$CONFIG_SMP" = "y" -a "$CONFIG_X86_CMPXCHG" = "y" ]; then
    define_bool CONFIG_HAVE_DEC_LOCK y
 fi
@@ -366,6 +367,7 @@ if [ "$CONFIG_NET" != "n" ]; then
 fi
 endmenu
 
+if [ "$CONFIG_ISA" = "y" ]; then
 mainmenu_option next_comment
 comment 'Old CD-ROM drivers (not SCSI, not IDE)'
 
@@ -374,6 +376,7 @@ if [ "$CONFIG_CD_NO_IDESCSI" != "n" ]; then
    source drivers/cdrom/Config.in
 fi
 endmenu
+fi
 
 #
 # input before char - char/joystick depends on it. As does USB.

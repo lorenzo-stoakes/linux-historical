@@ -37,4 +37,7 @@ static inline cycles_t get_cycles (void)
 }
 #endif /* __KERNEL__ */
 
+#define vxtime_lock()		do {} while (0)
+#define vxtime_unlock()		do {} while (0)
+
 #endif /*  __ASM_MIPS_TIMEX_H */

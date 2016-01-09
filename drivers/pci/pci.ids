@@ -2385,7 +2385,7 @@
 		10ec 8129  RT8129 Fast Ethernet Adapter
 	8138  RT8139 (B/C) Cardbus Fast Ethernet Adapter
 		10ec 8138  RT8139 (B/C) Fast Ethernet Adapter
-	8139  RTL-8139/8139C
+	8139  RTL-8139/8139C/8139C+
 		1025 8920  ALN-325
 		1025 8921  ALN-325
 		10bd 0320  EP-320X-R
@@ -2405,6 +2405,7 @@
 		8e2e 7000  KF-230TX
 		8e2e 7100  KF-230TX/2
 		a0a0 0007  ALN-325C
+	8169  RTL-8169
 10ed  Ascii Corporation
 	7310  V7310
 10ee  Xilinx, Inc.

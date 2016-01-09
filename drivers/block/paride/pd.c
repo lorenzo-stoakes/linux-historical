@@ -888,7 +888,7 @@ repeat:
 
 static void pd_next_buf( int unit )
 
-{	long	saved_flags;
+{	unsigned long	saved_flags;
 
 	spin_lock_irqsave(&io_request_lock,saved_flags);
 	end_request(1);
@@ -919,7 +919,7 @@ static void do_pd_read( void )
 static void do_pd_read_start( void )
  
 {       int	unit = pd_unit;
-	long    saved_flags;
+	unsigned long    saved_flags;
 
 	pd_busy = 1;
 
@@ -945,7 +945,7 @@ static void do_pd_read_start( void )
 static void do_pd_read_drq( void )
 
 {       int	unit = pd_unit;
-	long    saved_flags;
+	unsigned long    saved_flags;
 
 	while (1) {
             if (pd_wait_for(unit,STAT_DRQ,"do_pd_read_drq") & STAT_ERR) {
@@ -985,7 +985,7 @@ static void do_pd_write( void )
 static void do_pd_write_start( void )
 
 {       int 	unit = pd_unit;
-	long    saved_flags;
+	unsigned long    saved_flags;
 
 	pd_busy = 1;
 
@@ -1033,7 +1033,7 @@ static void do_pd_write_start( void )
 static void do_pd_write_done( void )
 
 {       int	unit = pd_unit;
-	long    saved_flags;
+	unsigned long    saved_flags;
 
         if (pd_wait_for(unit,STAT_READY,"do_pd_write_done") & STAT_ERR) {
                 pi_disconnect(PI);

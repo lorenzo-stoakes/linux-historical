@@ -426,7 +426,9 @@ static Scsi_Cmnd *__scsi_end_request(Scsi_Cmnd * SCpnt,
 	if (req->waiting != NULL) {
 		complete(req->waiting);
 	}
+	spin_lock_irq(&io_request_lock);
 	req_finished_io(req);
+	spin_unlock_irq(&io_request_lock);
 	add_blkdev_randomness(MAJOR(req->rq_dev));
 
         SDpnt = SCpnt->device;

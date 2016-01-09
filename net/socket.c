@@ -743,11 +743,13 @@ static int sock_fasync(int fd, struct file *filp, int on)
 			return -ENOMEM;
 	}
 
-
 	sock = socki_lookup(filp->f_dentry->d_inode);
 	
-	if ((sk=sock->sk) == NULL)
+	if ((sk=sock->sk) == NULL) {
+		if (fna)
+			kfree(fna);
 		return -EINVAL;
+	}
 
 	lock_sock(sk);
 

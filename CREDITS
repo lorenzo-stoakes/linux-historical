@@ -704,6 +704,11 @@ S: 3000 FORE Drive
 S: Warrendale, Pennsylvania 15086
 S: USA
 
+N: Martin Devera
+E: devik@cdi.cz
+W: http://luxik.cdi.cz/~devik/qos/
+D: HTB qdisc and random networking hacks
+
 N: Alex deVries
 E: adevries@thepuffingroup.com
 D: Various SGI parts, bits of HAL2 and Newport, PA-RISC Linux.
@@ -1328,6 +1333,12 @@ S: Holtron Internetics, Inc.
 S: 998 East 900 South, Suite 26
 S: Provo, Utah 84606-5607
 S: USA
+
+N: Marcel Holtmann
+E: marcel@holtmann.org
+W: http://www.holtmann.org
+D: Author of the Linux Bluetooth Subsystem PC Card drivers
+S: Germany
 
 N: Rob W. W. Hooft
 E: hooft@EMBL-Heidelberg.DE

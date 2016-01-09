@@ -239,7 +239,8 @@ enum {
 	INTELICH4,
 	SI7012,
 	NVIDIA_NFORCE,
-	AMD768
+	AMD768,
+	AMD8111
 };
 
 static char * card_names[] = {
@@ -251,7 +252,8 @@ static char * card_names[] = {
 	"Intel ICH4",
 	"SiS 7012",
 	"NVIDIA nForce Audio",
-	"AMD 768"
+	"AMD 768",
+	"AMD-8111 IOHub"
 };
 
 static struct pci_device_id i810_pci_tbl [] __initdata = {
@@ -273,6 +275,8 @@ static struct pci_device_id i810_pci_tbl [] __initdata = {
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, NVIDIA_NFORCE},
 	{PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_768_AUDIO,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, AMD768},
+	{PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_8111_AC97,
+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, AMD8111},
 	{0,}
 };
 

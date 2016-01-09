@@ -258,8 +258,8 @@ struct radeonfb_info {
 	u32 mmio_base_phys;
 	u32 fb_base_phys;
 
-	u32 mmio_base;
-	u32 fb_base;
+	unsigned long mmio_base;
+	unsigned long fb_base;
 
 	struct pci_dev *pdev;
 
@@ -361,7 +361,7 @@ static struct fb_var_screeninfo radeonfb_default_var = {
 	} while (0)
 
 
-static __inline__ u32 _INPLL(struct radeonfb_info *rinfo, u32 addr)
+static __inline__ u32 _INPLL(struct radeonfb_info *rinfo, unsigned long addr)
 {
 	OUTREG8(CLOCK_CNTL_INDEX, addr & 0x0000001f);
 	return (INREG(CLOCK_CNTL_DATA));
@@ -800,7 +800,7 @@ static int radeonfb_pci_register (struct pci_dev *pdev,
 	}
 
 	/* map the regions */
-	rinfo->mmio_base = (u32) ioremap (rinfo->mmio_base_phys,
+	rinfo->mmio_base = (unsigned long)ioremap (rinfo->mmio_base_phys,
 				    		    RADEON_REGSIZE);
 	if (!rinfo->mmio_base) {
 		printk ("radeonfb: cannot map MMIO\n");
@@ -947,7 +947,7 @@ static int radeonfb_pci_register (struct pci_dev *pdev,
 		}
 	}
 
-	rinfo->fb_base = (u32) ioremap (rinfo->fb_base_phys,
+	rinfo->fb_base = (unsigned long) ioremap (rinfo->fb_base_phys,
 				  		  rinfo->video_ram);
 	if (!rinfo->fb_base) {
 		printk ("radeonfb: cannot map FB\n");

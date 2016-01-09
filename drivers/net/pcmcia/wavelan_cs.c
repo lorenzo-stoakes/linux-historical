@@ -529,7 +529,7 @@ void wv_roam_init(struct net_device *dev)
   lp->curr_point=NULL;                        /* No default WavePoint */
   lp->cell_search=0;
   
-  lp->cell_timer.data=(int)lp;                /* Start cell expiry timer */
+  lp->cell_timer.data=(unsigned long)lp;                /* Start cell expiry timer */
   lp->cell_timer.function=wl_cell_expiry;
   lp->cell_timer.expires=jiffies+CELL_TIMEOUT;
   add_timer(&lp->cell_timer);

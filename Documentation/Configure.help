@@ -2,10 +2,7 @@
 #	Eric S. Raymond <mailto:esr@thyrsus.com>
 #	Steven Cole <mailto:elenstev@mesatop.com>
 #
-# Version 3.00: current with 2.4.19
-#
-# This version of the Linux kernel configuration help texts
-# corresponds to kernel versions 2.4.x and 2.5.x.
+# Version 3.01: current with 2.4.19+
 #
 # Translations of this file available on the WWW:
 #
@@ -1067,10 +1064,10 @@ CONFIG_AMD74XX_OVERRIDE
   This effect can be also invoked by calling "idex=ata66"
   If unsure, say N.
 
-CMD64X chipset support
+CMD64X and CMD680 chipset support
 CONFIG_BLK_DEV_CMD64X
   Say Y here if you have an IDE controller which uses any of these
-  chipsets: CMD643, CMD646, or CMD648.
+  chipsets: CMD643, CMD646, CMD648, CMD649 or CMD680.
 
 CY82C693 chipset support
 CONFIG_BLK_DEV_CY82C693
@@ -9558,6 +9555,20 @@ CONFIG_NET_SCH_CBQ
   whenever you want).  If you want to compile it as a module, say M
   here and read <file:Documentation/modules.txt>.
 
+CONFIG_NET_SCH_HTB
+  Say Y here if you want to use the Hierarchical Token Buckets (HTB)
+  packet scheduling algorithm for some of your network devices. See
+  URL http://luxik.cdi.cz/~devik/qos/htb/ for complete manual and
+  in-depth articles.
+
+  HTB is very similar to the CBQ regarding its goals however is has 
+  different properties and different algorithm.
+
+  This code is also available as a module called sch_htb.o ( = code
+  which can be inserted in and removed from the running kernel
+  whenever you want).  If you want to compile it as a module, say M
+  here and read <file:Documentation/modules.txt>.
+
 CSZ packet scheduler
 CONFIG_NET_SCH_CSZ
   Say Y here if you want to use the Clark-Shenker-Zhang (CSZ) packet
@@ -13242,7 +13253,6 @@ CONFIG_USB_EMI26
   inserted in and removed from the running kernel whenever you want).
   The module will be called audio.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
-			
 
 USB Modem (CDC ACM) support
 CONFIG_USB_ACM
@@ -13949,16 +13959,6 @@ CONFIG_USB_RIO500
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called rio500.o. If you want to compile it as
-  a module, say M here and read <file:Documentation/modules.txt>.
-
-USB Auerswald ISDN device support
-CONFIG_USB_AUERSWALD
-  Say Y here if you want to connect an Auerswald USB ISDN Device
-  to your computer's USB port.
-
-  This code is also available as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want).
-  The module will be called auerswald.o. If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
 Tieman Voyager USB Braille display support
@@ -17929,20 +17929,6 @@ CONFIG_ADVANTECH_WDT
   computer, say `Y' here to support its built-in watchdog timer
   feature.  See the help for CONFIG_WATCHDOG for discussion.
 
-W83877F Watchdog Timer
-CONFIG_W83877F_WDT
-  This is the driver for the hardware watchdog on the W83877F chipset
-  as used in EMACS PC-104 motherboards (and likely others).  This
-  watchdog simply watches your kernel to make sure it doesn't freeze,
-  and if it does, it reboots your computer after a certain amount of
-  time.
-
-  This driver is also available as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want).
-  The module is called mixcomwd.o.  If you want to compile it as a
-  module, say M here and read <file:Documentation/modules.txt>.  Most
-  people will say N.
-
 ALi M7101 Watchdog Timer
 CONFIG_ALIM7101_WDT
   This is the driver for the hardware watchdog on the ALi M7101 PMU
@@ -19581,16 +19567,6 @@ CONFIG_MIPS_UNCACHED
   hardware debugging with a logic analyzer and need to see all traffic
   on the bus.
 
-AU1000 serial console
-CONFIG_AU1000_SERIAL_CONSOLE
-  If you have an Alchemy AU1000 processor (MIPS based) and you want
-  to use a console on a serial port, say Y.  Otherwise, say N.
-
-AU1000 serial support
-CONFIG_AU1000_UART
-  If you have an Alchemy AU1000 processor (MIPS based) and you want
-  to use serial ports, say Y.  Otherwise, say N.
-
 AU1000 ethernet controller on SGI MIPS system
 CONFIG_MIPS_AU1000_ENET
   If you have an Alchemy Semi AU1000 ethernet controller
@@ -20436,6 +20412,19 @@ CONFIG_BLUEZ_SCO
   Say Y here to compile SCO support into the kernel or say M to
   compile it as module (sco.o).
 
+BNEP protocol support
+CONFIG_BLUEZ_BNEP
+  BNEP (Bluetooth Network Encapsulation Protocol) is Ethernet
+  emulation layer on top of Bluetooth. BNEP is required for Bluetooth
+  PAN (Personal Area Network).
+
+  To use BNEP, you will need user-space utilities provided in the 
+  BlueZ-PAN package.
+  For more information, see <http://bluez.sourceforge.net>.
+
+  Say Y here to compile BNEP support into the kernel or say M to
+  compile it as module (bnep.o).
+
 HCI UART driver
 CONFIG_BLUEZ_HCIUART
   Bluetooth HCI UART driver.
@@ -20464,18 +20453,9 @@ CONFIG_BLUEZ_HCIUSB
   Say Y here to compile support for Bluetooth USB devices into the
   kernel or say M to compile it as module (hci_usb.o).
 
-HCI USB firmware download support
-CONFIG_BLUEZ_USB_FW_LOAD
-  Firmware download support for Bluetooth USB devices.
-  This support is required for devices like Broadcom BCM2033.
-
-  HCI USB driver uses external firmware downloader program provided 
-  in BlueFW package.
-  For more information, see <http://bluez.sf.net/>.
-
 HCI USB zero packet support
 CONFIG_BLUEZ_USB_ZERO_PACKET
-  Support for USB zero packets. 
+  Support for USB zero packets.
   This option is provided only as a work around for buggy Bluetooth USB 
   devices. Do _not_ enable it unless you know for sure that your device 
   requires zero packets.
@@ -20494,10 +20474,36 @@ CONFIG_BLUEZ_HCIDTL1
   Bluetooth HCI DTL1 (PC Card) driver.
   This driver provides support for Bluetooth PCMCIA devices with
   Nokia DTL1 interface:
-     Nokia Bluetooth PC Card, Socketcom Bluetooth CF module
+     Nokia Bluetooth Card
+     Socket Bluetooth CF Card
 
   Say Y here to compile support for HCI DTL1 devices into the
   kernel or say M to compile it as module (dtl1_cs.o).
+
+HCI BT3C (PC Card) device driver
+CONFIG_BLUEZ_HCIBT3C
+  Bluetooth HCI BT3C (PC Card) driver.
+  This driver provides support for Bluetooth PCMCIA devices with
+  3Com BT3C interface:
+     3Com Bluetooth Card (3CRWB6096)
+     HP Bluetooth Card
+
+  The HCI BT3C driver uses external firmware loader program provided in
+  the BlueFW package. For more information, see <http://bluez.sf.net>.
+
+  Say Y here to compile support for HCI BT3C devices into the
+  kernel or say M to compile it as module (bt3c_cs.o).
+
+HCI BlueCard (PC Card) device driver
+CONFIG_BLUEZ_HCIBLUECARD
+  Bluetooth HCI BlueCard (PC Card) driver.
+  This driver provides support for Bluetooth PCMCIA devices with
+  Anycom BlueCard interface:
+     Anycom Bluetooth PC Card
+     Anycom Bluetooth CF Card
+
+  Say Y here to compile support for HCI BlueCard devices into the
+  kernel or say M to compile it as module (bluecard_cs.o).
 
 # The following options are for Linux when running on the Hitachi
 # SuperH family of RISC microprocessors.
@@ -20931,12 +20937,6 @@ CONFIG_TT_DMA_EMUL
   Hades. This increases the SCSI transfer rates at least ten times
   compared to PIO transfers.
 
-Sun3 NCR5380 OBIO SCSI
-CONFIG_SUN3_SCSI
-  This option will enable support for the OBIO (onboard io) NCR5380
-  SCSI controller found in the Sun 3/50 and 3/60.  Note that this
-  driver does not provide support for VME SCSI boards.
-
 Sun3x ESP SCSI
 CONFIG_SUN3X_ESP
   This option will enable support for the ESP SCSI controller found
@@ -20990,11 +20990,6 @@ CONFIG_SUN3_SCSI
   General Linux information on the Sun 3 series (now discontinued)
   is at <http://www.angelfire.com/ca2/tech68k/sun3.html>.
 
-Sun3x ESP SCSI driver
-CONFIG_SUN3X_ESP
-  The ESP was an on-board SCSI controller used on Sun 3/80
-  machines.  Say Y here to compile in support for it.
-
 PCMCIA NE2000 and compatibles support
 CONFIG_APNE
   If you have a PCMCIA NE2000 compatible adapter, say Y.  Otherwise,
@@ -21004,19 +20999,6 @@ CONFIG_APNE
   inserted in and removed from the running kernel whenever you
   want). The module is called apne.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
-
-Sun3/Sun3x on-board LANCE support
-CONFIG_SUN3LANCE
-  This driver enables support for the on-board LANCE ethernet adapter
-  found on the Sun 3/50, 3/60, and 3/80 workstations.  If you have 
-  one of these workstations, and would like Ethernet, say Y. 
-  Otherwise, say N.
-
-Sun3 on-board Intel 82586 support
-CONFIG_SUN3_82586
-  This driver enables support for the on-board Intel 82586 based Ethernet
-  adapter found on Sun 3/1xx and 3/2xx motherboards.  Note that this driver
-  does not support 82586-based adapters on additional VME boards.
 
 Atari Lance support
 CONFIG_ATARILANCE
@@ -24525,15 +24507,6 @@ CONFIG_IA32_SUPPORT
   IA64 processors can run IA32 (that is, x86) binaries by emulating
   the IA32 instruction set.  Say Y here to build in kernel support for
   this.  If in doubt, say Y.
-
-/proc/efi/vars support
-CONFIG_EFI_VARS
-  If you say Y here, you are able to get EFI (Extensible Firmware
-  Interface) variable information in /proc/efi/vars.  You may read,
-  write, create, and destroy EFI variables through this interface.
-
-  To use this option, you have to check that the "/proc file system
-  support" (CONFIG_PROC_FS) is enabled, too.
 
 Physical memory granularity (16 MB)
 CONFIG_IA64_GRANULE_16MB

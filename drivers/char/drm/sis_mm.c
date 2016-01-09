@@ -183,7 +183,7 @@ int sisp_agp_alloc(struct inode *inode, struct file *filp, unsigned int cmd,
   if(block){
     /* TODO */
     agp.offset = block->ofs;
-    agp.free = (unsigned int)block;
+    agp.free = (unsigned long)block;
     if(!add_alloc_set(agp.context, AGP_TYPE, agp.free)){
       DRM_DEBUG("adding to allocation set fails\n");
       mmFreeMem((PMemBlock)agp.free);

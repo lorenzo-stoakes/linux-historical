@@ -85,7 +85,7 @@ static dpt_sig_S DPTI_sig = {
 #elif defined(__alpha__)
 	PROC_ALPHA ,
 #else
-	(-1),
+	(-1),(-1)
 #endif
 	 FT_HBADRVR, 0, OEM_DPT, OS_LINUX, CAP_OVERLAP, DEV_ALL,
 	ADF_ALL_SC5, 0, 0, DPT_VERSION, DPT_REVISION, DPT_SUBREVISION,

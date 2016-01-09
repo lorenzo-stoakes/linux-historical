@@ -708,7 +708,7 @@ typedef struct _mega_host_config {
 	u8 numldrv;
 	u32 flag;
 
-#ifdef __LP64__
+#if BITS_PER_LONG==64
 	u64 base;
 #else
 	u32 base;

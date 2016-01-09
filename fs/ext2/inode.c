@@ -1094,7 +1094,7 @@ static int ext2_update_inode(struct inode * inode, int do_sync)
 	raw_inode->i_frag = inode->u.ext2_i.i_frag_no;
 	raw_inode->i_fsize = inode->u.ext2_i.i_frag_size;
 	raw_inode->i_file_acl = cpu_to_le32(inode->u.ext2_i.i_file_acl);
-	if (S_ISDIR(inode->i_mode))
+	if (!S_ISREG(inode->i_mode))
 		raw_inode->i_dir_acl = cpu_to_le32(inode->u.ext2_i.i_dir_acl);
 	else {
 		raw_inode->i_size_high = cpu_to_le32(inode->i_size >> 32);

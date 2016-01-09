@@ -325,6 +325,10 @@ void ipc64_perm_to_ipc_perm (struct ipc64_perm *in, struct ipc_perm *out)
  
 int ipc_parse_version (int *cmd)
 {
+#ifdef __x86_64__
+	if (!(current->thread.flags & THREAD_IA32))
+		return IPC_64; 
+#endif
 	if (*cmd & IPC_64) {
 		*cmd ^= IPC_64;
 		return IPC_64;

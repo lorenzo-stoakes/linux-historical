@@ -276,7 +276,7 @@ static inline void ether1394_register_limits (int nodeid, unsigned char max_rec,
 
 static void ether1394_reset_priv (struct net_device *dev, int set_mtu)
 {
-	int flags;
+	unsigned long flags;
 	struct eth1394_priv *priv = (struct eth1394_priv *)dev->priv;
 	int phy_id = priv->host->node_id & NODE_MASK;
 
@@ -477,7 +477,7 @@ static inline unsigned short ether1394_parse_encap (struct sk_buff *skb, struct 
 	 * use of some of the fields, since they tell us a little bit
 	 * about the sending machine.  */
 	if (hdr->uf.ether_type == __constant_htons (ETH_P_ARP)) {
-		int flags;
+		unsigned long flags;
 		u16 phy_id = srcid & NODE_MASK;
 		struct eth1394_priv *priv =
 			(struct eth1394_priv *)dev->priv;
@@ -525,7 +525,7 @@ static int ether1394_write (struct hpsb_host *host, int srcid, int destid,
 {
 	struct sk_buff *skb;
 	char *buf = (char *)data;
-	int flags;
+	unsigned long flags;
 	struct net_device *dev = ether1394_find_dev (host);
 	struct eth1394_priv *priv;
 
@@ -596,7 +596,7 @@ static void hpsb_write_sched (void *__ptask)
 	struct sk_buff *skb = ptask->skb;
 	struct net_device *dev = ptask->skb->dev;
 	struct eth1394_priv *priv = (struct eth1394_priv *)dev->priv;
-	int flags;
+        unsigned long flags;
 
 	/* Statistics */
 	spin_lock_irqsave (&priv->lock, flags);
@@ -627,7 +627,8 @@ static int ether1394_tx (struct sk_buff *skb, struct net_device *dev)
 	int kmflags = in_interrupt () ? GFP_ATOMIC : GFP_KERNEL;
 	struct ethhdr *eth;
 	struct eth1394_priv *priv = (struct eth1394_priv *)dev->priv;
-	int proto, flags;
+	int proto;
+	unsigned long flags;
 	nodeid_t dest_node;
 	u64 addr;
 	struct packet_task *ptask = NULL;

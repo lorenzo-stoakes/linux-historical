@@ -8016,7 +8016,7 @@ int mgsl_sppp_open(struct net_device *d)
 {
 	struct mgsl_struct *info = d->priv;
 	int err;
-	long flags;
+	unsigned long flags;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("mgsl_sppp_open(%s)\n",info->netname);	
@@ -8059,7 +8059,7 @@ open_fail:
 void mgsl_sppp_tx_timeout(struct net_device *dev)
 {
 	struct mgsl_struct *info = dev->priv;
-	long flags;
+	unsigned long flags;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("mgsl_sppp_tx_timeout(%s)\n",info->netname);	
