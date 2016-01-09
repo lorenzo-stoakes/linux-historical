@@ -2361,11 +2361,19 @@ int ext3_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = dentry->d_inode;
 	int error, rc = 0;
+	const unsigned int ia_valid = attr->ia_valid;
 
 	error = inode_change_ok(inode, attr);
 	if (error)
 		return error;
-	
+
+	if ((ia_valid & ATTR_UID && attr->ia_uid != inode->i_uid) ||
+		(ia_valid & ATTR_GID && attr->ia_gid != inode->i_gid)) {
+		error = DQUOT_TRANSFER(inode, attr) ? -EDQUOT : 0;
+		if (error)
+			return error;
+	}
+
 	if (attr->ia_valid & ATTR_SIZE && attr->ia_size < inode->i_size) {
 		handle_t *handle;
 

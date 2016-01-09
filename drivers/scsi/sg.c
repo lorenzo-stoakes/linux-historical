@@ -19,7 +19,7 @@
  */
 #include <linux/config.h>
 #ifdef CONFIG_PROC_FS
- static char sg_version_str[] = "Version: 3.1.22 (20011128)";
+ static char sg_version_str[] = "Version: 3.1.22 (20011208)";
 #endif
  static int sg_version_num = 30122; /* 2 digits for each component */
 /*
@@ -1284,14 +1284,15 @@ static void sg_cmd_done_bh(Scsi_Cmnd * SCpnt)
 	if (NULL == sfp->headrp) {
             SCSI_LOG_TIMEOUT(1,
 		printk("sg...bh: already closed, final cleanup\n"));
-            sg_remove_sfp(sdp, sfp);
+            if (0 == sg_remove_sfp(sdp, sfp)) { /* device still present */
+		sdp->device->access_count--;
+		if (sdp->device->host->hostt->module)
+		    __MOD_DEC_USE_COUNT(sdp->device->host->hostt->module);
+	    }
+	    if (sg_template.module)
+		    __MOD_DEC_USE_COUNT(sg_template.module);
 	    sfp = NULL;
         }
-	sdp->device->access_count--;
-	if (sg_template.module)
-		__MOD_DEC_USE_COUNT(sg_template.module);
-	if (sdp->device->host->hostt->module)
-	    __MOD_DEC_USE_COUNT(sdp->device->host->hostt->module);
     }
     else if (srp && srp->orphan) {
 	if (sfp->keep_orphan)

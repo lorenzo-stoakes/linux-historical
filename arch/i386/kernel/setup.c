@@ -1281,7 +1281,6 @@ static int __init init_amd(struct cpuinfo_x86 *c)
 			break;
 
 		case 6: /* An Athlon/Duron */
- 			mcheck_init(c);
  
 			/* Bit 15 of Athlon specific MSR 15, needs to be 0
  			 * to enable SSE on Palomino/Morgan CPU's.
@@ -1928,7 +1927,6 @@ static void __init init_centaur(struct cpuinfo_x86 *c)
 				c->x86_cache_size = (cc>>24)+(dd>>24);
 			}
 			sprintf( c->x86_model_id, "WinChip %s", name );
-			mcheck_init(c);
 			break;
 
 		case 6:
@@ -2214,7 +2212,7 @@ static void __init init_intel(struct cpuinfo_x86 *c)
 		strcpy(c->x86_model_id, p);
 	
 #ifdef CONFIG_SMP
-	if (test_bit(X86_FEATURE_HT, &c->x86_capability[0])) {
+	if (test_bit(X86_FEATURE_HT, &c->x86_capability)) {
 		extern	int phys_proc_id[NR_CPUS];
 		
 		u32 	eax, ebx, ecx, edx;
@@ -2262,8 +2260,6 @@ static void __init init_intel(struct cpuinfo_x86 *c)
 	}
 too_many_siblings:
 #endif
-	/* Enable MCA if available */
-	mcheck_init(c);
 }
 
 void __init get_cpu_vendor(struct cpuinfo_x86 *c)
@@ -2643,7 +2639,7 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 		init_rise(c);
 		break;
 	}
-	
+
 	printk(KERN_DEBUG "CPU: After vendor init, caps: %08x %08x %08x %08x\n",
 	       c->x86_capability[0],
 	       c->x86_capability[1],
@@ -2669,6 +2665,9 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 
 	/* Disable the PN if appropriate */
 	squash_the_stupid_serial_number(c);
+
+	/* Init Machine Check Exception if available. */
+	mcheck_init(c);
 
 	/* If the model name is still unset, do table lookup. */
 	if ( !c->x86_model_id[0] ) {

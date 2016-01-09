@@ -11067,6 +11067,17 @@ CONFIG_VIA_RHINE_MMIO
 
   If unsure, say N.
 
+VIA Rhine MMIO support (EXPERIMENTAL)
+CONFIG_VIA_RHINE_MMIO
+  This instructs the driver to use PCI shared memory (MMIO) instead of
+  programmed I/O ports (PIO). Enabling this gives an improvement in
+  processing time in parts of the driver.
+
+  It is not known if this works reliably on all "rhine" based cards,
+  but it has been tested successfully on some DFE-530TX adapters.
+
+  If unsure, say N.
+
 Davicom DM910x/DM980x support
 CONFIG_DM9102
   This driver is for DM9102(A)/DM9132/DM9801 compatible PCI cards from
@@ -22544,10 +22555,15 @@ CONFIG_NSC_FIR
 National Semiconductor DP83820 support
 CONFIG_NS83820
   This is a driver for the National Semiconductor DP83820 series
-  of gigabit ethernet MACs.  Cards using this chipset include
-  the D-Link DGE-500T, PureData's PDP8023Z-TG, SMC's SMC9462TX,
-  SOHO-GA2000T, SOHO-GA2500T.  The driver supports the use of
-  zero copy.
+  of gigabit ethernet MACs.  Cards using this chipset include:
+
+        SMC 9452TX          SMC SMC9462TX       
+        D-Link DGE-500T     PureData PDP8023Z-TG
+        SOHO-GA2000T        SOHO-GA2500T.
+        NetGear GA621
+
+  This driver supports the use of zero copy on tx, checksum 
+  validation on rx, and 64 bit addressing.
 
 Toshiba Type-O IR Port device driver
 CONFIG_TOSHIBA_FIR

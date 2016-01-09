@@ -11,13 +11,14 @@ Original driver (sg.h):
 Version 2 and 3 extensions to driver:
 *       Copyright (C) 1998 - 2001 Douglas Gilbert
 
-    Version: 3.1.22 (20011128)
+    Version: 3.1.22 (20011208)
     This version is for 2.4 series kernels.
 
     Changes since 3.1.21 (20011029)
     	- add support for SG_FLAG_MMAP_IO [permit mmap() on sg devices]
     	- update documentation pointers in this header
     	- put KERNEL_VERSION macros around code that breaks early 2.4 series
+    	- fix use count for multiple queued requests on closed fd
     	- switch back to alloc_kiovec()
     Changes since 3.1.20 (20010814)
 	- use alloc_kiovec_sz() to speed dio [set num_buffer_heads==0]

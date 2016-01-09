@@ -2599,10 +2599,10 @@ void give_up_console(const struct consw *csw)
 
 static void set_vesa_blanking(unsigned long arg)
 {
-    char *argp = (char *)arg + 1;
-    unsigned int mode;
-    get_user(mode, argp);
-    vesa_blank_mode = (mode < 4) ? mode : 0;
+	char *argp = (char *)arg + 1;
+	unsigned int mode;
+	if (get_user(mode, argp) == 0)
+		vesa_blank_mode = (mode < 4) ? mode : 0;
 }
 
 /* We can't register the console with devfs during con_init(), because it

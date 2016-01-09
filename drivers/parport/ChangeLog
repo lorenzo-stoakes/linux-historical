@@ -14,7 +14,7 @@
 	* parport_pc.c (sio_ite_8872_probe): ITE8873 is a single-port
 	serial board, not a serial+parallel.
 
-2001-11-30  Neils Kristian Bech Jensen  <nkbj@image.dk>
+2001-11-30  Niels Kristian Bech Jensen  <nkbj@image.dk>
 
 	* parport_pc.c: Fix compiler warning.
 
