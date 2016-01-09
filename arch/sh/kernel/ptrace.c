@@ -71,6 +71,8 @@ compute_next_pc(struct pt_regs *regs, unsigned short inst,
 	/* bra & bsr */
 	if (nib[0] == 0xa || nib[0] == 0xb) {
 		*pc1 = regs->pc + 4 + ((short) ((inst & 0xfff) << 4) >> 3);
+		if(*pc1 == regs->pc + 2)
+			*pc1 = regs->pc + 4;
 		*pc2 = (unsigned long) -1;
 		return;
 	}
@@ -85,7 +87,12 @@ compute_next_pc(struct pt_regs *regs, unsigned short inst,
 	/* bt/s & bf/s */
 	if (nib[0] == 0x8 && (nib[1] == 0xd || nib[1] == 0xf)) {
 		*pc1 = regs->pc + 4 + ((char) (inst & 0xff) << 1);
-		*pc2 = regs->pc + 4;
+		if(*pc1 == regs->pc + 2) {
+			*pc1 = regs->pc + 4;
+			*pc2 = (unsigned long) -1;
+		}
+		else
+			*pc2 = regs->pc + 4;
 		return;
 	}
 
@@ -93,6 +100,8 @@ compute_next_pc(struct pt_regs *regs, unsigned short inst,
 	if (nib[0] == 0x4 && nib[3] == 0xb
 	    && (nib[2] == 0x0 || nib[2] == 0x2)) {
 		*pc1 = regs->regs[nib[1]];
+		if(*pc1 == regs->pc + 2)
+			*pc1 = regs->pc + 4;
 		*pc2 = (unsigned long) -1;
 		return;
 	}
@@ -101,12 +110,16 @@ compute_next_pc(struct pt_regs *regs, unsigned short inst,
 	if (nib[0] == 0x0 && nib[3] == 0x3
 	    && (nib[2] == 0x0 || nib[2] == 0x2)) {
 		*pc1 = regs->pc + 4 + regs->regs[nib[1]];
+		if(*pc1 == regs->pc + 2)
+			*pc1 = regs->pc + 4;
 		*pc2 = (unsigned long) -1;
 		return;
 	}
 
 	if (inst == 0x000b) {
 		*pc1 = regs->pr;
+		if(*pc1 == regs->pc + 2)
+			*pc1 = regs->pc + 4;
 		*pc2 = (unsigned long) -1;
 		return;
 	}

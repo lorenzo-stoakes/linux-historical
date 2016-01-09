@@ -17,7 +17,6 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/timer.h>
-#include <linux/ledman.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/sched.h>

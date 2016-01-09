@@ -3108,7 +3108,7 @@ do_generic_file_write(struct file *file,const char *buf,size_t count, loff_t *pp
 	struct page	*page, *cached_page;
 	ssize_t		written;
 	long		status = 0;
-	int		err;
+	ssize_t		err;
 	unsigned	bytes;
 
 	cached_page = NULL;
@@ -3229,7 +3229,7 @@ do_generic_direct_write(struct file *file,const char *buf,size_t count, loff_t *
 	loff_t		pos;
 	ssize_t		written;
 	long		status = 0;
-	int		err;
+	ssize_t		err;
 
 	pos = *ppos;
 	written = 0;
@@ -3270,7 +3270,8 @@ out:
 static int do_odirect_fallback(struct file *file, struct inode *inode,
 			       const char *buf, size_t count, loff_t *ppos)
 {
-	int ret, err;
+	ssize_t ret;
+	int err;
 
 	down(&inode->i_sem);
 	ret = do_generic_file_write(file, buf, count, ppos);
@@ -3287,7 +3288,7 @@ ssize_t
 generic_file_write(struct file *file,const char *buf,size_t count, loff_t *ppos)
 {
 	struct inode	*inode = file->f_dentry->d_inode->i_mapping->host;
-	int		err;
+	ssize_t		err;
 
 	if ((ssize_t) count < 0)
 		return -EINVAL;

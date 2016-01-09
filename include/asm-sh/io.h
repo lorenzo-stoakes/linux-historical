@@ -133,6 +133,8 @@
 #  include <asm/io_shmse.h>
 # elif defined(CONFIG_SH_ADX)
 #  include <asm/io_adx.h>
+# elif defined(CONFIG_SH_SECUREEDGE5410)
+#  include <asm/io_snapgear.h>
 # elif defined(CONFIG_SH_UNKNOWN)
 #  include <asm/io_unknown.h>
 # else

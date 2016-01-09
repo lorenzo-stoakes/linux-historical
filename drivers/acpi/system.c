@@ -59,6 +59,8 @@ extern FADT_DESCRIPTOR		acpi_fadt;
 static int acpi_system_add (struct acpi_device *device);
 static int acpi_system_remove (struct acpi_device *device, int type);
 
+acpi_status acpi_suspend (u32 state);
+
 static struct acpi_driver acpi_system_driver = {
 	.name =		ACPI_SYSTEM_DRIVER_NAME,
 	.class =	ACPI_SYSTEM_CLASS,

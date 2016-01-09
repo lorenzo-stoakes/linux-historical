@@ -80,6 +80,7 @@ struct sh_machine_vector
 	unsigned int mv_hw_hs7729pci : 1;
 	unsigned int mv_hw_7751se: 1;
 	unsigned int mv_hw_adx : 1;
+	unsigned int mv_hw_snapgear : 1;
 };
 
 extern struct sh_machine_vector sh_mv;
@@ -100,6 +101,7 @@ extern struct sh_machine_vector sh_mv;
 #define MACH_HS7729PCI	(sh_mv.mv_hw_hs7729pci)
 #define MACH_7751SE	(sh_mv.mv_hw_7751se)
 #define MACH_ADX	(sh_mv.mv_hw_adx)
+#define MACH_SNAPGEAR	(sh_mv.mv_snapgear)
 #else
 # ifdef CONFIG_SH_SOLUTION_ENGINE
 #  define MACH_SE		1
@@ -175,6 +177,11 @@ extern struct sh_machine_vector sh_mv;
 #  define MACH_ADX		1
 # else
 #  define MACH_ADX		0
+# endif
+# ifdef CONFIG_SH_SECUREEDGE5410
+#  define MACH_SNAPGEAR		1
+# else
+#  define MACH_SNAPGEAR		0
 # endif
 #endif
 

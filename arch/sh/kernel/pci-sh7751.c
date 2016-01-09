@@ -200,8 +200,10 @@ struct pci_ops * __init pci_check_direct(void)
 	unsigned int tmp, id;
 
 	/* check for SH7751 hardware */
-	id = (SH7751_DEVICE_ID << 16) | SH7751_VENDOR_ID;
-	if(inl(SH7751_PCIREG_BASE+SH7751_PCICONF0) != id) {
+	id = inl(SH7751_PCIREG_BASE + SH7751_PCICONF0);
+
+	if ((id != ((SH7751_DEVICE_ID << 16) | SH7751_VENDOR_ID)) &&
+	    (id != ((SH7751R_DEVICE_ID << 16) | SH7751_VENDOR_ID))) {
 		PCIDBG(2,"PCI: This is not an SH7751\n");
 		return NULL;
 	}

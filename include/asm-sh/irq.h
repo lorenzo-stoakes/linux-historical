@@ -24,6 +24,9 @@
 #define INTC_IPRA	0xffd00004UL
 #define INTC_IPRB	0xffd00008UL
 #define INTC_IPRC	0xffd0000cUL
+#if defined(CONFIG_CPU_SUBTYPE_SH7751)
+# define INTC_IPRD	0xffd00010UL
+#endif
 #endif
 
 #define TIMER_IRQ	16

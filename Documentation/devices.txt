@@ -384,7 +384,7 @@ Your cooperation is appreciated.
 		180 = /dev/vrbuttons	Vr41xx button input device
 		181 = /dev/toshiba	Toshiba laptop SMM support
 		182 = /dev/perfctr	Performance-monitoring counters
-		183 = /dev/intel_rng	Intel i8x0 random number generator
+		183 = /dev/hwrandom	Hardware random number generator (RNG)
 		184 = /dev/cpu/microcode CPU microcode update interface
 		186 = /dev/atomicps	Atomic shapshot of process state data
 		187 = /dev/irnet	IrNET device

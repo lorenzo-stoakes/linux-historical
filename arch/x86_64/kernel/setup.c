@@ -30,6 +30,7 @@
 #include <linux/blk.h>
 #include <linux/highmem.h>
 #include <linux/bootmem.h>
+#include <linux/module.h>
 #include <asm/processor.h>
 #include <linux/console.h>
 #include <linux/seq_file.h>
@@ -58,6 +59,7 @@ struct cpuinfo_x86 boot_cpu_data = {
 };
 
 unsigned long mmu_cr4_features;
+EXPORT_SYMBOL(mmu_cr4_features);
 
 /* For PCI or other memory-mapped resources */
 unsigned long pci_mem_start = 0x10000000;

@@ -13,10 +13,8 @@
  */
 
 #include <linux/config.h>
-#include <linux/smp_lock.h>
 #include <asm/atomic.h>
 #include <asm/irq.h>
-#include <asm/current.h>
 
 /*
  * IDT vectors usable for external interrupt sources start
