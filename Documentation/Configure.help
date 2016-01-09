@@ -230,6 +230,20 @@ CONFIG_CRIS
   network and embedded applications.  For more information see the
   Axis Communication site, <http://developer.axis.com/>.
 
+Unsynced TSC support
+CONFIG_X86_TSC_DISABLE
+  This option is used for getting Linux to run on a NUMA multi-node 
+  boxes, laptops and other systems suffering from unsynced TSCs or 
+  TSC drift, which can cause gettimeofday to return non-monotonic values. 
+  Choosing this option will disable the CONFIG_X86_TSC optimization,
+  and allows you to then specify "notsc" as a boot option regardless of 
+  which processor you have compiled for. 
+  
+  NOTE: If your system hangs when init should run, you are probably
+  using a i686 compiled glibc which reads the TSC wihout checking for 
+  avaliability. Boot without "notsc" and install a i386 compiled glibc 
+  to solve the problem.
+ 
 Multiquad support for NUMA systems
 CONFIG_MULTIQUAD
   This option is used for getting Linux to run on a (IBM/Sequent) NUMA 
@@ -1017,6 +1031,11 @@ CONFIG_BLK_DEV_3W_XXXX_RAID
 
   Please read the comments at the top of
   <file:drivers/scsi/3w-xxxx.c>.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called 3w-xxxx.o.
 
 AEC62XX chipset support
 CONFIG_BLK_DEV_AEC62XX
@@ -5924,6 +5943,11 @@ CONFIG_BPQETHER
   useful if some other computer on your local network has a direct
   amateur radio connection.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called bpqether.o.
+
 High-speed (DMA) SCC driver for AX.25
 CONFIG_DMASCC
   This is a driver for high-speed SCC boards, i.e. those supporting
@@ -5988,9 +6012,10 @@ CONFIG_YAM
   port and includes some of the functions of a Terminal Node
   Controller. If you have one of those, say Y here.
 
-  If you want to compile this as a module ( = code which can be
+  If you want to compile the driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
-  say M here and read <file:Documentation/modules.txt>.
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called yam.o.
 
 BAYCOM picpar and par96 driver for AX.25
 CONFIG_BAYCOM_PAR
@@ -7162,6 +7187,11 @@ CONFIG_SCSI_AIC7XXX
   intended to replace the previous aic7xxx driver maintained by Doug
   Ledford since Doug is no longer maintaining that driver.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called aic7xxx.o.
+
 Adaptec I2O RAID support
 CONFIG_SCSI_DPT_I2O
   This driver supports all of Adaptec's I2O based RAID controllers as 
@@ -7358,6 +7388,11 @@ CONFIG_SCSI_CPQFCTS
   Say Y here to compile in support for the Compaq StorageWorks Fibre
   Channel 64-bit/66Mhz Host Bus Adapter.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called cpqfc.o.
+
 DMX3191D SCSI support
 CONFIG_SCSI_DMX3191D
   This is support for Domex DMX3191D SCSI Host Adapters.
@@ -7515,6 +7550,11 @@ CONFIG_SCSI_NCR_D700
   Unless you have an NCR manufactured machine, the chances are that
   you do not have this SCSI card, so say N.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called NCR_D700.o.
+
 HP LASI SCSI support for 53c700/710
 CONFIG_SCSI_LASI700
   This is a driver for the lasi baseboard in some parisc machines
@@ -7583,6 +7623,11 @@ CONFIG_SCSI_SYM53C8XX_2
   Please read <file:drivers/scsi/sym53c8xx_2/Documentation.txt> for more
   information.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called sym53c8xx.o.
+
 PCI DMA addressing mode
 CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE
   This option only applies to PCI-SCSI chip that are PCI DAC capable 
@@ -7645,6 +7690,11 @@ CONFIG_SCSI_NCR53C8XX
   Please read <file:drivers/scsi/README.ncr53c8xx> for more
   information.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ncr53c8xx.o.
+
 SYM53C8XX Version 1 SCSI support
 CONFIG_SCSI_SYM53C8XX
   This driver supports all the features of recent 53C8XX chips (used
@@ -7669,6 +7719,11 @@ CONFIG_SCSI_SYM53C8XX
 
   Please read <file:drivers/scsi/README.ncr53c8xx> for more
   information.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called sym53c8xx.o.
 
 Synchronous transfer frequency in MHz
 CONFIG_SCSI_NCR53C8XX_SYNC
@@ -8242,10 +8297,10 @@ CONFIG_SCSI_GDTH
   in the kernel source in <file:drivers/scsi/gdth.c> and
   <file:drivers/scsi/gdth.h.>
 
-  This driver is also available as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want).
-  If you want to compile it as a module, say M here and read
-  <file:Documentation/modules.txt>.
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called gdth.o.
 
 IOMEGA parallel port (ppa - older drives)
 CONFIG_SCSI_PPA
@@ -8334,6 +8389,11 @@ CONFIG_SCSI_DEBUG
   controlled environment where there is reduced risk of losing
   important data. This is primarily of use to people trying to debug
   the middle and upper layers of the SCSI subsystem. If unsure, say N.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called scsi_debug.o.
 
 Fibre Channel and FC4 SCSI support
 CONFIG_FC4
@@ -8762,9 +8822,10 @@ CONFIG_PPP_ASYNC
   a modem (not a synchronous or ISDN modem) to contact your ISP, you
   need this option.
 
-  This code is also available as a module (code which can be inserted
-  into and removed from the running kernel).  If you want to compile
-  it as a module, say M here and read <file:Documentation/modules.txt>.
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ppp_async.o.
 
   If unsure, say Y.
 
@@ -8774,10 +8835,10 @@ CONFIG_PPP_SYNC_TTY
   (HDLC) tty devices, such as the SyncLink adapter. These devices
   are often used for high-speed leased lines like T1/E1.
 
-  This code is also available as a module (code which can be inserted
-  into and removed from the running kernel).  If you want to compile
-  it as a module, say M here and read
-  <file:Documentation/modules.txt>.
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ppp_synctty.o.
 
 PPP Deflate compression
 CONFIG_PPP_DEFLATE
@@ -8788,10 +8849,10 @@ CONFIG_PPP_DEFLATE
   Deflate compression method as well for this to be useful.  Even if
   they don't support it, it is safe to say Y here.
 
-  This code is also available as a module (code which can be inserted
-  into and removed from the running kernel).  If you want to compile
-  it as a module, say M here and read
-  <file:Documentation/modules.txt>.
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ppp_deflate.o.
 
 PPP BSD-Compress compression
 CONFIG_PPP_BSDCOMP
@@ -9210,6 +9271,11 @@ CONFIG_HERMES
   configure your card and that /etc/pcmcia/wireless.opts works :
   <http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html>
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called hermes.o.
+
 Hermes 802.11b in PLX9052 based PCI adaptor support
 CONFIG_PLX_HERMES
   Enable support for PCMCIA cards supported by the "Hermes" (aka
@@ -9248,6 +9314,11 @@ CONFIG_PCMCIA_HERMES
   configure your card and that /etc/pcmcia/wireless.opts works:
   <http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html>.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called orinoco_cs.o.
+
 Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards
 CONFIG_AIRO
   This is the standard Linux driver to support Cisco/Aironet ISA and
@@ -9281,6 +9352,11 @@ CONFIG_AIRO_CS
   Hinds' pcmcia-cs package (see the file <file:Documentation/Changes>
   for location).  You also want to check out the PCMCIA-HOWTO,
   available from <http://www.tldp.org/docs.html#howto>.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called airo_cs.o.
 
 Aviator/Raytheon 2.4MHz wireless support
 CONFIG_PCMCIA_RAYCS
@@ -9466,6 +9542,11 @@ CONFIG_SYNCLINK_SYNCPPP
   driver (ppp.c) and pppd program. HDLC/SYNCPPP support allows use
   of the Cisco HDLC/PPP driver (syncppp.c).
   The SyncLink WAN driver (in character devices) must also be enabled.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called syncppp.o.
 
 FarSync T-Series X.21 (and V.35/V.24) cards
 CONFIG_FARSYNC
@@ -9967,6 +10048,11 @@ CONFIG_HOSTESS_SV11
 
   At this point, the driver can only be compiled as a module.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called hostess_sv11.o.
+
 COSA/SRP sync serial board support
 CONFIG_COSA
   This is a driver for COSA and SRP synchronous serial boards. These
@@ -10335,6 +10421,11 @@ CONFIG_HDLC
   Generic HDLC driver currently supports raw HDLC, Cisco HDLC, Frame
   Relay, synchronous Point-to-Point Protocol (PPP) and X.25.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called hdlc.o.
+
   If unsure, say N here.
 
 Raw HDLC support
@@ -10387,6 +10478,11 @@ CONFIG_N2
 
   Note that N2csu and N2dds cards are not supported by this driver.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called n2.o.
+
   If unsure, say N here.
 
 Moxa C101 support
@@ -10394,6 +10490,11 @@ CONFIG_C101
   This driver is for C101 SuperSync ISA cards made by Moxa
   Technologies Co., Ltd. If you have such a card,
   say Y here and see <http://hq.pm.waw.pl/pub/hdlc/>
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called c101.o.
 
   If unsure, say N here.
 
@@ -10747,6 +10848,11 @@ CONFIG_SUNGEM
   Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
   <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called sungem.o.
+
 Broadcom Tigon3 support
 CONFIG_TIGON3
   This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
@@ -10936,10 +11042,10 @@ CONFIG_VORTEX
   <file:Documentation/networking/vortex.txt> and in the comments at
   the beginning of <file:drivers/net/3c59x.c>.
 
-  If you want to compile this as a module ( = code which can be
+  If you want to compile the driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
-  say M here and read <file:Documentation/modules.txt> as well as
-  <file:Documentation/networking/net-modules.txt>.
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called 3c59x.o.
 
 Other ISA cards
 CONFIG_NET_ISA
@@ -10990,6 +11096,11 @@ CONFIG_ARCNET_1051
   documentation in <file:Documentation/networking/arcnet.txt> for more
   information about using arc0e and arc0s.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called rfc1051.o.
+
 Enable standard ARCNet packet format (RFC 1201)
 CONFIG_ARCNET_1201
   This allows you to use RFC1201 with your ARCnet card via the virtual
@@ -10999,11 +11110,21 @@ CONFIG_ARCNET_1201
   ARCnet documentation in <file:Documentation/networking/arcnet.txt>
   for more information about using arc0.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called rfc1201.o.
+
 Enable raw mode packet interface
 CONFIG_ARCNET_RAW
   ARCnet "raw mode" packet encapsulation, no soft headers.  Unlikely
   to work unless talking to a copy of the same Linux arcnet driver,
   but perhaps marginally faster in that case.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called arc-rawmode.o.
 
 ARCnet COM90xx (normal) chipset driver
 CONFIG_ARCNET_COM90xx
@@ -11253,6 +11374,11 @@ CONFIG_NATSEMI
   More specific information and updates are available from
   <http://www.scyld.com/network/natsemi.html>.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called natsemi.o.
+
 NatSemi workaround for high errors
 CONFIG_NATSEMI_CABLE_MAGIC
   Some systems see lots of errors with NatSemi ethernet controllers
@@ -11308,6 +11434,11 @@ CONFIG_IBMLANA
   gives a better security against packet losses.  Usage of multiple
   boards with this driver should be possible, but has not been tested
   up to now due to lack of hardware.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ibmlana.o.
 
 EISA, VLB, PCI and on board controllers
 CONFIG_NET_PCI
@@ -11478,11 +11609,21 @@ CONFIG_FEALNX
   cards. Specifications and data at
   <http://www.myson.com.hk/mtd/datasheet/>.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called fealnx.o.
+
 LP486E on board Ethernet
 CONFIG_LP486E
   Say Y here to support the 82596-based on-board Ethernet controller
   for the Panther motherboard, which is one of the two shipped in the
   Intel Professional Workstation.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called lp486e.o.
 
 ICL EtherTeam 16i/32 support
 CONFIG_ETH16I
@@ -11569,6 +11710,11 @@ CONFIG_EPIC100
   More specific information and updates are available from
   <http://www.scyld.com/network/epic100.html>.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called epic100.o.
+
 DEC LANCE Ethernet controller support
 CONFIG_DECLANCE
   This driver is for the series of Ethernet controllers produced by
@@ -11585,6 +11731,11 @@ CONFIG_SUNDANCE
   This driver is for the Sundance "Alta" chip.
   More specific information and updates are available from
   <http://www.scyld.com/network/sundance.html>.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called sundance.o.
 
 Sun3/Sun3x on-board LANCE support
 CONFIG_SUN3LANCE
@@ -11932,6 +12083,11 @@ Digital DEFEA and DEFPA adapter support
 CONFIG_DEFXX
   This is support for the DIGITAL series of EISA (DEFEA) and PCI
   (DEFPA) controllers which can connect you to a local FDDI network.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called defxx.o.
 
 SysKonnect FDDI PCI support
 CONFIG_SKFP
@@ -13898,6 +14054,7 @@ USB CATC NetMate-based Ethernet device support
 CONFIG_USB_CATC
   Say Y if you want to use one of the following 10Mbps USB Ethernet
   device based on the EL1210A chip. Supported devices are:
+    Belkin F5U011
     Belkin F5U111
     CATC NetMate
     CATC NetMate II
@@ -15520,6 +15677,25 @@ CONFIG_ADFS_FS_RW
   If you say Y here, you will be able to write to ADFS partitions on
   hard drives and ADFS-formatted floppy disks. This is experimental
   codes, so if you're unsure, say N.
+
+JFS filesystem support
+CONFIG_JFS_FS
+  This is a port of IBM's Journalling Filesystem .  More information is
+  available in the file Documentation/filesystems/jfs.txt.
+
+  If you do not intend to use the JFS filesystem, say N.
+
+JFS Debugging
+CONFIG_JFS_DEBUG
+  If you are experiencing any problems with the JFS filesystem, say
+  Y here.  This will result in additional debugging messages to be
+  written to the system log.  Under normal circumstances, this
+  results in very little overhead.
+
+JFS Statistics
+CONFIG_JFS_STATISTICS
+  Enabling this option will cause statistics from the JFS file system
+  to be made available to the user in the /proc/fs/jfs/ directory.
 
 /dev/pts file system for Unix98 PTYs
 CONFIG_DEVPTS_FS
@@ -19793,6 +19969,11 @@ CONFIG_ISDN_PPP_BSDCOMP
   method as well for this to be useful. Even if they don't support it,
   it is safe to say Y here.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called isdn_bsdcomp.o.
+
 Support audio via ISDN
 CONFIG_ISDN_AUDIO
   If you say Y here, the modem-emulator will support a subset of the
@@ -19827,6 +20008,11 @@ CONFIG_ISDN_DIVERSION
 
   Please read the file <file:Documentation/isdn/README.diversion>.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called dss1_divert.o.
+
 ICN 2B and 4B support
 CONFIG_ISDN_DRV_ICN
   This enables support for two kinds of ISDN-cards made by a German
@@ -19850,6 +20036,11 @@ CONFIG_ISDN_DRV_LOOP
   charged by your service-provider for lots of phone calls.
   You need will need the loopctrl utility from the latest isdn4k-utils
   package to set up this driver.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called isdnloop.o.
 
 HiSax SiemensChipSet driver support
 CONFIG_ISDN_DRV_HISAX
@@ -20146,14 +20337,29 @@ CONFIG_HISAX_ELSA_CS
   This enables the PCMCIA client driver for the Elsa PCMCIA MicroLink
   card.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called elsa_cs.o.
+
 Sedlbauer PCMCIA cards
 CONFIG_HISAX_SEDLBAUER_CS
   This enables the PCMCIA client driver for the Sedlbauer Speed Star
   and Speed Star II cards.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called sedlbauer_cs.o.
+
 CONFIG_HISAX_AVM_A1_CS
   This enables the PCMCIA client driver for the AVM A1 / Fritz!Card
   PCMCIA cards.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called avma1_cs.o.
 
 ST5481 USB ISDN modem
 CONFIG_HISAX_ST5481
@@ -20196,6 +20402,11 @@ CONFIG_ISDN_DRV_EICON_OLD
   Say Y here to use your Eicon active ISDN card with ISDN4Linux
   isdn module.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called eicon.o.
+
 Eicon PCI DIVA Server BRI/PRI/4BRI support
 CONFIG_ISDN_DRV_EICON_PCI
   Say Y here if you have an Eicon Diva Server (BRI/PRI/4BRI) ISDN
@@ -20217,6 +20428,11 @@ CONFIG_ISDN_DRV_EICON_DIVAS
   say Y here, the eicon module only supports the Diva Server PCI
   cards and will provide its own IDI interface. You should say N
   here.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called divas.o.
 
 Support AT-Fax Class 1 and 2 commands
 CONFIG_ISDN_TTY_FAX
@@ -20246,6 +20462,11 @@ CONFIG_ISDN_CAPI_CAPI20
   standardized libcapi20 to access this functionality.  You should say
   Y/M here.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called capi.o.
+
 CAPI2.0 Middleware support
 CONFIG_ISDN_CAPI_MIDDLEWARE
   This option will enhance the capabilities of the /dev/capi20
@@ -20268,12 +20489,22 @@ CONFIG_ISDN_CAPI_CAPIDRV
   supported by a CAPI driver, but still want to use old features like
   ippp interfaces or ttyI emulation, say Y/M here.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called capidrv.o.
+
 AVM B1 ISA support
 CONFIG_ISDN_DRV_AVMB1_B1ISA
   Enable support for the ISA version of the AVM B1 card.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called b1isa.o.
+
 AVM B1 PCI support
-CONFIG_ISDN_DRV_AVMB1_B1PCI
+CONFIG_ISDN_DRV_AVMB1_B1CICI
   Enable support for the PCI version of the AVM B1 card.
 
 AVM B1 PCI V4 support
@@ -20285,24 +20516,49 @@ CONFIG_ISDN_DRV_AVMB1_T1ISA
   Enable support for the AVM T1 T1B card.
   Note: This is a PRI card and handle 30 B-channels.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called t1isa.o.
+
 AVM B1/M1/M2 PCMCIA support
 CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
   Enable support for the PCMCIA version of the AVM B1 card.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called b1pcmcia.o.
 
 AVM B1/M1/M2 PCMCIA cs module
 CONFIG_ISDN_DRV_AVMB1_AVM_CS
   Enable the PCMCIA client driver for the AVM B1/M1/M2
   PCMCIA cards.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called avm_cs.o.
+
 AVM T1/T1-B PCI support
 CONFIG_ISDN_DRV_AVMB1_T1PCI
   Enable support for the AVM T1 T1B card.
   Note: This is a PRI card and handle 30 B-channels.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called t1pci.o.
+
 AVM C4/C2 support
 CONFIG_ISDN_DRV_AVMB1_C4
   Enable support for the AVM C4/C2 PCI cards.
   These cards handle 4/2 BRI ISDN lines (8/4 channels).
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called c4.o.
 
 Verbose reason code reporting (kernel size +=7K)
 CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
@@ -20317,6 +20573,11 @@ CONFIG_ISDN_DRV_ACT2000
   into the card using a utility which is part of the latest
   isdn4k-utils package. Please read the file
   <file:Documentation/isdn/README.act2000> for more information.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called act2000.o.
 
 Auvertech TurboPAM support
 CONFIG_ISDN_DRV_TPAM
@@ -20338,6 +20599,11 @@ CONFIG_HYSDN
   Champ, Ergo and Metro. You will then get a module called hysdn.o.
   Please read the file <file:Documentation/isdn/README.hysdn> for more
   information.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called hysdn.o.
 
 HYSDN CAPI 2.0 support
 CONFIG_HYSDN_CAPI
@@ -23636,6 +23902,11 @@ CONFIG_NS83820
   This driver supports the use of zero copy on tx, checksum 
   validation on rx, and 64 bit addressing.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ns83820.o.
+
 Toshiba Type-O IR Port device driver
 CONFIG_TOSHIBA_FIR
   Say Y here if you want to build support for the Toshiba Type-O IR
@@ -23692,6 +23963,11 @@ CONFIG_ESI_DONGLE
   used by IrTTY.  To activate support for ESI dongles you will have to
   start irattach like this: "irattach -d esi".
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called esi.o.
+
 ACTiSYS IR-220L and IR220L+ dongle
 CONFIG_ACTISYS_DONGLE
   Say Y here if you want to build support for the ACTiSYS IR-220L and
@@ -23702,6 +23978,11 @@ CONFIG_ACTISYS_DONGLE
   dongles you will have to start irattach like this:
   "irattach -d actisys" or "irattach -d actisys+".
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called actisys.o.
+
 Tekram IrMate 210B dongle
 CONFIG_TEKRAM_DONGLE
   Say Y here if you want to build support for the Tekram IrMate 210B
@@ -23710,6 +23991,11 @@ CONFIG_TEKRAM_DONGLE
   normal 9-pin serial port connector, and can currently only be used
   by IrTTY.  To activate support for Tekram dongles you will have to
   start irattach like this: "irattach -d tekram".
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called tekram.o.
 
 Greenwich GIrBIL dongle
 CONFIG_GIRBIL_DONGLE
@@ -23720,6 +24006,11 @@ CONFIG_GIRBIL_DONGLE
   used by IrTTY.  To activate support for Greenwich dongles you will
   have to insert "irattach -d girbil" in the /etc/irda/drivers script.
 
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called girbil.o.
+
 Parallax LiteLink dongle
 CONFIG_LITELINK_DONGLE
   Say Y here if you want to build support for the Parallax Litelink
@@ -23728,6 +24019,11 @@ CONFIG_LITELINK_DONGLE
   the normal 9-pin serial port connector, and can currently only be
   used by IrTTY.  To activate support for Parallax dongles you will
   have to start irattach like this "irattach -d litelink".
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called litelink.o.
 
 Microchip MCP2120 dongle
 CONFIG_MCP2120_DONGLE

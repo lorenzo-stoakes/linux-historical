@@ -803,7 +803,6 @@ static inline wait_queue_head_t *page_waitqueue(struct page *page)
 	/* On some cpus multiply is faster, on others gcc will do shifts */
 	hash *= GOLDEN_RATIO_PRIME;
 #endif
-
 	hash >>= zone->wait_table_shift;
 
 	return &wait[hash];
@@ -815,6 +814,21 @@ static inline wait_queue_head_t *page_waitqueue(struct page *page)
  * This must be called with the caller "holding" the page,
  * ie with increased "page->count" so that the page won't
  * go away during the wait..
+ *
+ * The waiting strategy is to get on a waitqueue determined
+ * by hashing. Waiters will then collide, and the newly woken
+ * task must then determine whether it was woken for the page
+ * it really wanted, and go back to sleep on the waitqueue if
+ * that wasn't it. With the waitqueue semantics, it never leaves
+ * the waitqueue unless it calls, so the loop moves forward one
+ * iteration every time there is
+ * (1) a collision 
+ * and
+ * (2) one of the colliding pages is woken
+ *
+ * This is the thundering herd problem, but it is expected to
+ * be very rare due to the few pages that are actually being
+ * waited on at any given time and the quality of the hash function.
  */
 void ___wait_on_page(struct page *page)
 {
@@ -835,7 +849,11 @@ void ___wait_on_page(struct page *page)
 }
 
 /*
- * Unlock the page and wake up sleepers in ___wait_on_page.
+ * unlock_page() is the other half of the story just above
+ * __wait_on_page(). Here a couple of quick checks are done
+ * and a couple of flags are set on the page, and then all
+ * of the waiters for all of the pages in the appropriate
+ * wait queue are woken.
  */
 void unlock_page(struct page *page)
 {
@@ -845,6 +863,13 @@ void unlock_page(struct page *page)
 	if (!test_and_clear_bit(PG_locked, &(page)->flags))
 		BUG();
 	smp_mb__after_clear_bit(); 
+
+	/*
+	 * Although the default semantics of wake_up() are
+	 * to wake all, here the specific function is used
+	 * to make it even more explicit that a number of
+	 * pages are being waited on here.
+	 */
 	if (waitqueue_active(waitqueue))
 		wake_up_all(waitqueue);
 }
@@ -1294,21 +1319,16 @@ static void generic_file_readahead(int reada_ok,
 /*
  * Mark a page as having seen activity.
  *
- * If it was already so marked, move it
- * to the active queue and drop the referenced
- * bit. Otherwise, just mark it for future
- * action..
+ * If it was already so marked, move it to the active queue and drop
+ * the referenced bit.  Otherwise, just mark it for future action..
  */
 void mark_page_accessed(struct page *page)
 {
 	if (!PageActive(page) && PageReferenced(page)) {
 		activate_page(page);
 		ClearPageReferenced(page);
-		return;
-	}
-
-	/* Mark the page referenced, AFTER checking for previous usage.. */
-	SetPageReferenced(page);
+	} else
+		SetPageReferenced(page);
 }
 
 /*

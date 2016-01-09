@@ -721,7 +721,7 @@ static int reiserfs_remount (struct super_block * s, int * mount_flags, char * d
 static void load_bitmap_info_data (struct super_block *sb,
                                    struct reiserfs_bitmap_info *bi)
 {
-    __u32 *cur = (__u32 *)bi->bh->b_data;
+    unsigned long *cur = (unsigned long *)bi->bh->b_data;
 
     while ((char *)cur < (bi->bh->b_data + sb->s_blocksize)) {
 
@@ -731,11 +731,11 @@ static void load_bitmap_info_data (struct super_block *sb,
 	    if (bi->first_zero_hint == 0) {
 		bi->first_zero_hint = ((char *)cur - bi->bh->b_data) << 3;
 	    }
-	    bi->free_count += 32;
+	    bi->free_count += sizeof ( unsigned long ) * 8;
 	} else if (*cur != ~0L) {
 	    int b;
-	    for (b = 0; b < 32; b++) {
-		if (!test_bit (b, cur)) {
+	    for (b = 0; b < sizeof ( unsigned long ) * 8; b++) {
+		if (!reiserfs_test_le_bit (b, cur)) {
 		    bi->free_count ++;
 		    if (bi->first_zero_hint == 0)
 			bi->first_zero_hint =

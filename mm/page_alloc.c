@@ -30,8 +30,10 @@ LIST_HEAD(active_list);
 pg_data_t *pgdat_list;
 
 /*
- * Used by page_zone() to look up the address of the struct zone whose
- * id is encoded in the upper bits of page->flags
+ *
+ * The zone_table array is used to look up the address of the
+ * struct zone corresponding to a given zone number (ZONE_DMA,
+ * ZONE_NORMAL, or ZONE_HIGHMEM).
  */
 zone_t *zone_table[MAX_NR_ZONES*MAX_NR_NODES];
 EXPORT_SYMBOL(zone_table);
@@ -53,8 +55,10 @@ static int zone_balance_max[MAX_NR_ZONES] __initdata = { 255 , 255, 255, };
 
 /*
  * Freeing function for a buddy system allocator.
+ * Contrary to prior comments, this is *NOT* hairy, and there
+ * is no reason for anyone not to understand it.
  *
- * The concept of a buddy system is to maintain direct-mapped table
+ * The concept of a buddy system is to maintain direct-mapped tables
  * (containing bit values) for memory blocks of various "orders".
  * The bottom level table contains the map for the smallest allocatable
  * units of memory (here, pages), and each level above it describes

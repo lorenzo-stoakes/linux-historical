@@ -9,6 +9,10 @@
  *	the Free Software Foundation; either version 2 of the License, or
  *	(at your option) any later version.
  *
+ * (26/7/2002) ganesh
+ * 	Fixed up broken error handling in ipaq_open. Retry the "kickstart"
+ * 	packet much harder - this drastically reduces connection failures.
+ *
  * (30/4/2002) ganesh
  * 	Added support for the Casio EM500. Completely untested. Thanks
  * 	to info from Nathan <wfilardo@fuse.net>
@@ -57,6 +61,8 @@
 #include "usb-serial.h"
 #include "ipaq.h"
 
+#define KP_RETRIES	100
+
 /*
  * Version Information
  */
@@ -81,7 +87,7 @@ static int ipaq_chars_in_buffer(struct usb_serial_port *port);
 static void ipaq_destroy_lists(struct usb_serial_port *port);
 
 
-static __devinitdata struct usb_device_id ipaq_id_table [] = {
+static struct usb_device_id ipaq_id_table [] = {
 	{ USB_DEVICE(COMPAQ_VENDOR_ID, COMPAQ_IPAQ_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_JORNADA_548_ID) },
 	{ USB_DEVICE(HP_VENDOR_ID, HP_JORNADA_568_ID) },
@@ -123,12 +129,13 @@ static int ipaq_open(struct usb_serial_port *port, struct file *filp)
 	struct ipaq_private	*priv;
 	struct ipaq_packet	*pkt;
 	int			i, result = 0;
+	int			retries = KP_RETRIES;
 
 	if (port_paranoia_check(port, __FUNCTION__)) {
 		return -ENODEV;
 	}
 	
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	down(&port->sem);
 	
@@ -141,8 +148,9 @@ static int ipaq_open(struct usb_serial_port *port, struct file *filp)
 		bytes_out = 0;
 		priv = (struct ipaq_private *)kmalloc(sizeof(struct ipaq_private), GFP_KERNEL);
 		if (priv == NULL) {
-			err(__FUNCTION__ " - Out of memory");
-			return -ENOMEM;
+			err("%s - Out of memory", __FUNCTION__);
+			result = -ENOMEM;
+			goto error;
 		}
 		port->private = (void *)priv;
 		priv->active = 0;
@@ -203,35 +211,48 @@ static int ipaq_open(struct usb_serial_port *port, struct file *filp)
 			      ipaq_read_bulk_callback, port);
 		result = usb_submit_urb(port->read_urb);
 		if (result) {
-			err(__FUNCTION__ " - failed submitting read urb, error %d", result);
+			err("%s - failed submitting read urb, error %d", __FUNCTION__, result);
+			goto cleanup;
 		}
 
 		/*
-		 * Send out two control messages observed in win98 sniffs. Not sure what
-		 * they do.
-		 */
+		 * Send out control message observed in win98 sniffs. Not sure what
+		 * it does, but from empirical observations, it seems that the device
+	 	 * will start the chat sequence once one of these messages gets
+	 	 * through. Since this has a reasonably high failure rate, we retry
+	 	 * several times.
+	 	 */
 
-		result = usb_control_msg(serial->dev, usb_sndctrlpipe(serial->dev, 0), 0x22, 0x21,
-				0x1, 0, NULL, 0, 5 * HZ);
-		if (result < 0) {
-			err(__FUNCTION__ " - failed doing control urb, error %d", result);
+		while (retries--) {
+			result = usb_control_msg(serial->dev,
+					usb_sndctrlpipe(serial->dev, 0), 0x22, 0x21,
+					0x1, 0, NULL, 0, HZ / 10 + 1);
+			if (result == 0) {
+				break;
+			}
 		}
-		result = usb_control_msg(serial->dev, usb_sndctrlpipe(serial->dev, 0), 0x22, 0x21,
-				0x1, 0, NULL, 0, 5 * HZ);
 		if (result < 0) {
-			err(__FUNCTION__ " - failed doing control urb, error %d", result);
+			err("%s - failed doing control urb, error %d", __FUNCTION__, result);
+			goto cleanup;
 		}
 	}
-	
-	up(&port->sem);
-	
-	return result;
 
+	up(&port->sem);
+	return 0;
+	
 enomem:
+	err("%s - Out of memory", __FUNCTION__);
+	result = -ENOMEM;
+cleanup:
 	ipaq_destroy_lists(port);
 	kfree(priv);
-	err(__FUNCTION__ " - Out of memory");
-	return -ENOMEM;
+error:
+	port->private = NULL;
+	port->open_count = 0;
+	port->active = 0;
+	up(&port->sem);
+	MOD_DEC_USE_COUNT;
+	return result;
 }
 
 
@@ -244,7 +265,7 @@ static void ipaq_close(struct usb_serial_port *port, struct file *filp)
 		return; 
 	}
 	
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 			 
 	serial = get_usb_serial(port, __FUNCTION__);
 	if (!serial)
@@ -288,15 +309,15 @@ static void ipaq_read_bulk_callback(struct urb *urb)
 	if (port_paranoia_check(port, __FUNCTION__))
 		return;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	if (!serial) {
-		dbg(__FUNCTION__ " - bad serial pointer, exiting");
+		dbg("%s - bad serial pointer, exiting", __FUNCTION__);
 		return;
 	}
 
 	if (urb->status) {
-		dbg(__FUNCTION__ " - nonzero read bulk status received: %d", urb->status);
+		dbg("%s - nonzero read bulk status received: %d", __FUNCTION__, urb->status);
 		return;
 	}
 
@@ -323,7 +344,7 @@ static void ipaq_read_bulk_callback(struct urb *urb)
 		      ipaq_read_bulk_callback, port);
 	result = usb_submit_urb(port->read_urb);
 	if (result)
-		err(__FUNCTION__ " - failed resubmitting read urb, error %d", result);
+		err("%s - failed resubmitting read urb, error %d", __FUNCTION__, result);
 	return;
 }
 
@@ -334,7 +355,7 @@ static int ipaq_write(struct usb_serial_port *port, int from_user, const unsigne
 	int			bytes_sent = 0;
 	int			transfer_size;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	usb_serial_debug_data(__FILE__, __FUNCTION__, count, buf);
 	
@@ -361,7 +382,7 @@ static int ipaq_write_bulk(struct usb_serial_port *port, int from_user, const un
 	unsigned long		flags;
 
 	if (priv->free_len <= 0) {
-		dbg(__FUNCTION__ " - we're stuffed");
+		dbg("%s - we're stuffed", __FUNCTION__);
 		return -EAGAIN;
 	}
 
@@ -373,7 +394,7 @@ static int ipaq_write_bulk(struct usb_serial_port *port, int from_user, const un
 	}
 	spin_unlock_irqrestore(&write_list_lock, flags);
 	if (pkt == NULL) {
-		dbg(__FUNCTION__ " - we're stuffed");
+		dbg("%s - we're stuffed", __FUNCTION__);
 		return -EAGAIN;
 	}
 
@@ -395,7 +416,7 @@ static int ipaq_write_bulk(struct usb_serial_port *port, int from_user, const un
 		spin_unlock_irqrestore(&write_list_lock, flags);
 		result = usb_submit_urb(port->write_urb);
 		if (result) {
-			err(__FUNCTION__ " - failed submitting write urb, error %d", result);
+			err("%s - failed submitting write urb, error %d", __FUNCTION__, result);
 		}
 	} else {
 		spin_unlock_irqrestore(&write_list_lock, flags);
@@ -414,7 +435,7 @@ static void ipaq_write_gather(struct usb_serial_port *port)
 
 	if (urb->status == -EINPROGRESS) {
 		/* Should never happen */
-		err(__FUNCTION__ " - flushing while urb is active !");
+		err("%s - flushing while urb is active !", __FUNCTION__);
 		return;
 	}
 	room = URBDATA_SIZE;
@@ -456,10 +477,10 @@ static void ipaq_write_bulk_callback(struct urb *urb)
 		return;
 	}
 	
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 	
 	if (urb->status) {
-		dbg(__FUNCTION__ " - nonzero write bulk status received: %d", urb->status);
+		dbg("%s - nonzero write bulk status received: %d", __FUNCTION__, urb->status);
 	}
 
 	spin_lock_irqsave(&write_list_lock, flags);
@@ -468,7 +489,7 @@ static void ipaq_write_bulk_callback(struct urb *urb)
 		spin_unlock_irqrestore(&write_list_lock, flags);
 		result = usb_submit_urb(port->write_urb);
 		if (result) {
-			err(__FUNCTION__ " - failed submitting write urb, error %d", result);
+			err("%s - failed submitting write urb, error %d", __FUNCTION__, result);
 		}
 	} else {
 		priv->active = 0;
@@ -484,7 +505,7 @@ static int ipaq_write_room(struct usb_serial_port *port)
 {
 	struct ipaq_private	*priv = (struct ipaq_private *)port->private;
 
-	dbg(__FUNCTION__ " - freelen %d", priv->free_len);
+	dbg("%s - freelen %d", __FUNCTION__, priv->free_len);
 	return priv->free_len;
 }
 
@@ -492,7 +513,7 @@ static int ipaq_chars_in_buffer(struct usb_serial_port *port)
 {
 	struct ipaq_private	*priv = (struct ipaq_private *)port->private;
 
-	dbg(__FUNCTION__ " - queuelen %d", priv->queue_len);
+	dbg("%s - queuelen %d", __FUNCTION__, priv->queue_len);
 	return priv->queue_len;
 }
 
@@ -520,7 +541,7 @@ static void ipaq_destroy_lists(struct usb_serial_port *port)
 
 static int ipaq_startup(struct usb_serial *serial)
 {
-	dbg(__FUNCTION__);
+	dbg("%s", __FUNCTION__);
 	usb_set_configuration(serial->dev, 1);
 	return 0;
 }
@@ -529,7 +550,7 @@ static void ipaq_shutdown(struct usb_serial *serial)
 {
 	int i;
 
-	dbg (__FUNCTION__);
+	dbg("%s", __FUNCTION__);
 
 	/* stop reads and writes on all ports */
 	for (i=0; i < serial->num_ports; ++i) {

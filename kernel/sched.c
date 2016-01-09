@@ -1081,6 +1081,7 @@ void yield(void)
 {
 	set_current_state(TASK_RUNNING);
 	sys_sched_yield();
+	schedule();
 }
 
 void __cond_resched(void)

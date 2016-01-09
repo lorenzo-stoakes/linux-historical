@@ -112,27 +112,27 @@ static __devinitdata struct usb_device_id id_table_combined [] = {
 	{ }							/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id belkin_dockstation_table [] = {
+static struct usb_device_id belkin_dockstation_table [] = {
 	{ USB_DEVICE(BELKIN_DOCKSTATION_VID, BELKIN_DOCKSTATION_PID) },
 	{ }							/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id belkin_sa_table [] = {
+static struct usb_device_id belkin_sa_table [] = {
 	{ USB_DEVICE(BELKIN_SA_VID, BELKIN_SA_PID) },
 	{ }							/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id belkin_old_table [] = {
+static struct usb_device_id belkin_old_table [] = {
 	{ USB_DEVICE(BELKIN_OLD_VID, BELKIN_OLD_PID) },
 	{ }							/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id peracom_table [] = {
+static struct usb_device_id peracom_table [] = {
 	{ USB_DEVICE(PERACOM_VID, PERACOM_PID) },
 	{ }							/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id gocom232_table [] = {
+static struct usb_device_id gocom232_table [] = {
 	{ USB_DEVICE(GOHUBS_VID, GOHUBS_PID) },
 	{ }							/* Terminating entry */
 };
@@ -296,7 +296,7 @@ static void belkin_sa_shutdown (struct usb_serial *serial)
 {
 	int i;
 	
-	dbg (__FUNCTION__);
+	dbg ("%s", __FUNCTION__);
 
 	/* stop reads and writes on all ports */
 	for (i=0; i < serial->num_ports; ++i) {
@@ -314,7 +314,7 @@ static int  belkin_sa_open (struct usb_serial_port *port, struct file *filp)
 {
 	int retval = 0;
 
-	dbg(__FUNCTION__" port %d", port->number);
+	dbg("%s port %d", __FUNCTION__, port->number);
 
 	down (&port->sem);
 	
@@ -359,7 +359,7 @@ static void belkin_sa_close (struct usb_serial_port *port, struct file *filp)
 	if (!serial)
 		return;
 
-	dbg(__FUNCTION__" port %d", port->number);
+	dbg("%s port %d", __FUNCTION__, port->number);
 
 	down (&port->sem);
 

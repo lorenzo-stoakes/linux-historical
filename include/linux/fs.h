@@ -206,6 +206,7 @@ extern void update_atime (struct inode *);
 extern void buffer_init(unsigned long);
 extern void inode_init(unsigned long);
 extern void mnt_init(unsigned long);
+extern void files_init(unsigned long mempages);
 
 /* bh state bits */
 enum bh_state_bits {

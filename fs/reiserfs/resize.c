@@ -110,9 +110,9 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 		return -ENOMEM;
 	    }
 	    for (i = 0; i < bmap_nr; i++)
-		bitmap[i].bh = SB_AP_BITMAP(s)[i].bh;
+		bitmap[i] = SB_AP_BITMAP(s)[i];
 	    for (i = bmap_nr; i < bmap_nr_new; i++) {
-		bitmap[i].bh = getblk(s->s_dev, i * s->s_blocksize * 8, s->s_blocksize);
+		bitmap[i].bh = sb_getblk(s, i * s->s_blocksize * 8);
 		memset(bitmap[i].bh->b_data, 0, sb->s_blocksize);
 		reiserfs_test_and_set_le_bit(0, bitmap[i].bh->b_data);
 
@@ -120,6 +120,8 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 		mark_buffer_uptodate(bitmap[i].bh, 1);
 		ll_rw_block(WRITE, 1, &bitmap[i].bh);
 		wait_on_buffer(bitmap[i].bh);
+		bitmap[i].first_zero_hint=1;
+		bitmap[i].free_count = s->s_blocksize * 8 - 1;
 	    }	
 	    /* free old bitmap blocks array */
 	    vfree(SB_AP_BITMAP(s)); 
@@ -135,6 +137,9 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 	for (i = block_r; i < s->s_blocksize * 8; i++)
 	    reiserfs_test_and_clear_le_bit(i, 
 					   SB_AP_BITMAP(s)[bmap_nr - 1].bh->b_data);
+	SB_AP_BITMAP(s)[bmap_nr - 1].free_count += s->s_blocksize * 8 - block_r;
+	if ( !SB_AP_BITMAP(s)[bmap_nr - 1].first_zero_hint)
+	    SB_AP_BITMAP(s)[bmap_nr - 1].first_zero_hint = block_r;
 	journal_mark_dirty(&th, s, SB_AP_BITMAP(s)[bmap_nr - 1].bh);
 
 	reiserfs_prepare_for_journal(s, SB_AP_BITMAP(s)[bmap_nr_new - 1].bh, 1);
@@ -142,7 +147,11 @@ int reiserfs_resize (struct super_block * s, unsigned long block_count_new)
 	    reiserfs_test_and_set_le_bit(i,
 					 SB_AP_BITMAP(s)[bmap_nr_new - 1].bh->b_data);
 	journal_mark_dirty(&th, s, SB_AP_BITMAP(s)[bmap_nr_new - 1].bh);
- 
+
+	SB_AP_BITMAP(s)[bmap_nr_new - 1].free_count -= s->s_blocksize * 8 - block_r_new;
+	/* Extreme case where last bitmap is the only valid block in itself. */
+	if ( !SB_AP_BITMAP(s)[bmap_nr_new - 1].free_count )
+	    SB_AP_BITMAP(s)[bmap_nr_new - 1].first_zero_hint = 0;
  	/* update super */
 	reiserfs_prepare_for_journal(s, SB_BUFFER_WITH_SB(s), 1) ;
 	free_blocks = SB_FREE_BLOCKS(s);

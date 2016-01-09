@@ -104,6 +104,8 @@ rpc_create_client(struct rpc_xprt *xprt, char *servname,
 	if (!clnt->cl_port)
 		clnt->cl_autobind = 1;
 
+	rpc_init_rtt(&clnt->cl_rtt, xprt->timeout.to_initval);
+
 	if (!rpcauth_create(flavor, clnt))
 		goto out_no_auth;
 
@@ -331,6 +333,20 @@ rpc_call_setup(struct rpc_task *task, struct rpc_message *msg, int flags)
 	/* Increment call count */
 	if (task->tk_msg.rpc_proc < task->tk_client->cl_maxproc)
 		rpcproc_count(task->tk_client, task->tk_msg.rpc_proc)++;
+}
+
+void
+rpc_setbufsize(struct rpc_clnt *clnt, unsigned int sndsize, unsigned int rcvsize)
+{
+	struct rpc_xprt *xprt = clnt->cl_xprt;
+
+	xprt->sndsize = 0;
+	if (sndsize)
+		xprt->sndsize = sndsize + RPC_SLACK_SPACE;
+	xprt->rcvsize = 0;
+	if (rcvsize)
+		xprt->rcvsize = rcvsize + RPC_SLACK_SPACE;
+	xprt_sock_setbufsize(xprt);
 }
 
 /*
@@ -669,7 +685,7 @@ call_timeout(struct rpc_task *task)
 		rpc_exit(task, -EIO);
 		return;
 	}
-	if (clnt->cl_chatty && !(task->tk_flags & RPC_CALL_MAJORSEEN)) {
+	if (clnt->cl_chatty && !(task->tk_flags & RPC_CALL_MAJORSEEN) && rpc_ntimeo(&clnt->cl_rtt) > 7) {
 		task->tk_flags |= RPC_CALL_MAJORSEEN;
 		if (req)
 			printk(KERN_NOTICE "%s: server %s not responding, still trying\n",

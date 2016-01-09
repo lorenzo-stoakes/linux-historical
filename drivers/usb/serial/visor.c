@@ -170,12 +170,12 @@ static void visor_read_bulk_callback	(struct urb *urb);
 static int  clie_3_5_startup	(struct usb_serial *serial);
 
 
-static __devinitdata struct usb_device_id visor_id_table [] = {
+static struct usb_device_id visor_id_table [] = {
 	{ USB_DEVICE(HANDSPRING_VENDOR_ID, HANDSPRING_VISOR_ID) },
 	{ }					/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id palm_4_0_id_table [] = {
+static struct usb_device_id palm_4_0_id_table [] = {
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M500_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M505_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M515_ID) },
@@ -185,19 +185,19 @@ static __devinitdata struct usb_device_id palm_4_0_id_table [] = {
 	{ }					/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id clie_id_3_5_table [] = {
+static struct usb_device_id clie_id_3_5_table [] = {
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_3_5_ID) },
 	{ }					/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id clie_id_4_0_table [] = {
+static struct usb_device_id clie_id_4_0_table [] = {
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_0_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_S360_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_1_ID) },
 	{ }					/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id id_table [] = {
+static __devinitdata struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(HANDSPRING_VENDOR_ID, HANDSPRING_VISOR_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M500_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M505_ID) },
@@ -212,7 +212,7 @@ static __devinitdata struct usb_device_id id_table [] = {
 	{ }					/* Terminating entry */
 };
 
-MODULE_DEVICE_TABLE (usb, id_table);
+MODULE_DEVICE_TABLE (usb, id_table_combined);
 
 
 
@@ -339,7 +339,7 @@ static int visor_open (struct usb_serial_port *port, struct file *filp)
 	if (port_paranoia_check (port, __FUNCTION__))
 		return -ENODEV;
 	
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	if (!port->read_urb) {
 		err ("Device lied about number of ports, please use a lower one.");
@@ -368,7 +368,7 @@ static int visor_open (struct usb_serial_port *port, struct file *filp)
 			      visor_read_bulk_callback, port);
 		result = usb_submit_urb(port->read_urb);
 		if (result)
-			err(__FUNCTION__ " - failed submitting read urb, error %d", result);
+			err("%s - failed submitting read urb, error %d", __FUNCTION__, result);
 	}
 	
 	up (&port->sem);
@@ -385,7 +385,7 @@ static void visor_close (struct usb_serial_port *port, struct file * filp)
 	if (port_paranoia_check (port, __FUNCTION__))
 		return;
 	
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 			 
 	serial = get_usb_serial (port, __FUNCTION__);
 	if (!serial)
@@ -401,7 +401,7 @@ static void visor_close (struct usb_serial_port *port, struct file * filp)
 			 * device is still here */
 			transfer_buffer =  kmalloc (0x12, GFP_KERNEL);
 			if (!transfer_buffer) {
-				err(__FUNCTION__ " - kmalloc(%d) failed.", 0x12);
+				err("%s - kmalloc(%d) failed.", __FUNCTION__, 0x12);
 			} else {
 				/* send a shutdown message to the device */
 				usb_control_msg (serial->dev,
@@ -437,7 +437,7 @@ static int visor_write (struct usb_serial_port *port, int from_user, const unsig
 	int bytes_sent = 0;
 	int transfer_size;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	while (count > 0) {
 		/* try to find a free urb in our list of them */
@@ -451,13 +451,13 @@ static int visor_write (struct usb_serial_port *port, int from_user, const unsig
 		}
 		spin_unlock_irqrestore (&write_urb_pool_lock, flags);
 		if (urb == NULL) {
-			dbg (__FUNCTION__ " - no more free urbs");
+			dbg("%s - no more free urbs", __FUNCTION__);
 			goto exit;
 		}
 		if (urb->transfer_buffer == NULL) {
 			urb->transfer_buffer = kmalloc (URB_TRANSFER_BUFFER_SIZE, GFP_KERNEL);
 			if (urb->transfer_buffer == NULL) {
-				err(__FUNCTION__" no more kernel memory...");
+				err("%s no more kernel memory...", __FUNCTION__);
 				goto exit;
 			}
 		}
@@ -482,7 +482,7 @@ static int visor_write (struct usb_serial_port *port, int from_user, const unsig
 		/* send it down the pipe */
 		status = usb_submit_urb(urb);
 		if (status) {
-			err(__FUNCTION__ " - usb_submit_urb(write bulk) failed with status = %d", status);
+			err("%s - usb_submit_urb(write bulk) failed with status = %d", __FUNCTION__, status);
 			bytes_sent = status;
 			break;
 		}
@@ -504,7 +504,7 @@ static int visor_write_room (struct usb_serial_port *port)
 	int i;
 	int room = 0;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 	
 	spin_lock_irqsave (&write_urb_pool_lock, flags);
 
@@ -516,7 +516,7 @@ static int visor_write_room (struct usb_serial_port *port)
 	
 	spin_unlock_irqrestore (&write_urb_pool_lock, flags);
 	
-	dbg(__FUNCTION__ " - returns %d", room);
+	dbg("%s - returns %d", __FUNCTION__, room);
 	return (room);
 }
 
@@ -527,7 +527,7 @@ static int visor_chars_in_buffer (struct usb_serial_port *port)
 	int i;
 	int chars = 0;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 	
 	spin_lock_irqsave (&write_urb_pool_lock, flags);
 
@@ -539,7 +539,7 @@ static int visor_chars_in_buffer (struct usb_serial_port *port)
 	
 	spin_unlock_irqrestore (&write_urb_pool_lock, flags);
 
-	dbg (__FUNCTION__ " - returns %d", chars);
+	dbg("%s - returns %d", __FUNCTION__, chars);
 	return (chars);
 }
 
@@ -551,10 +551,10 @@ static void visor_write_bulk_callback (struct urb *urb)
 	if (port_paranoia_check (port, __FUNCTION__))
 		return;
 	
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 	
 	if (urb->status) {
-		dbg(__FUNCTION__ " - nonzero write bulk status received: %d", urb->status);
+		dbg("%s - nonzero write bulk status received: %d", __FUNCTION__, urb->status);
 		return;
 	}
 
@@ -577,15 +577,15 @@ static void visor_read_bulk_callback (struct urb *urb)
 	if (port_paranoia_check (port, __FUNCTION__))
 		return;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	if (!serial) {
-		dbg(__FUNCTION__ " - bad serial pointer, exiting");
+		dbg("%s - bad serial pointer, exiting", __FUNCTION__);
 		return;
 	}
 
 	if (urb->status) {
-		dbg(__FUNCTION__ " - nonzero read bulk status received: %d", urb->status);
+		dbg("%s - nonzero read bulk status received: %d", __FUNCTION__, urb->status);
 		return;
 	}
 
@@ -612,7 +612,7 @@ static void visor_read_bulk_callback (struct urb *urb)
 		      visor_read_bulk_callback, port);
 	result = usb_submit_urb(port->read_urb);
 	if (result)
-		err(__FUNCTION__ " - failed resubmitting read urb, error %d", result);
+		err("%s - failed resubmitting read urb, error %d", __FUNCTION__, result);
 	return;
 }
 
@@ -620,7 +620,7 @@ static void visor_read_bulk_callback (struct urb *urb)
 static void visor_throttle (struct usb_serial_port *port)
 {
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	down (&port->sem);
 
@@ -636,14 +636,14 @@ static void visor_unthrottle (struct usb_serial_port *port)
 {
 	int result;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	down (&port->sem);
 
 	port->read_urb->dev = port->serial->dev;
 	result = usb_submit_urb(port->read_urb);
 	if (result)
-		err(__FUNCTION__ " - failed submitting read urb, error %d", result);
+		err("%s - failed submitting read urb, error %d", __FUNCTION__, result);
 
 	up (&port->sem);
 
@@ -658,20 +658,20 @@ static int  visor_startup (struct usb_serial *serial)
 	unsigned char *transfer_buffer =  kmalloc (256, GFP_KERNEL);
 
 	if (!transfer_buffer) {
-		err(__FUNCTION__ " - kmalloc(%d) failed.", 256);
+		err("%s - kmalloc(%d) failed.", __FUNCTION__, 256);
 		return -ENOMEM;
 	}
 
-	dbg(__FUNCTION__);
+	dbg("%s", __FUNCTION__);
 
-	dbg(__FUNCTION__ " - Set config to 1");
+	dbg("%s - Set config to 1", __FUNCTION__);
 	usb_set_configuration (serial->dev, 1);
 
 	/* send a get connection info request */
 	response = usb_control_msg (serial->dev, usb_rcvctrlpipe(serial->dev, 0), VISOR_GET_CONNECTION_INFORMATION,
 					0xc2, 0x0000, 0x0000, transfer_buffer, 0x12, 300);
 	if (response < 0) {
-		err(__FUNCTION__ " - error getting connection information");
+		err("%s - error getting connection information", __FUNCTION__);
 	} else {
 		struct visor_connection_info *connection_info = (struct visor_connection_info *)transfer_buffer;
 		char *string;
@@ -712,7 +712,7 @@ static int  visor_startup (struct usb_serial *serial)
 					    0xc2, 0x0000, 0x0000, transfer_buffer, 
 					    0x14, 300);
 		if (response < 0) {
-			err(__FUNCTION__ " - error getting first unknown palm command");
+			err("%s - error getting first unknown palm command", __FUNCTION__);
 		} else {
 			usb_serial_debug_data (__FILE__, __FUNCTION__, 0x14, transfer_buffer);
 		}
@@ -721,7 +721,7 @@ static int  visor_startup (struct usb_serial *serial)
 					    0xc2, 0x0000, 0x0000, transfer_buffer, 
 					    0x14, 300);
 		if (response < 0) {
-			err(__FUNCTION__ " - error getting second unknown palm command");
+			err("%s - error getting second unknown palm command", __FUNCTION__);
 		} else {
 			usb_serial_debug_data (__FILE__, __FUNCTION__, 0x14, transfer_buffer);
 		}
@@ -731,7 +731,7 @@ static int  visor_startup (struct usb_serial *serial)
 	response = usb_control_msg (serial->dev, usb_rcvctrlpipe(serial->dev, 0), VISOR_REQUEST_BYTES_AVAILABLE,
 					0xc2, 0x0000, 0x0005, transfer_buffer, 0x02, 300);
 	if (response < 0) {
-		err(__FUNCTION__ " - error getting bytes available request");
+		err("%s - error getting bytes available request", __FUNCTION__);
 	}
 
 	kfree (transfer_buffer);
@@ -745,7 +745,7 @@ static int clie_3_5_startup (struct usb_serial *serial)
 	int result;
 	u8 data;
 
-	dbg(__FUNCTION__);
+	dbg("%s", __FUNCTION__);
 
 	/*
 	 * Note that PEG-300 series devices expect the following two calls.
@@ -756,11 +756,11 @@ static int clie_3_5_startup (struct usb_serial *serial)
 				  USB_REQ_GET_CONFIGURATION, USB_DIR_IN,
 				  0, 0, &data, 1, HZ * 3);
 	if (result < 0) {
-		err(__FUNCTION__ ": get config number failed: %d", result);
+		err("%s: get config number failed: %d", __FUNCTION__, result);
 		return result;
 	}
 	if (result != 1) {
-		err(__FUNCTION__ ": get config number bad return length: %d", result);
+		err("%s: get config number bad return length: %d", __FUNCTION__, result);
 		return -EIO;
 	}
 
@@ -770,11 +770,11 @@ static int clie_3_5_startup (struct usb_serial *serial)
 				  USB_DIR_IN | USB_DT_DEVICE,
 				  0, 0, &data, 1, HZ * 3);
 	if (result < 0) {
-		err(__FUNCTION__ ": get interface number failed: %d", result);
+		err("%s: get interface number failed: %d", __FUNCTION__, result);
 		return result;
 	}
 	if (result != 1) {
-		err(__FUNCTION__ ": get interface number bad return length: %d", result);
+		err("%s: get interface number bad return length: %d", __FUNCTION__, result);
 		return -EIO;
 	}
 
@@ -785,7 +785,7 @@ static void visor_shutdown (struct usb_serial *serial)
 {
 	int i;
 
-	dbg (__FUNCTION__);
+	dbg("%s", __FUNCTION__);
 
 	/* stop reads and writes on all ports */
 	for (i=0; i < serial->num_ports; ++i) {
@@ -797,7 +797,7 @@ static void visor_shutdown (struct usb_serial *serial)
 
 static int visor_ioctl (struct usb_serial_port *port, struct file * file, unsigned int cmd, unsigned long arg)
 {
-	dbg(__FUNCTION__ " - port %d, cmd 0x%.4x", port->number, cmd);
+	dbg("%s - port %d, cmd 0x%.4x", __FUNCTION__, port->number, cmd);
 
 	return -ENOIOCTLCMD;
 }
@@ -808,10 +808,10 @@ static void visor_set_termios (struct usb_serial_port *port, struct termios *old
 {
 	unsigned int cflag;
 
-	dbg(__FUNCTION__ " - port %d", port->number);
+	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	if ((!port->tty) || (!port->tty->termios)) {
-		dbg(__FUNCTION__" - no tty structures");
+		dbg("%s - no tty structures", __FUNCTION__);
 		return;
 	}
 
@@ -820,50 +820,50 @@ static void visor_set_termios (struct usb_serial_port *port, struct termios *old
 	if (old_termios) {
 		if ((cflag == old_termios->c_cflag) &&
 		    (RELEVANT_IFLAG(port->tty->termios->c_iflag) == RELEVANT_IFLAG(old_termios->c_iflag))) {
-			dbg(__FUNCTION__ " - nothing to change...");
+			dbg("%s - nothing to change...", __FUNCTION__);
 			return;
 		}
 	}
 
 	/* get the byte size */
 	switch (cflag & CSIZE) {
-		case CS5:	dbg(__FUNCTION__ " - data bits = 5");   break;
-		case CS6:	dbg(__FUNCTION__ " - data bits = 6");   break;
-		case CS7:	dbg(__FUNCTION__ " - data bits = 7");   break;
+		case CS5:	dbg("%s - data bits = 5", __FUNCTION__);   break;
+		case CS6:	dbg("%s - data bits = 6", __FUNCTION__);   break;
+		case CS7:	dbg("%s - data bits = 7", __FUNCTION__);   break;
 		default:
-		case CS8:	dbg(__FUNCTION__ " - data bits = 8");   break;
+		case CS8:	dbg("%s - data bits = 8", __FUNCTION__);   break;
 	}
 	
 	/* determine the parity */
 	if (cflag & PARENB)
 		if (cflag & PARODD)
-			dbg(__FUNCTION__ " - parity = odd");
+			dbg("%s - parity = odd", __FUNCTION__);
 		else
-			dbg(__FUNCTION__ " - parity = even");
+			dbg("%s - parity = even", __FUNCTION__);
 	else
-		dbg(__FUNCTION__ " - parity = none");
+		dbg("%s - parity = none", __FUNCTION__);
 
 	/* figure out the stop bits requested */
 	if (cflag & CSTOPB)
-		dbg(__FUNCTION__ " - stop bits = 2");
+		dbg("%s - stop bits = 2", __FUNCTION__);
 	else
-		dbg(__FUNCTION__ " - stop bits = 1");
+		dbg("%s - stop bits = 1", __FUNCTION__);
 
 	
 	/* figure out the flow control settings */
 	if (cflag & CRTSCTS)
-		dbg(__FUNCTION__ " - RTS/CTS is enabled");
+		dbg("%s - RTS/CTS is enabled", __FUNCTION__);
 	else
-		dbg(__FUNCTION__ " - RTS/CTS is disabled");
+		dbg("%s - RTS/CTS is disabled", __FUNCTION__);
 	
 	/* determine software flow control */
 	if (I_IXOFF(port->tty))
-		dbg(__FUNCTION__ " - XON/XOFF is enabled, XON = %2x, XOFF = %2x", START_CHAR(port->tty), STOP_CHAR(port->tty));
+		dbg("%s - XON/XOFF is enabled, XON = %2x, XOFF = %2x", __FUNCTION__, START_CHAR(port->tty), STOP_CHAR(port->tty));
 	else
-		dbg(__FUNCTION__ " - XON/XOFF is disabled");
+		dbg("%s - XON/XOFF is disabled", __FUNCTION__);
 
 	/* get the baud rate wanted */
-	dbg(__FUNCTION__ " - baud rate = %d", tty_get_baud_rate(port->tty));
+	dbg("%s - baud rate = %d", __FUNCTION__, tty_get_baud_rate(port->tty));
 
 	return;
 }
@@ -892,7 +892,7 @@ static int __init visor_init (void)
 		urb->transfer_buffer = NULL;
 		urb->transfer_buffer = kmalloc (URB_TRANSFER_BUFFER_SIZE, GFP_KERNEL);
 		if (!urb->transfer_buffer) {
-			err (__FUNCTION__ " - out of memory for urb buffers.");
+			err("%s - out of memory for urb buffers.", __FUNCTION__);
 			continue;
 		}
 	}

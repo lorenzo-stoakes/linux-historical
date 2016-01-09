@@ -485,7 +485,7 @@ static int bluetooth_write (struct tty_struct * tty, int from_user, const unsign
 	switch (*current_buffer) {
 		/* First byte indicates the type of packet */
 		case CMD_PKT:
-			/* dbg(__FUNCTION__ "- Send cmd_pkt len:%d", count);*/
+			/* dbg("%s- Send cmd_pkt len:%d", __FUNCTION__, count);*/
 
 			retval = bluetooth_ctrl_msg (bluetooth, 0x00, 0x00, &current_buffer[1], count-1);
 			if (retval) {
@@ -1136,7 +1136,8 @@ static void * usb_bluetooth_probe(struct usb_device *dev, unsigned int ifnum,
 
 	endpoint = bulk_out_endpoint[0];
 	bluetooth->bulk_out_endpointAddress = endpoint->bEndpointAddress;
-	
+	bluetooth->bulk_out_buffer_size = endpoint->wMaxPacketSize * 2;
+
 	/* create our write urb pool */ 
 	for (i = 0; i < NUM_BULK_URBS; ++i) {
 		struct urb  *urb = usb_alloc_urb(0);
@@ -1151,8 +1152,6 @@ static void * usb_bluetooth_probe(struct usb_device *dev, unsigned int ifnum,
 		}
 		bluetooth->write_urb_pool[i] = urb;
 	}
-	
-	bluetooth->bulk_out_buffer_size = endpoint->wMaxPacketSize * 2;
 
 	endpoint = interrupt_in_endpoint[0];
 	bluetooth->interrupt_in_urb = usb_alloc_urb(0);

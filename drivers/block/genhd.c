@@ -197,9 +197,9 @@ static int part_show(struct seq_file *s, void *v)
 		int mask = (1<<gp->minor_shift) - 1;
 
 		if (!(n & mask) || gp->part[n].nr_sects) {
+#ifdef CONFIG_BLK_STATS
 			struct hd_struct *hd = &gp->part[n];
 
-#ifdef CONFIG_BLK_STATS
 			disk_round_stats(hd);
 			seq_printf(s, "%4d  %4d %10d %s "
 				      "%d %d %d %d %d %d %d %d %d %d %d\n",

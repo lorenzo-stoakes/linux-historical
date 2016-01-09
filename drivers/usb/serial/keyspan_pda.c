@@ -157,25 +157,25 @@ static __devinitdata struct usb_device_id id_table_combined [] = {
 
 MODULE_DEVICE_TABLE (usb, id_table_combined);
 
-static __devinitdata struct usb_device_id id_table_std [] = {
+static struct usb_device_id id_table_std [] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, KEYSPAN_PDA_ID) },
 	{ }						/* Terminating entry */
 };
 
 #ifdef KEYSPAN
-static __devinitdata struct usb_device_id id_table_fake [] = {
+static struct usb_device_id id_table_fake [] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, KEYSPAN_PDA_FAKE_ID) },
 	{ }						/* Terminating entry */
 };
 #endif
 
 #ifdef XIRCOM
-static __devinitdata struct usb_device_id id_table_fake_xircom [] = {
+static struct usb_device_id id_table_fake_xircom [] = {
         { USB_DEVICE(XIRCOM_VENDOR_ID, XIRCOM_FAKE_ID) },
         { }                                             
 };
 
-static __devinitdata struct usb_device_id id_table_fake_entregra [] = {
+static struct usb_device_id id_table_fake_entregra [] = {
         { USB_DEVICE(ENTREGRA_VENDOR_ID, ENTREGRA_FAKE_ID) },
         { }                                             
 };
@@ -693,11 +693,11 @@ static int keyspan_pda_open (struct usb_serial_port *port, struct file *filp)
 				     1,
 				     2*HZ);
 		if (rc < 0) {
-			dbg(__FUNCTION__" - roomquery failed");
+			dbg("%s - roomquery failed", __FUNCTION__);
 			goto error;
 		}
 		if (rc == 0) {
-			dbg(__FUNCTION__" - roomquery returned 0 bytes");
+			dbg("%s - roomquery returned 0 bytes", __FUNCTION__);
 			rc = -EIO;
 			goto error;
 		}
@@ -716,7 +716,7 @@ static int keyspan_pda_open (struct usb_serial_port *port, struct file *filp)
 		port->interrupt_in_urb->dev = serial->dev;
 		rc = usb_submit_urb(port->interrupt_in_urb);
 		if (rc) {
-			dbg(__FUNCTION__" - usb_submit_urb(read int) failed");
+			dbg("%s - usb_submit_urb(read int) failed", __FUNCTION__);
 			goto error;
 		}
 
@@ -780,7 +780,7 @@ static int keyspan_pda_fake_startup (struct usb_serial *serial)
 		record = &xircom_pgs_firmware[0];
 #endif
 	if (record == NULL) {
-		err(__FUNCTION__": unknown vendor, aborting.");
+		err("%s: unknown vendor, aborting.", __FUNCTION__);
 		return -ENODEV;
 	}
 
@@ -831,7 +831,7 @@ static int keyspan_pda_startup (struct usb_serial *serial)
 
 static void keyspan_pda_shutdown (struct usb_serial *serial)
 {
-	dbg (__FUNCTION__);
+	dbg("%s", __FUNCTION__);
 	
 	while (serial->port[0].open_count > 0) {
 		keyspan_pda_close (&serial->port[0], NULL);

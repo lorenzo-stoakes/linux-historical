@@ -372,77 +372,77 @@ MODULE_DEVICE_TABLE(usb, keyspan_ids_combined);
    ID pattern.  But, for now, it looks like we need slightly different
    behavior for each match. */
 
-static __devinitdata struct usb_device_id keyspan_usa18x_pre_ids[] = {
+static struct usb_device_id keyspan_usa18x_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa18x_pre_product_id) },
 	{ }	/* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa19_pre_ids[] = {
+static struct usb_device_id keyspan_usa19_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa19_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa19w_pre_ids[] = {
+static struct usb_device_id keyspan_usa19w_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa19w_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28_pre_ids[] = {
+static struct usb_device_id keyspan_usa28_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28x_pre_ids[] = {
+static struct usb_device_id keyspan_usa28x_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28x_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28xa_pre_ids[] = {
+static struct usb_device_id keyspan_usa28xa_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28xa_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28xb_pre_ids[] = {
+static struct usb_device_id keyspan_usa28xb_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28xb_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa49w_pre_ids[] = {
+static struct usb_device_id keyspan_usa49w_pre_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa49w_pre_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa18x_ids[] = {
+static struct usb_device_id keyspan_usa18x_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa18x_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa19_ids[] = {
+static struct usb_device_id keyspan_usa19_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa19_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa19w_ids[] = {
+static struct usb_device_id keyspan_usa19w_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa19w_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28_ids[] = {
+static struct usb_device_id keyspan_usa28_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28x_ids[] = {
+static struct usb_device_id keyspan_usa28x_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28x_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa28xa_ids[] = {
+static struct usb_device_id keyspan_usa28xa_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa28xa_product_id) },
 	{ } /* Terminating entry */
 };
 
-static __devinitdata struct usb_device_id keyspan_usa49w_ids[] = {
+static struct usb_device_id keyspan_usa49w_ids[] = {
 	{ USB_DEVICE(KEYSPAN_VENDOR_ID, keyspan_usa49w_product_id) },
 	{ } /* Terminating entry */
 };
