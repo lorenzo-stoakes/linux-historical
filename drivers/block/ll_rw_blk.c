@@ -458,6 +458,7 @@ static void blk_init_free_list(request_queue_t *q)
   
  	INIT_LIST_HEAD(&q->rq.free);
 	q->rq.count = 0;
+	q->rq.pending[READ] = q->rq.pending[WRITE] = 0;
 	q->nr_requests = 0;
 
 	si_meminfo(&si);
@@ -549,18 +550,35 @@ void blk_init_queue(request_queue_t * q, request_fn_proc * rfn)
 static struct request *get_request(request_queue_t *q, int rw)
 {
 	struct request *rq = NULL;
-	struct request_list *rl;
+	struct request_list *rl = &q->rq;
 
-	rl = &q->rq;
-	if (!list_empty(&rl->free) && !blk_oversized_queue(q)) {
+	if (blk_oversized_queue(q)) {
+		int rlim = q->nr_requests >> 5;
+
+		if (rlim < 4)
+			rlim = 4;
+
+		/*
+		 * if its a write, or we have more than a handful of reads
+		 * pending, bail out
+		 */
+		if ((rw == WRITE) || (rw == READ && rl->pending[READ] > rlim))
+			return NULL;
+		if (blk_oversized_queue_reads(q))
+			return NULL;
+	}
+	
+	if (!list_empty(&rl->free)) {
 		rq = blkdev_free_rq(&rl->free);
 		list_del(&rq->queue);
 		rl->count--;
+		rl->pending[rw]++;
 		rq->rq_status = RQ_ACTIVE;
 		rq->cmd = rw;
 		rq->special = NULL;
 		rq->q = q;
 	}
+
 	return rq;
 }
 
@@ -866,13 +884,25 @@ void blkdev_release_request(struct request *req)
 	 * assume it has free buffers and check waiters
 	 */
 	if (q) {
+		struct request_list *rl = &q->rq;
 		int oversized_batch = 0;
 
 		if (q->can_throttle)
 			oversized_batch = blk_oversized_queue_batch(q);
-		q->rq.count++;
-		list_add(&req->queue, &q->rq.free);
-		if (q->rq.count >= q->batch_requests && !oversized_batch) {
+		rl->count++;
+		/*
+		 * paranoia check
+		 */
+		if (req->cmd == READ || req->cmd == WRITE)
+			rl->pending[req->cmd]--;
+		if (rl->pending[READ] > q->nr_requests)
+			printk("blk: reads: %u\n", rl->pending[READ]);
+		if (rl->pending[WRITE] > q->nr_requests)
+			printk("blk: writes: %u\n", rl->pending[WRITE]);
+		if (rl->pending[READ] + rl->pending[WRITE] > q->nr_requests)
+			printk("blk: r/w: %u + %u > %u\n", rl->pending[READ], rl->pending[WRITE], q->nr_requests);
+		list_add(&req->queue, &rl->free);
+		if (rl->count >= q->batch_requests && !oversized_batch) {
 			smp_mb();
 			if (waitqueue_active(&q->wait_for_requests))
 				wake_up(&q->wait_for_requests);
@@ -947,7 +977,7 @@ static inline void attempt_front_merge(request_queue_t * q,
 static int __make_request(request_queue_t * q, int rw,
 				  struct buffer_head * bh)
 {
-	unsigned int sector, count;
+	unsigned int sector, count, sync;
 	int max_segments = MAX_SEGMENTS;
 	struct request * req, *freereq = NULL;
 	int rw_ahead, max_sectors, el_ret;
@@ -958,6 +988,7 @@ static int __make_request(request_queue_t * q, int rw,
 
 	count = bh->b_size >> 9;
 	sector = bh->b_rsector;
+	sync = test_and_clear_bit(BH_Sync, &bh->b_state);
 
 	rw_ahead = 0;	/* normal case; gets changed below for READA */
 	switch (rw) {
@@ -1124,6 +1155,8 @@ out:
 		blkdev_release_request(freereq);
 	if (should_wake)
 		get_request_wait_wakeup(q, rw);
+	if (sync)
+		__generic_unplug_device(q);
 	spin_unlock_irq(&io_request_lock);
 	return 0;
 end_io:

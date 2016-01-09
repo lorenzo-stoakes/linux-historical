@@ -487,7 +487,6 @@ asmlinkage long sys_fdatasync(unsigned int fd)
 	ret = do_fdatasync(file);
 	up(&inode->i_sem);
 
-out_putf:
 	fput(file);
 out:
 	return ret;
@@ -1142,6 +1141,7 @@ struct buffer_head * bread(kdev_t dev, int block, int size)
 	bh = getblk(dev, block, size);
 	if (buffer_uptodate(bh))
 		return bh;
+	set_bit(BH_Sync, &bh->b_state);
 	ll_rw_block(READ, 1, &bh);
 	wait_on_buffer(bh);
 	if (buffer_uptodate(bh))

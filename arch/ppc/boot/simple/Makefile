@@ -33,7 +33,9 @@ ZIMAGE				:= zImage-SMON
 ZIMAGEINITRD			:= zImage.initrd-SMON
 TFTPIMAGE			:= /tftpboot/zImage.gemini
 endif
-ifeq ($(CONFIG_LOPEC),y)
+# kbuild-2.4 'feature', only one of these will ever by 'y' at a time.
+# The rest will be unset.
+ifeq ($(CONFIG_LOPEC)$(CONFIG_PPLUS),y)
 ZIMAGE				:= zImage-PPLUS
 ZIMAGEINITRD			:= zImage.initrd-PPLUS
 EXTRA				:= ../common/mpc10x_memory.o
@@ -41,7 +43,9 @@ TFTPIMAGE			:= /tftpboot/zImage.pplus
 ZNETBOOT			:= zImage.pplus
 ZNETBOOTRD			:= zImage.initrd.pplus
 endif
-
+ifeq ($(CONFIG_PPLUS),y)
+EXTRA				:= legacy.o
+endif
 ifeq ($(CONFIG_PAL4),y)
 ZIMAGE				:= zImage-PAL4
 ZIMAGEINITRD			:= zImage.initrd-PAL4

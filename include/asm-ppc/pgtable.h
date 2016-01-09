@@ -468,7 +468,7 @@ static inline unsigned long pte_update(pte_t *p, unsigned long clr,
 				       unsigned long set)
 {
 	unsigned long old, tmp;
-	
+
 	__asm__ __volatile__("\
 1:	lwarx	%0,0,%3\n\
 	andc	%1,%0,%4\n\
@@ -538,7 +538,7 @@ static inline pmd_t * pmd_offset(pgd_t * dir, unsigned long address)
 	return (pmd_t *) dir;
 }
 
-/* Find an entry in the third-level page table.. */ 
+/* Find an entry in the third-level page table.. */
 static inline pte_t * pte_offset(pmd_t * dir, unsigned long address)
 {
 	return (pte_t *) pmd_page(*dir) + ((address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1));
@@ -591,7 +591,7 @@ extern unsigned long kernel_map(unsigned long paddr, unsigned long size,
 				int nocacheflag, unsigned long *memavailp );
 
 /*
- * Set cache mode of (kernel space) address range. 
+ * Set cache mode of (kernel space) address range.
  */
 extern void kernel_set_cachemode (unsigned long address, unsigned long size,
                                  unsigned int cmode);
@@ -599,7 +599,7 @@ extern void kernel_set_cachemode (unsigned long address, unsigned long size,
 /* Needs to be defined here and not in linux/mm.h, as it is arch dependent */
 #define kern_addr_valid(addr)	(1)
 
-#define io_remap_page_range remap_page_range 
+#define io_remap_page_range remap_page_range
 
 /*
  * No page table caches to initialise

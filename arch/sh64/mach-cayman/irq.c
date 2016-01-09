@@ -14,6 +14,7 @@
 
 #include <linux/config.h>
 #include <asm/irq.h>
+#include <asm/page.h>
 #include <asm/io.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
@@ -37,13 +38,15 @@ static void cayman_interrupt_pci2(int irq, void *dev_id, struct pt_regs *regs)
 }
 
 static struct irqaction cayman_action_smsc = {
-	cayman_interrupt_smsc, SA_INTERRUPT, 0, "Cayman SMSC Mux",
-	NULL, NULL
+	.name		= "Cayman SMSC Mux",
+	.handler	= cayman_interrupt_smsc,
+	.flags		= SA_INTERRUPT,
 };
 
 static struct irqaction cayman_action_pci2 = {
-	cayman_interrupt_pci2, SA_INTERRUPT, 0, "Cayman PCI2 Mux",
-	NULL, NULL
+	.name		= "Cayman PCI2 Mux",
+	.handler	= cayman_interrupt_pci2,
+	.flags		= SA_INTERRUPT,
 };
 
 static void enable_cayman_irq(unsigned int irq)
@@ -87,10 +90,8 @@ static void ack_cayman_irq(unsigned int irq)
 
 static void end_cayman_irq(unsigned int irq)
 {
-	/* SIM: Note when we upgrade to the new kernel, this will need to be aded:
-	 * if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-	 */
-	enable_cayman_irq(irq);
+	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
+		enable_cayman_irq(irq);
 }
 
 static unsigned int startup_cayman_irq(unsigned int irq)
@@ -105,13 +106,13 @@ static void shutdown_cayman_irq(unsigned int irq)
 }
 
 struct hw_interrupt_type cayman_irq_type = {
-	"Cayman-IRQ",
-	startup_cayman_irq,
-	shutdown_cayman_irq,
-	enable_cayman_irq,
-	disable_cayman_irq,
-	ack_cayman_irq,
-	end_cayman_irq
+	.typename	= "Cayman-IRQ",
+	.startup	= startup_cayman_irq,
+	.shutdown	= shutdown_cayman_irq,
+	.enable		= enable_cayman_irq,
+	.disable	= disable_cayman_irq,
+	.ack		= ack_cayman_irq,
+	.end		= end_cayman_irq,
 };
 
 int cayman_irq_demux(int evt)
@@ -158,14 +159,15 @@ int cayman_irq_demux(int evt)
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_SYSCTL)
 int cayman_irq_describe(char* p, int irq)
 {
-  if (irq < NR_INTC_IRQS) 
-    return intc_irq_describe(p, irq);
-  else if (irq < NR_INTC_IRQS + 8)
-    return sprintf(p, "(SMSC %d)", irq - NR_INTC_IRQS);
-  else if ((irq >= NR_INTC_IRQS + 24) && (irq < NR_INTC_IRQS + 32))
-    return sprintf(p, "(PCI2 %d)", irq - (NR_INTC_IRQS + 24)); 
-  else
-    return 0;
+	if (irq < NR_INTC_IRQS) {
+		return intc_irq_describe(p, irq);
+	} else if (irq < NR_INTC_IRQS + 8) {
+		return sprintf(p, "(SMSC %d)", irq - NR_INTC_IRQS);
+	} else if ((irq >= NR_INTC_IRQS + 24) && (irq < NR_INTC_IRQS + 32)) {
+		return sprintf(p, "(PCI2 %d)", irq - (NR_INTC_IRQS + 24)); 
+	}
+
+	return 0;
 }
 #endif
 
@@ -174,8 +176,9 @@ void init_cayman_irq(void)
 	int i;
 
 	epld_virt = onchip_remap(EPLD_BASE, 1024, "EPLD");
-	if (epld_virt == NULL) {
-		panic("Unable to remap EPLD\n");
+	if (!epld_virt) {
+		printk(KERN_ERR "Cayman IRQ: Unable to remap EPLD\n");
+		return;
 	}
 
 	for (i=0; i<NR_EXT_IRQS; i++) {

@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  */
 
@@ -232,6 +233,28 @@ static int hfsplus_statfs(struct super_block *sb, struct statfs *buf)
 	return 0;
 }
 
+int hfsplus_remount(struct super_block *sb, int *flags, char *data)
+{
+	if ((*flags & MS_RDONLY) == (sb->s_flags & MS_RDONLY))
+		return 0;
+	if (!(*flags & MS_RDONLY)) {
+		struct hfsplus_vh *vhdr = HFSPLUS_SB(sb).s_vhdr;
+
+		if ((vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_INCNSTNT)) ||
+		    !(vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_UNMNT))) {
+			printk("HFS+-fs warning: Filesystem was not cleanly unmounted, "
+			       "running fsck.hfsplus is recommended.  leaving read-only.\n");
+			sb->s_flags |= MS_RDONLY;
+			*flags |= MS_RDONLY;
+		} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_SOFTLOCK)) {
+			printk("HFS+-fs: Filesystem is marked locked, leaving read-only.\n");
+			sb->s_flags |= MS_RDONLY;
+			*flags |= MS_RDONLY;
+		}
+	}
+	return 0;
+}
+
 static struct super_operations hfsplus_sops = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,0)
 	.alloc_inode	= hfsplus_alloc_inode,
@@ -243,6 +266,7 @@ static struct super_operations hfsplus_sops = {
 	.put_super	= hfsplus_put_super,
 	.write_super	= hfsplus_write_super,
 	.statfs		= hfsplus_statfs,
+	.remount_fs	= hfsplus_remount,
 };
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
@@ -266,6 +290,16 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	}
 	memset(sbi, 0, sizeof(HFSPLUS_SB(sb)));
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
+	if (sizeof(struct inode) - offsetof(struct inode, u) < sizeof(struct hfsplus_inode_info)) {
+		extern void hfsplus_inode_info_exceeded_space_in_inode_error(void);
+		hfsplus_inode_info_exceeded_space_in_inode_error();
+	}
+
+	if (sizeof(struct super_block) - offsetof(struct super_block, u) < sizeof(struct hfsplus_sb_info)) {
+		extern void hfsplus_sb_info_exceeded_space_in_super_block_error(void);
+		hfsplus_sb_info_exceeded_space_in_super_block_error();
+	}
+
 	INIT_LIST_HEAD(&HFSPLUS_SB(sb).rsrc_inodes);
 #else
 	sb->s_fs_info = sbi;
@@ -308,6 +342,18 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 
 	/* Set up operations so we can load metadata */
 	sb->s_op = &hfsplus_sops;
+
+	if ((vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_INCNSTNT)) ||
+	    !(vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_UNMNT))) {
+		if (!silent)
+			printk("HFS+-fs warning: Filesystem was not cleanly unmounted, "
+			       "running fsck.hfsplus is recommended.  mounting read-only.\n");
+		sb->s_flags |= MS_RDONLY;
+	} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_SOFTLOCK)) {
+		if (!silent)
+			printk("HFS+-fs: Filesystem is marked locked, mounting read-only.\n");
+		sb->s_flags |= MS_RDONLY;
+	}
 
 	/* Load metadata objects (B*Trees) */
 	HFSPLUS_SB(sb).ext_tree = hfsplus_open_btree(sb, HFSPLUS_EXT_CNID);
@@ -355,7 +401,10 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	if (sb->s_flags & MS_RDONLY)
 		goto out;
 
-	//vhdr->last_mount_vers = cpu_to_be32('LNX0');
+	/* H+LX == hfsplusutils, H+Lx == this driver, H+lx is unused
+	 * all three are registered with Apple for our use
+	 */
+	vhdr->last_mount_vers = cpu_to_be32(HFSP_MOUNT_VERSION);
 	vhdr->modify_date = hfsp_now2mt();
 	vhdr->write_count = cpu_to_be32(be32_to_cpu(vhdr->write_count) + 1);
 	vhdr->attributes &= cpu_to_be32(~HFSPLUS_VOL_UNMNT);

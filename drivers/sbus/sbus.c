@@ -24,6 +24,10 @@ static struct linux_prom_irqs irqs[PROMINTR_MAX] __initdata = { { 0 } };
 static int interrupts[PROMINTR_MAX] __initdata = { 0 };
 #endif
 
+#ifdef CONFIG_PCI
+extern int pcic_present(void);
+#endif
+
 /* Perhaps when I figure out more about the iommu we'll put a
  * device registration routine here that probe_sbus() calls to
  * setup the iommu for each Sbus.
@@ -328,7 +332,7 @@ void __init sbus_init(void)
 		nd = prom_searchsiblings(topnd, "sbus");
 		if(nd == 0) {
 #ifdef CONFIG_PCI
-			if (!pcibios_present()) {	
+			if (!pcic_present()) {	
 				prom_printf("Neither SBUS nor PCI found.\n");
 				prom_halt();
 			} else {
@@ -353,7 +357,7 @@ void __init sbus_init(void)
 		   (nd = prom_getchild(iommund)) == 0 ||
 		   (nd = prom_searchsiblings(nd, "sbus")) == 0) {
 #ifdef CONFIG_PCI
-                        if (!pcibios_present()) {       
+                        if (!pcic_present()) {       
                                 prom_printf("Neither SBUS nor PCI found.\n");
                                 prom_halt();
                         }

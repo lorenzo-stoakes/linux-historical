@@ -1348,7 +1348,9 @@ S: USA
 N: Marcel Holtmann
 E: marcel@holtmann.org
 W: http://www.holtmann.org
-D: Author of the Linux Bluetooth Subsystem PC Card drivers
+D: Author and maintainer of the various Bluetooth HCI drivers
+D: Author and maintainer of the CAPI message transport protocol driver
+D: Various other Bluetooth related patches, cleanups and fixes
 S: Germany
 
 N: Rob W. W. Hooft

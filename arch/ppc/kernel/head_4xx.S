@@ -57,7 +57,7 @@
  *   r7 - End of kernel command line string
  *
  * This is all going to change RSN when we add bi_recs.......  -- Dan
- */ 
+ */
 	.text
 _GLOBAL(_stext)
 _GLOBAL(_start)
@@ -111,7 +111,7 @@ ibm405lp_wakeup_info:
 /* Exception vector entry code. This code runs with address translation
  * turned off (i.e. using physical addresses). We assume SPRG3 has the
  * physical address of the current task thread_struct.
- */ 
+ */
 
 #define COMMON_PROLOG							     \
 0:	mtspr	SPRN_SPRG0,r20;         /* We need r20, move it to SPRG0   */\
@@ -192,7 +192,7 @@ label:
 
 
 /* Exception vectors.
-*/ 
+*/
 
 /* 0x0100 - Critical Interrupt Exception
 */
@@ -751,7 +751,7 @@ check_single_step_in_exception:
  * have vectors from 0x2100 through 0x2F00 defined, but marked as reserved.
  * However, for the 4xx-series processors these are neither defined nor
  * reserved.
- */ 
+ */
 
 	/* Damn, I came up one instruction too many to fit into the
 	 * exception space :-).  Both the instruction and data TLB
@@ -885,7 +885,7 @@ _GLOBAL(transfer_to_handler)
 
 /* On kernel stack overlow, load up an initial stack pointer and call
  * StackOverflow(regs), which should NOT return.
- */ 
+ */
 
 stack_ovf:
 	addi	r3,r1,STACK_FRAME_OVERHEAD
@@ -920,7 +920,7 @@ _GLOBAL(giveup_fpu)
 /* extern void abort(void)
  *
  * At present, this routine just applies a system reset.
- */ 
+ */
 _GLOBAL(abort)
         mfspr   r13,SPRN_DBCR0
         oris    r13,r13,DBCR_RST(DBCR_RST_SYSTEM)@h
@@ -928,7 +928,7 @@ _GLOBAL(abort)
 
 
 /* This is where the main kernel code starts.
- */ 
+ */
 start_here:
 
 	/* ptr to current */
@@ -1007,7 +1007,7 @@ start_here:
  */
 initial_mmu:
 	tlbia			/* Invalidate all TLB entries */
-	sync 
+	sync
 
 	/* We should still be executing code at physical address 0x0000xxxx
 	 * at this point. However, start_here is at virtual address
@@ -1052,7 +1052,7 @@ initial_mmu:
 	tlbwe	r3,r0,TLB_TAG
 
 #if defined(CONFIG_SERIAL_TEXT_DEBUG) && defined(SERIAL_DEBUG_IO_BASE)
-	
+
 	/* Load a TLB entry for the UART, so that ppc4xx_progress() can use
 	 * the UARTs nice and early.  We use a 4k real==virtual mapping. */
 

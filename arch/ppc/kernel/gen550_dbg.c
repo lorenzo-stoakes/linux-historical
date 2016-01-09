@@ -82,7 +82,7 @@ unsigned long serial_init(int chan, void *ignored)
 
 	/* save the LCR */
 	lcr = serial_inb(com_port + (UART_LCR << shift));
-	
+
 	/* Access baud rate */
 	serial_outb(com_port + (UART_LCR << shift), UART_LCR_DLAB);
 	dlm = serial_inb(com_port + (UART_DLM << shift));

@@ -1,4 +1,4 @@
-/* $Id: ptrace.c,v 1.13 2001/10/01 02:21:50 gniibe Exp $
+/* $Id: ptrace.c,v 1.1.1.1.2.1 2002/11/12 02:24:19 jzs Exp $
  *
  * linux/arch/sh/kernel/ptrace.c
  *
@@ -114,37 +114,6 @@ compute_next_pc(struct pt_regs *regs, unsigned short inst,
 	*pc1 = regs->pc + 2;
 	*pc2 = (unsigned long) -1;
 	return;
-}
-
-/* Tracing by user break controller.  */
-static void
-ubc_set_tracing(int asid, unsigned long nextpc1, unsigned nextpc2)
-{
-	ctrl_outl(nextpc1, UBC_BARA);
-	ctrl_outb(asid, UBC_BASRA);
-	if(UBC_TYPE_SH7729){
-		ctrl_outl(0x0fff, UBC_BAMRA);
-		ctrl_outw(BBR_INST | BBR_READ | BBR_CPU, UBC_BBRA);
-	}else{
-		ctrl_outb(BAMR_12, UBC_BAMRA);
-		ctrl_outw(BBR_INST | BBR_READ, UBC_BBRA);
-	}
-
-	if (nextpc2 != (unsigned long) -1) {
-		ctrl_outl(nextpc2, UBC_BARB);
-		ctrl_outb(asid, UBC_BASRB);
-		if(UBC_TYPE_SH7729){
-			ctrl_outl(0x0fff, UBC_BAMRB);
-			ctrl_outw(BBR_INST | BBR_READ | BBR_CPU, UBC_BBRB);
-		}else{
-			ctrl_outb(BAMR_12, UBC_BAMRB);
-			ctrl_outw(BBR_INST | BBR_READ, UBC_BBRB);
-		}
-	}
-	if(UBC_TYPE_SH7729)
-		ctrl_outl(BRCR_PCBA | BRCR_PCBB | BRCR_PCTE, UBC_BRCR);
-	else
-		ctrl_outw(BRCR_PCBA | BRCR_PCBB, UBC_BRCR);
 }
 
 /*
@@ -342,8 +311,11 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		if (nextpc2 != (unsigned long) -1 && (nextpc2 & 0x80000000))
 			break;
 
-		ubc_set_tracing(child->mm->context & MMU_CONTEXT_ASID_MASK,
-				nextpc1, nextpc2);
+		/* Next scheduling will set up UBC */
+		if (child->thread.ubc_pc1 == 0)
+			ubc_usercnt += 1;
+		child->thread.ubc_pc1 = nextpc1;
+		child->thread.ubc_pc2 = nextpc2;
 
 		child->exit_code = data;
 		/* give it a chance to run. */

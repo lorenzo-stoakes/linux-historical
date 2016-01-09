@@ -367,7 +367,7 @@ if [ "$CONFIG_NET" = "y" ]; then
   bool 'Network device support' CONFIG_NETDEVICES
   if [ "$CONFIG_NETDEVICES" = "y" ]; then
     source drivers/net/Config.in
-    if [ "$CONFIG_ATM" = "y" ]; then
+    if [ "$CONFIG_ATM" != "n" ]; then
       source drivers/atm/Config.in
     fi
   fi

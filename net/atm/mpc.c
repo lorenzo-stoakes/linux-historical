@@ -736,22 +736,15 @@ static void mpc_push(struct atm_vcc *vcc, struct sk_buff *skb)
 }
 
 static struct atmdev_ops mpc_ops = { /* only send is required */
-	close:	mpoad_close,
-	send:	msg_from_mpoad
+	.close	= mpoad_close,
+	.send	= msg_from_mpoad
 };
 
 static struct atm_dev mpc_dev = {
-	&mpc_ops,       /* device operations    */
-	NULL,           /* PHY operations       */
-	"mpc",          /* device type name     */
-	42,             /* device index (dummy) */
-	NULL,           /* VCC table            */
-	NULL,           /* last VCC             */
-	NULL,           /* per-device data      */
-	NULL,           /* private PHY data     */
-	{ 0 },          /* device flags         */
-	NULL,           /* local ATM address    */
-	{ 0 }           /* no ESI               */
+	.ops	= &mpc_ops,
+	.type	= "mpc",
+	.number	= 42,
+	.lock	= SPIN_LOCK_UNLOCKED
 	/* rest of the members will be 0 */
 };
 

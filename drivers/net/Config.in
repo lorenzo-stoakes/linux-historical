@@ -312,7 +312,7 @@ if [ ! "$CONFIG_PPP" = "n" ]; then
       dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
    fi
    if [ ! "$CONFIG_ATM" = "n" ]; then
-      dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_EXPERIMENTAL
+      dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_EXPERIMENTAL $CONFIG_ATM
    fi
 fi
 

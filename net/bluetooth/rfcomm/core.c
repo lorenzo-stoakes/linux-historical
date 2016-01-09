@@ -1837,6 +1837,8 @@ static int rfcomm_read_proc(char *buf, char **start, off_t offset, int count, in
 /* ---- Initialization ---- */
 int __init rfcomm_init(void)
 {
+	l2cap_load();
+
 	kernel_thread(rfcomm_run, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
 
 	rfcomm_init_sockets();

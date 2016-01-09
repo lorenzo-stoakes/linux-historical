@@ -21938,6 +21938,16 @@ CONFIG_BLUEZ_HCIVHCI
   Say Y here to compile support for virtual HCI devices into the
   kernel or say M to compile it as module (hci_vhci.o).
 
+HCI BFUSB device driver
+CONFIG_BLUEZ_HCIBFUSB
+  Bluetooth HCI BlueFRITZ! USB driver.
+  This driver provides support for Bluetooth USB devices with AVM
+  interface:
+     AVM BlueFRITZ! USB
+
+  Say Y here to compile support for HCI BFUSB devices into the
+  kernel or say M to compile it as module (bfusb.o).
+
 HCI DTL1 (PC Card) device driver
 CONFIG_BLUEZ_HCIDTL1
   Bluetooth HCI DTL1 (PC Card) driver.
@@ -21995,6 +22005,24 @@ SuperH RTC support
 CONFIG_SH_RTC
   Selecting this option will allow the Linux kernel to emulate
   PC's RTC.
+
+  If unsure, say N.
+
+SuperH peripheral clock frequency
+CONFIG_SH_PCLK_FREQ
+  Set this value or add "sh_pclk=" command line option to tell
+  peripheral clock frequency to kernel, if your system has no RTC.
+  Otherwise leave it 0, and kernel measures peripheral clock frequency
+  using TMU and RTC while system startup.
+
+  If unsure, set 0.
+
+Wakeup UBC on startup
+CONFIG_UBC_WAKEUP
+  Selecting this option will wakeup the User Break Controller (UBC) on
+  startup. Although the UBC is left in an awake state when the processor
+  comes up, some boot loaders misbehave by putting the UBC to sleep in a
+  power saving state, which causes issues with things like ptrace().
 
   If unsure, say N.
 
@@ -26379,6 +26407,9 @@ CONFIG_SH_GENERIC
   Select SolutionEngine if configuring for a Hitachi SH7709
   or SH7750/7750S evaluation board.
 
+  Select SHMobileSolutionEngine if configuring for SH-Mobile Solution
+  Engine.
+
   Select Overdrive if configuring for a ST407750 Overdrive board.
   More information at
   <http://linuxsh.sourceforge.net/docs/7750overdrive.php3>.
@@ -26432,6 +26463,11 @@ CONFIG_SH_7751_SOLUTION_ENGINE
   Select 7751 SolutionEngine if configuring for a Hitachi SH7751
   evaluation board.
 
+SHMobileSolutionEngine
+CONFIG_SH_MOBILE_SOLUTION_ENGINE
+  Select SHMobileSolutionEngine if configuring for SH-Mobile Solution
+  Engine.
+
 Overdrive
 CONFIG_SH_OVERDRIVE
   Select Overdrive if configuring for a ST407750 Overdrive board.
@@ -26479,6 +26515,14 @@ CONFIG_SH_DREAMCAST
   <http://www.m17n.org/linux-sh/dreamcast/>.  There is a
   Dreamcast project is at <http://linuxdc.sourceforge.net/>.
 
+SH-2000
+CONFIG_SH_SH2000
+  SH-2000 is a single-board computer based around SH7709A chip
+  intended for embedded applications.
+  It has an Ethernet interface (CS8900A), direct connected
+  Compact Flash socket, three serial ports and PC-104 bus.
+  More information at <http://sh2000.sh-linux.org>.
+
 BareCPU
 CONFIG_SH_UNKNOWN
   "Bare CPU" aka "unknown" means an SH-based system which is not one
@@ -26508,6 +26552,12 @@ CONFIG_CPU_SUBTYPE_SH7707
   Select SH7751 if you have a SH7751
 
   Select ST40STB1 if you have a ST40STB1
+  Select ST40RA/ST40STB1 if you have a ST40RA
+                         (previously known as ST40STB1).
+
+  Select ST40GX1 if you have an ST40GX1.
+
+  Select SH7300 if you have a HD6417300 CPU.
 
 SH7708
 CONFIG_CPU_SUBTYPE_SH7708
@@ -26521,6 +26571,35 @@ CONFIG_CPU_SUBTYPE_SH7709
 SH7750
 CONFIG_CPU_SUBTYPE_SH7750
   Select SH7750 if you have a 200 Mhz SH-4 HD6417750 CPU.
+
+SH7751
+CONFIG_CPU_SUBTYPE_SH7751
+  Select SH7750 if you have a 166 Mhz SH-4 HD6417751 CPU.
+
+ST40RA/ST40STB1
+CONFIG_CPU_SUBTYPE_ST40STB1
+  Select ST40RA/ST40STB1 if you have a ST40RA. This chip was
+  previously called the ST40STB1. Early versions were also
+  erronously labelled ST40AR166.
+
+ST40GX1
+CONFIG_CPU_SUBTYPE_ST40GX1
+  Select ST40GX1 if you have a ST40GX1 CPU.
+
+SH7300
+CONFIG_CPU_SUBTYPE_SH7300
+  Select SH7300 if you have a HD6417300 CPU.
+
+Memory on LMI
+CONFIG_ST40_LMI_MEMORY
+  Currently all ST40 CPUs have two external buses the
+  'Local Memory Interface' (LMI) which supports SDRAM and
+  DDR SDRAM, and the 'Enhanced flash Memory Interface' (EMI),
+  which supports SDRAM, Flash, peripherials and MPX. Linux
+  can support memory on either of these buses, it is simply
+  necessary to specify its base address. This option is simply
+  a shortcut method of specifying that RAM starts from the
+  bottom of the LMI.
 
 Physical memory start address
 CONFIG_MEMORY_START

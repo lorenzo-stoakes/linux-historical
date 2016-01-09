@@ -334,6 +334,8 @@ typedef struct {
 } __attribute__ ((packed)) status_bdaddr_rp;
 #define STATUS_BDADDR_RP_SIZE 7
 
+#define OCF_INQUIRY_CANCEL	0x0002
+
 #define OCF_LINK_KEY_REPLY	0x000B
 #define OCF_LINK_KEY_NEG_REPLY	0x000C
 typedef struct {

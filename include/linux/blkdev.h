@@ -66,6 +66,7 @@ typedef void (unplug_device_fn) (void *q);
 
 struct request_list {
 	unsigned int count;
+	unsigned int pending[2];
 	struct list_head free;
 };
 
@@ -292,6 +293,13 @@ static inline int blk_oversized_queue(request_queue_t * q)
 {
 	if (q->can_throttle)
 		return atomic_read(&q->nr_sectors) > q->max_queue_sectors;
+	return q->rq.count == 0;
+}
+
+static inline int blk_oversized_queue_reads(request_queue_t * q)
+{
+	if (q->can_throttle)
+		return atomic_read(&q->nr_sectors) > q->max_queue_sectors + q->batch_sectors;
 	return q->rq.count == 0;
 }
 

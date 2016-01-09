@@ -781,6 +781,7 @@ static int reiserfs_unlink (struct inode * dir, struct dentry *dentry)
     int windex ;
     struct reiserfs_transaction_handle th ;
     int jbegin_count;
+    unsigned long savelink;
 
     inode = dentry->d_inode;
 
@@ -816,11 +817,20 @@ static int reiserfs_unlink (struct inode * dir, struct dentry *dentry)
 	inode->i_nlink = 1;
     }
 
-    retval = reiserfs_cut_from_item (&th, &path, &(de.de_entry_key), dir, NULL, 0);
-    if (retval < 0)
-	goto end_unlink;
-
     inode->i_nlink--;
+
+    /* 
+     * we schedule before doing the add_save_link call, save the link
+     * count so we don't race
+     */
+    savelink = inode->i_nlink;
+
+
+    retval = reiserfs_cut_from_item (&th, &path, &(de.de_entry_key), dir, NULL, 0);
+    if (retval < 0) {
+	inode->i_nlink++;
+	goto end_unlink;
+    }
     inode->i_ctime = CURRENT_TIME;
     reiserfs_update_sd (&th, inode);
 
@@ -829,7 +839,7 @@ static int reiserfs_unlink (struct inode * dir, struct dentry *dentry)
     dir->i_ctime = dir->i_mtime = CURRENT_TIME;
     reiserfs_update_sd (&th, dir);
 
-    if (!inode->i_nlink)
+    if (!savelink)
        /* prevent file from getting lost */
        add_save_link (&th, inode, 0/* not truncate */);
 
@@ -937,6 +947,12 @@ static int reiserfs_link (struct dentry * old_dentry, struct inode * dir, struct
 	//FIXME: sd_nlink is 32 bit for new files
 	return -EMLINK;
     }
+    if (inode->i_nlink == 0) {
+        return -ENOENT;
+    }
+
+    /* inc before scheduling so reiserfs_unlink knows we are here */
+    inode->i_nlink++;
 
     journal_begin(&th, dir->i_sb, jbegin_count) ;
     windex = push_journal_writer("reiserfs_link") ;
@@ -949,12 +965,12 @@ static int reiserfs_link (struct dentry * old_dentry, struct inode * dir, struct
     reiserfs_update_inode_transaction(dir) ;
 
     if (retval) {
+	inode->i_nlink--;
 	pop_journal_writer(windex) ;
 	journal_end(&th, dir->i_sb, jbegin_count) ;
 	return retval;
     }
 
-    inode->i_nlink++;
     ctime = CURRENT_TIME;
     inode->i_ctime = ctime;
     reiserfs_update_sd (&th, inode);
@@ -1029,6 +1045,7 @@ static int reiserfs_rename (struct inode * old_dir, struct dentry *old_dentry,
     int jbegin_count ; 
     umode_t old_inode_mode;
     time_t ctime;
+    unsigned long savelink = 1;
 
 
     /* two balancings: old name removal, new name insertion or "save" link,
@@ -1200,6 +1217,7 @@ static int reiserfs_rename (struct inode * old_dir, struct dentry *old_dentry,
 	}
 	ctime = CURRENT_TIME;
 	new_dentry_inode->i_ctime = ctime;
+	savelink = new_dentry_inode->i_nlink;
     }
 
     if (S_ISDIR(old_inode_mode)) {
@@ -1233,7 +1251,7 @@ static int reiserfs_rename (struct inode * old_dir, struct dentry *old_dentry,
     reiserfs_update_sd (&th, new_dir);
 
     if (new_dentry_inode) {
-	if (new_dentry_inode->i_nlink == 0)
+	if (savelink == 0)
 	    add_save_link (&th, new_dentry_inode, 0/* not truncate */);
 	reiserfs_update_sd (&th, new_dentry_inode);
     }

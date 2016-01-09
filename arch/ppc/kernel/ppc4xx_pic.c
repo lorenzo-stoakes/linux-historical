@@ -164,7 +164,7 @@ ppc405_uic_enable(unsigned int irq)
 		else
 		/* lets hope this works since in linux/irq.h
 		 * there is no define for EDGE and it's assumed
-		 * once you set status to LEVEL you would not 
+		 * once you set status to LEVEL you would not
 		 * want to change it - Armin
 		 */
 		desc->status = desc->status & ~IRQ_LEVEL;
@@ -176,7 +176,7 @@ ppc405_uic_enable(unsigned int irq)
 		else
 		/* lets hope this works since in linux/irq.h
 		 * there is no define for EDGE and it's assumed
-		 * once you set status to LEVEL you would not 
+		 * once you set status to LEVEL you would not
 		 * want to change it - Armin
 		 */
 		desc->status = desc->status & ~IRQ_LEVEL;
@@ -370,9 +370,9 @@ ppc4xx_extpic_init(void)
 		       bit, sense);
 #endif
 		ppc_cached_sense_mask[word] |=
-		    (sense & IRQ_SENSE_MASK) << (31 - bit);
+		    (~sense & IRQ_SENSE_MASK) << (31 - bit);
 		ppc_cached_pol_mask[word] |=
-		    ((~sense & IRQ_POLARITY_MASK) >> 1) << (31 - bit);
+		    ((sense & IRQ_POLARITY_MASK) >> 1) << (31 - bit);
 		switch (word) {
 		case 0:
 #ifdef PPC4xx_PIC_DEBUG
@@ -427,7 +427,7 @@ ppc4xx_pic_init(void)
 #endif
 	mtdcr(DCRN_UIC_ER(UIC0), ppc_cached_irq_mask[0]);
 	mtdcr(DCRN_UIC_CR(UIC0), 0);
-	
+
 	if (ibm4xxPIC_InitSenses != NULL)
 		ppc4xx_extpic_init();
 

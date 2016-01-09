@@ -163,6 +163,7 @@ EXPORT_SYMBOL(datagram_poll);
 EXPORT_SYMBOL(put_cmsg);
 EXPORT_SYMBOL(sock_kmalloc);
 EXPORT_SYMBOL(sock_kfree_s);
+EXPORT_SYMBOL(sockfd_lookup);
 
 #ifdef CONFIG_FILTER
 EXPORT_SYMBOL(sk_run_filter);

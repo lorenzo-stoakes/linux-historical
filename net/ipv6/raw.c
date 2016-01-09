@@ -573,7 +573,7 @@ static int rawv6_sendmsg(struct sock *sk, struct msghdr *msg, int len)
 			fl.oif = sin6->sin6_scope_id;
 	} else {
 		if (sk->state != TCP_ESTABLISHED) 
-			return(-EINVAL);
+			return -EDESTADDRREQ;
 		
 		proto = sk->num;
 		daddr = &(sk->net_pinfo.af_inet6.daddr);

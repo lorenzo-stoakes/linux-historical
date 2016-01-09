@@ -480,7 +480,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, int len)
 			return -EINVAL;
 	} else {
 		if (sk->state != TCP_ESTABLISHED)
-			return -ENOTCONN;
+			return -EDESTADDRREQ;
 		ufh.daddr = sk->daddr;
 		ufh.uh.dest = sk->dport;
 		/* Open fast path for connected socket.

@@ -838,7 +838,7 @@ static int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, int ulen)
 			fl.oif = sin6->sin6_scope_id;
 	} else {
 		if (sk->state != TCP_ESTABLISHED)
-			return -ENOTCONN;
+			return -EDESTADDRREQ;
 
 		udh.uh.dest = sk->dport;
 		daddr = &sk->net_pinfo.af_inet6.daddr;

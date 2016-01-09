@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Handling of Extents both in catalog and extents overflow trees
  */
@@ -49,7 +50,7 @@ void hfsplus_fill_ext_key(hfsplus_btree_key *key, u32 cnid,
 	key->ext.pad = 0;
 }
 
-static int hfsplus_find_extent(hfsplus_extent *extent, u32 off)
+static u32 hfsplus_find_extent(hfsplus_extent *extent, u32 off)
 {
 	int i;
 	u32 count;
@@ -85,30 +86,26 @@ static int hfsplus_find_extentry(struct hfsplus_find_data *fd,
 int hfsplus_get_block(struct inode *inode, sector_t iblock,
 		      struct buffer_head *bh_result, int create)
 {
-	struct super_block *s;
+	struct super_block *sb;
 	hfsplus_extent_rec ext_entry;
 	struct hfsplus_find_data fd;
-	unsigned long ino;
 	int err = -EIO;
 	u32 ablock, dblock = 0;
 
-	ino = inode->i_ino;
-	s = inode->i_sb;
+	sb = inode->i_sb;
 
 	/* Convert inode block to disk allocation block */
 	ablock = iblock;
 
 	if (ablock >= HFSPLUS_I(inode).total_blocks) {
-		if (ablock > HFSPLUS_I(inode).total_blocks || !create) {
-			BUG();
+		if (ablock > HFSPLUS_I(inode).total_blocks || !create)
 			return -EIO;
-		}
 		if (ablock >= HFSPLUS_I(inode).alloc_blocks) {
 			err = hfsplus_extend_file(inode);
 			if (err)
 				return err;
 		}
-		HFSPLUS_I(inode).mmu_private += s->s_blocksize;
+		HFSPLUS_I(inode).mmu_private += sb->s_blocksize;
 		HFSPLUS_I(inode).total_blocks++;
 		mark_inode_dirty(inode);
 	} else
@@ -117,27 +114,23 @@ int hfsplus_get_block(struct inode *inode, sector_t iblock,
 	if (ablock < HFSPLUS_I(inode).extent_blocks) {
 		dblock = hfsplus_find_extent(HFSPLUS_I(inode).extents, ablock);
 	} else {
-		hfsplus_find_init(HFSPLUS_SB(s).ext_tree, &fd);
-		hfsplus_fill_ext_key(fd.search_key, ino, ablock, HFSPLUS_IS_RSRC(inode) ?
+		hfsplus_find_init(HFSPLUS_SB(sb).ext_tree, &fd);
+		hfsplus_fill_ext_key(fd.search_key, inode->i_ino, ablock, HFSPLUS_IS_RSRC(inode) ?
 				     HFSPLUS_TYPE_RSRC : HFSPLUS_TYPE_DATA);
 		err = hfsplus_find_extentry(&fd, ext_entry);
 		if (!err)
 			dblock = hfsplus_find_extent(ext_entry, ablock -
 						    be32_to_cpu(fd.key->ext.start_block));
 		hfsplus_find_exit(&fd);
-		if (err) {
-			BUG();
+		if (err)
 			return err;
-		}
 	}
 
-	if (!dblock) {
-		BUG();
+	if (!dblock)
 		return -EIO;
-	}
 	dprint(DBG_EXTENT, "get_block(%lu): %lu - %u\n", inode->i_ino, iblock, dblock);
 
-	map_bh(bh_result, s, dblock + HFSPLUS_SB(s).blockoffset);
+	map_bh(bh_result, sb, dblock + HFSPLUS_SB(sb).blockoffset);
 	if (create)
 		set_buffer_new(bh_result);
 	return 0;

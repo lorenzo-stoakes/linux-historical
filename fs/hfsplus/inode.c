@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Inode handling routines
  */
@@ -184,21 +185,29 @@ out:
 	return NULL;
 }
 
-static void hfsplus_get_perms(struct inode *inode, hfsplus_perm *perms)
+static void hfsplus_get_perms(struct inode *inode, hfsplus_perm *perms, int dir)
 {
-	struct super_block *s = inode->i_sb;
+	struct super_block *sb = inode->i_sb;
+	int mode;
 
-	inode->i_mode = be32_to_cpu(perms->mode);
-	if (!inode->i_mode)
-		inode->i_mode = S_IFREG | (S_IRWXUGO & ~(HFSPLUS_SB(s).umask));
+	mode = be32_to_cpu(perms->mode) & 0xffff;
 
 	inode->i_uid = be32_to_cpu(perms->owner);
-	if (!inode->i_uid)
-		inode->i_uid = HFSPLUS_SB(s).uid;
+	if (!inode->i_uid && !mode)
+		inode->i_uid = HFSPLUS_SB(sb).uid;
 
 	inode->i_gid = be32_to_cpu(perms->group);
-	if (!inode->i_gid)
-		inode->i_gid = HFSPLUS_SB(s).gid;
+	if (!inode->i_gid && !mode)
+		inode->i_gid = HFSPLUS_SB(sb).gid;
+
+	if (dir) {
+		mode = mode ? (mode & S_IALLUGO) :
+			(S_IRWXUGO & ~(HFSPLUS_SB(sb).umask));
+		mode |= S_IFDIR;
+	} else if (!mode)
+		mode = S_IFREG | ((S_IRUGO|S_IWUGO) &
+			~(HFSPLUS_SB(sb).umask));
+	inode->i_mode = mode;
 }
 
 static void hfsplus_set_perms(struct inode *inode, hfsplus_perm *perms)
@@ -256,35 +265,6 @@ struct file_operations hfsplus_file_operations = {
 	.open		= hfsplus_file_open,
 	.release	= hfsplus_file_release,
 };
-
-#if 0
-static nlink_t hfsplus_count_subdirs(struct inode *inode)
-{
-	struct hfsplus_find_data fd;
-	hfsplus_cat_entry entry;
-	nlink_t res = 0;
-	u32 cnid;
-
-	hfsplus_find_init(HFSPLUS_SB(inode->i_sb).cat_tree, &fd);
-	hfsplus_fill_cat_key(fd.search_key, inode->i_ino, NULL);
-	res = hfsplus_btree_find(&fd);
-	if (res)
-		goto out;
-	cnid = cpu_to_be32(inode->i_ino);
-	for (;;) {
-		if (fd.key->cat.parent != cnid)
-			break;
-		if (be16_to_cpu(entry.type) == HFSPLUS_FOLDER)
-			res++;
-
-		if (hfsplus_btiter_move(&fd, 1))
-			break;
-	}
-out:
-	hfsplus_find_exit(&fd);
-	return res;
-}
-#endif
 
 struct inode *hfsplus_new_inode(struct super_block *sb, int mode)
 {
@@ -392,9 +372,7 @@ int hfsplus_cat_read_inode(struct inode *inode, struct hfsplus_find_data *fd)
 					sizeof(hfsplus_cat_folder));
 		memset(&HFSPLUS_I(inode).extents, 0,
 		       sizeof(hfsplus_extent_rec));
-		hfsplus_get_perms(inode, &(folder->permissions));
-		inode->i_mode = S_IFDIR | (inode->i_mode & ~S_IFMT);
-		//inode->i_nlink = 2 + hfsplus_count_subdirs(inode);
+		hfsplus_get_perms(inode, &folder->permissions, 1);
 		inode->i_nlink = 1;
 		inode->i_size = 2 + be32_to_cpu(folder->valence);
 		inode->i_atime = hfsp_mt2ut(folder->access_date);
@@ -414,12 +392,11 @@ int hfsplus_cat_read_inode(struct inode *inode, struct hfsplus_find_data *fd)
 
 		hfsplus_inode_read_fork(inode, HFSPLUS_IS_DATA(inode) ?
 					&file->data_fork : &file->rsrc_fork);
-		hfsplus_get_perms(inode, &file->permissions);
+		hfsplus_get_perms(inode, &file->permissions, 0);
 		inode->i_nlink = 1;
 		if (S_ISREG(inode->i_mode)) {
 			if (file->permissions.dev)
 				inode->i_nlink = be32_to_cpu(file->permissions.dev);
-			inode->i_mode = S_IFREG | (inode->i_mode & ~S_IFMT);
 			inode->i_op = &hfsplus_file_inode_operations;
 			inode->i_fop = &hfsplus_file_operations;
 			inode->i_mapping->a_ops = &hfsplus_aops;

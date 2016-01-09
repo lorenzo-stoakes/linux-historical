@@ -379,7 +379,7 @@ fec_timeout(struct net_device *dev)
 	       (unsigned long)fep->cur_tx, fep->tx_free,
 	       (unsigned long)fep->dirty_tx,
 	       (unsigned long)fep->cur_rx);
- 
+
 	bdp = fep->tx_bd_base;
 	printk(" tx: %u buffers\n",  TX_RING_SIZE);
 	for (i = 0 ; i < TX_RING_SIZE; i++) {
@@ -1084,7 +1084,7 @@ static phy_info_t phy_info_dp83843 = {
 	0x020005c1,
 	"DP83843BVJE",
 
-	(const phy_cmd_t []) {  /* config */  
+	(const phy_cmd_t []) {  /* config */
 		{ mk_mii_write(MII_REG_ANAR, 0x01E1), NULL  }, /* Auto-Negociation Register Control set to    */
 		                                               /* auto-negociate 10/100MBps, Half/Full duplex */
 		{ mk_mii_read(MII_REG_CR),   mii_parse_cr   },
@@ -1156,7 +1156,7 @@ static phy_info_t phy_info_dp83846a = {
 	0x020005c2,
 	"DP83846A",
 
-	(const phy_cmd_t []) {  /* config */  
+	(const phy_cmd_t []) {  /* config */
 		{ mk_mii_write(MII_REG_ANAR, 0x01E1), NULL  }, /* Auto-Negociation Register Control set to    */
 		                                               /* auto-negociate 10/100MBps, Half/Full duplex */
 		{ mk_mii_read(MII_REG_CR),   mii_parse_cr   },
@@ -1435,7 +1435,7 @@ fec_enet_open(struct net_device *dev)
 		{
 			/* Initializing timers
 			 */
-			init_timer( &fep->phy_timer_list ); 
+			init_timer( &fep->phy_timer_list );
 
 			/* Starting timer for periodic link status check
 			 * After 100 milli-seconds, mdio_timer_callback function is called.
@@ -1505,7 +1505,7 @@ static void mdio_timer_callback(unsigned long data)
 	{
 		fep->phy_timer_list.expires  = jiffies + (1 * HZ); /* Sleep for 1 sec. */
 	}
-	add_timer( &fep->phy_timer_list ); 
+	add_timer( &fep->phy_timer_list );
 }
 #endif /* CONFIG_FEC_DP83846A */
 
@@ -1553,7 +1553,7 @@ static int fec_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	else
 	{
 		switch(cmd)
-		{						
+		{
 		case SIOCETHTOOL:
 			return netdev_ethtool_ioctl(dev, (void*)rq->ifr_data);
 			break;
@@ -1584,7 +1584,7 @@ static int fec_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		default:
 			retval = -EOPNOTSUPP;
 			break;
-		}		
+		}
 	}
 	return retval;
 }

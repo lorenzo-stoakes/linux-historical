@@ -902,6 +902,8 @@ static int __devinit radeon_init_disp (struct radeonfb_info *rinfo);
 static int radeonfb_pci_register (struct pci_dev *pdev,
                                  const struct pci_device_id *ent);
 static void __devexit radeonfb_pci_unregister (struct pci_dev *pdev);
+static int radeon_do_set_var (struct fb_var_screeninfo *var, int con,
+                             int real, struct fb_info *info);
 
 #ifdef CONFIG_PMAC_PBOOK
 static int radeon_sleep_notify(struct pmu_sleep_notifier *self, int when);
@@ -2077,7 +2079,7 @@ static int __devinit radeon_init_disp (struct radeonfb_info *rinfo)
 	rinfo->bpp = disp->var.bits_per_pixel;
 
 	/* Apply that dawn mode ! */
-	radeonfb_set_var(&disp->var, -1, info);
+	radeon_do_set_var(&disp->var, -1, 0, info);
 
 	return 0;
 }
@@ -2288,9 +2290,8 @@ static int radeonfb_get_var (struct fb_var_screeninfo *var, int con,
 }
 
 
-
-static int radeonfb_set_var (struct fb_var_screeninfo *var, int con,
-                             struct fb_info *info)
+static int radeon_do_set_var (struct fb_var_screeninfo *var, int con,
+                             int real, struct fb_info *info)
 {
         struct radeonfb_info *rinfo = (struct radeonfb_info *) info;
         struct display *disp;
@@ -2457,9 +2458,10 @@ try_again:
 	        v.accel_flags &= ~FB_ACCELF_TEXT;
         
         memcpy (&disp->var, &v, sizeof (v));
-        
-        radeon_load_video_mode (rinfo, &v);
-	if (accel) {
+
+        if (real)
+        	radeon_load_video_mode (rinfo, &v);
+	if (accel && real) {
 		if (radeon_engine_init(rinfo) < 0) {
                         var->accel_flags &= ~FB_ACCELF_TEXT;
 			goto try_again;
@@ -2477,12 +2479,18 @@ try_again:
                 if (info && info->changevar && con >= 0)
                         info->changevar(con);
         }
-                
-        do_install_cmap(con, info);
+
+        if (real)        
+        	do_install_cmap(con, info);
   
         return 0;
 }
 
+static int radeonfb_set_var (struct fb_var_screeninfo *var, int con,
+                             struct fb_info *info)
+{
+	return radeon_do_set_var(var, con, 1, info);
+}
 
 
 static int radeonfb_get_cmap (struct fb_cmap *cmap, int kspc, int con,

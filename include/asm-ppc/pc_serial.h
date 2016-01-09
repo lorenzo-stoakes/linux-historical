@@ -41,7 +41,7 @@
 #define BOCA_FLAGS 0
 #define HUB6_FLAGS 0
 #endif
-	
+
 /*
  * The following define the access methods for the HUB6 card. All
  * access is through two ports for all 24 possible chips. The card is

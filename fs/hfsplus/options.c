@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Option parsing
  */
@@ -100,12 +101,12 @@ int parse_options(char *input, struct hfsplus_sb_info *results)
 
 		if (!strcmp(curropt, "creator")) {
 			if (!fill_fourchar(&(results->creator), value)) {
-				printk("HFS+-fs: creator requires a value\n");
+				printk("HFS+-fs: creator requires a 4 character value\n");
 				return 0;
 			}
 		} else if (!strcmp(curropt, "type")) {
 			if (!fill_fourchar(&(results->type), value)) {
-				printk("HFS+-fs: type requires a value\n");
+				printk("HFS+-fs: type requires a 4 character value\n");
 				return 0;
 			}
 		} else if (!strcmp(curropt, "case")) {

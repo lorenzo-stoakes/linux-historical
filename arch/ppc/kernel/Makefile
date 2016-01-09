@@ -41,7 +41,7 @@ obj-y				+= idle_gen.o
 endif
 obj-$(CONFIG_6xx)		+= l2cr.o cpu_setup_6xx.o
 obj-$(CONFIG_MODULES)		+= ppc_ksyms.o
-obj-$(CONFIG_PCI)		+= pci.o 
+obj-$(CONFIG_PCI)		+= pci.o
 obj-$(CONFIG_PCI)		+= pci-dma.o
 obj-$(CONFIG_KGDB)		+= ppc-stub.o
 obj-$(CONFIG_PPCBUG_NVRAM)	+= prep_nvram.o
@@ -71,6 +71,8 @@ obj-$(CONFIG_GEMINI)		+= open_pic.o
 obj-$(CONFIG_LOPEC)		+= mpc10x_common.o indirect_pci.o pci_auto.o \
 					open_pic.o i8259.o todc_time.o
 obj-$(CONFIG_PAL4)		+= indirect_pci.o pci_auto.o todc_time.o
+obj-$(CONFIG_PPLUS)		+= pplus_common.o open_pic.o i8259.o \
+				   indirect_pci.o todc_time.o pci_auto.o
 obj-$(CONFIG_SPRUCE)		+= indirect_pci.o pci_auto.o todc_time.o
 obj-$(CONFIG_8260)		+= m8260_setup.o ppc8260_pic.o
 obj-$(CONFIG_BOOTX_TEXT)	+= btext.o

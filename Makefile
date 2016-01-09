@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 4
 SUBLEVEL = 22
-EXTRAVERSION = -pre6
+EXTRAVERSION = -pre7
 
 KERNELRELEASE=$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
@@ -230,6 +230,7 @@ CLEAN_DIRS = \
 # files removed with 'make mrproper'
 MRPROPER_FILES = \
 	include/linux/autoconf.h include/linux/version.h \
+	lib/crc32table.h lib/gen_crc32table \
 	drivers/net/hamradio/soundmodem/sm_tbl_{afsk1200,afsk2666,fsk9600}.h \
 	drivers/net/hamradio/soundmodem/sm_tbl_{hapn4800,psk4800}.h \
 	drivers/net/hamradio/soundmodem/sm_tbl_{afsk2400_7,afsk2400_8}.h \

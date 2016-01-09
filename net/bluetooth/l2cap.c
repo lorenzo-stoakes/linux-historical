@@ -2169,6 +2169,16 @@ void l2cap_cleanup(void)
 		BT_ERR("Can't unregister L2CAP protocol");
 }
 
+void l2cap_load(void)
+{
+	/* Dummy function to trigger automatic L2CAP module loading by 
+	   other modules that use L2CAP sockets but do not use any other
+	   symbols from it. */
+	return;
+}
+
+EXPORT_SYMBOL(l2cap_load);
+
 module_init(l2cap_init);
 module_exit(l2cap_cleanup);
 

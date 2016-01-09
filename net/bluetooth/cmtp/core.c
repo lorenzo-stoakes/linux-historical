@@ -490,6 +490,8 @@ int cmtp_get_conninfo(struct cmtp_conninfo *ci)
 
 int __init init_cmtp(void)
 {
+	l2cap_load();
+
 	cmtp_init_capi();
 	cmtp_init_sockets();
 

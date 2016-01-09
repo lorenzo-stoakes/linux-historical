@@ -826,7 +826,7 @@ svc_tcp_recvfrom(struct svc_rqst *rqstp)
 			goto error;
 		svsk->sk_tcplen += len;
 		if (len < want) {
-			dprintk("svc: short recvfrom while reading record length (%d of %d)\n",
+			dprintk("svc: short recvfrom while reading record length (%d of %ld)\n",
 			        len, want);
 			svc_sock_received(svsk);
 			return -EAGAIN; /* record header not complete */

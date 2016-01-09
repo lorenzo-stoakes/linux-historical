@@ -283,7 +283,7 @@ struct cpu_spec	cpu_specs[] = {
 	32, 32,
 	__setup_cpu_generic
     },
-#endif /* CLASSIC_PPC */    
+#endif /* CLASSIC_PPC */
 #ifdef CONFIG_PPC64BRIDGE
     {	/* Power3 */
     	0xffff0000, 0x00400000, "Power3 (630)",
@@ -313,7 +313,7 @@ struct cpu_spec	cpu_specs[] = {
 		128, 128,
 		__setup_cpu_power3
 	},
-#endif /* CONFIG_PPC64BRIDGE */    
+#endif /* CONFIG_PPC64BRIDGE */
 #ifdef CONFIG_POWER4
     {	/* Power4 */
     	0xffff0000, 0x00350000, "Power4",
@@ -322,7 +322,7 @@ struct cpu_spec	cpu_specs[] = {
 	128, 128,
 	__setup_cpu_power4
     },
-#endif /* CONFIG_POWER4 */    
+#endif /* CONFIG_POWER4 */
 #ifdef CONFIG_8xx
     {	/* 8xx */
     	0xffff0000, 0x00500000, "8xx",

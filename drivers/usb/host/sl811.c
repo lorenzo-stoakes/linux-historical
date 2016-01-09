@@ -9,7 +9,7 @@
  * 	  Adam Richter, Gregory P. Smith;
   	2.Original SL811 driver (hc_sl811.o) by Pei Liu <pbl@cypress.com>
  *
- * It's now support isochronous mode and more effective than hc_sl811.o
+ * It's now support isosynchronous mode and more effective than hc_sl811.o
  *
  * To do:
  *	1.Modify the timeout part, it's some messy

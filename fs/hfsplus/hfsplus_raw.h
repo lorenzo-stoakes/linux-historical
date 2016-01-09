@@ -3,6 +3,7 @@
  *
  * Copyright (C) 1999
  * Brad Boyer (flar@pants.nu)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Format of structures on disk
  * Information taken from Apple Technote #1150 (HFS Plus Volume Format)
@@ -36,8 +37,10 @@
 
 #define HFSP_HIDDENDIR_NAME	"\xe2\x90\x80\xe2\x90\x80\xe2\x90\x80\xe2\x90\x80HFS+ Private Data"
 
-#define HFSP_HARDLINK_TYPE	0x686c6e6b
-#define HFSP_HFSPLUS_CREATOR	0x6866732b
+#define HFSP_HARDLINK_TYPE	0x686c6e6b	/* 'hlnk' */
+#define HFSP_HFSPLUS_CREATOR	0x6866732b	/* 'hfs+' */
+
+#define HFSP_MOUNT_VERSION	0x482b4c78	/* 'H+Lx' */
 
 /* Structures used on disk */
 

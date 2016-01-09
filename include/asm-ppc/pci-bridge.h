@@ -24,7 +24,7 @@ extern void pci_init_resource(struct resource *res, unsigned long start,
 			      unsigned long end, int flags, char *name);
 
 /*
- * PCI <-> OF matching functions 
+ * PCI <-> OF matching functions
  */
 extern int pci_device_from_OF_node(struct device_node *node,
 				   u8* bus, u8* devfn);
@@ -55,10 +55,10 @@ struct pci_controller {
 	int first_busno;
 	int last_busno;
 	int bus_offset;
-        
+
 	void *io_base_virt;
 	unsigned long io_base_phys;
-	
+
 	/* Some machines (PReP) have a non 1:1 mapping of
 	 * the PCI memory space in the CPU bus space
 	 */
@@ -115,7 +115,7 @@ extern unsigned char common_swizzle(struct pci_dev *, unsigned char *);
  *   break this piece out separately.
  */
 static inline unsigned char bridge_swizzle(unsigned char pin,
-		unsigned char idsel) 
+		unsigned char idsel)
 {
 	return (((pin-1) + idsel) % 4) + 1;
 }

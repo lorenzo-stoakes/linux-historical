@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Handling of HFS wrappers around HFS+ volumes
  */

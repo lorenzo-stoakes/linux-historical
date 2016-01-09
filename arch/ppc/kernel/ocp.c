@@ -26,7 +26,7 @@
  *  You should have received a copy of the  GNU General Public License along
  *  with this program; if not, write  to the Free Software Foundation, Inc.,
  *  675 Mass Ave, Cambridge, MA 02139, USA.
- *	
+ *
  */
 
 #include <linux/module.h>
@@ -67,7 +67,7 @@ static int
 ocp_driver_match(struct ocp_driver *drv, struct ocp_device *dev)
 {
 	const struct ocp_device_id *ids = drv->id_table;
-	
+
 	if (!ids)
 		return 0;
 
@@ -86,7 +86,7 @@ ocp_driver_match(struct ocp_driver *drv, struct ocp_device *dev)
 /**
  *	ocp_bind_drivers	-	Match all drivers with all devices
  *	@candidate: driver beeing registered
- *	
+ *
  *	This function is called on driver registration and device discovery,
  *	it redo the matching of all "driverless" devices with all possible
  *	driver candidates.
@@ -109,7 +109,7 @@ ocp_bind_drivers(struct ocp_driver *candidate)
 		 */
 		one_match = one_again = 0;
 		down_read(&ocp_devices_sem);
-		list_for_each(deventry, &ocp_devices) {     
+		list_for_each(deventry, &ocp_devices) {
 			dev = list_entry(deventry, struct ocp_device, link);
 			if (dev->driver != NULL)
 				continue;
@@ -128,13 +128,13 @@ ocp_bind_drivers(struct ocp_driver *candidate)
 						dev->driver = drv;
 						one_match = 1;
 						if (drv == candidate)
-							count++;	
+							count++;
 						break;
 					} else if (rc == -EAGAIN) {
 						/* Driver matched but asked for later call, next device */
 						one_again = 1;
 						if (drv == candidate)
-							count++;	
+							count++;
 						break;
 					}
 				}
@@ -168,7 +168,7 @@ ocp_bind_drivers(struct ocp_driver *candidate)
  *	this, gives a simple way for a driver like EMAC to wait for another driver,
  *	like MAL to be up. There is potentially a small race if MAL happens to
  *	unregister, but this is hopefully never happening.
- *	
+ *
  *	This function returns a count of how many devices actually matched
  *	(wether the probe routine returned 0 or -EAGAIN, a different error
  *	code isn't considered as a match).
@@ -236,7 +236,7 @@ ocp_unregister_driver(struct ocp_driver *drv)
  *      @vendor: vendor ID of the device (or OCP_ANY_ID)
  *	@function: function code of the device (or OCP_ANY_ID)
  *	@idx: index of the device (or OCP_ANY_INDEX)
- * 
+ *
  *	This function allows a lookup of a given function by it's
  *	index, it's typically used to find the MAL or ZMII associated
  *	with an EMAC or similar horrors.
@@ -252,7 +252,7 @@ ocp_find_device(unsigned int vendor, unsigned int function, int index)
 		vendor, function, index));
 
 	down_read(&ocp_devices_sem);
-	list_for_each(entry, &ocp_devices) {     
+	list_for_each(entry, &ocp_devices) {
 		dev = list_entry(entry, struct ocp_device, link);
 		if (vendor != OCP_ANY_ID && vendor != dev->def->vendor)
 			continue;
@@ -310,7 +310,7 @@ ocp_add_one_device(struct ocp_def *def)
  * PCI suspend/resume functions work for a device, the driver can
  * easily implement them (ie just have a suspend function that calls
  * the pci_set_power_state() function).
- * 
+ *
  * BenH: Implementation here couldn't work properly. This version
  *       slightly modified and _might_ be more useable, but real
  *       PM support will probably have to wait for 2.5
@@ -419,7 +419,7 @@ ocp_init(void)
 	if (ocp_inited)
 		return 0;
 	ocp_inited = 1;
-	
+
 	DBG(("ocp: ocp_init()...\n"));
 
 	/* Fill the devices list */

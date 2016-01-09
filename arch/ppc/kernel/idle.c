@@ -82,5 +82,5 @@ int idled(void)
 int cpu_idle(void)
 {
 	idled();
-	return 0; 
+	return 0;
 }

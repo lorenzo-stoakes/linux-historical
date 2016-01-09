@@ -25,7 +25,7 @@ void power_save(void)
 	 * RTLinux since we are not guaranteed an interrupt
 	 * didn't come in and is waiting for a __sti() before
 	 * emulating one.  This way, we really do hard disable.
-	 * 
+	 *
 	 * We assume that we're sti-ed when we come in here.  We
 	 * are in the idle loop so if we're cli-ed then it's a bug
 	 * anyway.

@@ -82,7 +82,7 @@ static char *pmc1_lookup(unsigned long mmcr0)
 	default:
 		return "unknown";
 	}
-}	
+}
 
 static char *pmc2_lookup(unsigned long mmcr0)
 {
@@ -101,7 +101,7 @@ static char *pmc2_lookup(unsigned long mmcr0)
 	default:
 		return "unknown";
 	}
-}	
+}
 
 /*
  * print some useful info about the hash table.  This function
@@ -177,7 +177,7 @@ static ssize_t ppc_htab_read(struct file * file, char * buf,
 		if (!valid)
 			zombie_ptes++;
 	}
-	
+
 	n += sprintf( buffer + n,
 		      "PTE Hash Table Information\n"
 		      "Size\t\t: %luKb\n"
@@ -208,7 +208,7 @@ static ssize_t ppc_htab_read(struct file * file, char * buf,
 		      primary_pteg_full, htab_evicts);
 return_string:
 #endif /* CONFIG_PPC_STD_MMU */
-	
+
 	n += sprintf( buffer + n,
 		      "Non-error misses: %lu\n"
 		      "Error misses\t: %lu\n",
@@ -244,7 +244,7 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 		if (cur_cpu_spec[0]->cpu_features & CPU_FTR_604_PERF_MON) {
 			asm volatile ("mtspr %0, %3 \n\t"
 			    "mtspr %1, %3 \n\t"
-			    "mtspr %2, %3 \n\t"			    
+			    "mtspr %2, %3 \n\t"
 			    :: "i" (MMCR0), "i" (PMC1), "i" (PMC2), "r" (0));
 		}
 	}
@@ -295,7 +295,7 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 				"i" (PMC1),  "r" (0), "i"(PMC2) );
 		}
 	}
-	
+
 	/* PMC1 values */
 	if ( !strncmp( buffer, "dtlb", 4) )
 	{
@@ -310,7 +310,7 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 				:: "r" (tmp), "i" (MMCR0), "i" (MMCR0_PMC1_DTLB),
 				"i" (PMC1),  "r" (0) );
 		}
-	}	
+	}
 
 	if ( !strncmp( buffer, "ic miss", 7) )
 	{
@@ -325,7 +325,7 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 				:: "r" (tmp), "i" (MMCR0),
 				"i" (MMCR0_PMC1_ICACHEMISS), "i" (PMC1),  "r" (0));
 		}
-	}	
+	}
 
 	/* PMC2 values */
 	if ( !strncmp( buffer, "load miss time", 14) )
@@ -343,7 +343,7 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 			       "i" (PMC2),  "r" (0) );
 		}
 	}
-	
+
 	if ( !strncmp( buffer, "itlb", 4) )
 	{
 		if (cur_cpu_spec[0]->cpu_features & CPU_FTR_604_PERF_MON) {
@@ -374,21 +374,21 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 			       : "i" (MMCR0), "i" (MMCR0_PMC2_DCACHEMISS),
 			       "i" (PMC2),  "r" (0) );
 		}
-	}	
-	
+	}
+
 
 	return count;
-	
+
 #if 0 /* resizing htab is a bit difficult right now -- Cort */
 	unsigned long size;
 	extern void reset_SDR1(void);
-	
+
 	/* only know how to set size right now */
 	if ( strncmp( buffer, "size ", 5) )
 		return -EINVAL;
 
 	size = simple_strtoul( &buffer[5], NULL, 10 );
-	
+
 	/* only allow to shrink */
 	if ( size >= Hash_size>>10 )
 		return -EINVAL;
@@ -396,11 +396,11 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 	/* minimum size of htab */
 	if ( size < 64 )
 		return -EINVAL;
-	
+
 	/* make sure it's a multiple of 64k */
 	if ( size % 64 )
 		return -EINVAL;
-	
+
 	printk("Hash table resize to %luk\n", size);
 	/*
 	 * We need to rehash all kernel entries for the new htab size.
@@ -416,7 +416,7 @@ static ssize_t ppc_htab_write(struct file * file, const char * buffer,
 	flush_tlb_all();
 
 	reset_SDR1();
-#endif	
+#endif
 	return count;
 #else /* CONFIG_PPC_STD_MMU */
 	return 0;
@@ -464,12 +464,12 @@ int proc_dol2crvec(ctl_table *table, int write, struct file *filp,
 
 	if (!(cur_cpu_spec[0]->cpu_features & CPU_FTR_L2CR))
 		return -EFAULT;
-	
+
 	if ( /*!table->maxlen ||*/ (filp->f_pos && !write)) {
 		*lenp = 0;
 		return 0;
 	}
-	
+
 	vleft = table->maxlen / sizeof(int);
 	left = *lenp;
 
@@ -545,9 +545,9 @@ int proc_dol2crvec(ctl_table *table, int write, struct file *filp,
 				p += sprintf(p, ", %s replacement",
 					(val>>12)&1 ?  "secondary" : "default");
 			}
-			
+
 			p += sprintf(p,"\n");
-			
+
 			len = strlen(buf);
 			if (len > left)
 				len = left;
@@ -608,12 +608,12 @@ int proc_dol3crvec(ctl_table *table, int write, struct file *filp,
 		return -EFAULT;
 	if (write)
 		return -EFAULT;
-	
+
 	if (filp->f_pos && !write) {
 		*lenp = 0;
 		return 0;
 	}
-	
+
 	vleft = table->maxlen / sizeof(int);
 	left = *lenp;
 
@@ -653,7 +653,7 @@ int proc_dol3crvec(ctl_table *table, int write, struct file *filp,
 		p += sprintf(p, ", %sprivate mem", val&1 ? "2MB " :
 				"1MB ");
 		p += sprintf(p,"\n");
-		
+
 		len = strlen(buf);
 		if (len > left)
 			len = left;

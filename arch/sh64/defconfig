@@ -36,6 +36,9 @@ CONFIG_CPU_SUBTYPE_SH5_101=y
 # CONFIG_CPU_SUBTYPE_SH5_103 is not set
 CONFIG_LITTLE_ENDIAN=y
 # CONFIG_BIG_ENDIAN is not set
+# CONFIG_SH64_FPU_DENORM_FLUSH is not set
+CONFIG_SH64_PGTABLE_2_LEVEL=y
+# CONFIG_SH64_PGTABLE_3_LEVEL is not set
 
 #
 # Memory options
@@ -155,6 +158,11 @@ CONFIG_IP_PNP=y
 # Network testing
 #
 # CONFIG_NET_PKTGEN is not set
+
+#
+# ATA/IDE/MFM/RLL support
+#
+# CONFIG_IDE is not set
 # CONFIG_BLK_DEV_IDE_MODES is not set
 # CONFIG_BLK_DEV_HD is not set
 
@@ -295,6 +303,7 @@ CONFIG_SERIAL_CONSOLE=y
 # CONFIG_PPDEV is not set
 CONFIG_HEARTBEAT=y
 CONFIG_HDSP253_LED=y
+CONFIG_SH_DMA=y
 # CONFIG_PSMOUSE is not set
 
 #
@@ -306,6 +315,7 @@ CONFIG_HDSP253_LED=y
 # File systems
 #
 # CONFIG_QUOTA is not set
+# CONFIG_QFMT_V2 is not set
 # CONFIG_AUTOFS_FS is not set
 # CONFIG_AUTOFS4_FS is not set
 # CONFIG_REISERFS_FS is not set
@@ -315,6 +325,7 @@ CONFIG_HDSP253_LED=y
 # CONFIG_ADFS_FS_RW is not set
 # CONFIG_AFFS_FS is not set
 # CONFIG_HFS_FS is not set
+# CONFIG_HFSPLUS_FS is not set
 # CONFIG_BEFS_FS is not set
 # CONFIG_BEFS_DEBUG is not set
 # CONFIG_BFS_FS is not set
@@ -364,6 +375,7 @@ CONFIG_EXT2_FS=y
 # CONFIG_INTERMEZZO_FS is not set
 CONFIG_NFS_FS=y
 CONFIG_NFS_V3=y
+# CONFIG_NFS_DIRECTIO is not set
 CONFIG_ROOT_NFS=y
 # CONFIG_NFSD is not set
 # CONFIG_NFSD_V3 is not set
@@ -465,3 +477,15 @@ CONFIG_FONT_8x16=y
 # CONFIG_DEBUG_KERNEL_WITH_GDB_STUB is not set
 # CONFIG_SH64_PAGE_TABLE_AUDIT is not set
 # CONFIG_SH64_PROC_TLB is not set
+
+#
+# Library routines
+#
+# CONFIG_CRC32 is not set
+# CONFIG_ZLIB_INFLATE is not set
+# CONFIG_ZLIB_DEFLATE is not set
+
+#
+# Cryptographic options
+#
+# CONFIG_CRYPTO is not set

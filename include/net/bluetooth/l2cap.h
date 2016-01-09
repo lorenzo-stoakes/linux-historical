@@ -245,4 +245,6 @@ struct l2cap_pinfo {
 #define L2CAP_CONF_OUTPUT_DONE 0x04
 #define L2CAP_CONF_MAX_RETRIES 2
 
+void l2cap_load(void);
+
 #endif /* __L2CAP_H */

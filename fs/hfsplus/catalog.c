@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Handling of catalog records
  */
@@ -71,6 +72,9 @@ static int hfsplus_fill_cat_entry(hfsplus_cat_entry *entry, u32 cnid, struct ino
 			folder->attribute_mod_date = folder->access_date = 
 			hfsp_now2mt();
 		hfsplus_set_perms(inode, &folder->permissions);
+		if (inode == HFSPLUS_SB(inode->i_sb).hidden_dir)
+			/* invisible and namelocked */
+			folder->user_info.frFlags = cpu_to_be16(0x5000);
 		return sizeof(*folder);
 	} else {
 		hfsplus_cat_file *file;
@@ -82,9 +86,11 @@ static int hfsplus_fill_cat_entry(hfsplus_cat_entry *entry, u32 cnid, struct ino
 		file->create_date = file->content_mod_date =
 			file->attribute_mod_date = file->access_date =
 			hfsp_now2mt();
-		if (cnid == inode->i_ino)
+		if (cnid == inode->i_ino) {
 			hfsplus_set_perms(inode, &file->permissions);
-		else {
+			file->user_info.fdType = cpu_to_be32(HFSPLUS_SB(inode->i_sb).type);
+			file->user_info.fdCreator = cpu_to_be32(HFSPLUS_SB(inode->i_sb).creator);
+		} else {
 			file->user_info.fdType = cpu_to_be32(HFSP_HARDLINK_TYPE);
 			file->user_info.fdCreator = cpu_to_be32(HFSP_HFSPLUS_CREATOR);
 			file->user_info.fdFlags = cpu_to_be16(0x100);

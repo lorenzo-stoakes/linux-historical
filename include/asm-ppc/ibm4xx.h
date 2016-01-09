@@ -84,7 +84,7 @@ do {						\
 
 #ifndef __ASSEMBLY__
 #if defined(EMAC_NUMS) && EMAC_NUMS > 0
-/* 
+/*
  * Per EMAC map of PHY ids which should be probed by emac_probe.
  * Different EMACs can have overlapping maps.
  *
@@ -92,7 +92,7 @@ do {						\
  *  0 - id should be probed
  *  1 - id should be ignored
  *
- * Default value of 0x00000000 - will result in usual 
+ * Default value of 0x00000000 - will result in usual
  * auto-detection logic.
  *
  */

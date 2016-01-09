@@ -25,7 +25,7 @@
  *	moved r/w4 ide to redwood.c
  *
  *	History: 04/18/02 - Armin
- *	added ash to setting CETE bit in calibrate() 
+ *	added ash to setting CETE bit in calibrate()
  *
  */
 
@@ -238,7 +238,7 @@ ppc4xx_calibrate_decr(void)
 #if defined(CONFIG_WALNUT) || defined(CONFIG_CEDER) 	\
 	|| defined(CONFIG_ASH) || defined(CONFIG_SYCAMORE)
 	/* Openbios sets cpu  timers to CPU clk
-	 * we want to use the external clk 
+	 * we want to use the external clk
 	 * DCR CHCR1 (aka CPC0_CR1) bit CETE to 1 */
 
 	mtdcr(DCRN_CHCR1, mfdcr(DCRN_CHCR1) & ~CHR1_CETE);

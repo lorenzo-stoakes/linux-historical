@@ -205,7 +205,7 @@ _GLOBAL(__save_flags_ptr)
 	mfmsr	r4
 	stw	r4,0(r3)
 	blr
-	/* 
+	/*
 	 * Need these nops here for taking over save/restore to
 	 * handle lost intrs
 	 * -- Cort
@@ -229,7 +229,7 @@ _GLOBAL(__save_flags_ptr)
 	nop
 _GLOBAL(__save_flags_ptr_end)
 
-/* void __restore_flags(unsigned long flags) */	
+/* void __restore_flags(unsigned long flags) */
 _GLOBAL(__restore_flags)
 /*
  * Just set/clear the MSR_EE bit through restore/flags but do not
@@ -277,7 +277,7 @@ _GLOBAL(__cli)
 	SYNC			/* Some chip revs have problems here... */
 	mtmsr	r0		/* Update machine state */
 	blr			/* Done */
-	/* 
+	/*
 	 * Need these nops here for taking over save/restore to
 	 * handle lost intrs
 	 * -- Cort
@@ -305,7 +305,7 @@ _GLOBAL(__sti)
 	SYNC			/* Some chip revs have problems here... */
 	mtmsr	r3		/* Update machine state */
 	blr
-	/* 
+	/*
 	 * Need these nops here for taking over save/restore to
 	 * handle lost intrs
 	 * -- Cort
@@ -390,7 +390,7 @@ _GLOBAL(_tlbia)
 	SYNC
 #endif /* CONFIG_SMP */
 #endif /* defined(CONFIG_40x) && defined(CONFIG_PIN_TLB) */
-	blr	
+	blr
 
 /*
  * Flush MMU TLB for a particular address
@@ -451,7 +451,7 @@ _GLOBAL(flush_instruction_cache)
 	li      r3, 512
 	mtctr   r3
 	lis     r4, KERNELBASE@h
-1:	iccci   0, r4 
+1:	iccci   0, r4
 	addi    r4, r4, 16
 	bdnz    1b
 #else
@@ -576,7 +576,7 @@ _GLOBAL(invalidate_dcache_range)
  * Must be called with external interrupts disabled.
  */
 #define CACHE_NWAYS	64
-#define CACHE_NLINES	16	
+#define CACHE_NLINES	16
 
 _GLOBAL(flush_dcache_all)
 	li	r4, (2 * CACHE_NWAYS * CACHE_NLINES)
@@ -616,7 +616,7 @@ _GLOBAL(__flush_dcache_icache)
 	sync
 	isync
 	blr
-	
+
 /*
  * Clear a page using the dcbz instruction, which doesn't cause any
  * memory traffic (except to write out any cache lines which get
@@ -767,7 +767,7 @@ _GLOBAL(_outsb)
 	stb	r5,0(r3)
 	eieio
 	bdnz	00b
-	blr	
+	blr
 
 _GLOBAL(_insw)
 	cmpwi	0,r5,0
@@ -787,9 +787,9 @@ _GLOBAL(_outsw)
 	blelr-
 00:	lhzu	r5,2(r4)
 	eieio
-	sthbrx	r5,0,r3	
+	sthbrx	r5,0,r3
 	bdnz	00b
-	blr	
+	blr
 
 _GLOBAL(_insl)
 	cmpwi	0,r5,0
@@ -811,7 +811,7 @@ _GLOBAL(_outsl)
 	stwbrx	r5,0,r3
 	eieio
 	bdnz	00b
-	blr	
+	blr
 
 _GLOBAL(ide_insw)
 _GLOBAL(_insw_ns)
@@ -835,7 +835,7 @@ _GLOBAL(_outsw_ns)
 	sth	r5,0(r3)
 	eieio
 	bdnz	00b
-	blr	
+	blr
 
 _GLOBAL(_insl_ns)
 	cmpwi	0,r5,0
@@ -857,11 +857,11 @@ _GLOBAL(_outsl_ns)
 	stw	r5,0(r3)
 	eieio
 	bdnz	00b
-	blr	
+	blr
 
 /*
  * Extended precision shifts.
- * 
+ *
  * Updated to be valid for shift counts from 0 to 63 inclusive.
  * -- Gabriel
  *
@@ -869,12 +869,12 @@ _GLOBAL(_outsl_ns)
  * R5    has shift count
  * result in R3/R4
  *
- *  ashrdi3: arithmetic right shift (sign propagation)	    
- *  lshrdi3: logical right shift	
+ *  ashrdi3: arithmetic right shift (sign propagation)
+ *  lshrdi3: logical right shift
  *  ashldi3: left shift
  */
 _GLOBAL(__ashrdi3)
-	subfic	r6,r5,32	
+	subfic	r6,r5,32
 	srw	r4,r4,r5	# LSW = count > 31 ? 0 : LSW >> count
 	addi	r7,r5,32	# could be xori, or addi with -32
 	slw	r6,r3,r6	# t1 = count > 31 ? 0 : MSW << (32-count)
@@ -887,7 +887,7 @@ _GLOBAL(__ashrdi3)
 	blr
 
 _GLOBAL(__ashldi3)
-	subfic	r6,r5,32	
+	subfic	r6,r5,32
 	slw	r3,r3,r5	# MSW = count > 31 ? 0 : MSW << count
 	addi	r7,r5,32	# could be xori, or addi with -32
 	srw	r6,r4,r6	# t1 = count > 31 ? 0 : LSW >> (32-count)
@@ -898,14 +898,14 @@ _GLOBAL(__ashldi3)
 	blr
 
 _GLOBAL(__lshrdi3)
-	subfic	r6,r5,32	
+	subfic	r6,r5,32
 	srw	r4,r4,r5	# LSW = count > 31 ? 0 : LSW >> count
 	addi	r7,r5,32	# could be xori, or addi with -32
 	slw	r6,r3,r6	# t1 = count > 31 ? 0 : MSW << (32-count)
 	srw	r7,r3,r7	# t2 = count < 32 ? 0 : MSW >> (count-32)
 	or	r4,r4,r6	# LSW |= t1
 	srw	r3,r3,r5	# MSW = MSW >> count
-	or	r4,r4,r7	# LSW |= t2 
+	or	r4,r4,r7	# LSW |= t2
 	blr
 
 _GLOBAL(abs)
@@ -917,7 +917,7 @@ _GLOBAL(abs)
 _GLOBAL(_get_SP)
 	mr	r3,r1		/* Close enough */
 	blr
-	
+
 /*
  * These are used in the alignment trap handler when emulating
  * single-precision loads and stores.
@@ -977,7 +977,7 @@ _GLOBAL(arch_kernel_thread)
 
 /*
  * This routine is just here to keep GCC happy - sigh...
- */	
+ */
 _GLOBAL(__main)
 	blr
 
@@ -1007,7 +1007,7 @@ SYSCALL(_exit)
 SYSCALL(lseek)
 SYSCALL(read)
 
-/* Why isn't this a) automatic, b) written in 'C'? */	
+/* Why isn't this a) automatic, b) written in 'C'? */
 	.data
 	.align 4
 _GLOBAL(sys_call_table)
@@ -1185,7 +1185,7 @@ _GLOBAL(sys_call_table)
 	.long sys_prctl
 	.long sys_rt_sigreturn
 	.long sys_rt_sigaction
-	.long sys_rt_sigprocmask	
+	.long sys_rt_sigprocmask
 	.long sys_rt_sigpending	/* 175 */
 	.long sys_rt_sigtimedwait
 	.long sys_rt_sigqueueinfo
@@ -1203,14 +1203,14 @@ _GLOBAL(sys_call_table)
 	.long sys_vfork
 	.long sys_getrlimit	/* 190 */
 	.long sys_readahead
-	.long sys_mmap2	
+	.long sys_mmap2
 	.long sys_truncate64
 	.long sys_ftruncate64
 	.long sys_stat64	/* 195 */
 	.long sys_lstat64
 	.long sys_fstat64
 	.long sys_pciconfig_read
-	.long sys_pciconfig_write 
+	.long sys_pciconfig_write
 	.long sys_pciconfig_iobase 	/* 200 */
 	.long sys_ni_syscall		/* 201 - reserved - MacOnLinux - new */
 	.long sys_getdents64

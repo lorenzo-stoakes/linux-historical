@@ -5,7 +5,7 @@
 O_TARGET    := bluetooth.o
 
 list-multi  := bluez.o
-export-objs := syms.o
+export-objs := syms.o l2cap.o
 
 bluez-objs  := af_bluetooth.o hci_core.o hci_conn.o hci_event.o hci_sock.o lib.o syms.o
 

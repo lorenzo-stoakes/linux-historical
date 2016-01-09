@@ -10,7 +10,7 @@
 O_TARGET :=	hfsplus.o
 
 obj-y    :=	super.o options.o inode.o extents.o catalog.o dir.o btree.o \
-		bnode.o brec.o bfind.o btiter.o tables.o unicode.o wrapper.o
+		bnode.o brec.o bfind.o tables.o unicode.o wrapper.o
 
 obj-m	 :=	$(O_TARGET)
 

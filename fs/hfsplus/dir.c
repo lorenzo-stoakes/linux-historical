@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2001
  * Brad Boyer (flar@allandria.com)
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
  *
  * Handling of directories
  */
@@ -143,7 +144,7 @@ static int hfsplus_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	default:
 		if (filp->f_pos >= inode->i_size)
 			goto out;
-		err = hfsplus_btiter_move(&fd, filp->f_pos - 1);
+		err = hfsplus_btree_move(&fd, filp->f_pos - 1);
 		if (err)
 			goto out;
 	}
@@ -190,7 +191,7 @@ static int hfsplus_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		filp->f_pos++;
 		if (filp->f_pos >= inode->i_size)
 			goto out;
-		err = hfsplus_btiter_move(&fd, 1);
+		err = hfsplus_btree_move(&fd, 1);
 		if (err)
 			goto out;
 	}
@@ -236,11 +237,10 @@ static int hfsplus_dir_release(struct inode *inode, struct file *file)
 
 int hfsplus_create(struct inode *dir, struct dentry *dentry, int mode)
 {
-	struct super_block *sb = dir->i_sb;
 	struct inode *inode;
 	int res;
 
-	inode = hfsplus_new_inode(sb, mode);
+	inode = hfsplus_new_inode(dir->i_sb, mode);
 	if (!inode)
 		return -ENOSPC;
 
@@ -355,13 +355,10 @@ int hfsplus_unlink(struct inode *dir, struct dentry *dentry)
 
 int hfsplus_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 {
-	struct super_block *sb;
 	struct inode *inode;
 	int res;
 
-	sb = dir->i_sb;
-	inode = dentry->d_inode;
-	inode = hfsplus_new_inode(sb, S_IFDIR | mode);
+	inode = hfsplus_new_inode(dir->i_sb, S_IFDIR | mode);
 	if (!inode)
 		return -ENOSPC;
 
@@ -463,9 +460,11 @@ int hfsplus_rename(struct inode *old_dir, struct dentry *old_dentry,
 			return res;
 	}
 
-	res = hfsplus_rename_cat(old_dentry->d_inode->i_ino,
+	res = hfsplus_rename_cat((u32)(unsigned long)old_dentry->d_fsdata,
 				 old_dir, &old_dentry->d_name,
 				 new_dir, &new_dentry->d_name);
+	if (!res)
+		new_dentry->d_fsdata = old_dentry->d_fsdata;
 	return res;
 }
 

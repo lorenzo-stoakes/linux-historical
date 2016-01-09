@@ -380,7 +380,7 @@ backwards_memcpy:
 	beq	2b
 	mtctr	r7
 	b	1b
-	
+
 	.globl	memcmp
 memcmp:
 	cmpwi	0,r5,0

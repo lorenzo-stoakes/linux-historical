@@ -1,7 +1,7 @@
 /*
  *  arch/ppc/kernel/except_8xx.S
  *
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *  Rewritten by Cort Dougan (cort@cs.nmt.edu) for PReP
  *    Copyright (C) 1996 Cort Dougan <cort@cs.nmt.edu>
@@ -537,20 +537,20 @@ DataTLBError:
 	andis.	r21, r20, 0x0200	/* If set, indicates store op */
 	beq	2f
 
-	/* The EA of a data TLB miss is automatically stored in the MD_EPN 
-	 * register.  The EA of a data TLB error is automatically stored in 
-	 * the DAR, but not the MD_EPN register.  We must copy the 20 most 
-	 * significant bits of the EA from the DAR to MD_EPN before we 
-	 * start walking the page tables.  We also need to copy the CASID 
+	/* The EA of a data TLB miss is automatically stored in the MD_EPN
+	 * register.  The EA of a data TLB error is automatically stored in
+	 * the DAR, but not the MD_EPN register.  We must copy the 20 most
+	 * significant bits of the EA from the DAR to MD_EPN before we
+	 * start walking the page tables.  We also need to copy the CASID
 	 * value from the M_CASID register.
-	 * Addendum:  The EA of a data TLB error is _supposed_ to be stored 
-	 * in DAR, but it seems that this doesn't happen in some cases, such 
-	 * as when the error is due to a dcbi instruction to a page with a 
-	 * TLB that doesn't have the changed bit set.  In such cases, there 
-	 * does not appear to be any way  to recover the EA of the error 
-	 * since it is neither in DAR nor MD_EPN.  As a workaround, the 
-	 * _PAGE_HWWRITE bit is set for all kernel data pages when the PTEs 
-	 * are initialized in mapin_ram().  This will avoid the problem, 
+	 * Addendum:  The EA of a data TLB error is _supposed_ to be stored
+	 * in DAR, but it seems that this doesn't happen in some cases, such
+	 * as when the error is due to a dcbi instruction to a page with a
+	 * TLB that doesn't have the changed bit set.  In such cases, there
+	 * does not appear to be any way  to recover the EA of the error
+	 * since it is neither in DAR nor MD_EPN.  As a workaround, the
+	 * _PAGE_HWWRITE bit is set for all kernel data pages when the PTEs
+	 * are initialized in mapin_ram().  This will avoid the problem,
 	 * assuming we only use the dcbi instruction on kernel addresses.
 	 */
 	mfspr	r20, DAR

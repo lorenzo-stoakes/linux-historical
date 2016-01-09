@@ -1,7 +1,7 @@
 /*
  * FILE NAME: ppc405_pci.c
  *
- * BRIEF MODULE DESCRIPTION: 
+ * BRIEF MODULE DESCRIPTION:
  * Based on arch/ppc/kernel/indirect.c, Copyright (C) 1998 Gabriel Paubert.
  *
  * Author: MontaVista Software, Inc.  <source@mvista.com>
@@ -166,7 +166,7 @@ ppc4xx_find_bridges(void)
 							(tmp_size &
 							 0xffffc000));
 					if (tmp_addr > PPC405_PCI_UPPER_MEM) {
-						new_pmm_max = tmp_addr;	// PPC405_PCI_UPPER_MEM 
+						new_pmm_max = tmp_addr;	// PPC405_PCI_UPPER_MEM
 					} else {
 						new_pmm_max =
 						    PPC405_PCI_UPPER_MEM;
