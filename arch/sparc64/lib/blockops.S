@@ -1,4 +1,4 @@
-/* $Id: blockops.S,v 1.36 2001/09/24 21:44:03 davem Exp $
+/* $Id: blockops.S,v 1.41 2001/12/05 06:05:35 davem Exp $
  * blockops.S: UltraSparc block zero optimized routines.
  *
  * Copyright (C) 1996, 1998, 1999, 2000 David S. Miller (davem@redhat.com)
@@ -17,10 +17,9 @@
 	fmovd	%reg4, %f56; 	fmovd	%reg5, %f58;		\
 	fmovd	%reg6, %f60; 	fmovd	%reg7, %f62;
 
-#define	TLBTEMP_BASE	(8 * 1024 * 1024)
 #define	DCACHE_SIZE	(PAGE_SIZE * 2)
-#define TLBTEMP_ENT1	(61 << 3)
-#define TLBTEMP_ENT2	(62 << 3)
+#define TLBTEMP_ENT1	(60 << 3)
+#define TLBTEMP_ENT2	(61 << 3)
 #define TLBTEMP_ENTSZ	(1 << 3)
 
 #if (PAGE_SHIFT == 13) || (PAGE_SHIFT == 19)
@@ -110,7 +109,7 @@ copy_user_page: /* %o0=dest, %o1=src, %o2=vaddr */
 	or		%g2, %g3, %g2
 	add		%o0, %o3, %o0
 	add		%o0, %o1, %o1
-#define FIX_INSN_1	0x96102068 /* mov (13 << 3), %o3 */
+#define FIX_INSN_1	0x96102060 /* mov (12 << 3), %o3 */
 cheetah_patch_1:
 	mov		TLBTEMP_ENT1, %o3
 	rdpr		%pstate, %g3
@@ -134,6 +133,7 @@ cheetah_patch_1:
 	stxa		%g0, [%o5] ASI_DMMU
 	membar		#Sync
 
+	ldxa		[%o3] ASI_DTLB_DATA_ACCESS, %g0
 	ldxa		[%o3] ASI_DTLB_DATA_ACCESS, %o5
 	stxa		%o0, [%o2] ASI_DMMU
 	stxa		%g1, [%o3] ASI_DTLB_DATA_ACCESS
@@ -152,6 +152,7 @@ cheetah_patch_1:
 	stxa		%g0, [%g7] ASI_DMMU
 	membar		#Sync
 
+	ldxa		[%o3] ASI_DTLB_DATA_ACCESS, %g0
 	ldxa		[%o3] ASI_DTLB_DATA_ACCESS, %g7
 	stxa		%o1, [%o2] ASI_DMMU
 	stxa		%g2, [%o3] ASI_DTLB_DATA_ACCESS
@@ -169,9 +170,10 @@ cheetah_patch_1:
 	 nop
 
 cheetah_copy_user_page:
-	mov		121, %o2			! A0 Group
+	sethi		%hi((PAGE_SIZE/64)-7), %o2	! A0 Group
 	prefetch	[%o1 + 0x000], #one_read	! MS
-	prefetch	[%o1 + 0x040], #one_read	! MS Group
+	or		%o2, %lo((PAGE_SIZE/64)-7), %o2	! A1 Group
+	prefetch	[%o1 + 0x040], #one_read	! MS
 	prefetch	[%o1 + 0x080], #one_read	! MS Group
 	prefetch	[%o1 + 0x0c0], #one_read	! MS Group
 	ldd		[%o1 + 0x000], %f0		! MS Group
@@ -402,7 +404,7 @@ clear_user_page:	/* %o0=dest, %o1=vaddr */
 	or		%g3, (_PAGE_CP | _PAGE_CV | _PAGE_P | _PAGE_L | _PAGE_W), %g3
 	or		%g1, %g3, %g1
 	add		%o0, %o3, %o0
-#define FIX_INSN_2	0x96102070 /* mov (14 << 3), %o3 */
+#define FIX_INSN_2	0x96102068 /* mov (13 << 3), %o3 */
 cheetah_patch_2:
 	mov		TLBTEMP_ENT2, %o3
 	rdpr		%pstate, %g3
@@ -420,6 +422,7 @@ cheetah_patch_2:
 	stxa		%g0, [%g7] ASI_DMMU
 	membar		#Sync
 
+	ldxa		[%o3] ASI_DTLB_DATA_ACCESS, %g0
 	ldxa		[%o3] ASI_DTLB_DATA_ACCESS, %g7
 	stxa		%o0, [%o2] ASI_DMMU
 	stxa		%g1, [%o3] ASI_DTLB_DATA_ACCESS
@@ -430,8 +433,9 @@ cheetah_patch_2:
 clear_page_common:
 	membar		#StoreLoad | #StoreStore | #LoadStore	! LSU	Group
 	fzero		%f0				! FPA	Group
-	mov		PAGE_SIZE/256, %o1		! IEU0
+	sethi		%hi(PAGE_SIZE/256), %o1		! IEU0
 	fzero		%f2				! FPA	Group
+	or		%o1, %lo(PAGE_SIZE/256), %o1	! IEU0
 	faddd		%f0, %f2, %f4			! FPA	Group
 	fmuld		%f0, %f2, %f6			! FPM
 	faddd		%f0, %f2, %f8			! FPA	Group

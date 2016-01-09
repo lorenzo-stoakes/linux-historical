@@ -338,7 +338,7 @@ EXPORT_SYMBOL(HiSax_closecard);
 
 #define EMPTY_CARD	{0, DEFAULT_PROTO, {0, 0, 0, 0}, NULL}
 
-struct IsdnCard cards[] = {
+struct IsdnCard cards[HISAX_MAX_CARDS] = {
 	FIRST_CARD,
 	EMPTY_CARD,
 	EMPTY_CARD,
@@ -349,14 +349,15 @@ struct IsdnCard cards[] = {
 	EMPTY_CARD,
 };
 
-static char HiSaxID[64] __devinitdata = { 0, };
+#define HISAX_IDSIZE (HISAX_MAX_CARDS*8)
+static char HiSaxID[HISAX_IDSIZE] __devinitdata = { 0, };
 
 char *HiSax_id __devinitdata = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
-static int type[8] __devinitdata = { 0, };
-static int protocol[8] __devinitdata = { 0, };
-static int io[8] __devinitdata = { 0, };
+static int type[HISAX_MAX_CARDS] __devinitdata = { 0, };
+static int protocol[HISAX_MAX_CARDS] __devinitdata = { 0, };
+static int io[HISAX_MAX_CARDS] __devinitdata = { 0, };
 #undef IO0_IO1
 #ifdef CONFIG_HISAX_16_3
 #define IO0_IO1
@@ -366,25 +367,30 @@ static int io[8] __devinitdata = { 0, };
 #define IO0_IO1
 #endif
 #ifdef IO0_IO1
-static int io0[8] __devinitdata = { 0, };
-static int io1[8] __devinitdata = { 0, };
+static int io0[HISAX_MAX_CARDS] __devinitdata = { 0, };
+static int io1[HISAX_MAX_CARDS] __devinitdata = { 0, };
 #endif
-static int irq[8] __devinitdata = { 0, };
-static int mem[8] __devinitdata = { 0, };
+static int irq[HISAX_MAX_CARDS] __devinitdata = { 0, };
+static int mem[HISAX_MAX_CARDS] __devinitdata = { 0, };
 static char *id __devinitdata = HiSaxID;
+
+/* string magic */
+#define h1(s) h2(s)
+#define h2(s) #s
+#define PARM_PARA "1-"h1(HISAX_MAX_CARDS)"i"
 
 MODULE_DESCRIPTION("ISDN4Linux: Driver for passive ISDN cards");
 MODULE_AUTHOR("Karsten Keil");
 MODULE_LICENSE("GPL");
-MODULE_PARM(type, "1-8i");
-MODULE_PARM(protocol, "1-8i");
-MODULE_PARM(io, "1-8i");
-MODULE_PARM(irq, "1-8i");
-MODULE_PARM(mem, "1-8i");
+MODULE_PARM(type, PARM_PARA);
+MODULE_PARM(protocol, PARM_PARA);
+MODULE_PARM(io, PARM_PARA);
+MODULE_PARM(irq, PARM_PARA);
+MODULE_PARM(mem, PARM_PARA);
 MODULE_PARM(id, "s");
 #ifdef IO0_IO1
-MODULE_PARM(io0, "1-8i");
-MODULE_PARM(io1, "1-8i");
+MODULE_PARM(io0, PARM_PARA);
+MODULE_PARM(io1, PARM_PARA);
 #endif
 #endif /* MODULE */
 
@@ -476,12 +482,14 @@ static int __init HiSax_setup(char *line)
 		i++;
 	}
 	if (str && *str) {
-		strcpy(HiSaxID, str);
-		HiSax_id = HiSaxID;
-	} else {
+		if (strlen(str) < HISAX_IDSIZE)
+			strcpy(HiSaxID, str);
+		else
+			printk(KERN_WARNING "HiSax: ID too long!")
+	} else
 		strcpy(HiSaxID, "HiSax");
-		HiSax_id = HiSaxID;
-	}
+
+	HiSax_id = HiSaxID;
 	return 1;
 }
 

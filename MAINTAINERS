@@ -932,6 +932,12 @@ L:     linux-LVM@sistina.com
 W:     http://www.sistina.com/lvm
 S:     Maintained 
 
+LSILOGIC/SYMBIOS/NCR 53C8XX and 53C1010 PCI-SCSI drivers
+P:	Gerard Roudier
+M:	groudier@free.fr
+L:	linux-scsi@vger.kernel.org
+S:	Maintained
+
 M68K
 P:	Jes Sorensen
 M:	jes@trained-monkey.org

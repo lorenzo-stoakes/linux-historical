@@ -409,8 +409,18 @@ static void agp_generic_agp_enable(u32 mode)
 	 *        AGP devices and collect their data.
 	 */
 
-	while ((device = pci_find_class(PCI_CLASS_DISPLAY_VGA << 8,
-					device)) != NULL) {
+
+	pci_for_each_dev(device)
+	{
+		/*
+		 *	Enable AGP devices. Most will be VGA display but
+		 *	some may be coprocessors on non VGA devices too
+		 */
+		 
+		if((((device->class >> 16) & 0xFF) != PCI_BASE_CLASS_DISPLAY) &&
+			(device->class != (PCI_CLASS_PROCESSOR_CO << 8)))
+			continue;
+
 		pci_read_config_dword(device, 0x04, &scratch);
 
 		if (!(scratch & 0x00100000))

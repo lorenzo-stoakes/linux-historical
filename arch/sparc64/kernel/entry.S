@@ -1,4 +1,4 @@
-/* $Id: entry.S,v 1.138 2001/11/14 17:24:36 davem Exp $
+/* $Id: entry.S,v 1.141 2001/12/05 23:56:32 davem Exp $
  * arch/sparc64/kernel/entry.S:  Sparc64 trap low-level entry points.
  *
  * Copyright (C) 1995,1997 David S. Miller (davem@caip.rutgers.edu)
@@ -483,7 +483,11 @@ do_ivec_xcall:
 	ldxa		[%g7 + %g0] ASI_INTR_R, %g7
 	stxa		%g0, [%g0] ASI_INTR_RECEIVE
 	membar		#Sync
-	jmpl		%g3, %g0
+	ba,pt		%xcc, 1f
+	 nop
+
+	.align		32
+1:	jmpl		%g3, %g0
 	 nop
 
 do_ivec_spurious:
@@ -1620,6 +1624,11 @@ do_gettimeofday:	/* %o0 = timevalp */
 	 *
 	 * Note with time_t changes to the timeval type, I must now use
 	 * nucleus atomic quad 128-bit loads.
+	 *
+	 * If xtime was stored recently, I've seen crap from the
+	 * quad load on Cheetah.  Putting a membar SYNC before
+	 * the quad load seems to make the problem go away. -DaveM
+	 * (we should nop out workarounds like this on spitfire)
 	 */
 	sethi	%hi(timer_tick_offset), %g3
 	sethi	%hi(xtime), %g2
@@ -1631,6 +1640,7 @@ do_gettimeofday:	/* %o0 = timevalp */
 	sethi	%hi(0x003e0014), %o1
 	srlx	%o2, 32, %o2
 	or	%o1, %lo(0x003e0014), %o1
+	membar	#Sync
 	ldda	[%g2] ASI_NUCLEUS_QUAD_LDD, %o4
 	cmp	%o2, %o1
 	bne,pt	%xcc, 2f
@@ -1639,6 +1649,7 @@ do_gettimeofday:	/* %o0 = timevalp */
 	 rd	%asr24, %o1
 2:	rd	%tick, %o1
 3:	ldx	[%g1], %g7
+	membar	#Sync
 	ldda	[%g2] ASI_NUCLEUS_QUAD_LDD, %o2
 	xor	%o4, %o2, %o2
 	xor	%o5, %o3, %o3

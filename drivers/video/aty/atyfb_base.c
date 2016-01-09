@@ -274,8 +274,12 @@ static unsigned long phys_size[FB_MAX] __initdata = { 0, };
 static unsigned long phys_guiregbase[FB_MAX] __initdata = { 0, };
 #endif
 
+#ifdef CONFIG_FB_ATY_GX
 static char m64n_gx[] __initdata = "mach64GX (ATI888GX00)";
 static char m64n_cx[] __initdata = "mach64CX (ATI888CX00)";
+#endif /* CONFIG_FB_ATY_GX */
+
+#ifdef CONFIG_FB_ATY_CT
 static char m64n_ct[] __initdata = "mach64CT (ATI264CT)";
 static char m64n_et[] __initdata = "mach64ET (ATI264ET)";
 static char m64n_vta3[] __initdata = "mach64VTA3 (ATI264VT)";
@@ -298,7 +302,7 @@ static char m64n_ltp_a[] __initdata = "3D RAGE LT PRO (AGP)";
 static char m64n_ltp_p[] __initdata = "3D RAGE LT PRO (PCI)";
 static char m64n_mob_p[] __initdata = "3D RAGE Mobility (PCI)";
 static char m64n_mob_a[] __initdata = "3D RAGE Mobility (AGP)";
-
+#endif /* CONFIG_FB_ATY_CT */
 
 static const struct {
     u16 pci_id, chip_type;
@@ -360,14 +364,22 @@ static const struct {
 #endif /* CONFIG_FB_ATY_CT */
 };
 
+#if defined(CONFIG_FB_ATY_GX) || defined(CONFIG_FB_ATY_CT)
 static char ram_dram[] __initdata = "DRAM";
+#endif /* CONFIG_FB_ATY_GX || CONFIG_FB_ATY_CT */
+
+#ifdef CONFIG_FB_ATY_GX
 static char ram_vram[] __initdata = "VRAM";
+#endif /* CONFIG_FB_ATY_GX */
+
+#ifdef CONFIG_FB_ATY_CT
 static char ram_edo[] __initdata = "EDO";
 static char ram_sdram[] __initdata = "SDRAM";
 static char ram_sgram[] __initdata = "SGRAM";
 static char ram_wram[] __initdata = "WRAM";
 static char ram_off[] __initdata = "OFF";
 static char ram_resv[] __initdata = "RESV";
+#endif /* CONFIG_FB_ATY_CT */
 
 #ifdef CONFIG_FB_ATY_GX
 static char *aty_gx_ram[8] __initdata = {
@@ -2133,8 +2145,8 @@ int __init atyfb_init(void)
 #if defined(CONFIG_PCI)
     struct pci_dev *pdev = NULL;
     struct fb_info_aty *info;
-    unsigned long addr, raddr, res_start, res_size;
-    int i, aux_app;
+    unsigned long addr, res_start, res_size;
+    int i;
 #ifdef __sparc__
     extern void (*prom_palette) (int);
     extern int con_is_present(void);
@@ -2148,11 +2160,16 @@ int __init atyfb_init(void)
 	return -ENXIO;
 #else
     u16 tmp;
+    int aux_app;
+    unsigned long raddr;
 #endif
 
     while ((pdev = pci_find_device(PCI_VENDOR_ID_ATI, PCI_ANY_ID, pdev))) {
 	if ((pdev->class >> 16) == PCI_BASE_CLASS_DISPLAY) {
-	    struct resource *rp, *rrp;
+	    struct resource *rp;
+#ifndef __sparc__
+	    struct resource *rrp;
+#endif
 
 	    for (i = sizeof(aty_chips)/sizeof(*aty_chips)-1; i >= 0; i--)
 		if (pdev->device == aty_chips[i].pci_id)

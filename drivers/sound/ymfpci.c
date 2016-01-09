@@ -39,8 +39,6 @@
  *    native synthesizer through a playback slot.
  *  - Use new 2.3.x cache coherent PCI DMA routines instead of virt_to_bus.
  *  - Make the thing big endian compatible. ALSA has it done.
- *  - 2001/10/25 Since Civ:CTP forced redzone outside of pre-set fragments,
- *    all ioctls that report free space lie a little. Adjust their returns.
  *  - 2001/11/29 ac97_save_state
  */
 
@@ -158,7 +156,7 @@ static int ymfpci_codec_ready(ymfpci_t *codec, int secondary, int sched)
 			schedule_timeout(1);
 		}
 	} while (end_time - (signed long)jiffies >= 0);
-	printk("ymfpci_codec_ready: codec %i is not ready [0x%x]\n",
+	printk(KERN_ERR "ymfpci_codec_ready: codec %i is not ready [0x%x]\n",
 	    secondary, ymfpci_readw(codec, reg));
 	return -EBUSY;
 }
@@ -407,7 +405,7 @@ static int prog_dmabuf(struct ymf_state *state, int rec)
 	dmabuf->ready = 1;
 
 #if 0
-	printk("prog_dmabuf: rate %d format 0x%x,"
+	printk(KERN_DEBUG "prog_dmabuf: rate %d format 0x%x,"
 	    " numfrag %d fragsize %d dmasize %d\n",
 	       state->format.rate, state->format.format, dmabuf->numfrag,
 	       dmabuf->fragsize, dmabuf->dmasize);
@@ -618,7 +616,7 @@ static void ymf_pcm_interrupt(ymfpci_t *codec, ymfpci_voice_t *voice)
 		dmabuf->hwptr = pos;
 
 		if (dmabuf->count == 0) {
-			printk("ymfpci%d: %d: strain: hwptr %d\n",
+			printk(KERN_ERR "ymfpci%d: %d: strain: hwptr %d\n",
 			    codec->dev_audio, voice->number, dmabuf->hwptr);
 			ymf_playback_trigger(codec, ypcm, 0);
 		}
@@ -636,7 +634,7 @@ static void ymf_pcm_interrupt(ymfpci_t *codec, ymfpci_voice_t *voice)
 				/*
 				 * Lost interrupt or other screwage.
 				 */
-				printk("ymfpci%d: %d: lost: delta %d"
+				printk(KERN_ERR "ymfpci%d: %d: lost: delta %d"
 				    " hwptr %d swptr %d distance %d count %d\n",
 				    codec->dev_audio, voice->number, delta,
 				    dmabuf->hwptr, swptr, distance, dmabuf->count);
@@ -644,10 +642,10 @@ static void ymf_pcm_interrupt(ymfpci_t *codec, ymfpci_voice_t *voice)
 				/*
 				 * Normal end of DMA.
 				 */
-//				printk("ymfpci%d: %d: done: delta %d"
-//				    " hwptr %d swptr %d distance %d count %d\n",
-//				    codec->dev_audio, voice->number, delta,
-//				    dmabuf->hwptr, swptr, distance, dmabuf->count);
+				YMFDBGI("ymfpci%d: %d: done: delta %d"
+				    " hwptr %d swptr %d distance %d count %d\n",
+				    codec->dev_audio, voice->number, delta,
+				    dmabuf->hwptr, swptr, distance, dmabuf->count);
 			}
 			played = dmabuf->count;
 			if (ypcm->running) {
@@ -1511,6 +1509,7 @@ static int ymf_ioctl(struct inode *inode, struct file *file,
 	unsigned long flags;
 	audio_buf_info abinfo;
 	count_info cinfo;
+	int redzone;
 	int val;
 
 	switch (cmd) {
@@ -1734,9 +1733,12 @@ static int ymf_ioctl(struct inode *inode, struct file *file,
 		dmabuf = &state->wpcm.dmabuf;
 		if (!dmabuf->ready && (val = prog_dmabuf(state, 0)) != 0)
 			return val;
+		redzone = ymf_calc_lend(state->format.rate);
+		redzone <<= state->format.shift;
+		redzone *= 3;
 		spin_lock_irqsave(&state->unit->reg_lock, flags);
 		abinfo.fragsize = dmabuf->fragsize;
-		abinfo.bytes = dmabuf->dmasize - dmabuf->count;
+		abinfo.bytes = dmabuf->dmasize - dmabuf->count - redzone;
 		abinfo.fragstotal = dmabuf->numfrag;
 		abinfo.fragments = abinfo.bytes >> dmabuf->fragshift;
 		spin_unlock_irqrestore(&state->unit->reg_lock, flags);
@@ -1777,9 +1779,6 @@ static int ymf_ioctl(struct inode *inode, struct file *file,
 		cinfo.bytes = dmabuf->total_bytes;
 		cinfo.blocks = dmabuf->count >> dmabuf->fragshift;
 		cinfo.ptr = dmabuf->hwptr;
-		/* XXX fishy - breaks invariant  count=hwptr-swptr */
-		if (dmabuf->mapped)
-			dmabuf->count &= dmabuf->fragsize-1;
 		spin_unlock_irqrestore(&state->unit->reg_lock, flags);
 		YMFDBGX("ymf_ioctl: GETIPTR ptr %d bytes %d\n",
 		    cinfo.ptr, cinfo.bytes);
@@ -1794,9 +1793,6 @@ static int ymf_ioctl(struct inode *inode, struct file *file,
 		cinfo.bytes = dmabuf->total_bytes;
 		cinfo.blocks = dmabuf->count >> dmabuf->fragshift;
 		cinfo.ptr = dmabuf->hwptr;
-		/* XXX fishy - breaks invariant  count=swptr-hwptr */
-		if (dmabuf->mapped)
-			dmabuf->count &= dmabuf->fragsize-1;
 		spin_unlock_irqrestore(&state->unit->reg_lock, flags);
 		YMFDBGX("ymf_ioctl: GETOPTR ptr %d bytes %d\n",
 		    cinfo.ptr, cinfo.bytes);
@@ -2393,7 +2389,7 @@ static int ymf_ac97_init(ymfpci_t *unit, int num_ac97)
 	codec->codec_write = ymfpci_codec_write;
 
 	if (ac97_probe_codec(codec) == 0) {
-		printk("ymfpci: ac97_probe_codec failed\n");
+		printk(KERN_ERR "ymfpci: ac97_probe_codec failed\n");
 		goto out_kfree;
 	}
 

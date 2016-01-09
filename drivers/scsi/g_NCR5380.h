@@ -47,16 +47,15 @@
 int generic_NCR5380_abort(Scsi_Cmnd *);
 int generic_NCR5380_detect(Scsi_Host_Template *);
 int generic_NCR5380_release_resources(struct Scsi_Host *);
-int generic_NCR5380_queue_command(Scsi_Cmnd *, void (*done)(Scsi_Cmnd *));
+int generic_NCR5380_queue_command(Scsi_Cmnd *, void (*done) (Scsi_Cmnd *));
 int generic_NCR5380_reset(Scsi_Cmnd *, unsigned int);
-int notyet_generic_proc_info (char *buffer ,char **start, off_t offset,
-                     int length, int hostno, int inout);
-const char* generic_NCR5380_info(struct Scsi_Host *);
+int notyet_generic_proc_info(char *buffer, char **start, off_t offset, int length, int hostno, int inout);
+const char *generic_NCR5380_info(struct Scsi_Host *);
 #ifdef BIOSPARAM
 int generic_NCR5380_biosparam(Disk *, kdev_t, int *);
 #endif
 
-int generic_NCR5380_proc_info(char* buffer, char** start, off_t offset, int length, int hostno, int inout);
+int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int length, int hostno, int inout);
 
 #ifndef NULL
 #define NULL 0
@@ -114,7 +113,7 @@ int generic_NCR5380_proc_info(char* buffer, char** start, off_t offset, int leng
 #define NCR5380_read(reg) (inb(NCR5380_map_name + (reg)))
 #define NCR5380_write(reg, value) (outb((value), (NCR5380_map_name + (reg))))
 
-#else 
+#else
 /* therefore CONFIG_SCSI_G_NCR5380_MEM */
 
 #define NCR5380_map_config memory
@@ -164,7 +163,6 @@ int generic_NCR5380_proc_info(char* buffer, char** start, off_t offset, int leng
 #define BOARD_NCR53C400A 2
 #define BOARD_DTC3181E	3
 
-#endif /* else def HOSTS_C */
-#endif /* ndef ASM */
-#endif /* GENERIC_NCR5380_H */
-
+#endif				/* else def HOSTS_C */
+#endif				/* ndef ASM */
+#endif				/* GENERIC_NCR5380_H */

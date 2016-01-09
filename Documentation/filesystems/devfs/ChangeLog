@@ -1815,3 +1815,7 @@ Changes for patch v199.2
 - Fixed bug in <devfsd_close>: was dereferencing freed pointer
 
 - Added process group check for devfsd privileges
+===============================================================================
+Changes for patch v199.3
+
+- Use SLAB_ATOMIC in <devfsd_notify_de> from <devfs_d_delete>

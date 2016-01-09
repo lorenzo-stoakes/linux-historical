@@ -640,6 +640,10 @@ static int loop_set_fd(struct loop_device *lo, struct file *lo_file, kdev_t dev,
 
 	if (S_ISBLK(inode->i_mode)) {
 		lo_device = inode->i_rdev;
+		if (lo_device == dev) {
+			error = -EBUSY;
+			goto out;
+		}
 	} else if (S_ISREG(inode->i_mode)) {
 		struct address_space_operations *aops = inode->i_mapping->a_ops;
 		/*

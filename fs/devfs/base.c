@@ -576,6 +576,9 @@
 	       Fixed bug in <devfsd_close>: was dereferencing freed pointer.
 	       Added process group check for devfsd privileges.
   v1.4
+    20011204   Richard Gooch <rgooch@atnf.csiro.au>
+	       Use SLAB_ATOMIC in <devfsd_notify_de> from <devfs_d_delete>.
+  v1.5
 */
 #include <linux/types.h>
 #include <linux/errno.h>
@@ -608,7 +611,7 @@
 #include <asm/bitops.h>
 #include <asm/atomic.h>
 
-#define DEVFS_VERSION            "1.4 (20011203)"
+#define DEVFS_VERSION            "1.5 (20011204)"
 
 #define DEVFS_NAME "devfs"
 
@@ -1394,13 +1397,16 @@ static int wait_for_devfsd_finished (struct fs_info *fs_info)
 
 static int devfsd_notify_de (struct devfs_entry *de,
 			     unsigned short type, umode_t mode,
-			     uid_t uid, gid_t gid, struct fs_info *fs_info)
+			     uid_t uid, gid_t gid, struct fs_info *fs_info,
+			     int atomic)
 {
     struct devfsd_buf_entry *entry;
     struct devfs_entry *curr;
 
     if ( !( fs_info->devfsd_event_mask & (1 << type) ) ) return (FALSE);
-    if ( ( entry = kmem_cache_alloc (devfsd_buf_cache, 0) ) == NULL )
+    if ( ( entry = kmem_cache_alloc (devfsd_buf_cache,
+				     atomic ? SLAB_ATOMIC : SLAB_KERNEL) )
+	 == NULL )
     {
 	atomic_inc (&fs_info->devfsd_overrun_count);
 	return (FALSE);
@@ -1433,7 +1439,7 @@ static int devfsd_notify_de (struct devfs_entry *de,
 static void devfsd_notify (struct devfs_entry *de,unsigned short type,int wait)
 {
     if (devfsd_notify_de (de, type, de->mode, current->euid,
-			  current->egid, &fs_info) && wait)
+			  current->egid, &fs_info, 0) && wait)
 	wait_for_devfsd_finished (&fs_info);
 }   /*  End Function devfsd_notify  */
 
@@ -1783,7 +1789,7 @@ devfs_handle_t devfs_mk_dir (devfs_handle_t dir, const char *name, void *info)
 	printk ("%s: devfs_mk_dir(%s): de: %p dir: %p \"%s\"\n",
 		DEVFS_NAME, name, de, dir, dir->name);
 #endif
-    devfsd_notify (de, DEVFSD_NOTIFY_REGISTERED, DEVFS_FL_NONE);
+    devfsd_notify (de, DEVFSD_NOTIFY_REGISTERED, 0);
     devfs_put (dir);
     return de;
 }   /*  End Function devfs_mk_dir  */
@@ -2289,7 +2295,7 @@ static int try_modload (struct devfs_entry *parent, struct fs_info *fs_info,
     buf->namelen = namelen;
     buf->u.name = name;
     if ( !devfsd_notify_de (buf, DEVFSD_NOTIFY_LOOKUP, 0,
-			    current->euid, current->egid, fs_info) )
+			    current->euid, current->egid, fs_info, 0) )
 	return -ENOENT;
     /*  Possible success  */
     return 0;
@@ -2420,7 +2426,7 @@ static int devfs_notify_change (struct dentry *dentry, struct iattr *iattr)
     if ( ( iattr->ia_valid & (ATTR_MODE | ATTR_UID | ATTR_GID) ) &&
 	 !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_CHANGE, inode->i_mode,
-			  inode->i_uid, inode->i_gid, fs_info);
+			  inode->i_uid, inode->i_gid, fs_info, 0);
     return 0;
 }   /*  End Function devfs_notify_change  */
 
@@ -2660,7 +2666,7 @@ static int devfs_open (struct inode *inode, struct file *file)
     }
     if ( df->aopen_notify && !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_ASYNC_OPEN, inode->i_mode,
-			  current->euid, current->egid, fs_info);
+			  current->euid, current->egid, fs_info, 0);
     return 0;
 }   /*  End Function devfs_open  */
 
@@ -2775,7 +2781,7 @@ static int devfs_d_delete (struct dentry *dentry)
     de->u.fcb.open = FALSE;
     if (de->u.fcb.aopen_notify)
 	devfsd_notify_de (de, DEVFSD_NOTIFY_CLOSE, inode->i_mode,
-			  current->euid, current->egid, fs_info);
+			  current->euid, current->egid, fs_info, 1);
     if (!de->u.fcb.auto_owner) return 0;
     /*  Change the ownership/protection back  */
     inode->i_mode = (de->mode & S_IFMT) | S_IRUGO | S_IWUGO;
@@ -2932,7 +2938,7 @@ static int devfs_unlink (struct inode *dir, struct dentry *dentry)
     if (!unhooked) return -ENOENT;
     if ( !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_DELETE, inode->i_mode,
-			  inode->i_uid, inode->i_gid, fs_info);
+			  inode->i_uid, inode->i_gid, fs_info, 0);
     free_dentry (de);
     devfs_put (de);
     return 0;
@@ -2973,7 +2979,7 @@ static int devfs_symlink (struct inode *dir, struct dentry *dentry,
     d_instantiate (dentry, inode);
     if ( !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_CREATE, inode->i_mode,
-			  inode->i_uid, inode->i_gid, fs_info);
+			  inode->i_uid, inode->i_gid, fs_info, 0);
     return 0;
 }   /*  End Function devfs_symlink  */
 
@@ -3007,7 +3013,7 @@ static int devfs_mkdir (struct inode *dir, struct dentry *dentry, int mode)
     d_instantiate (dentry, inode);
     if ( !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_CREATE, inode->i_mode,
-			  inode->i_uid, inode->i_gid, fs_info);
+			  inode->i_uid, inode->i_gid, fs_info, 0);
     return 0;
 }   /*  End Function devfs_mkdir  */
 
@@ -3036,7 +3042,7 @@ static int devfs_rmdir (struct inode *dir, struct dentry *dentry)
     if (err) return err;
     if ( !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_DELETE, inode->i_mode,
-			  inode->i_uid, inode->i_gid, fs_info);
+			  inode->i_uid, inode->i_gid, fs_info, 0);
     free_dentry (de);
     devfs_put (de);
     return 0;
@@ -3082,7 +3088,7 @@ static int devfs_mknod (struct inode *dir, struct dentry *dentry, int mode,
     d_instantiate (dentry, inode);
     if ( !is_devfsd_or_child (fs_info) )
 	devfsd_notify_de (de, DEVFSD_NOTIFY_CREATE, inode->i_mode,
-			  inode->i_uid, inode->i_gid, fs_info);
+			  inode->i_uid, inode->i_gid, fs_info, 0);
     return 0;
 }   /*  End Function devfs_mknod  */
 

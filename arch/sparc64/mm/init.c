@@ -1,4 +1,4 @@
-/*  $Id: init.c,v 1.205 2001/11/19 19:03:08 davem Exp $
+/*  $Id: init.c,v 1.207 2001/11/30 06:55:39 davem Exp $
  *  arch/sparc64/mm/init.c
  *
  *  Copyright (C) 1996-1999 David S. Miller (davem@caip.rutgers.edu)
@@ -62,6 +62,8 @@ extern unsigned int sparc_ramdisk_image;
 extern unsigned int sparc_ramdisk_size;
 
 struct page *mem_map_zero;
+
+int bigkernel = 0;
 
 int do_check_pgt_cache(int low, int high)
 {
@@ -505,6 +507,10 @@ static void inherit_prom_mappings(void)
 		   (unsigned long) KERNBASE,
 		   prom_get_mmu_ihandle());
 
+	if (bigkernel)
+		remap_func(((tte_data + 0x400000) & _PAGE_PADDR),
+			(unsigned long) KERNBASE + 0x400000, prom_get_mmu_ihandle());
+
 	/* Flush out that temporary mapping. */
 	spitfire_flush_dtlb_nucleus_page(0x0);
 	spitfire_flush_itlb_nucleus_page(0x0);
@@ -512,6 +518,12 @@ static void inherit_prom_mappings(void)
 	/* Now lock us back into the TLBs via OBP. */
 	prom_dtlb_load(sparc64_highest_locked_tlbent(), tte_data, tte_vaddr);
 	prom_itlb_load(sparc64_highest_locked_tlbent(), tte_data, tte_vaddr);
+	if (bigkernel) {
+		prom_dtlb_load(sparc64_highest_locked_tlbent()-1, tte_data + 0x400000, 
+								tte_vaddr + 0x400000);
+		prom_itlb_load(sparc64_highest_locked_tlbent()-1, tte_data + 0x400000, 
+								tte_vaddr + 0x400000);
+	}
 
 	/* Re-read translations property. */
 	if ((n = prom_getproperty(node, "translations", (char *)trans, tsz)) == -1) {
@@ -528,6 +540,8 @@ static void inherit_prom_mappings(void)
 			unsigned long avoid_start = (unsigned long) KERNBASE;
 			unsigned long avoid_end = avoid_start + (4 * 1024 * 1024);
 
+			if (bigkernel)
+				avoid_end += (4 * 1024 * 1024);
 			if (vaddr < avoid_start) {
 				unsigned long top = vaddr + size;
 
@@ -714,7 +728,8 @@ void inherit_locked_prom_mappings(int save_p)
 		}
 	}
 	if (tlb_type == spitfire) {
-		for (i = 0; i < SPITFIRE_HIGHEST_LOCKED_TLBENT; i++) {
+		int high = SPITFIRE_HIGHEST_LOCKED_TLBENT - bigkernel;
+		for (i = 0; i < high; i++) {
 			unsigned long data;
 
 			/* Spitfire Errata #32 workaround */
@@ -752,7 +767,7 @@ void inherit_locked_prom_mappings(int save_p)
 			}
 		}
 
-		for (i = 0; i < SPITFIRE_HIGHEST_LOCKED_TLBENT; i++) {
+		for (i = 0; i < high; i++) {
 			unsigned long data;
 
 			/* Spitfire Errata #32 workaround */
@@ -790,7 +805,9 @@ void inherit_locked_prom_mappings(int save_p)
 			}
 		}
 	} else if (tlb_type == cheetah) {
-		for (i = 0; i < CHEETAH_HIGHEST_LOCKED_TLBENT; i++) {
+		int high = CHEETAH_HIGHEST_LOCKED_TLBENT - bigkernel;
+
+		for (i = 0; i < high; i++) {
 			unsigned long data;
 
 			data = cheetah_get_ldtlb_data(i);
@@ -814,7 +831,7 @@ void inherit_locked_prom_mappings(int save_p)
 			}
 		}
 
-		for (i = 0; i < CHEETAH_HIGHEST_LOCKED_TLBENT; i++) {
+		for (i = 0; i < high; i++) {
 			unsigned long data;
 
 			data = cheetah_get_litlb_data(i);
@@ -1282,6 +1299,8 @@ void __init paging_init(void)
 	set_bit(0, mmu_context_bmap);
 
 	real_end = (unsigned long)&_end;
+	if ((real_end > ((unsigned long)KERNBASE + 0x400000)))
+		bigkernel = 1;
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (sparc_ramdisk_image)
 		real_end = (PAGE_ALIGN(real_end) + PAGE_ALIGN(sparc_ramdisk_size));

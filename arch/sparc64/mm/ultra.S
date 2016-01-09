@@ -1,4 +1,4 @@
-/* $Id: ultra.S,v 1.69 2001/11/15 10:37:14 davem Exp $
+/* $Id: ultra.S,v 1.70 2001/11/29 16:42:10 kanoj Exp $
  * ultra.S: Don't expand these all over the place...
  *
  * Copyright (C) 1997, 2000 David S. Miller (davem@redhat.com)
@@ -117,7 +117,7 @@ __spitfire_flush_tlb_range_constant_time: /* %o0=ctx, %o1=start, %o3=end */
 	wrpr		%g1, PSTATE_IE, %pstate
 	mov		TLB_TAG_ACCESS, %g3
 	/* XXX Spitfire dependency... */
-	mov		(62 << 3), %g2
+	mov		((SPITFIRE_HIGHEST_LOCKED_TLBENT-1) << 3), %g2
 
 	/* Spitfire Errata #32 workaround. */
 	mov		0x8, %o4
@@ -642,7 +642,7 @@ __spitfire_xcall_flush_tlb_all:
 	stx		%g0, [%g4 + %lo(errata32_hwbug)]
 
 2:	add		%g2, 1, %g2
-	cmp		%g2, 63
+	cmp		%g2, SPITFIRE_HIGHEST_LOCKED_TLBENT
 	ble,pt		%icc, 1b
 	 sll		%g2, 3, %g3
 	flush		%g6
