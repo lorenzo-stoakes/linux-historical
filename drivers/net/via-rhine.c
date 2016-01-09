@@ -161,7 +161,7 @@ static char version[] __devinitdata =
 KERN_INFO "via-rhine.c:v1.10-LK1.1.12  03/11/2001  Written by Donald Becker\n"
 KERN_INFO "  http://www.scyld.com/network/via-rhine.html\n";
 
-static char shortname[] __devinitdata = "via-rhine";
+static char shortname[] = "via-rhine";
 
 
 /* This driver was written to use PCI memory space, however most versions

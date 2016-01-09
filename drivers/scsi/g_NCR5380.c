@@ -911,41 +911,7 @@ static struct isapnp_device_id id_table[] __devinitdata = {
 MODULE_DEVICE_TABLE(isapnp, id_table);
 
 
-#ifndef MODULE
-
-static int __init do_NCR53C400_setup(char *str)
-{
-	int ints[10];
-
-	get_options(str, sizeof(ints) / sizeof(int), ints);
-	generic_NCR53C400_setup(str, ints);
-
-	return 1;
-}
-
-static int __init do_NCR53C400A_setup(char *str)
-{
-	int ints[10];
-
-	get_options(str, sizeof(ints) / sizeof(int), ints);
-	generic_NCR53C400A_setup(str, ints);
-
-	return 1;
-}
-
-static int __init do_DTC3181E_setup(char *str)
-{
-	int ints[10];
-
-	get_options(str, sizeof(ints) / sizeof(int), ints);
-	generic_DTC3181E_setup(str, ints);
-
-	return 1;
-}
-
 __setup("ncr5380=", do_NCR5380_setup);
 __setup("ncr53c400=", do_NCR53C400_setup);
 __setup("ncr53c400a=", do_NCR53C400A_setup);
 __setup("dtc3181e=", do_DTC3181E_setup);
-
-#endif

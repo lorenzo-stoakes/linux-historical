@@ -407,6 +407,8 @@ struct reiserfs_sb_info
 				/* To be obsoleted soon by per buffer seals.. -Hans */
     atomic_t s_generation_counter; // increased by one every time the
     // tree gets re-balanced
+    unsigned int s_properties;    /* File system properties. Currently holds
+				     on-disk FS format */
     
     /* session statistics */
     int s_kmallocs;
@@ -428,7 +430,11 @@ struct reiserfs_sb_info
     struct proc_dir_entry *procdir;
 };
 
+/* Definitions of reiserfs on-disk properties: */
+#define REISERFS_3_5 0
+#define REISERFS_3_6 1
 
+/* Mount options */
 #define NOTAIL 0  /* -o notail: no tails will be created in a session */
 #define REPLAYONLY 3 /* replay journal and return 0. Use by fsck */
 #define REISERFS_NOLOG 4      /* -o nolog: turn journalling off */
@@ -478,7 +484,8 @@ struct reiserfs_sb_info
 #define dont_have_tails(s) ((s)->u.reiserfs_sb.s_mount_opt & (1 << NOTAIL))
 #define replay_only(s) ((s)->u.reiserfs_sb.s_mount_opt & (1 << REPLAYONLY))
 #define reiserfs_dont_log(s) ((s)->u.reiserfs_sb.s_mount_opt & (1 << REISERFS_NOLOG))
-#define old_format_only(s) ((SB_VERSION(s) != REISERFS_VERSION_2) && !((s)->u.reiserfs_sb.s_mount_opt & (1 << REISERFS_CONVERT)))
+#define old_format_only(s) ((s)->u.reiserfs_sb.s_properties & (1 << REISERFS_3_5))
+#define convert_reiserfs(s) ((s)->u.reiserfs_sb.s_mount_opt & (1 << REISERFS_CONVERT))
 
 
 void reiserfs_file_buffer (struct buffer_head * bh, int list);

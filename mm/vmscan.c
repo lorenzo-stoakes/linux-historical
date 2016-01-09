@@ -338,7 +338,7 @@ static int shrink_cache(int nr_pages, zone_t * classzone, unsigned int gfp_mask,
 {
 	struct list_head * entry;
 	int max_scan = nr_inactive_pages / priority;
-	int max_mapped = nr_pages << (9 - priority);
+	int max_mapped = min((nr_pages << (10 - priority)), max_scan / 10);
 
 	spin_lock(&pagemap_lru_lock);
 	while (--max_scan >= 0 && (entry = inactive_list.prev) != &inactive_list) {

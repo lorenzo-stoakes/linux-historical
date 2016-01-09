@@ -1045,7 +1045,7 @@ static int balance_dirty_state(void)
 
 	/* First, check for the "real" dirty limit. */
 	if (dirty > soft_dirty_limit) {
-		if (dirty > hard_dirty_limit)
+		if (dirty > hard_dirty_limit && !(current->flags & PF_NOIO))
 			return 1;
 		return 0;
 	}

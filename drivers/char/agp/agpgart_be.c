@@ -3897,12 +3897,10 @@ static int __init agp_find_supported_device(void)
 
 		case PCI_DEVICE_ID_INTEL_830_M_0:
 			i810_dev = pci_find_device(PCI_VENDOR_ID_INTEL,
-									   PCI_DEVICE_ID_INTEL_830_M_1,
-									   NULL);
-			if(PCI_FUNC(i810_dev->devfn) != 0) {
+					PCI_DEVICE_ID_INTEL_830_M_1, NULL);
+			if(i810_dev && PCI_FUNC(i810_dev->devfn) != 0) {
 				i810_dev = pci_find_device(PCI_VENDOR_ID_INTEL,
-										   PCI_DEVICE_ID_INTEL_830_M_1,
-										   i810_dev);
+					PCI_DEVICE_ID_INTEL_830_M_1, i810_dev);
 			}
 
 			if (i810_dev == NULL) {

@@ -888,6 +888,8 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
     unsigned long blocks;
     int jinit_done = 0 ;
     struct reiserfs_iget4_args args ;
+    int old_magic;
+    struct reiserfs_super_block * rs;
 
 
     memset (&s->u.reiserfs_sb, 0, sizeof (struct reiserfs_sb_info));
@@ -972,18 +974,15 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
       goto error ;
     }
 
-    if (!(s->s_flags & MS_RDONLY)) {
-	struct reiserfs_super_block * rs = SB_DISK_SUPER_BLOCK (s);
-        int old_magic;
-
-      old_magic = strncmp (rs->s_magic,  REISER2FS_SUPER_MAGIC_STRING,
+    rs = SB_DISK_SUPER_BLOCK (s);
+    old_magic = strncmp (rs->s_magic,  REISER2FS_SUPER_MAGIC_STRING,
                            strlen ( REISER2FS_SUPER_MAGIC_STRING));
-	if( old_magic && le16_to_cpu(rs->s_version) != 0 ) {
-	  dput(s->s_root) ;
-	  s->s_root = NULL ;
-	  reiserfs_warning("reiserfs: wrong version/magic combination in the super-block\n") ;
-	  goto error ;
-	}
+    if (!old_magic)
+	set_bit(REISERFS_3_6, &(s->u.reiserfs_sb.s_properties));
+    else
+	set_bit(REISERFS_3_5, &(s->u.reiserfs_sb.s_properties));
+
+    if (!(s->s_flags & MS_RDONLY)) {
 
 	journal_begin(&th, s, 1) ;
 	reiserfs_prepare_for_journal(s, SB_BUFFER_WITH_SB(s), 1) ;
@@ -992,23 +991,19 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
 
         if ( old_magic ) {
 	    // filesystem created under 3.5.x found
-	    if (!old_format_only (s)) {
+	    if (convert_reiserfs (s)) {
 		reiserfs_warning("reiserfs: converting 3.5.x filesystem to the new format\n") ;
 		// after this 3.5.x will not be able to mount this partition
 		memcpy (rs->s_magic, REISER2FS_SUPER_MAGIC_STRING, 
 			sizeof (REISER2FS_SUPER_MAGIC_STRING));
 
 		reiserfs_convert_objectid_map_v1(s) ;
+		set_bit(REISERFS_3_6, &(s->u.reiserfs_sb.s_properties));
+		clear_bit(REISERFS_3_5, &(s->u.reiserfs_sb.s_properties));
 	    } else {
 		reiserfs_warning("reiserfs: using 3.5.x disk format\n") ;
 	    }
-	} else {
-	    // new format found
-	    set_bit (REISERFS_CONVERT, &(s->u.reiserfs_sb.s_mount_opt));
 	}
-
-	// mark hash in super block: it could be unset. overwrite should be ok
-        set_sb_hash_function_code( rs, function2code(s->u.reiserfs_sb.s_hash_function ) );
 
 	journal_mark_dirty(&th, s, SB_BUFFER_WITH_SB (s));
 	journal_end(&th, s, 1) ;
@@ -1018,12 +1013,12 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
 
 	s->s_dirt = 0;
     } else {
-	struct reiserfs_super_block * rs = SB_DISK_SUPER_BLOCK (s);
-	if (strncmp (rs->s_magic,  REISER2FS_SUPER_MAGIC_STRING, 
-		     strlen ( REISER2FS_SUPER_MAGIC_STRING))) {
+	if ( old_magic ) {
 	    reiserfs_warning("reiserfs: using 3.5.x disk format\n") ;
 	}
     }
+    // mark hash in super block: it could be unset. overwrite should be ok
+    set_sb_hash_function_code( rs, function2code(s->u.reiserfs_sb.s_hash_function ) );
 
     reiserfs_proc_info_init( s );
     reiserfs_proc_register( s, "version", reiserfs_version_in_proc );

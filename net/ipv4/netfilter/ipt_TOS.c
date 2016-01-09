@@ -27,8 +27,8 @@ target(struct sk_buff **pskb,
 			struct sk_buff *nskb = skb_copy(*pskb, GFP_ATOMIC);
 			if (!nskb)
 				return NF_DROP;
-			*pskb = nskb;
 			kfree_skb(*pskb);
+			*pskb = nskb;
 			iph = (*pskb)->nh.iph;
 		}
 
