@@ -86,6 +86,7 @@ struct cpuinfo_mips {
 #define cpu_has_divec		(cpu_data[0].options & MIPS_CPU_DIVEC)
 #define cpu_has_vce		(cpu_data[0].options & MIPS_CPU_VCE)
 #define cpu_has_cache_cdex	(cpu_data[0].options & MIPS_CPU_CACHE_CDEX)
+#define cpu_has_prefetch	(cpu_data[0].options & MIPS_CPU_PREFETCH)
 #define cpu_has_mcheck		(cpu_data[0].options & MIPS_CPU_MCHECK)
 #define cpu_has_ejtag		(cpu_data[0].options & MIPS_CPU_EJTAG)
 #define cpu_has_nofpuex		(cpu_data[0].options & MIPS_CPU_NOFPUEX)
@@ -94,7 +95,12 @@ struct cpuinfo_mips {
 #define cpu_has_dc_aliases	(cpu_data[0].dcache.flags & MIPS_CACHE_ALIASES)
 #define cpu_has_ic_fills_f_dc	(cpu_data[0].dcache.flags & MIPS_CACHE_IC_F_DC)
 #define cpu_has_64bits		(cpu_data[0].isa_level & MIPS_CPU_ISA_64BIT)
+#define cpu_has_64bit_addresses	0
 #define cpu_has_subset_pcaches	(cpu_data[0].options & MIPS_CPU_SUBSET_CACHES)
+
+#define cpu_dcache_line_size()	current_cpu_data.dcache.linesz
+#define cpu_icache_line_size()	current_cpu_data.icache.linesz
+#define cpu_scache_line_size()	current_cpu_data.scache.linesz
 
 extern struct cpuinfo_mips cpu_data[];
 #define current_cpu_data cpu_data[smp_processor_id()]

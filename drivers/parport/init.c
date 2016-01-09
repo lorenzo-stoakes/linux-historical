@@ -164,9 +164,6 @@ int __init parport_init (void)
 #ifdef CONFIG_PARPORT_SUNBPP
 	parport_sunbpp_init();
 #endif
-#ifdef CONFIG_PARPORT_IP22
-	parport_ip22_init();
-#endif
 	return 0;
 }
 

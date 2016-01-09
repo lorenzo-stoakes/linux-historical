@@ -74,7 +74,10 @@ bool 'Support for Momentum Ocelot board' CONFIG_MOMENCO_OCELOT
 bool 'Support for Momentum Ocelot-G board' CONFIG_MOMENCO_OCELOT_G
 bool 'Support for Momentum Ocelot-C and -CS boards' CONFIG_MOMENCO_OCELOT_C
 bool 'Support for Momentum Jaguar-ATX boards' CONFIG_MOMENCO_JAGUAR_ATX
-
+bool 'Support PMC-Sierra Yosemite board' CONFIG_PMC_YOSEMITE
+if [ "$CONFIG_PMC_YOSEMITE" = "y" ]; then
+   bool '  Hypertransport Support for PMC-Sierra Yosemite'  CONFIG_HYPERTRANSPORT
+fi
 dep_bool 'Support for NEC DDB Vrc-5074 (EXPERIMENTAL)' CONFIG_DDB5074 $CONFIG_EXPERIMENTAL
 bool 'Support for NEC DDB Vrc-5476' CONFIG_DDB5476
 bool 'Support for NEC DDB Vrc-5477' CONFIG_DDB5477
@@ -225,14 +228,6 @@ fi
 bool 'Support for ZAO Networks Capcella' CONFIG_ZAO_CAPCELLA
 
 dep_bool 'High Memory Support' CONFIG_HIGHMEM $CONFIG_MIPS32
-if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-   choice 'Kernel page size'					\
-	"4KB                    CONFIG_PAGE_SIZE_4KB		\
-	 16KB                   CONFIG_PAGE_SIZE_16KB		\
-	 64KB                   CONFIG_PAGE_SIZE_64KB" 4KB
-else
-   define_bool CONFIG_PAGE_SIZE_4KB y
-fi
 
 define_bool CONFIG_RWSEM_GENERIC_SPINLOCK y
 define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM n
@@ -252,7 +247,6 @@ fi
 if [ "$CONFIG_CASIO_E55" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_ISA y
    define_bool CONFIG_DUMMY_KEYB y
@@ -433,7 +427,6 @@ fi
 if [ "$CONFIG_IBM_WORKPAD" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_ISA y
    define_bool CONFIG_DUMMY_KEYB y
@@ -534,6 +527,18 @@ if [ "$CONFIG_MOMENCO_JAGUAR_ATX" = "y" ]; then
    define_bool CONFIG_NEW_TIME_C y
    define_bool CONFIG_BOOT_ELF32 y
 fi
+
+if [ "$CONFIG_PMC_YOSEMITE" = "y" ]; then
+   define_bool CONFIG_PCI y
+   define_bool CONFIG_SWAP_IO_SPACE y
+   define_bool CONFIG_SWAP_IO_SPACE_W y
+   define_bool CONFIG_SWAP_IO_SPACE_L y
+   define_bool CONFIG_BOOT_ELF32 y
+   define_bool CONFIG_HIGHMEM y
+   define_bool CONFIG_NEW_TIME_C y
+   define_bool CONFIG_NONCOHERENT_IO y
+fi
+
 if [ "$CONFIG_DDB5074" = "y" ]; then
    define_bool CONFIG_HAVE_STD_PC_SERIAL_PORT y
    define_bool CONFIG_I8259 y
@@ -579,7 +584,6 @@ fi
 if [ "$CONFIG_NEC_EAGLE" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PCI y
    define_bool CONFIG_NEW_PCI y
@@ -635,7 +639,6 @@ fi
 if [ "$CONFIG_TANBAC_TB0226" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PCI y
    define_bool CONFIG_NEW_PCI y
@@ -646,7 +649,6 @@ fi
 if [ "$CONFIG_TANBAC_TB0229" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PCI y
    define_bool CONFIG_NEW_PCI y
@@ -678,7 +680,6 @@ fi
 if [ "$CONFIG_VICTOR_MPC30X" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PCI y
    define_bool CONFIG_NEW_PCI y
@@ -689,7 +690,6 @@ fi
 if [ "$CONFIG_ZAO_CAPCELLA" = "y" ]; then
    define_bool CONFIG_IRQ_CPU y
    define_bool CONFIG_NEW_TIME_C y
-   define_bool CONFIG_VR41XX_TIME_C y
    define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_PCI y
    define_bool CONFIG_NEW_PCI y
@@ -724,6 +724,16 @@ choice 'CPU type' \
 	 RM7000	CONFIG_CPU_RM7000 \
 	 RM9000	CONFIG_CPU_RM9000 \
 	 SB1	CONFIG_CPU_SB1" R4x00
+
+if [ "$CONFIG_CPU_R3000" = "n" -a "$CONFIG_CPU_TX39XX" = "n" -a \
+     "$CONFIG_EXPERIMENTAL" = "y" ]; then
+   choice 'Kernel page size'					\
+	"4KB                    CONFIG_PAGE_SIZE_4KB		\
+	 16KB                   CONFIG_PAGE_SIZE_16KB		\
+	 64KB                   CONFIG_PAGE_SIZE_64KB" 4KB
+else
+   define_bool CONFIG_PAGE_SIZE_4KB y
+fi
 
 if [ "$CONFIG_SMP_CAPABLE" = "y" ]; then
    bool '  Multi-Processing support' CONFIG_SMP
@@ -866,10 +876,6 @@ else
    fi
 fi
 
-if [ "$CONFIG_TOSHIBA_JMR3927" = "y" ]; then
-   bool 'DS1742 BRAM/RTC support' CONFIG_RTC_DS1742
-fi
-
 if [ "$CONFIG_CPU_LITTLE_ENDIAN" = "n" ]; then
    bool 'Include IRIX binary compatibility' CONFIG_BINFMT_IRIX
 fi
@@ -936,6 +942,7 @@ else
 fi
 
 tristate 'Kernel support for MISC binaries' CONFIG_BINFMT_MISC
+bool 'Select task to kill on out of memory condition' CONFIG_OOM_KILLER
 
 if [ "$CONFIG_SOC_AU1X00" = "y" ]; then
    bool 'Power Management support' CONFIG_PM

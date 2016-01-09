@@ -14,8 +14,8 @@ export-objs			+= cache.o ioremap.o loadmmu.o remap.o
 obj-y				+= cache.o extable.o init.o ioremap.o fault.o \
 				   loadmmu.o
 
-obj-$(CONFIG_CPU_R3000)		+= pg-r3k.o c-r3k.o tlb-r3k.o tlbex-r3k.o
-obj-$(CONFIG_CPU_TX39XX)	+= pg-r3k.o c-tx39.o tlb-r3k.o tlbex-r3k.o
+obj-$(CONFIG_CPU_R3000)		+= pg-r4k.o c-r3k.o tlb-r3k.o tlbex-r3k.o
+obj-$(CONFIG_CPU_TX39XX)	+= pg-r4k.o c-tx39.o tlb-r3k.o tlbex-r3k.o
 obj-$(CONFIG_CPU_TX49XX)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R4300)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R4X00)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o

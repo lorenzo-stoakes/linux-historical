@@ -772,8 +772,9 @@ xfs_statvfs(
 #if XFS_BIG_INUMS
 		if (!mp->m_inoadd)
 #endif
-			statp->f_files =
-			    min_t(sector_t, statp->f_files, mp->m_maxicount);
+			statp->f_files = min_t(typeof(statp->f_files),
+						statp->f_files,
+						mp->m_maxicount);
 	statp->f_ffree = statp->f_files - (sbp->sb_icount - sbp->sb_ifree);
 	XFS_SB_UNLOCK(mp, s);
 
@@ -1782,10 +1783,14 @@ xfs_showargs(
 		char	*str;
 	} xfs_info[] = {
 		/* the few simple ones we can get from the mount struct */
+		{ XFS_MOUNT_WSYNC,		"," MNTOPT_WSYNC },
+		{ XFS_MOUNT_INO64,		"," MNTOPT_INO64 },
 		{ XFS_MOUNT_NOALIGN,		"," MNTOPT_NOALIGN },
+		{ XFS_MOUNT_NOUUID,		"," MNTOPT_NOUUID },
 		{ XFS_MOUNT_NORECOVERY,		"," MNTOPT_NORECOVERY },
 		{ XFS_MOUNT_OSYNCISOSYNC,	"," MNTOPT_OSYNCISOSYNC },
-		{ XFS_MOUNT_NOUUID,		"," MNTOPT_NOUUID },
+		{ XFS_MOUNT_NOLOGFLUSH,		"," MNTOPT_NOLOGFLUSH },
+		{ XFS_MOUNT_IDELETE,		"," MNTOPT_NOIKEEP },
 		{ 0, NULL }
 	};
 	struct proc_xfs_info	*xfs_infop;
@@ -1821,6 +1826,9 @@ xfs_showargs(
 		seq_printf(m, "," MNTOPT_SWIDTH "=%d",
 				(int)XFS_FSB_TO_BB(mp, mp->m_swidth));
 
+	if (!(mp->m_flags & XFS_MOUNT_32BITINOOPT))
+		seq_printf(m, "," MNTOPT_64BITINODE);
+	
 	return 0;
 }
 

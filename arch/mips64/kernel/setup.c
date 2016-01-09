@@ -428,6 +428,9 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_DECSTATION
 	decstation_setup();
 #endif
+#ifdef  CONFIG_PMC_YOSEMITE
+	pmc_yosemite_setup();
+#endif
 #ifdef CONFIG_SGI_IP22
 	ip22_setup();
 #endif

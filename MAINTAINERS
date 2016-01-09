@@ -2070,11 +2070,11 @@ L:	linux-usb-devel@lists.sourceforge.net
 S:	Maintained
 
 USB W9968CF DRIVER
-P:      Luca Risolia
-M:      luca_ing@libero.it
-L:      linux-usb-devel@lists.sourceforge.net
-W:      http://go.lamarinapunto.com
-S:      Maintained
+P:	Luca Risolia
+M:	luca.risolia@studio.unibo.it
+L:	linux-usb-devel@lists.sourceforge.net
+W:	http://go.lamarinapunto.com
+S:	Maintained
 
 VFAT FILESYSTEM:
 P:	Gordon Chaffee

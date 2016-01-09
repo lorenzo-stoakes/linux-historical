@@ -60,8 +60,9 @@
 #include <linux/init.h>
 #include <linux/parport.h>
 #include <asm/sgi/ioc.h>
+#include <asm/sgi/pi1.h>
 
-#define DEBUG
+#undef DEBUG
 
 #ifdef DEBUG
 #define DPRINTK printk
@@ -95,8 +96,8 @@ static inline void debug_dump_registers(void)
 		sgioc->pport.ctrl,
 		sgioc->pport.status,
 		sgioc->pport.dmactrl,
-		sgioc->pport.intrstat,
-		sgioc->pport.intrmask,
+		sgioc->pport.intstat,
+		sgioc->pport.intmask,
 		sgioc->pport.timer1,
 		sgioc->pport.timer2,
 		sgioc->pport.timer3,
@@ -105,31 +106,31 @@ static inline void debug_dump_registers(void)
 #endif
 }
 
-static unsigned char parport_ip22_read_data(struct parport *p)
+static unsigned char pi1_read_data(struct parport *p)
 {
 	unsigned char data = sgioc->pport.data;
-	DPRINTK("parport_ip22_read_data: %#x\n", data);
+	DPRINTK("pi1_read_data: %#x\n", data);
 	return data;
 }
 
-static void parport_ip22_write_data(struct parport *p, unsigned char data)
+static void pi1_write_data(struct parport *p, unsigned char data)
 {
-	DPRINTK("parport_ip22_write_data: %#x\n", data);
+	DPRINTK("pi1_write_data: %#x\n", data);
 	sgioc->pport.data = data;
 }
 
-static unsigned char parport_ip22_read_control(struct parport *p)
+static unsigned char pi1_read_control(struct parport *p)
 {
 	const unsigned char mask = PARPORT_CONTROL_STROBE
 		| PARPORT_CONTROL_AUTOFD | PARPORT_CONTROL_INIT
 		| PARPORT_CONTROL_SELECT;
 	unsigned char pctrl = sgioc->pport.ctrl,
 		control = ((pctrl & mask) ^ control_invert);
-	DPRINTK("parport_ip22_read_control: %#x, %#x\n", pctrl, control);
+	DPRINTK("pi1_read_control: %#x, %#x\n", pctrl, control);
 	return control;
 }
 
-static void parport_ip22_write_control(struct parport *p, unsigned char control)
+static void pi1_write_control(struct parport *p, unsigned char control)
 {
 	const unsigned char mask = PARPORT_CONTROL_STROBE
 		| PARPORT_CONTROL_AUTOFD | PARPORT_CONTROL_INIT
@@ -137,106 +138,102 @@ static void parport_ip22_write_control(struct parport *p, unsigned char control)
 	/* we enforce some necessary bits */
 		force = 0x30;
 	unsigned char pctrl = ((control & mask) ^ control_invert) | force;
-	DPRINTK("parport_ip22_write_control: %#x, %#x\n", control, pctrl);
+	DPRINTK("pi1_write_control: %#x, %#x\n", control, pctrl);
 	sgioc->pport.ctrl = pctrl;
 }
 
-static unsigned char parport_ip22_frob_control(struct parport *p,
+static unsigned char pi1_frob_control(struct parport *p,
 	unsigned char mask, unsigned char val)
 {
 	unsigned char old;
-	DPRINTK(KERN_DEBUG "parport_ip22_frob_control mask %02x, value %02x\n",mask,val);
-	old = parport_ip22_read_control(p);
-	parport_ip22_write_control(p, (old & ~mask) ^ val);
+	DPRINTK(KERN_DEBUG "pi1_frob_control mask %02x, value %02x\n",mask,val);
+	old = pi1_read_control(p);
+	pi1_write_control(p, (old & ~mask) ^ val);
 	return old;
 }
 
-static unsigned char parport_ip22_read_status(struct parport *p)
+static unsigned char pi1_read_status(struct parport *p)
 {
 	const unsigned mask = PARPORT_STATUS_ERROR | PARPORT_STATUS_SELECT
 		| PARPORT_STATUS_PAPEROUT | PARPORT_STATUS_ACK
 		| PARPORT_STATUS_BUSY;
 	unsigned char pstat = sgioc->pport.status,
 		status = ((pstat & mask) ^ status_invert);
-	DPRINTK("parport_ip22_read_status: %#x, %#x\n", pstat, status);
+	DPRINTK("pi1_read_status: %#x, %#x\n", pstat, status);
 	return status;
 }
 
-static void parport_ip22_init_state(struct pardevice *d, struct parport_state *s)
+static void pi1_init_state(struct pardevice *d, struct parport_state *s)
 {
-	DPRINTK("parport_ip22_init_state\n");
+	DPRINTK("pi1_init_state\n");
 }
 
-static void parport_ip22_save_state(struct parport *p, struct parport_state *s)
+static void pi1_save_state(struct parport *p, struct parport_state *s)
 {
-	DPRINTK("parport_ip22_save_state\n");
+	DPRINTK("pi1_save_state\n");
 }
 
-static void parport_ip22_restore_state(struct parport *p, struct parport_state *s)
+static void pi1_restore_state(struct parport *p, struct parport_state *s)
 {
-	DPRINTK("parport_ip22_restore_state\n");
+	DPRINTK("pi1_restore_state\n");
 }
 
-static void parport_ip22_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+static void pi1_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
-	DPRINTK("parport_ip22_interrupt\n");
+	DPRINTK("pi1_interrupt\n");
 	parport_generic_irq(irq, (struct parport *) dev_id, regs);
 }
 
-static void parport_ip22_enable_irq(struct parport *p)
+static void pi1_enable_irq(struct parport *p)
 {
-	DPRINTK("parport_ip22_enable_irq\n");
+	DPRINTK("pi1_enable_irq\n");
 }
 
-static void parport_ip22_disable_irq(struct parport *p)
+static void pi1_disable_irq(struct parport *p)
 {
-	DPRINTK("parport_ip22_disable_irq\n");
+	DPRINTK("pi1_disable_irq\n");
 }
 
-static void parport_ip22_data_forward(struct parport *p)
+static void pi1_data_forward(struct parport *p)
 {
-	DPRINTK("parport_ip22_data_forward\n");
-	sgioc->pport.ctrl &= ~SGIOC_PCTRL_DIRECTION;
+	DPRINTK("pi1_data_forward\n");
+	sgioc->pport.ctrl &= ~PI1_CTRL_DIR;
 }
 
-static void parport_ip22_data_reverse(struct parport *p)
+static void pi1_data_reverse(struct parport *p)
 {
-	DPRINTK("parport_ip22_data_reverse\n");
-	sgioc->pport.ctrl |= SGIOC_PCTRL_DIRECTION;
+	DPRINTK("pi1_data_reverse\n");
+	sgioc->pport.ctrl |= PI1_CTRL_DIR;
 }
 
-static void parport_ip22_inc_use_count(void)
+static void pi1_inc_use_count(void)
 {
-	DPRINTK("parport_ip22_inc_use_count\n");
-#	ifdef MODULE
+	DPRINTK("pi1_inc_use_count\n");
 	MOD_INC_USE_COUNT;
-#	endif
 }
 
-static void parport_ip22_dec_use_count(void)
+static void pi1_dec_use_count(void)
 {
-	DPRINTK("parport_ip22_dec_use_count\n");
-#	ifdef MODULE
+	DPRINTK("pi1_dec_use_count\n");
 	MOD_DEC_USE_COUNT;
-#	endif
 }
 
-static struct parport_operations parport_ip22_ops = {
-	parport_ip22_write_data,
-	parport_ip22_read_data,
-	parport_ip22_write_control,
-	parport_ip22_read_control,
-	parport_ip22_frob_control,
-	parport_ip22_read_status,
-	parport_ip22_enable_irq,
-	parport_ip22_disable_irq,
-	parport_ip22_data_forward,
-	parport_ip22_data_reverse,
-	parport_ip22_init_state,
-	parport_ip22_save_state,
-	parport_ip22_restore_state,
-	parport_ip22_inc_use_count,
-	parport_ip22_dec_use_count,
+static struct parport_operations pi1_ops = {
+	pi1_write_data,
+	pi1_read_data,
+	pi1_write_control,
+	pi1_read_control,
+	pi1_frob_control,
+	pi1_read_status,
+	pi1_enable_irq,
+	pi1_disable_irq,
+	pi1_data_forward,
+	pi1_data_reverse,
+	pi1_init_state,
+	pi1_save_state,
+	pi1_restore_state,
+	pi1_inc_use_count,
+	pi1_dec_use_count,
 	parport_ieee1284_epp_write_data,
 	parport_ieee1284_epp_read_data,
 	parport_ieee1284_epp_write_addr,
@@ -251,7 +248,7 @@ static struct parport_operations parport_ip22_ops = {
 
 static void init_hardware(void)
 {
-	sgioc->pport.intrmask = 0xfc;
+	sgioc->pport.intmask = 0xfc;
 	sgioc->pport.dmactrl = 1;
 	sgioc->pport.ctrl = 0x3f;
 	sgioc->pport.timer1 = 0;
@@ -261,13 +258,14 @@ static void init_hardware(void)
 	sgioc->pport.data = 0;
 }
 
-int __init parport_ip22_init(void)
+static int __init pi1_init(void)
 {
 	struct parport *p;
 
-	DPRINTK("parport_ip22_init\n");
-	p = parport_register_port((unsigned long)&sgioc->pport.data, PARPORT_IRQ_NONE,
-		PARPORT_DMA_NONE, &parport_ip22_ops);
+	DPRINTK("pi1_init\n");
+	p = parport_register_port((unsigned long) &sgioc->pport.data,
+				  PARPORT_IRQ_NONE, PARPORT_DMA_NONE,
+				  &pi1_ops);
 	if (!p)
 		return -EBUSY;
 
@@ -289,16 +287,16 @@ int __init parport_ip22_init(void)
 	/* put hardware into known initial state */
 	init_hardware();
 
-	printk(KERN_INFO "%s: SGI Indy/Indigo2 built-in port\n", p->name);
+	printk(KERN_INFO "%s: SGI PI1\n", p->name);
 	parport_proc_register(p);
 	parport_announce_port(p);
 
 	return 0;
 }
 
-void __exit parport_ip22_exit(void)
+static void __exit pi1_exit(void)
 {
-	DPRINTK("parport_ip22_exit\n");
+	DPRINTK("pi1_exit\n");
 	if (this_port->irq != PARPORT_IRQ_NONE)
 		free_irq(this_port->irq, this_port);
 
@@ -306,10 +304,10 @@ void __exit parport_ip22_exit(void)
 	parport_unregister_port(this_port);
 }
 
-MODULE_AUTHOR("Vincent Stehlé <vincent.stehle@free.fr>");
+MODULE_AUTHOR("Vincent Stehle <vincent.stehle@free.fr>");
 MODULE_DESCRIPTION("Driver for SGI Indy/Indigo2 parallel port");
 MODULE_SUPPORTED_DEVICE("SGI PI1 parallel port");
 MODULE_LICENSE("GPL");
 
-module_init(parport_ip22_init);
-module_exit(parport_ip22_exit);
+module_init(pi1_init);
+module_exit(pi1_exit);

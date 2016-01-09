@@ -361,6 +361,7 @@ map_unwritten(
 	unsigned long		p_offset,
 	int			block_bits,
 	xfs_iomap_t		*iomapp,
+	int			startio,
 	int			all_bh)
 {
 	struct buffer_head	*bh = curr;
@@ -436,7 +437,7 @@ map_unwritten(
 				break;
 			nblocks += bs;
 			atomic_add(bs, &pb->pb_io_remaining);
-			convert_page(inode, page, iomapp, pb, 1, all_bh);
+			convert_page(inode, page, iomapp, pb, startio, all_bh);
 		}
 
 		if (tindex == tlast &&
@@ -446,7 +447,7 @@ map_unwritten(
 			if (page) {
 				nblocks += bs;
 				atomic_add(bs, &pb->pb_io_remaining);
-				convert_page(inode, page, iomapp, pb, 1, all_bh);
+				convert_page(inode, page, iomapp, pb, startio, all_bh);
 			}
 		}
 	}
@@ -546,7 +547,7 @@ convert_page(
 		if (buffer_unwritten(bh) && !bh->b_end_io) {
 			ASSERT(tmp->iomap_flags & IOMAP_UNWRITTEN);
 			map_unwritten(inode, page, head, bh,
-						offset, bbits, tmp, all_bh);
+					offset, bbits, tmp, startio, all_bh);
 		} else if (! (buffer_unwritten(bh) && buffer_locked(bh))) {
 			map_buffer_at_offset(page, bh, offset, bbits, tmp);
 			if (buffer_unwritten(bh)) {
@@ -678,8 +679,8 @@ page_state_convert(
 				if (!bh->b_end_io) {
 					err = map_unwritten(inode, page,
 							head, bh, p_offset,
-							inode->i_blkbits,
-							iomp, unmapped);
+							inode->i_blkbits, iomp,
+							startio, unmapped);
 					if (err) {
 						goto error;
 					}
@@ -796,7 +797,7 @@ error:
 STATIC int
 linvfs_get_block_core(
 	struct inode		*inode,
-	sector_t		iblock,
+	long			iblock,
 	struct buffer_head	*bh_result,
 	int			create,
 	int			direct,
@@ -879,7 +880,7 @@ linvfs_get_block_core(
 int
 linvfs_get_block(
 	struct inode		*inode,
-	sector_t		iblock,
+	long			iblock,
 	struct buffer_head	*bh_result,
 	int			create)
 {
@@ -890,7 +891,7 @@ linvfs_get_block(
 STATIC int
 linvfs_get_block_sync(
 	struct inode		*inode,
-	sector_t		iblock,
+	long			iblock,
 	struct buffer_head	*bh_result,
 	int			create)
 {
@@ -901,7 +902,7 @@ linvfs_get_block_sync(
 STATIC int
 linvfs_get_block_direct(
 	struct inode		*inode,
-	sector_t		iblock,
+	long			iblock,
 	struct buffer_head	*bh_result,
 	int			create)
 {
@@ -909,10 +910,10 @@ linvfs_get_block_direct(
 					create, 1, BMAPI_WRITE|BMAPI_DIRECT);
 }
 
-STATIC sector_t
+STATIC int
 linvfs_bmap(
 	struct address_space	*mapping,
-	sector_t		block)
+	long			block)
 {
 	struct inode		*inode = (struct inode *)mapping->host;
 	vnode_t			*vp = LINVFS_GET_VP(inode);
@@ -1116,7 +1117,7 @@ linvfs_direct_IO(
 	int			rw,
 	struct inode		*inode,
 	struct kiobuf		*iobuf,
-	sector_t		blocknr,
+	unsigned long		blocknr,
 	int			blocksize)
 {
 	struct page		**maplist;
@@ -1138,7 +1139,7 @@ linvfs_direct_IO(
 	page_offset = iobuf->offset;
 
 	map_flags = (rw ? BMAPI_WRITE : BMAPI_READ) | BMAPI_DIRECT;
-	pb_flags = (rw ? PBF_WRITE : PBF_READ) | PBF_FORCEIO;
+	pb_flags = (rw ? PBF_WRITE : PBF_READ) | PBF_FORCEIO | PBF_DIRECTIO;
 	while (length) {
 		error = map_blocks(inode, offset, length, &iomap, map_flags);
 		if (error)
@@ -1224,21 +1225,6 @@ linvfs_direct_IO(
 }
 
 
-/* since the address_space_operations are not consitent with the type used
- * for block indexes we must cast the functions into what is expected..
- * thus the following 2 lines.
- * If running on a kernel with LBD support and hence bmap and direct_IO
- * correctly defined with sector_t params. use the second set of typedefs
- * or casts from the address space_operations
- * RMC
- */
-
-#ifndef  HAVE_SECTOR_T
-typedef int (bmap_proc)(struct address_space *, long);
-typedef int (direct_IO_proc)(int, struct inode *, struct kiobuf *,
-			     unsigned long, int);
-#endif
-
 struct address_space_operations linvfs_aops = {
 	.readpage		= linvfs_readpage,
 	.writepage		= linvfs_writepage,
@@ -1246,11 +1232,6 @@ struct address_space_operations linvfs_aops = {
 	.releasepage		= linvfs_release_page,
 	.prepare_write		= linvfs_prepare_write,
 	.commit_write		= generic_commit_write,
-#ifndef HAVE_SECTOR_T
-	.bmap			= (bmap_proc *)linvfs_bmap,
-	.direct_IO		= (direct_IO_proc *)linvfs_direct_IO,
-#else
 	.bmap			= linvfs_bmap,
 	.direct_IO		= linvfs_direct_IO,
-#endif
 };

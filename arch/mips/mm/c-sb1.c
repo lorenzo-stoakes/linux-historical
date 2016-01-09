@@ -25,14 +25,7 @@
 #include <asm/cpu.h>
 #include <asm/uaccess.h>
 
-#ifdef CONFIG_SIBYTE_DMA_PAGEOPS
 extern void sb1_dma_init(void);
-extern void sb1_clear_page_dma(void * page);
-extern void sb1_copy_page_dma(void * to, void * from);
-#else
-extern void sb1_clear_page(void * page);
-extern void sb1_copy_page(void * to, void * from);
-#endif
 
 /* These are probed at ld_mmu time */
 static unsigned long icache_size;
@@ -52,23 +45,6 @@ static unsigned int dcache_sets;
 
 static unsigned int icache_range_cutoff;
 static unsigned int dcache_range_cutoff;
-
-void pgd_init(unsigned long page)
-{
-	unsigned long *p = (unsigned long *) page;
-	int i;
-
-	for (i = 0; i < USER_PTRS_PER_PGD; i+=8) {
-		p[i + 0] = (unsigned long) invalid_pte_table;
-		p[i + 1] = (unsigned long) invalid_pte_table;
-		p[i + 2] = (unsigned long) invalid_pte_table;
-		p[i + 3] = (unsigned long) invalid_pte_table;
-		p[i + 4] = (unsigned long) invalid_pte_table;
-		p[i + 5] = (unsigned long) invalid_pte_table;
-		p[i + 6] = (unsigned long) invalid_pte_table;
-		p[i + 7] = (unsigned long) invalid_pte_table;
-	}
-}
 
 /*
  * The dcache is fully coherent to the system, with one
@@ -582,12 +558,7 @@ void ld_mmu_sb1(void)
 	probe_cache_sizes();
 
 #ifdef CONFIG_SIBYTE_DMA_PAGEOPS
-	_clear_page = sb1_clear_page_dma;
-	_copy_page = sb1_copy_page_dma;
 	sb1_dma_init();
-#else
-	_clear_page = sb1_clear_page;
-	_copy_page = sb1_copy_page;
 #endif
 
 	/*

@@ -228,8 +228,8 @@ extern void __global_restore_flags(unsigned long);
 
 #define wmb()		fast_wmb()
 #define rmb()		fast_rmb()
-#define mb()		wbflush();
-#define iob()		wbflush();
+#define mb()		wbflush()
+#define iob()		wbflush()
 
 #else /* !CONFIG_CPU_HAS_WB */
 

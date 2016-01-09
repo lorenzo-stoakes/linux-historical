@@ -101,6 +101,15 @@ struct cpu_spec	cpu_specs[] = {
 	    __setup_cpu_power4,
 	    COMMON_PPC64_FW
     },
+    {	/* Power5 */
+	    0xffff0000, 0x003a0000, "Power5",
+	    CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB | CPU_FTR_HPTE_TABLE |
+	    CPU_FTR_PPCAS_ARCH_V2,
+	    COMMON_USER_PPC64,
+	    128, 128,
+	    __setup_cpu_power4,
+	    COMMON_PPC64_FW
+    },
     {	/* default match */
 	    0x00000000, 0x00000000, "(Power4-Compatible)",
   	    CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB | CPU_FTR_HPTE_TABLE |
@@ -124,4 +133,13 @@ firmware_feature_t firmware_features_table[FIRMWARE_MAX_FEATURES] = {
     {FW_FEATURE_DUMP,		"hcall-dump"},
     {FW_FEATURE_INTERRUPT,	"hcall-interrupt"},
     {FW_FEATURE_MIGRATE,	"hcall-migrate"},
+    {FW_FEATURE_PERFMON,	"hcall-perfmon"},
+    {FW_FEATURE_CRQ,    	"hcall-crq"},
+    {FW_FEATURE_VIO,	        "hcall-vio"},
+    {FW_FEATURE_RDMA,	        "hcall-rdma"},
+    {FW_FEATURE_LLAN,	        "hcall-lLAN"},
+    {FW_FEATURE_BULK,   	"hcall-bulk"},
+    {FW_FEATURE_XDABR,  	"hcall-xdabr"},
+    {FW_FEATURE_MULTITCE,	"hcall-multi-tce"},
+    {FW_FEATURE_SPLPAR,	        "hcall-splpar"},
 };

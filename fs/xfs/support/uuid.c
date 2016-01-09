@@ -30,9 +30,7 @@
  * http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
  */
 
-#include <linux/types.h>
-#include <xfs_types.h>
-#include <xfs_arch.h>
+#include <xfs.h>
 #include "time.h"
 #include "uuid.h"
 #include "kmem.h"

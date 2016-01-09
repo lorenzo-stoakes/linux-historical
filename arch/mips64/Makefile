@@ -345,7 +345,7 @@ arch/mips64/ld.script.elf32: arch/mips64/ld.script.elf32.S
 
 ifdef CONFIG_MAPPED_KERNEL
 vmlinux.64: vmlinux
-	$(OBJCOPY) -O $(64bit-bfd) --remove-section=.reginfo --change-addresses=0xbfffffff40000000 $< $@
+	$(OBJCOPY) -O $(64bit-bfd) --remove-section=.reginfo --change-addresses=0xc000000080000000 $< $@
 else
 vmlinux.64: vmlinux
 	$(OBJCOPY) -O $(64bit-bfd) --remove-section=.reginfo --change-addresses=0xa800000080000000 $< $@

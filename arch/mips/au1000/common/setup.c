@@ -46,11 +46,6 @@
 #include <asm/au1000.h>
 #include <asm/time.h>
 
-#if defined(CONFIG_AU1X00_SERIAL_CONSOLE)
-extern void console_setup(char *, int *);
-char serial_console[20];
-#endif
-
 #ifdef CONFIG_BLK_DEV_INITRD
 extern unsigned long initrd_start, initrd_end;
 extern void * __rd_start, * __rd_end;

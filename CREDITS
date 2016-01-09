@@ -2597,9 +2597,9 @@ S: Tucson, Arizona
 S: USA
 
 N: Luca Risolia
-E: luca_ing@libero.it
-D: V4L driver for W996[87]CF JPEG USB Dual Mode Camera Chip
-S: Via Libert√† 41/a
+E: luca.risolia@studio.unibo.it
+D: V4L driver for W996[87]CF JPEG USB Dual Mode Camera Chips
+S: Via Liberta' 41-A
 S: Osio Sotto, 24046, Bergamo
 S: Italy
 
@@ -2668,6 +2668,7 @@ S: Australia
 N: Aristeu Sergio Rozanski Filho
 E: aris@conectiva.com.br
 D: Support for EtherExpress 10 ISA (i82595) in eepro driver
+D: User level driver support for input
 S: Conectiva S.A.
 S: R. Tocantins, 89 - Cristo Rei
 S: 80050-430 - Curitiba - Paran·
