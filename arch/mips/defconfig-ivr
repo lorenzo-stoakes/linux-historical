@@ -396,7 +396,6 @@ CONFIG_8139TOO=y
 # CONFIG_SUNDANCE is not set
 # CONFIG_SUNDANCE_MMIO is not set
 # CONFIG_TLAN is not set
-# CONFIG_TC35815 is not set
 # CONFIG_VIA_RHINE is not set
 # CONFIG_VIA_RHINE_MMIO is not set
 # CONFIG_WINBOND_840 is not set
