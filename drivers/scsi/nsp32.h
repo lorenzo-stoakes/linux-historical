@@ -642,10 +642,12 @@ typedef struct _nsp32_hw_data {
 # define scsi_host_put(host)            scsi_unregister(host)
 # define pci_name(pci_dev)              ((pci_dev)->slot_name)
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,4,23))
 typedef void irqreturn_t;
 # define IRQ_NONE      /* */
 # define IRQ_HANDLED   /* */
 # define IRQ_RETVAL(x) /* */
+#endif
 
 /* This is ad-hoc version of scsi_host_get_next() */
 static inline struct Scsi_Host *scsi_host_get_next(struct Scsi_Host *host)

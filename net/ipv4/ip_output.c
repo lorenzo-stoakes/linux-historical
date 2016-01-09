@@ -879,6 +879,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 #endif
 #ifdef CONFIG_NETFILTER
 		skb2->nfmark = skb->nfmark;
+		skb2->nfcache = skb->nfcache;
 		/* Connection association is same as pre-frag packet */
 		skb2->nfct = skb->nfct;
 		nf_conntrack_get(skb2->nfct);

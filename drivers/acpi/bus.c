@@ -49,7 +49,7 @@ MODULE_LICENSE("GPL");
 
 #define	PREFIX			"ACPI: "
 
-extern void eisa_set_level_irq(unsigned int irq);
+extern void acpi_pic_set_level_irq(unsigned int irq);
 
 extern int			acpi_disabled;
 
@@ -1881,7 +1881,7 @@ acpi_bus_init (void)
         if (acpi_ioapic)
          	mp_config_ioapic_for_sci(acpi_fadt.sci_int);
 	else
-                eisa_set_level_irq(acpi_fadt.sci_int);
+		acpi_pic_set_level_irq(acpi_fadt.sci_int);
 #endif
 
 	status = acpi_enable_subsystem(ACPI_FULL_INITIALIZATION);

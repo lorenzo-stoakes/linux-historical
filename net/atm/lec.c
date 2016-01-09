@@ -45,7 +45,7 @@ static unsigned char bridge_ula_lec[] = {0x01, 0x80, 0xc2, 0x00, 0x00};
 
 #include "lec.h"
 #include "lec_arpc.h"
-#include "resources.h"  /* for bind_vcc() */
+#include "resources.h"
 
 #if 0
 #define DPRINTK printk
@@ -818,7 +818,8 @@ lecd_attach(struct atm_vcc *vcc, int arg)
         lec_arp_init(priv);
 	priv->itfnum = i;  /* LANE2 addition */
         priv->lecd = vcc;
-        bind_vcc(vcc, &lecatm_dev);
+        vcc->dev = &lecatm_dev;
+        vcc_insert_socket(vcc->sk);
         
         vcc->proto_data = dev_lec[i];
 	set_bit(ATM_VF_META,&vcc->flags);
@@ -1092,7 +1093,7 @@ lec_arp_clear_vccs(struct lec_arp_table *entry)
 		clear_bit(ATM_VF_READY,&entry->vcc->flags);
                 entry->vcc->push(entry->vcc, NULL);
 #endif
-		atm_async_release_vcc(entry->vcc, -EPIPE);
+		vcc_release_async(entry->vcc, -EPIPE);
                 entry->vcc = NULL;
         }
         if (entry->recv_vcc) {
@@ -1102,7 +1103,7 @@ lec_arp_clear_vccs(struct lec_arp_table *entry)
 		clear_bit(ATM_VF_READY,&entry->recv_vcc->flags);
                 entry->recv_vcc->push(entry->recv_vcc, NULL);
 #endif
-		atm_async_release_vcc(entry->recv_vcc, -EPIPE);
+		vcc_release_async(entry->recv_vcc, -EPIPE);
                 entry->recv_vcc = NULL;
         }        
 }

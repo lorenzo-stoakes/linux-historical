@@ -653,6 +653,15 @@ static void ip_vs_trash_cleanup(void)
 }
 
 
+static inline void
+__ip_vs_zero_stats(struct ip_vs_stats *stats)
+{
+	spin_lock_bh(&stats->lock);
+	memset(stats, 0, (char *)&stats->lock - (char *)stats);
+	spin_unlock_bh(&stats->lock);
+	ip_vs_zero_estimator(stats);
+}
+
 /*
  *  Update a destination in the given service
  */
@@ -699,6 +708,7 @@ static void __ip_vs_update_dest(struct ip_vs_service *svc,
 	} else {
 		if (dest->svc != svc) {
 			__ip_vs_unbind_svc(dest);
+			__ip_vs_zero_stats(&dest->stats);
 			__ip_vs_bind_svc(dest, svc);
 		}
 	}
@@ -1282,15 +1292,6 @@ static int ip_vs_flush(void)
 /*
  *  Zero counters in a service or all services
  */
-static inline void
-__ip_vs_zero_stats(struct ip_vs_stats *stats)
-{
-	spin_lock_bh(&stats->lock);
-	memset(stats, 0, (char *)&stats->lock - (char *)stats);
-	spin_unlock_bh(&stats->lock);
-	ip_vs_zero_estimator(stats);
-}
-
 static int ip_vs_zero_service(struct ip_vs_service *svc)
 {
 	struct list_head *l;

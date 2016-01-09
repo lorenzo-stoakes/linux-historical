@@ -8395,7 +8395,7 @@ CONFIG_SCSI_SYM53C8XX_2
   If you want to compile the driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
   say M here and read <file:Documentation/modules.txt>.  The module
-  will be called sym53c8xx.o.
+  will be called sym53c8xx_2.o.
 
 PCI DMA addressing mode
 CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE
@@ -19587,29 +19587,7 @@ CONFIG_ACPI
   The ACPI Sourceforge project may also be of interest:
   <http://sf.net/projects/acpi/>
 
-ACPI Processor Enumeration for HT
-CONFIG_ACPI_HT_ONLY
-  ACPI enumerates both logical (a.k.a. Hyper-Threaded -- HT)
-  and physical processors.  It is designed to obsolete several older
-  specifications, including the MultiProcessor Specification (MPS),
-  which supported only physical processors.
-
-  CONFIG_ACPI_HT_ONLY includes just the minimal ACPI boot-time code
-  necessary to enumerate logical processors and enable HT.
-
-  CONFIG_ACPI includes this code, plus IO APIC enumeration,
-  and the hooks to run the ACPI AML interpreter for run-time events.
-
-  When CONFIG_ACPI is selected, the command-line option "acpi=ht"
-  is available to run just the ACPI boot-time code -- just as if
-  only CONFIG_ACPI_HT_ONLY were selected.
-
   Note that "acpi=off" can be used to disable all ACPI code in the kernel.
-
-Enable ACPI 2.0 with errata 1.3
-CONFIG_ACPI20
-  Enable support for the 2.0 version of the ACPI interpreter.  See the
-  help for ACPI for caveats and discussion.
 
 ACPI kernel configuration manager
 CONFIG_ACPI_KERNEL_CONFIG
@@ -19629,23 +19607,6 @@ CONFIG_ACPI_RELAXED_AML
   errors in region sizes.  Some laptops may require this option.  In
   particular, many Toshiba laptops require this for correct operation
   of the AC module.
-
-ACPI Bus Manager
-CONFIG_ACPI_BUSMGR
-  The ACPI Bus Manager enumerates devices in the ACPI namespace, and
-  handles PnP messages.  All ACPI devices use its services, so using
-  them requires saying Y here.
-
-ACPI System Driver
-CONFIG_ACPI_SYS
-  This driver will enable your system to shut down using ACPI, and
-  dump your ACPI DSDT table using /proc/acpi/dsdt.
-
-ACPI Processor Driver
-CONFIG_ACPI_CPU
-  This driver installs ACPI as the idle handler for Linux, and uses
-  ACPI C2 and C3 processor states to save power, on systems that
-  support it.
 
 ACPI Button
 CONFIG_ACPI_BUTTON
@@ -19680,11 +19641,6 @@ CONFIG_ACPI_EC
   This driver is required on some systems for the proper operation of
   the battery and thermal drivers.  If you are compiling for a laptop,
   say Y.
-
-ACPI Control Method Battery
-CONFIG_ACPI_CMBATT
-  This driver adds support for battery information through
-  /proc/acpi/battery. If you have a laptop with a battery, say Y.
 
 ACPI Thermal
 CONFIG_ACPI_THERMAL

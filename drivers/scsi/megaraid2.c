@@ -398,9 +398,7 @@ mega_find_card(Scsi_Host_Template *host_template, u16 pci_vendor,
 		// replace adapter->lock with io_request_lock for kernels w/o
 		// per host lock and delete the line which tries to initialize
 		// the lock in host structure.
-		adapter->host_lock = &adapter->lock;
-
-		host->lock = adapter->host_lock;
+		adapter->host_lock = &io_request_lock;
 
 		host->cmd_per_lun = max_cmd_per_lun;
 		host->max_sectors = max_sectors_per_io;

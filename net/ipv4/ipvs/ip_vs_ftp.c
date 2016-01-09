@@ -304,11 +304,12 @@ static int ip_vs_ftp_in(struct ip_vs_app *vapp,
 	 */
 	IP_VS_DBG(1-debug, "protocol %s %u.%u.%u.%u:%d %u.%u.%u.%u:%d\n",
 		  ip_vs_proto_name(iph->protocol),
-		  NIPQUAD(to), ntohs(port), NIPQUAD(iph->daddr), 0);
+		  NIPQUAD(to), ntohs(port),
+		  NIPQUAD(cp->vaddr), ntohs(cp->vport) - 1);
 
 	n_cp = ip_vs_conn_in_get(iph->protocol,
 				 to, port,
-				 iph->daddr, htons(ntohs(cp->vport)-1));
+				 cp->vaddr, htons(ntohs(cp->vport)-1));
 	if (!n_cp) {
 		n_cp = ip_vs_conn_new(IPPROTO_TCP,
 				      to, port,

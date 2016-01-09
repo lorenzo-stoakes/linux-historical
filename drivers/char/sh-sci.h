@@ -432,4 +432,5 @@ static inline int sci_rxd_in(struct sci_port *port)
 #define BPS_38400      SCBRR_VALUE(38400)
 #define BPS_57600      SCBRR_VALUE(57600)
 #define BPS_115200     SCBRR_VALUE(115200)
+#define BPS_230400     SCBRR_VALUE(230400)
 

@@ -596,7 +596,7 @@ static void refill_inactive(int nr_pages, zone_t * classzone)
 			continue;
 		}
 
-		nr_pages--;
+		ratio--;
 
 		del_page_from_active_list(page);
 		add_page_to_inactive_list(page);

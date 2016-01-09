@@ -323,25 +323,25 @@ he_readl_internal(struct he_dev *he_dev, unsigned addr, unsigned flags)
 		he_writel_rcm(dev, val, 0x00000 | (cid << 3) | 7)
 
 static __inline__ struct atm_vcc*
-he_find_vcc(struct he_dev *he_dev, unsigned cid)
+__find_vcc(struct he_dev *he_dev, unsigned cid)
 {
-	unsigned long flags;
 	struct atm_vcc *vcc;
+	struct sock *s;
 	short vpi;
 	int vci;
 
 	vpi = cid >> he_dev->vcibits;
 	vci = cid & ((1 << he_dev->vcibits) - 1);
 
-	spin_lock_irqsave(&he_dev->atm_dev->lock, flags);
-	for (vcc = he_dev->atm_dev->vccs; vcc; vcc = vcc->next)
-		if (vcc->vci == vci && vcc->vpi == vpi
-			&& vcc->qos.rxtp.traffic_class != ATM_NONE) {
-				spin_unlock_irqrestore(&he_dev->atm_dev->lock, flags);
-				return vcc;
-			}
+	for (s = vcc_sklist; s; s = s->next) {
+		vcc = s->protinfo.af_atm;
+		if (vcc->vci == vci && vcc->vpi == vpi &&
+		    vcc->dev == he_dev->atm_dev &&
+		    vcc->qos.rxtp.traffic_class != ATM_NONE) {
+			return vcc;
+		}
+	}
 
-	spin_unlock_irqrestore(&he_dev->atm_dev->lock, flags);
 	return NULL;
 }
 
@@ -1777,6 +1777,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 	int pdus_assembled = 0;
 	int updated = 0;
 
+	read_lock(&vcc_sklist_lock);
 	while (he_dev->rbrq_head != rbrq_tail) {
 		++updated;
 
@@ -1803,7 +1804,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 		cid = RBRQ_CID(he_dev->rbrq_head);
 
 		if (cid != lastcid)
-			vcc = he_find_vcc(he_dev, cid);
+			vcc = __find_vcc(he_dev, cid);
 		lastcid = cid;
 
 		if (vcc == NULL) {
@@ -1942,6 +1943,7 @@ next_rbrq_entry:
 					RBRQ_MASK(++he_dev->rbrq_head));
 
 	}
+	read_unlock(&vcc_sklist_lock);
 
 	if (updated) {
 		if (updated > he_dev->rbrq_peak)

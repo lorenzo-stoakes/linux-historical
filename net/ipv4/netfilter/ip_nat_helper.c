@@ -233,6 +233,13 @@ ip_nat_mangle_udp_packet(struct sk_buff **skb,
 	newudplen = udplen - match_len + rep_len;
 	newlen = iph->ihl*4 + newudplen;
 
+	/* UDP helpers might accidentally mangle the wrong packet */
+	if (udplen < sizeof(*udph) + match_offset + match_len) {
+		if (net_ratelimit())
+			printk("ip_nat_mangle_udp_packet: undersized packet\n");
+		return 0;
+	}
+
 	if (newlen > 65535) {
 		if (net_ratelimit())
 			printk("ip_nat_mangle_udp_packet: nat'ed packet "

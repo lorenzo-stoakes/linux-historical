@@ -86,7 +86,7 @@
 #define IRDA_IPR_POS	2
 #define IRDA_PRIORITY	3
 #elif defined(CONFIG_CPU_SUBTYPE_SH7750) || defined(CONFIG_CPU_SUBTYPE_SH7751) || \
-      defined(CONFIG_CPU_SUBTYPE_ST40) || defined(CONFIG_CPU_SUBTYPE_SH4_202)
+      defined(CONFIG_CPU_SUBTYPE_ST40)
 #define SCIF_ERI_IRQ	40
 #define SCIF_RXI_IRQ	41
 #define SCIF_BRI_IRQ	42
@@ -295,18 +295,21 @@ extern int ipr_irq_demux(int irq);
 #else
 #error Unknown CPU
 #endif
- 
-#define INTC2_BASE0 0xfe080000
-#define INTC2_INTC2MODE  (INTC2_BASE0+0x80)
- 
+
+#define INTC2_BASE	0xfe080000
+#define INTC2_INTC2MODE	(INTC2_BASE+0x80)
+
 #define INTC2_INTPRI_OFFSET	0x00
 #define INTC2_INTREQ_OFFSET	0x20
 #define INTC2_INTMSK_OFFSET	0x40
 #define INTC2_INTMSKCLR_OFFSET	0x60
- 
-extern void make_intc2_irq(unsigned int irq,unsigned int addr,
-                           unsigned int group,int pos,int priority);
- 
+
+void make_intc2_irq(unsigned int irq,
+		    unsigned int ipr_offset, unsigned int ipr_shift,
+		    unsigned int msk_offset, unsigned int msk_shift,
+		    unsigned int priority);
+void init_IRQ_intc2(void);
+void intc2_add_clear_irq(int irq, int (*fn)(int));
 #endif                                                                        
        
 #ifdef CONFIG_SH_GENERIC

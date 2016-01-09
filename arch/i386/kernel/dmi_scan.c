@@ -481,7 +481,7 @@ static __init int print_if_true(struct dmi_blacklist *d)
 
 
 #ifdef	CONFIG_ACPI_BOOT
-extern int acpi_disabled, use_acpi_pci, acpi_force, acpi_ht;
+extern int acpi_disabled, acpi_force, acpi_ht;
 
 static __init __attribute__((unused)) int acpi_disable(struct dmi_blacklist *d) 
 { 
@@ -511,14 +511,18 @@ static __init __attribute__((unused)) int force_acpi_ht(struct dmi_blacklist *d)
 	}
 	return 0;
 } 
+#endif	/* CONFIG_ACPI_BOOT */
 
+#ifdef	CONFIG_ACPI_PCI
 static __init int disable_acpi_pci(struct dmi_blacklist *d) 
 { 
-	printk(KERN_NOTICE "%s detected: force use of pci=noacpi\n", d->ident); 	
-	use_acpi_pci = 0; 
+	extern __init void pci_disable_acpi(void) ;
+
+	printk(KERN_NOTICE "%s detected: force use of pci=noacpi\n", d->ident);
+	pci_disable_acpi();
 	return 0;
 } 
-#endif
+#endif	/* CONFIG_ACPI_PCI */
 
 /*
  *	Process the DMI blacklists
@@ -920,6 +924,8 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_PRODUCT_NAME, "eserver xSeries 440"),
 			NO_MATCH, NO_MATCH }},
 
+#endif	/* CONFIG_ACPI_BOOT */
+#ifdef	CONFIG_ACPI_PCI
 	/*
 	 *	Boxes that need ACPI PCI IRQ routing disabled
 	 */
@@ -930,7 +936,7 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			/* newer BIOS, Revision 1011, does work */
 			MATCH(DMI_BIOS_VERSION, "ASUS A7V ACPI BIOS Revision 1007"),
 			NO_MATCH }},
-#endif	// CONFIG_ACPI_BOOT
+#endif	/* CONFIG_ACPI_PCI */
 
 	{ NULL, }
 };

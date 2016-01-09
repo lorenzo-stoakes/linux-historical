@@ -323,7 +323,8 @@ static struct {
        It's also often a good idea to contact ATi.
        
        Lastly, third party board vendors might use different memory clocks
-       than ATi. No examples of this have been found yet, but it is possible.
+       than ATi. An example of this is the Apple iBook1 which is handled specially
+       in aty_init.
        
        (Daniel Mantione, 26 June 2003)
      */
@@ -356,7 +357,7 @@ static struct {
 
     /* Mach64 LT */
     { 0x4c54, 0x4c54, 0x00, 0x00, m64n_lt,      135,  63,  63, M64F_GT | M64F_INTEGRATED | M64F_GTB_DSP },
-    { 0x4c47, 0x4c47, 0x00, 0x00, m64n_ltg,     230,  63,  63, M64F_GT | M64F_INTEGRATED | M64F_GTB_DSP | M64F_SDRAM_MAGIC_PLL | M64F_EXTRA_BRIGHT | M64F_LT_SLEEP | M64F_G3_PB_1024x768 },
+    { 0x4c47, 0x4c47, 0x00, 0x00, m64n_ltg,     230,  63,  63, M64F_GT | M64F_INTEGRATED | M64F_GTB_DSP | M64F_SDRAM_MAGIC_PLL | M64F_EXTRA_BRIGHT | M64F_LT_SLEEP | M64F_G3_PB_1024x768 | M64F_FIFO_24 },
 
     /* Mach64 GTC (3D RAGE PRO) */
     { 0x4742, 0x4742, 0x00, 0x00, m64n_gtc_ba,  230, 100, 100, M64F_GT | M64F_INTEGRATED | M64F_RESET_3D | M64F_GTB_DSP | M64F_SDRAM_MAGIC_PLL | M64F_EXTRA_BRIGHT },
@@ -2075,6 +2076,14 @@ found:
         ramname = aty_ct_ram[info->ram_type];
         info->dac_ops = &aty_dac_ct;
         info->pll_ops = &aty_pll_ct;
+#ifdef CONFIG_ALL_PPC
+	/* The Apple iBook1 uses non-standard memory frequencies. We detect it
+	   and set the frequency manually. */
+	if ((type==0x4c4e) && machine_is_compatible("PowerBook2,1")) {
+	    mclk=70;
+	    xclk=53;
+	};
+#endif
 	/*
 	 * I disable the hack below because it is completely unreliable. 
 	 * DRAM at 67 is very well imaginable. If a chip is indeed clocked
