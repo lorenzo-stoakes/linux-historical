@@ -240,10 +240,12 @@ CONFIG_X86_TSC_DISABLE
   which processor you have compiled for. 
   
   NOTE: If your system hangs when init should run, you are probably
-  using a i686 compiled glibc which reads the TSC wihout checking for 
-  avaliability. Boot without "notsc" and install a i386 compiled glibc 
+  using a i686 compiled glibc which reads the TSC without checking for 
+  availability. Boot without "notsc" and install a i386 compiled glibc 
   to solve the problem.
- 
+
+  If unsure, say N.
+
 Multiquad support for NUMA systems
 CONFIG_MULTIQUAD
   This option is used for getting Linux to run on a (IBM/Sequent) NUMA 
@@ -10903,6 +10905,81 @@ CONFIG_DL2K
   say M here and read <file:Documentation/modules.txt>.  This is
   recommended.  The module will be called dl2k.o.
 
+EtherExpress Pro/100 support (e100, Alternate Intel driver)
+CONFIG_E100
+  This driver supports Intel(R) PRO/100 family of adapters, which
+  includes:
+
+     Controller  Adapter Name                       Board IDs
+     ----------  ------------                       ---------
+
+     82558       PRO/100+ PCI Adapter               668081-xxx,
+                                                    689661-xxx
+     82558       PRO/100+ Management Adapter        691334-xxx,
+                                                    701738-xxx,
+                                                    721383-xxx
+     82558       PRO/100+ Dual Port Server Adapter  714303-xxx,
+                                                    711269-xxx,
+                                                    A28276-xxx
+     82558       PRO/100+ PCI Server Adapter        710550-xxx
+     82550       PRO/100 S Server Adapter           752438-xxx
+     82559                                          A56831-xxx,
+                                                    A10563-xxx,
+                                                    A12171-xxx,
+                                                    A12321-xxx,
+                                                    A12320-xxx,
+                                                    A12170-xxx
+                                                    748568-xxx
+                                                    748565-xxx
+     82550       PRO/100 S Desktop Adapter          751767-xxx
+     82559                                          748592-xxx,
+                                                    A12167-xxx,
+                                                    A12318-xxx,
+                                                    A12317-xxx,
+                                                    A12165-xxx,
+                                                    748569-xxx
+     82559       PRO/100+ Server Adapter            729757-xxx
+     82559       PRO/100 S Management Adapter       748566-xxx,
+                                                    748564-xxx
+     82550       PRO/100 S Dual Port Server Adapter A56831-xxx
+     82551       PRO/100 M Desktop Adapter          A80897-xxx
+                 PRO/100 S Advanced Management Adapter
+                                                    747842-xxx,
+                                                    745171-xxx
+     CNR         PRO/100 VE Desktop Adapter         A10386-xxx,
+                                                    A10725-xxx,
+                                                    A23801-xxx,
+                                                    A19716-xxx
+                 PRO/100 VM Desktop Adapter         A14323-xxx,
+                                                    A19725-xxx,
+                                                    A23801-xxx,
+                                                    A22220-xxx,
+                                                    A23796-xxx
+
+
+  To verify that your adapter is supported, find the board ID number
+  on the adapter. Look for a label that has a barcode and a number
+  in the format 123456-001 (six digits hyphen three digits). Match
+  this to the list of numbers above.
+
+  For more information on how to identify your adapter, go to the
+  Adapter & Driver ID Guide at:
+
+    http://support.intel.com/support/network/adapter/pro100/21397.htm
+
+  For the latest Intel PRO/100 network driver for Linux, see:
+
+    http://appsr.intel.com/scripts-df/support_intel.asp
+
+  More specific information on configuring the driver is in
+  <file:Documentation/networking/e100.txt>.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called e100.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt> as well
+  as <file:Documentation/networking/net-modules.txt>.
+
 Intel(R) PRO/1000 Gigabit Ethernet support
 CONFIG_E1000
   This driver supports Intel(R) PRO/1000 gigabit ethernet family of
@@ -15736,12 +15813,6 @@ CONFIG_EFI_PARTITION
   Say Y here if you would like to use hard disks under Linux which
   were partitioned using EFI GPT.  Presently only useful on the
   IA-64 platform.
-
-/dev/guid support (EXPERIMENTAL)
-CONFIG_DEVFS_GUID
-  Say Y here if you would like to access disks and partitions by
-  their Globally Unique Identifiers (GUIDs) which will appear as
-  symbolic links in /dev/guid.
 
 Ultrix partition table support
 CONFIG_ULTRIX_PARTITION
@@ -25053,14 +25124,18 @@ CONFIG_IA64_GENERIC
   As of the time of this writing, most hardware is DIG compliant,
   so the "DIG-compliant" option is usually the right choice.
 
-  HP-simulator   For the HP simulator
-                 (<http://software.hp.com/ia64linux/>).
+  HP-simulator   For the HP simulator (<http://software.hp.com/ia64linux/>).
+  HP-zx1	 For HP zx1 Platforms.
   SN1            For SGI SN1 Platforms.
   SN2            For SGI SN2 Platforms.
-  DIG-compliant  For DIG ("Developer's Interface Guide") compliant
-                 system.
+  DIG-compliant  For DIG ("Developer's Interface Guide") compliant systems.
 
   If you don't know what to do, choose "generic".
+
+CONFIG_IA64_HP_ZX1
+  Build a kernel that runs on HP zx1-based systems.  This adds support
+  for the zx1 IOMMU and makes root bus bridges appear in PCI config space
+  (required for zx1 agpgart support).
 
 CONFIG_IA64_SGI_SN_SIM
   Build a kernel that runs on both the SGI simulator AND on hardware.
@@ -25109,16 +25184,6 @@ CONFIG_DISABLE_VHPT
   can select this option to disable the VHPT for debugging.  If you're
   unsure, answer N.
 
-Enable McKinley A-step specific code
-CONFIG_MCKINLEY_ASTEP_SPECIFIC
-  Select this option to build a kernel for an IA64 McKinley system
-  with any A-stepping CPU.
-
-Enable McKinley A0/A1-step specific code
-CONFIG_MCKINLEY_A0_SPECIFIC
-  Select this option to build a kernel for an IA64 McKinley system
-  with an A0 or A1 stepping CPU.
-
 Turn on compare-and-exchange bug checking (slow!)
 CONFIG_IA64_DEBUG_CMPXCHG
   Selecting this option turns on bug checking for the IA64
@@ -25143,9 +25208,7 @@ Print possible IA64 hazards to console
 CONFIG_IA64_PRINT_HAZARDS
   Selecting this option prints more information for Illegal Dependency
   Faults, that is, for Read after Write, Write after Write or Write
-  after Read violations.  This option is ignored if you are compiling
-  for an Itanium A step processor (CONFIG_ITANIUM_ASTEP_SPECIFIC).  If
-  you're unsure, select Y.
+  after Read violations.  If you're unsure, select Y.
 
 Performance monitor support
 CONFIG_PERFMON

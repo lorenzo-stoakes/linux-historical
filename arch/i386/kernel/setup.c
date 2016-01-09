@@ -167,9 +167,8 @@ extern char _text, _etext, _edata, _end;
 static int have_cpuid_p(void) __init;
 
 static int disable_x86_serial_nr __initdata = 1;
-static int disable_x86_fxsr __initdata = 0;
 static int disable_x86_ht __initdata = 0;
-
+static u32 disabled_x86_caps[NCAPINTS] __initdata = { 0 };
 extern int blk_nohighio;
 
 int enable_acpi_smp_table;
@@ -758,6 +757,7 @@ static void __init parse_cmdline_early (char ** cmdline_p)
 			if (!memcmp(from+4, "nopentium", 9)) {
 				from += 9+4;
 				clear_bit(X86_FEATURE_PSE, &boot_cpu_data.x86_capability);
+				set_bit(X86_FEATURE_PSE, &disabled_x86_caps);
 			} else if (!memcmp(from+4, "exactmap", 8)) {
 				from += 8+4;
 				e820.nr_map = 0;
@@ -783,8 +783,10 @@ static void __init parse_cmdline_early (char ** cmdline_p)
 		}
 
 		/* "noht" disables HyperThreading (2 logical cpus per Xeon) */
-		else if (!memcmp(from, "noht", 4))
+		else if (!memcmp(from, "noht", 4)) { 
 			disable_x86_ht = 1;
+			set_bit(X86_FEATURE_HT, disabled_x86_caps);
+		}
 
 		/* "acpismp=force" forces parsing and use of the ACPI SMP table */
 		else if (!memcmp(from, "acpismp=force", 13))
@@ -1129,6 +1131,7 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	if (disable_x86_ht) {
 		clear_bit(X86_FEATURE_HT, &boot_cpu_data.x86_capability[0]);
+		set_bit(X86_FEATURE_HT, disabled_x86_caps);
 		enable_acpi_smp_table = 0;
 	}
 	if (test_bit(X86_FEATURE_HT, &boot_cpu_data.x86_capability[0]))
@@ -2530,7 +2533,8 @@ __setup("serialnumber", x86_serial_nr_setup);
 
 static int __init x86_fxsr_setup(char * s)
 {
-	disable_x86_fxsr = 1;
+	set_bit(X86_FEATURE_XMM, disabled_x86_caps); 
+	set_bit(X86_FEATURE_FXSR, disabled_x86_caps);
 	return 1;
 }
 __setup("nofxsr", x86_fxsr_setup);
@@ -2706,12 +2710,6 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 		}
 	}
 
-	printk(KERN_DEBUG "CPU: Before vendor init, caps: %08x %08x %08x, vendor = %d\n",
-	       c->x86_capability[0],
-	       c->x86_capability[1],
-	       c->x86_capability[2],
-	       c->x86_vendor);
-
 	/*
 	 * Vendor-specific initialization.  In this section we
 	 * canonicalize the feature flags, meaning if there are
@@ -2770,12 +2768,6 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 		break;
 	}
 
-	printk(KERN_DEBUG "CPU: After vendor init, caps: %08x %08x %08x %08x\n",
-	       c->x86_capability[0],
-	       c->x86_capability[1],
-	       c->x86_capability[2],
-	       c->x86_capability[3]);
-
 	/*
 	 * The vendor-specific functions might have changed features.  Now
 	 * we do "generic changes."
@@ -2787,14 +2779,9 @@ void __init identify_cpu(struct cpuinfo_x86 *c)
 		clear_bit(X86_FEATURE_TSC, &c->x86_capability);
 #endif
 
-	/* HT disabled? */
-	if (disable_x86_ht)
-		clear_bit(X86_FEATURE_HT, &c->x86_capability);
-
-	/* FXSR disabled? */
-	if (disable_x86_fxsr) {
-		clear_bit(X86_FEATURE_FXSR, &c->x86_capability);
-		clear_bit(X86_FEATURE_XMM, &c->x86_capability);
+	/* check for caps that have been disabled earlier */ 
+	for (i = 0; i < NCAPINTS; i++) { 
+	     c->x86_capability[i] &= ~disabled_x86_caps[i];
 	}
 
 	/* Disable the PN if appropriate */

@@ -196,7 +196,7 @@ struct packet_list {
 /* This implements a circular buffer for incoming samples. */
 
 struct buffer {
-	int head, tail, length, size;
+	size_t head, tail, length, size;
 	unsigned char data[0];
 };
 
@@ -623,9 +623,9 @@ static unsigned char *buffer_get_bytes(struct buffer *buffer, int size)
 }
 
 static unsigned char *buffer_put_bytes(struct buffer *buffer,
-				       int max, int *actual)
+				       size_t max, size_t *actual)
 {
-	int length;
+	size_t length;
 	unsigned char *p;
 
 	p = &buffer->data[buffer->tail];

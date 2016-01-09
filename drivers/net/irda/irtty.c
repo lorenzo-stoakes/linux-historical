@@ -46,6 +46,19 @@ static struct tty_ldisc irda_ldisc;
 
 static int qos_mtt_bits = 0x03;      /* 5 ms or more */
 
+/* To workaround some of the difference in the serial driver over various
+ * arch, some people have introduced TIOCM_MODEM_BITS.
+ * Unfortunately, this is not yet defined on all architectures, so
+ * we make sure the code is still usable. - Jean II */
+#ifndef TIOCM_MODEM_BITS
+#warning "Please define TIOCM_MODEM_BITS in termios.h !"
+#ifdef TIOCM_OUT2
+#define TIOCM_MODEM_BITS	TIOCM_OUT2	/* Most architectures */
+#else
+#define TIOCM_MODEM_BITS	0		/* Not defined for ARM */
+#endif
+#endif
+
 /* Network device fuction prototypes */
 static int  irtty_hard_xmit(struct sk_buff *skb, struct net_device *dev);
 static int  irtty_net_init(struct net_device *dev);

@@ -269,7 +269,8 @@ void blk_queue_bounce_limit(request_queue_t *q, u64 dma_addr)
 		if (dma_addr == BLK_BOUNCE_ANY)
 			printk("no I/O memory limit\n");
 		else
-			printk("I/O limit %luMb (mask 0x%Lx)\n", mb, (u64) dma_addr);
+			printk("I/O limit %luMb (mask 0x%Lx)\n", mb,
+			       (long long) dma_addr);
 	}
 
 	q->bounce_pfn = bounce_pfn;

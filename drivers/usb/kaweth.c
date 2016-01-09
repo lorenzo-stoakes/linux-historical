@@ -495,6 +495,7 @@ static void int_callback(struct urb *u)
 static void kaweth_resubmit_rx_urb(struct kaweth_device *kaweth)
 {
 	int result;
+	long flags;
 
 	FILL_BULK_URB(kaweth->rx_urb,
 		      kaweth->dev,
@@ -504,13 +505,17 @@ static void kaweth_resubmit_rx_urb(struct kaweth_device *kaweth)
 		      kaweth_usb_receive,
 		      kaweth);
 
-	if((result = usb_submit_urb(kaweth->rx_urb))) {
-		if (result == -ENOMEM)
-			kaweth->suspend_lowmem = 1;
-		kaweth_err("resubmitting rx_urb %d failed", result);
-	} else {
-		kaweth->suspend_lowmem = 0;
+	spin_lock_irqsave(&kaweth->device_lock, flags);
+	if (!kaweth->removed) { /* no resubmit if disconnecting */
+		if((result = usb_submit_urb(kaweth->rx_urb))) {
+			if (result == -ENOMEM)
+				kaweth->suspend_lowmem = 1;
+			kaweth_err("resubmitting rx_urb %d failed", result);
+		} else {
+			kaweth->suspend_lowmem = 0;
+		}
 	}
+	spin_unlock_irqrestore(&kaweth->device_lock, flags);
 }
 
 static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth);
@@ -625,8 +630,10 @@ static int kaweth_close(struct net_device *net)
 	struct kaweth_device *kaweth = net->priv;
 
 	netif_stop_queue(net);
-
+	
+	spin_lock_irq(&kaweth->device_lock);
 	kaweth->status |= KAWETH_STATUS_CLOSING;
+	spin_unlock_irq(&kaweth->device_lock);
 
 	usb_unlink_urb(kaweth->irq_urb);
 	usb_unlink_urb(kaweth->rx_urb);
@@ -1065,12 +1072,12 @@ static void kaweth_disconnect(struct usb_device *dev, void *ptr)
 	usb_unlink_urb(kaweth->rx_urb);
 
 	/* we need to wait for the urb to be cancelled, if it is active */
-	spin_lock(&kaweth->device_lock);
+	spin_lock_irq(&kaweth->device_lock);
 	if (usb_unlink_urb(kaweth->tx_urb) == -EINPROGRESS) {
-		spin_unlock(&kaweth->device_lock);
+		spin_unlock_irq(&kaweth->device_lock);
 		wait_event(kaweth->term_wait, kaweth->end);
 	} else {
-		spin_unlock(&kaweth->device_lock);
+		spin_unlock_irq(&kaweth->device_lock);
 	}
 
 	if(kaweth->net) {

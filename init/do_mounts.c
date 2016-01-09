@@ -886,7 +886,7 @@ out:
 	mount_devfs_fs ();
 }
 
-#ifdef BUILD_CRAMDISK
+#if defined(BUILD_CRAMDISK) && defined(CONFIG_BLK_DEV_RAM)
 
 /*
  * gzip declarations
@@ -1031,4 +1031,4 @@ static int __init crd_load(int in_fd, int out_fd)
 	return result;
 }
 
-#endif  /* BUILD_CRAMDISK */
+#endif  /* BUILD_CRAMDISK && CONFIG_BLK_DEV_RAM */

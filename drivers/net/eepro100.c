@@ -459,8 +459,8 @@ enum Rx_ring_state_bits {
    Unfortunately, all the positions have been shifted since there.
    A new re-alignment is required.  2000/03/06  SAW */
 struct speedo_private {
-	struct TxFD	*tx_ring;				/* Commands (usually CmdTxPacket). */
-	struct RxFD *rx_ringp[RX_RING_SIZE];/* Rx descriptor, used as ring. */
+	struct TxFD	*tx_ring;		/* Commands (usually CmdTxPacket). */
+	struct RxFD *rx_ringp[RX_RING_SIZE];	/* Rx descriptor, used as ring. */
 	/* The addresses of a Tx/Rx-in-place packets/buffers. */
 	struct sk_buff *tx_skbuff[TX_RING_SIZE];
 	struct sk_buff *rx_skbuff[RX_RING_SIZE];
@@ -470,9 +470,9 @@ struct speedo_private {
 	dma_addr_t rx_ring_dma[RX_RING_SIZE];
 	struct descriptor *last_cmd;		/* Last command sent. */
 	unsigned int cur_tx, dirty_tx;		/* The ring entries to be free()ed. */
-	spinlock_t lock;					/* Group with Tx control cache line. */
-	u32 tx_threshold;					/* The value for txdesc.count. */
-	struct RxFD *last_rxf;				/* Last filled RX buffer. */
+	spinlock_t lock;			/* Group with Tx control cache line. */
+	u32 tx_threshold;			/* The value for txdesc.count. */
+	struct RxFD *last_rxf;			/* Last filled RX buffer. */
 	dma_addr_t last_rxf_dma;
 	unsigned int cur_rx, dirty_rx;		/* The next free ring entry */
 	long last_rx_time;			/* Last Rx, in jiffies, to handle Rx hang. */
@@ -481,21 +481,21 @@ struct speedo_private {
 	dma_addr_t lstats_dma;
 	int chip_id;
 	struct pci_dev *pdev;
-	struct timer_list timer;			/* Media selection timer. */
-	struct speedo_mc_block *mc_setup_head;/* Multicast setup frame list head. */
-	struct speedo_mc_block *mc_setup_tail;/* Multicast setup frame list tail. */
-	long in_interrupt;					/* Word-aligned dev->interrupt */
+	struct timer_list timer;		/* Media selection timer. */
+	struct speedo_mc_block *mc_setup_head;	/* Multicast setup frame list head. */
+	struct speedo_mc_block *mc_setup_tail;	/* Multicast setup frame list tail. */
+	long in_interrupt;			/* Word-aligned dev->interrupt */
 	unsigned char acpi_pwr;
-	signed char rx_mode;					/* Current PROMISC/ALLMULTI setting. */
-	unsigned int tx_full:1;				/* The Tx queue is full. */
-	unsigned int full_duplex:1;			/* Full-duplex operation requested. */
-	unsigned int flow_ctrl:1;			/* Use 802.3x flow control. */
-	unsigned int rx_bug:1;				/* Work around receiver hang errata. */
+	signed char rx_mode;			/* Current PROMISC/ALLMULTI setting. */
+	unsigned int tx_full:1;			/* The Tx queue is full. */
+	unsigned int full_duplex:1;		/* Full-duplex operation requested. */
+	unsigned int flow_ctrl:1;		/* Use 802.3x flow control. */
+	unsigned int rx_bug:1;			/* Work around receiver hang errata. */
 	unsigned char default_port:8;		/* Last dev->if_port value. */
 	unsigned char rx_ring_state;		/* RX ring status flags. */
-	unsigned short phy[2];				/* PHY media interfaces available. */
-	unsigned short advertising;			/* Current PHY advertised caps. */
-	unsigned short partner;				/* Link partner caps. */
+	unsigned short phy[2];			/* PHY media interfaces available. */
+	unsigned short partner;			/* Link partner caps. */
+	struct mii_if_info mii_if;		/* MII API hooks, info */
 #ifdef CONFIG_PM
 	u32 pm_state[16];
 #endif
@@ -531,8 +531,8 @@ static int eepro100_init_one(struct pci_dev *pdev,
 static void eepro100_remove_one (struct pci_dev *pdev);
 
 static int do_eeprom_cmd(long ioaddr, int cmd, int cmd_len);
-static int mdio_read(long ioaddr, int phy_id, int location);
-static int mdio_write(long ioaddr, int phy_id, int location, int value);
+static int mdio_read(struct net_device *dev, int phy_id, int location);
+static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
 static int speedo_open(struct net_device *dev);
 static void speedo_resume(struct net_device *dev);
 static void speedo_timer(unsigned long data);
@@ -729,6 +729,9 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 #endif
 	printk("IRQ %d.\n", pdev->irq);
 
+	/* we must initialize base_addr early, for mdio_{read,write} */
+	dev->base_addr = ioaddr;
+
 #if 1 || defined(kernel_bloat)
 	/* OK, this is pure kernel bloat.  I don't like it when other drivers
 	   waste non-pageable kernel space to emit similar messages, but I need
@@ -754,18 +757,18 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 				   phys[(eeprom[7]>>8)&7]);
 		if (((eeprom[6]>>8) & 0x3f) == DP83840
 			||  ((eeprom[6]>>8) & 0x3f) == DP83840A) {
-			int mdi_reg23 = mdio_read(ioaddr, eeprom[6] & 0x1f, 23) | 0x0422;
+			int mdi_reg23 = mdio_read(dev, eeprom[6] & 0x1f, 23) | 0x0422;
 			if (congenb)
 			  mdi_reg23 |= 0x0100;
 			printk(KERN_INFO"  DP83840 specific setup, setting register 23 to %4.4x.\n",
 				   mdi_reg23);
-			mdio_write(ioaddr, eeprom[6] & 0x1f, 23, mdi_reg23);
+			mdio_write(dev, eeprom[6] & 0x1f, 23, mdi_reg23);
 		}
 		if ((option >= 0) && (option & 0x70)) {
 			printk(KERN_INFO "  Forcing %dMbs %s-duplex operation.\n",
 				   (option & 0x20 ? 100 : 10),
 				   (option & 0x10 ? "full" : "half"));
-			mdio_write(ioaddr, eeprom[6] & 0x1f, 0,
+			mdio_write(dev, eeprom[6] & 0x1f, MII_BMCR,
 					   ((option & 0x20) ? 0x2000 : 0) | 	/* 100mbps? */
 					   ((option & 0x10) ? 0x0100 : 0)); /* Full duplex? */
 		}
@@ -807,7 +810,6 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 
 	pci_set_drvdata (pdev, dev);
 
-	dev->base_addr = ioaddr;
 	dev->irq = pdev->irq;
 
 	sp = dev->priv;
@@ -819,15 +821,21 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 	sp->lstats_dma = TX_RING_ELEM_DMA(sp, TX_RING_SIZE);
 	init_timer(&sp->timer); /* used in ioctl() */
 
-	sp->full_duplex = option >= 0 && (option & 0x10) ? 1 : 0;
+	sp->mii_if.full_duplex = option >= 0 && (option & 0x10) ? 1 : 0;
 	if (card_idx >= 0) {
 		if (full_duplex[card_idx] >= 0)
-			sp->full_duplex = full_duplex[card_idx];
+			sp->mii_if.full_duplex = full_duplex[card_idx];
 	}
 	sp->default_port = option >= 0 ? (option & 0x0f) : 0;
 
 	sp->phy[0] = eeprom[6];
 	sp->phy[1] = eeprom[7];
+
+	sp->mii_if.phy_id = eeprom[6];
+	sp->mii_if.dev = dev;
+	sp->mii_if.mdio_read = mdio_read;
+	sp->mii_if.mdio_write = mdio_write;
+	
 	sp->rx_bug = (eeprom[3] & 0x03) == 3 ? 0 : 1;
 	if (((pdev->device > 0x1030 && (pdev->device < 0x103F))) 
 	    || (pdev->device == 0x2449) || (pdev->device == 0x2459) 
@@ -914,8 +922,9 @@ static int __devinit do_eeprom_cmd(long ioaddr, int cmd, int cmd_len)
 	return retval;
 }
 
-static int mdio_read(long ioaddr, int phy_id, int location)
+static int mdio_read(struct net_device *dev, int phy_id, int location)
 {
+	long ioaddr = dev->base_addr;
 	int val, boguscnt = 64*10;		/* <64 usec. to complete, typ 27 ticks */
 	outl(0x08000000 | (location<<16) | (phy_id<<21), ioaddr + SCBCtrlMDI);
 	do {
@@ -928,8 +937,9 @@ static int mdio_read(long ioaddr, int phy_id, int location)
 	return val & 0xffff;
 }
 
-static int mdio_write(long ioaddr, int phy_id, int location, int value)
+static void mdio_write(struct net_device *dev, int phy_id, int location, int value)
 {
+	long ioaddr = dev->base_addr;
 	int val, boguscnt = 64*10;		/* <64 usec. to complete, typ 27 ticks */
 	outl(0x04000000 | (location<<16) | (phy_id<<21) | value,
 		 ioaddr + SCBCtrlMDI);
@@ -940,7 +950,6 @@ static int mdio_write(long ioaddr, int phy_id, int location, int value)
 			break;
 		}
 	} while (! (val & 0x10000000));
-	return val & 0xffff;
 }
 
 static int
@@ -982,9 +991,9 @@ speedo_open(struct net_device *dev)
 		   0x2100 100-FD
 		*/
 #ifdef honor_default_port
-		mdio_write(ioaddr, phy_addr, 0, mii_ctrl[dev->default_port & 7]);
+		mdio_write(dev, phy_addr, MII_BMCR, mii_ctrl[dev->default_port & 7]);
 #else
-		mdio_write(ioaddr, phy_addr, 0, 0x3300);
+		mdio_write(dev, phy_addr, MII_BMCR, 0x3300);
 #endif
 	}
 #endif
@@ -1005,9 +1014,9 @@ speedo_open(struct net_device *dev)
 	sp->rx_mode = -1;			/* Invalid -> always reset the mode. */
 	set_rx_mode(dev);
 	if ((sp->phy[0] & 0x8000) == 0)
-		sp->advertising = mdio_read(ioaddr, sp->phy[0] & 0x1f, 4);
+		sp->mii_if.advertising = mdio_read(dev, sp->phy[0] & 0x1f, MII_ADVERTISE);
 
-	if (mdio_read(ioaddr, sp->phy[0] & 0x1f, MII_BMSR) & BMSR_LSTATUS)
+	if (mdio_read(dev, sp->phy[0] & 0x1f, MII_BMSR) & BMSR_LSTATUS)
 		netif_carrier_on(dev);
 	else
 		netif_carrier_off(dev);
@@ -1029,7 +1038,7 @@ speedo_open(struct net_device *dev)
 
 	/* No need to wait for the command unit to accept here. */
 	if ((sp->phy[0] & 0x8000) == 0)
-		mdio_read(ioaddr, sp->phy[0] & 0x1f, 0);
+		mdio_read(dev, sp->phy[0] & 0x1f, MII_BMCR);
 
 	return 0;
 }
@@ -1159,13 +1168,13 @@ static void speedo_timer(unsigned long data)
 
 	/* We have MII and lost link beat. */
 	if ((sp->phy[0] & 0x8000) == 0) {
-		int partner = mdio_read(ioaddr, phy_num, 5);
+		int partner = mdio_read(dev, phy_num, MII_LPA);
 		if (partner != sp->partner) {
-			int flow_ctrl = sp->advertising & partner & 0x0400 ? 1 : 0;
+			int flow_ctrl = sp->mii_if.advertising & partner & 0x0400 ? 1 : 0;
 			if (speedo_debug > 2) {
 				printk(KERN_DEBUG "%s: Link status change.\n", dev->name);
 				printk(KERN_DEBUG "%s: Old partner %x, new %x, adv %x.\n",
-					   dev->name, sp->partner, partner, sp->advertising);
+					   dev->name, sp->partner, partner, sp->mii_if.advertising);
 			}
 			sp->partner = partner;
 			if (flow_ctrl != sp->flow_ctrl) {
@@ -1173,9 +1182,9 @@ static void speedo_timer(unsigned long data)
 				sp->rx_mode = -1;	/* Trigger a reload. */
 			}
 			/* Clear sticky bit. */
-			mdio_read(ioaddr, phy_num, 1);
+			mdio_read(dev, phy_num, MII_BMSR);
 			/* If link beat has returned... */
-			if (mdio_read(ioaddr, phy_num, 1) & 0x0004)
+			if (mdio_read(dev, phy_num, MII_BMSR) & BMSR_LSTATUS)
 				netif_carrier_on(dev);
 			else
 				netif_carrier_off(dev);
@@ -1241,7 +1250,7 @@ static void speedo_show_state(struct net_device *dev)
 			/* FIXME: what does it mean?  --SAW */
 			if (i == 6) i = 21;
 			printk(KERN_DEBUG "%s:  PHY index %d register %d is %4.4x.\n",
-				   dev->name, phy_num, i, mdio_read(ioaddr, phy_num, i));
+				   dev->name, phy_num, i, mdio_read(dev, phy_num, i));
 		}
 	}
 #endif
@@ -1333,22 +1342,22 @@ static void speedo_purge_tx(struct net_device *dev)
 static void reset_mii(struct net_device *dev)
 {
 	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-	long ioaddr = dev->base_addr;
+
 	/* Reset the MII transceiver, suggested by Fred Young @ scalable.com. */
 	if ((sp->phy[0] & 0x8000) == 0) {
 		int phy_addr = sp->phy[0] & 0x1f;
-		int advertising = mdio_read(ioaddr, phy_addr, 4);
-		int mii_bmcr = mdio_read(ioaddr, phy_addr, 0);
-		mdio_write(ioaddr, phy_addr, 0, 0x0400);
-		mdio_write(ioaddr, phy_addr, 1, 0x0000);
-		mdio_write(ioaddr, phy_addr, 4, 0x0000);
-		mdio_write(ioaddr, phy_addr, 0, 0x8000);
+		int advertising = mdio_read(dev, phy_addr, MII_ADVERTISE);
+		int mii_bmcr = mdio_read(dev, phy_addr, MII_BMCR);
+		mdio_write(dev, phy_addr, MII_BMCR, 0x0400);
+		mdio_write(dev, phy_addr, MII_BMSR, 0x0000);
+		mdio_write(dev, phy_addr, MII_ADVERTISE, 0x0000);
+		mdio_write(dev, phy_addr, MII_BMCR, 0x8000);
 #ifdef honor_default_port
-		mdio_write(ioaddr, phy_addr, 0, mii_ctrl[dev->default_port & 7]);
+		mdio_write(dev, phy_addr, MII_BMCR, mii_ctrl[dev->default_port & 7]);
 #else
-		mdio_read(ioaddr, phy_addr, 0);
-		mdio_write(ioaddr, phy_addr, 0, mii_bmcr);
-		mdio_write(ioaddr, phy_addr, 4, advertising);
+		mdio_read(dev, phy_addr, MII_BMCR);
+		mdio_write(dev, phy_addr, MII_BMCR, mii_bmcr);
+		mdio_write(dev, phy_addr, MII_ADVERTISE, advertising);
 #endif
 	}
 }
@@ -1965,6 +1974,7 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		return -EFAULT;
 	
         switch (ethcmd) {
+	/* get driver-specific version/etc. info */
 	case ETHTOOL_GDRVINFO: {
 		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
 		strncpy(info.driver, "eepro100", sizeof(info.driver)-1);
@@ -1976,19 +1986,48 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		return 0;
 	}
 	
+	/* get settings */
+	case ETHTOOL_GSET: {
+		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
+		spin_lock_irq(&sp->lock);
+		mii_ethtool_gset(&sp->mii_if, &ecmd);
+		spin_unlock_irq(&sp->lock);
+		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
+			return -EFAULT;
+		return 0;
+	}
+	/* set settings */
+	case ETHTOOL_SSET: {
+		int r;
+		struct ethtool_cmd ecmd;
+		if (copy_from_user(&ecmd, useraddr, sizeof(ecmd)))
+			return -EFAULT;
+		spin_lock_irq(&sp->lock);
+		r = mii_ethtool_sset(&sp->mii_if, &ecmd);
+		spin_unlock_irq(&sp->lock);
+		return r;
+	}
+	/* restart autonegotiation */
+	case ETHTOOL_NWAY_RST: {
+		return mii_nway_restart(&sp->mii_if);
+	}
+	/* get link status */
+	case ETHTOOL_GLINK: {
+		struct ethtool_value edata = {ETHTOOL_GLINK};
+		edata.data = mii_link_ok(&sp->mii_if);
+		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+			return -EFAULT;
+		return 0;
+	}
+
         }
 	
 	return -EOPNOTSUPP;
 }
 
-
-
-
-
 static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-	long ioaddr = dev->base_addr;
 	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&rq->ifr_data;
 	int phy = sp->phy[0] & 0x1f;
 	int saved_acpi;
@@ -2007,7 +2046,7 @@ static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		   timer routine.  2000/05/09 SAW */
 		saved_acpi = pci_set_power_state(sp->pdev, 0);
 		t = del_timer_sync(&sp->timer);
-		data->val_out = mdio_read(ioaddr, data->phy_id & 0x1f, data->reg_num & 0x1f);
+		data->val_out = mdio_read(dev, data->phy_id & 0x1f, data->reg_num & 0x1f);
 		if (t)
 			add_timer(&sp->timer); /* may be set to the past  --SAW */
 		pci_set_power_state(sp->pdev, saved_acpi);
@@ -2019,7 +2058,7 @@ static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 			return -EPERM;
 		saved_acpi = pci_set_power_state(sp->pdev, 0);
 		t = del_timer_sync(&sp->timer);
-		mdio_write(ioaddr, data->phy_id, data->reg_num, data->val_in);
+		mdio_write(dev, data->phy_id, data->reg_num, data->val_in);
 		if (t)
 			add_timer(&sp->timer); /* may be set to the past  --SAW */
 		pci_set_power_state(sp->pdev, saved_acpi);
@@ -2091,7 +2130,7 @@ static void set_rx_mode(struct net_device *dev)
 		   Disable Flow control since we are not ACK-ing any FC interrupts
 		   for now. --Dragan */
 		config_cmd_data[19] = 0x84;
-		config_cmd_data[19] |= sp->full_duplex ? 0x40 : 0;
+		config_cmd_data[19] |= sp->mii_if.full_duplex ? 0x40 : 0;
 		config_cmd_data[21] = (new_rx_mode & 1) ? 0x0D : 0x05;
 		if (sp->phy[0] & 0x8000) {			/* Use the AUI port instead. */
 			config_cmd_data[15] |= 0x80;

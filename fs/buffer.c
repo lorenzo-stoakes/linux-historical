@@ -1990,7 +1990,12 @@ int block_truncate_page(struct address_space *mapping, loff_t from, get_block_t 
 	flush_dcache_page(page);
 	kunmap(page);
 
-	__mark_buffer_dirty(bh);
+	if (!atomic_set_buffer_dirty(bh)) {
+		__mark_dirty(bh);
+		buffer_insert_inode_data_queue(bh, inode);
+		balance_dirty();
+	}
+
 	err = 0;
 
 unlock:

@@ -30,6 +30,7 @@
  *
  */
 
+#include <linux/config.h>
 #include "i810.h"
 #include "drmP.h"
 #include "i810_drv.h"
@@ -466,8 +467,11 @@ static int i810_dma_initialize(drm_device_t *dev,
    	return 0;
 }
 
-
+#ifdef CONFIG_DRM_I810_XFREE_41
+int xfreeversion = 41;
+#else
 int xfreeversion = -1;
+#endif
 
 MODULE_PARM(xfreeversion, "i");
 MODULE_PARM_DESC(xfreeversion, "The version of XFree86 that needs to be supported");

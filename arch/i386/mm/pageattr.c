@@ -12,7 +12,6 @@
 #include <asm/processor.h>
 
 /* Should move most of this stuff into the appropiate includes */
-#define PAGE_LARGE (_PAGE_PSE|_PAGE_PRESENT) 
 #define LARGE_PAGE_MASK (~(LARGE_PAGE_SIZE-1))
 #define LARGE_PAGE_SIZE (1UL << PMD_SHIFT)
 
@@ -21,13 +20,16 @@ static inline pte_t *lookup_address(unsigned long address)
 	pmd_t *pmd;	
 	pgd_t *pgd = pgd_offset(&init_mm, address); 
 
-	if ((pgd_val(*pgd) & PAGE_LARGE) == PAGE_LARGE)
+	if (pgd_none(*pgd))
+		return NULL; 
+	if (pgd_val(*pgd) & _PAGE_PSE)
 		return (pte_t *)pgd; 
 	pmd = pmd_offset(pgd, address); 	       
-	if ((pmd_val(*pmd) & PAGE_LARGE) == PAGE_LARGE)
+	if (pmd_none(*pmd))
+		return NULL; 
+	if (pmd_val(*pmd) & _PAGE_PSE) 
 		return (pte_t *)pmd; 
-
-        return pte_offset(pmd, address);
+    return pte_offset(pmd, address);
 } 
 
 static struct page *split_large_page(unsigned long address, pgprot_t prot)
@@ -50,7 +52,7 @@ static struct page *split_large_page(unsigned long address, pgprot_t prot)
 
 static void flush_kernel_map(void * address) 
 { 
-	if (!test_bit(X86_FEATURE_SELFSNOOP, &boot_cpu_data.x86_capability)) {
+	if (!test_bit(X86_FEATURE_SELFSNOOP, boot_cpu_data.x86_capability)) {
 		/* Could use CLFLUSH here if the CPU supports it (Hammer,P4) */
 		if (boot_cpu_data.x86_model >= 4) 
 			asm volatile("wbinvd":::"memory"); 	
@@ -113,11 +115,12 @@ __change_page_attr(struct page *page, pgprot_t prot, struct page **oldpage)
 		BUG(); 
 #endif
 	address = (unsigned long)page_address(page);
-
 	kpte = lookup_address(address);
+	if (!kpte) 
+		return -EINVAL; 
 	kpte_page = virt_to_page(((unsigned long)kpte) & PAGE_MASK);
 	if (pgprot_val(prot) != pgprot_val(PAGE_KERNEL)) { 
-		if ((pte_val(*kpte) & _PAGE_PSE) == 0) { 
+		if ((pte_val(*kpte) & _PAGE_PSE) == 0) {
 			pte_t old = *kpte;
 			pte_t standard = mk_pte(page, PAGE_KERNEL); 
 
@@ -128,6 +131,7 @@ __change_page_attr(struct page *page, pgprot_t prot, struct page **oldpage)
 			struct page *split = split_large_page(address, prot); 
 			if (!split)
 				return -ENOMEM;
+			atomic_inc(&kpte_page->count); 	
 			set_pmd_pte(kpte,address,mk_pte(split, PAGE_KERNEL));
 		}	
 	} else if ((pte_val(*kpte) & _PAGE_PSE) == 0) { 
@@ -135,8 +139,7 @@ __change_page_attr(struct page *page, pgprot_t prot, struct page **oldpage)
 		atomic_dec(&kpte_page->count); 
 	}
 
-	if (test_bit(X86_FEATURE_PSE, &boot_cpu_data.x86_capability) && 
-	    (atomic_read(&kpte_page->count) == 1)) { 
+	if (cpu_has_pse && (atomic_read(&kpte_page->count) == 1)) { 
 		*oldpage = kpte_page;
 		revert_page(kpte_page, address);
 	} 
