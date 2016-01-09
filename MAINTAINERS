@@ -1426,13 +1426,13 @@ S:	Maintained
 
 RADEON FRAMEBUFFER DISPLAY DRIVER
 P:	Ani Joshi
-M:	ajoshi@shell.unixbox.com
+M:	ajoshi@kernel.crashing.org
 L:      linux-fbdev-devel@lists.sourceforge.net
 S:      Maintained
 
 RAGE128 FRAMEBUFFER DISPLAY DRIVER
 P:	Ani Joshi
-M:	ajoshi@shell.unixbox.com
+M:	ajoshi@kernel.crashing.org
 L:	linux-fbdev-devel@lists.sourceforge.net
 S:	Maintained
 

@@ -72,3 +72,5 @@ obj-$(CONFIG_PCMCIA_XIRTULIP)	+= crc32.o
 # drivers/net/tulip
 obj-$(CONFIG_TULIP)		+= crc32.o
 
+# drivers/net/ibm_emac
+obj-$(CONFIG_OCP_NET)		+= crc32.o

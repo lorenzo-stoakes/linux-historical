@@ -618,7 +618,7 @@ static struct request *__get_request_wait(request_queue_t *q, int rw)
 	do {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		spin_lock_irq(&io_request_lock);
-		if (blk_oversized_queue(q)) {
+		if (blk_oversized_queue(q) || q->rq.count == 0) {
 			__generic_unplug_device(q);
 			spin_unlock_irq(&io_request_lock);
 			schedule();

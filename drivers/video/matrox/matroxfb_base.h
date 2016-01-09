@@ -111,6 +111,9 @@
 #if defined(__alpha__) || defined(__mc68000__)
 #define READx_WORKS
 #define MEMCPYTOIO_WORKS
+#elif defined(__powerpc64__)
+#define RAW_READx_WORKS
+#define MEMCPYTOIO_WORKS
 #else
 #define READx_FAILS
 /* recheck __ppc__, maybe that __ppc__ needs MEMCPYTOIO_WRITEL */
@@ -195,6 +198,30 @@ static inline void mga_writew(vaddr_t va, unsigned int offs, u_int16_t value) {
 
 static inline void mga_writel(vaddr_t va, unsigned int offs, u_int32_t value) {
 	writel(value, va.vaddr + offs);
+}
+#elif defined(RAW_READx_WORKS)
+static inline unsigned int mga_readb(vaddr_t va, unsigned int offs) {
+	return __raw_readb(va.vaddr + offs);
+}
+
+static inline unsigned int mga_readw(vaddr_t va, unsigned int offs) {
+	return __raw_readw(va.vaddr + offs);
+}
+
+static inline u_int32_t mga_readl(vaddr_t va, unsigned int offs) {
+	return __raw_readl(va.vaddr + offs);
+}
+
+static inline void mga_writeb(vaddr_t va, unsigned int offs, u_int8_t value) {
+	__raw_writeb(value, va.vaddr + offs);
+}
+
+static inline void mga_writew(vaddr_t va, unsigned int offs, u_int16_t value) {
+	__raw_writew(value, va.vaddr + offs);
+}
+
+static inline void mga_writel(vaddr_t va, unsigned int offs, u_int32_t value) {
+	__raw_writel(value, va.vaddr + offs);
 }
 #else
 static inline unsigned int mga_readb(vaddr_t va, unsigned int offs) {

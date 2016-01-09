@@ -44,7 +44,9 @@
 #include <linux/pmu.h>
 
 #include <asm/machdep.h>
+#ifdef CONFIG_ALL_PPC
 #include <asm/pmac_feature.h>
+#endif
 
 #ifdef CONFIG_PMAC_BACKLIGHT
 #include <asm/backlight.h>
@@ -158,6 +160,7 @@ adbhid_input_keycode(int id, int keycode, int repeat)
 		return;
 	case 0x3f: /* ignore Powerbook Fn key */
 		return;
+#ifdef CONFIG_ALL_PPC
 	case 0x7e: /* Power key on PBook 3400 needs remapping */
 		switch(pmac_call_feature(PMAC_FTR_GET_MB_INFO,
 			NULL, PMAC_MB_INFO_MODEL, 0)) {
@@ -167,6 +170,7 @@ adbhid_input_keycode(int id, int keycode, int repeat)
 			keycode = 0x7f;
 		}
 		break;
+#endif /* CONFIG_ALL_PPC */
 	}
 
 	if (adbhid[id]->keycode[keycode])

@@ -44,6 +44,7 @@
 #include <asm/io_apic.h>
 #include <asm/acpi.h>
 #include <asm/save_state.h>
+#include <asm/smpboot.h>
 
 
 #define PREFIX			"ACPI: "
@@ -128,6 +129,8 @@ acpi_parse_madt (
 
 	printk(KERN_INFO PREFIX "Local APIC address 0x%08x\n",
 		madt->lapic_address);
+
+	detect_clustered_apic(madt->header.oem_id, madt->header.oem_table_id);
 
 	return 0;
 }

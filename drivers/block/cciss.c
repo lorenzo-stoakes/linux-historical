@@ -44,12 +44,12 @@
 #include <linux/genhd.h>
 
 #define CCISS_DRIVER_VERSION(maj,min,submin) ((maj<<16)|(min<<8)|(submin))
-#define DRIVER_NAME "HP CISS Driver (v 2.4.44)"
-#define DRIVER_VERSION CCISS_DRIVER_VERSION(2,4,44)
+#define DRIVER_NAME "HP CISS Driver (v 2.4.47)"
+#define DRIVER_VERSION CCISS_DRIVER_VERSION(2,4,47)
 
 /* Embedded module documentation macros - see modules.h */
 MODULE_AUTHOR("Charles M. White III - Hewlett-Packard Company");
-MODULE_DESCRIPTION("Driver for HP SA5xxx SA6xxx Controllers version 2.4.44");
+MODULE_DESCRIPTION("Driver for HP SA5xxx SA6xxx Controllers version 2.4.47");
 MODULE_SUPPORTED_DEVICE("HP SA5i SA5i+ SA532 SA5300 SA5312 SA641 SA642 SA6400"); 
 MODULE_LICENSE("GPL");
 
@@ -92,8 +92,8 @@ static struct board_type products[] = {
 	{ 0x40830E11, "Smart Array 5312", &SA5B_access},
 	{ 0x409A0E11, "Smart Array 641", &SA5_access},
 	{ 0x409B0E11, "Smart Array 642", &SA5_access},
-	{ 0x409C0E11, "Smart Array 6402", &SA5_access},
-	{ 0x409C0E11, "Smart Array 6404/256", &SA5_access},
+	{ 0x409C0E11, "Smart Array 6400", &SA5_access},
+	{ 0x409D0E11, "Smart Array 6400 EM", &SA5_access},
 };
 
 /* How long to wait (in millesconds) for board to go into simple mode */
@@ -2460,7 +2460,9 @@ static int find_PCI_BAR_index(struct pci_dev *pdev,
 				case PCI_BASE_ADDRESS_MEM_TYPE_64:
 					offset += 8;
 					break;
-				case PCI_BASE_ADDRESS_MEM_PREFETCH:
+				default: /* reserved in PCI 2.2 */
+					printk(KERN_WARNING "Base address is invalid\n");
+					return -1;	
 				break;
 			}
 		}
@@ -2472,19 +2474,21 @@ static int find_PCI_BAR_index(struct pci_dev *pdev,
 			
 static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 {
-	ushort vendor_id, device_id, command;
-	unchar cache_line_size, latency_timer;
-	unchar irq, revision;
+	ushort subsystem_vendor_id, subsystem_device_id, command;
+	unchar irq = pdev->irq;
 	__u32 board_id;
 	__u64 cfg_offset;
 	__u32 cfg_base_addr;
 	__u64 cfg_base_addr_index;
 	int i;
 
-	vendor_id = pdev->vendor;
-	device_id = pdev->device;
-	irq = pdev->irq;
-
+	/* check to see if controller has been disabled */
+	/* BEFORE we try to enable it */
+	(void) pci_read_config_word(pdev, PCI_COMMAND,&command);
+	if (!(command & 0x02)) {
+		printk(KERN_WARNING "cciss: controller appears to be disabled\n");
+		return -1;
+	}
 	if (pci_enable_device(pdev)) {
 		printk(KERN_ERR "cciss: Unable to Enable PCI device\n");
 		return -1;
@@ -2494,21 +2498,12 @@ static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 		return -1;
 	}
 	
-	(void) pci_read_config_word(pdev, PCI_COMMAND,&command);
-	(void) pci_read_config_byte(pdev, PCI_CLASS_REVISION, &revision);
-	(void) pci_read_config_byte(pdev, PCI_CACHE_LINE_SIZE,
-						&cache_line_size);
-	(void) pci_read_config_byte(pdev, PCI_LATENCY_TIMER,
-						&latency_timer);
+	subsystem_vendor_id = pdev->subsystem_vendor;
+	subsystem_device_id = pdev->subsystem_device;
+	board_id = (((__u32) (subsystem_device_id << 16) & 0xffff0000) |
+					subsystem_vendor_id );
 
-	(void) pci_read_config_dword(pdev, PCI_SUBSYSTEM_VENDOR_ID, 
-						&board_id);
 
-	/* check to see if controller has been disabled */
-	if (!(command & 0x02)) {
-		printk(KERN_WARNING "cciss: controller appears to be disabled\n");
-		return -1;
-	}
 	/* search for our IO range so we can protect it */
 	for (i=0; i<DEVICE_COUNT_RESOURCE; i++) {
 		/* is this an IO range */
@@ -2535,15 +2530,8 @@ static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 	}
 
 #ifdef CCISS_DEBUG
-	printk("vendor_id = %x\n", vendor_id);
-	printk("device_id = %x\n", device_id);
 	printk("command = %x\n", command);
-	for(i=0; i<6; i++)
-		printk("addr[%d] = %x\n", i, pci_resource_start(pdev, i);
-	printk("revision = %x\n", revision);
 	printk("irq = %x\n", irq);
-	printk("cache_line_size = %x\n", cache_line_size);
-	printk("latency_timer = %x\n", latency_timer);
 	printk("board_id = %x\n", board_id);
 #endif /* CCISS_DEBUG */ 
 

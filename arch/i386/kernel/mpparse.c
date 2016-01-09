@@ -1252,6 +1252,7 @@ void __init mp_config_ioapic_for_sci(int irq)
 	io_apic_set_pci_routing(ioapic, ioapic_pin, irq);
 }
 
+
 #ifdef CONFIG_ACPI_PCI
 
 void __init mp_parse_prt (void)

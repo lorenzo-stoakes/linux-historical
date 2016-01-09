@@ -274,6 +274,10 @@ if [ "$CONFIG_PPC_ISERIES" = "y" ]; then
    dep_tristate 'iSeries Virtual Ethernet driver support' CONFIG_VETH $CONFIG_PPC_ISERIES
 fi
 
+if [ "$CONFIG_4xx" = "y" ]; then
+   source drivers/net/ibm_emac/Config.in
+fi
+
 bool 'FDDI driver support' CONFIG_FDDI
 if [ "$CONFIG_FDDI" = "y" ]; then
    if [ "$CONFIG_PCI" = "y" -o "$CONFIG_EISA" = "y" ]; then

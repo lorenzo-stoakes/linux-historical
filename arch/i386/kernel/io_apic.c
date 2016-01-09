@@ -1732,6 +1732,13 @@ int __init io_apic_get_unique_id (int ioapic, int apic_id)
 		apic_id = reg_00.ID;
 	}
 
+	/* XAPICs do not need unique IDs */
+	if (clustered_apic_mode == CLUSTERED_APIC_XAPIC){
+		printk(KERN_INFO "IOAPIC[%d]: Assigned apic_id %d\n", 
+			ioapic, apic_id);
+		return apic_id;
+	}
+
 	/*
 	 * Every APIC in a system must have a unique ID or we get lots of nice 
 	 * 'stuck on smp_invalidate_needed IPI wait' messages.
