@@ -298,6 +298,30 @@ struct agp_bridge_data {
 #ifndef PCI_DEVICE_ID_AL_M1671_0
 #define PCI_DEVICE_ID_AL_M1671_0	0x1671
 #endif
+#ifndef PCI_VENDOR_ID_ATI
+#define PCI_VENDOR_ID_ATI		0x1002
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS100
+#define PCI_DEVICE_ID_ATI_RS100		0xcab0
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS200
+#define PCI_DEVICE_ID_ATI_RS200		0xcab2
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS250
+#define PCI_DEVICE_ID_ATI_RS250		0xcab3
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS300_100
+#define PCI_DEVICE_ID_ATI_RS300_100	0x5830
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS300_133
+#define PCI_DEVICE_ID_ATI_RS300_133	0x5831
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS300_166
+#define PCI_DEVICE_ID_ATI_RS300_166	0x5832
+#endif
+#ifndef PCI_DEVICE_ID_ATI_RS300_200
+#define PCI_DEVICE_ID_ATI_RS300_200	0x5833
+#endif
 
 /* intel register */
 #define INTEL_APBASE    0x10
@@ -484,5 +508,19 @@ struct agp_bridge_data {
 #define HP_ZX1_TCNFG		0x318
 #define HP_ZX1_PDIR_BASE	0x320
 #define HP_ZX1_CACHE_FLUSH	0x428
+
+/* ATI register */
+#define ATI_APBASE                  0x10
+#define ATI_GART_MMBASE_ADDR        0x14
+#define ATI_RS100_APSIZE            0xac
+#define ATI_RS300_APSIZE            0xf8
+#define ATI_RS100_IG_AGPMODE        0xb0
+#define ATI_RS300_IG_AGPMODE        0xfc
+
+#define ATI_GART_FEATURE_ID         0x00
+#define ATI_GART_BASE               0x04
+#define ATI_GART_CACHE_SZBASE       0x08
+#define ATI_GART_CACHE_CNTRL        0x0c
+#define ATI_GART_CACHE_ENTRY_CNTRL  0x10
 
 #endif				/* _AGP_BACKEND_PRIV_H */

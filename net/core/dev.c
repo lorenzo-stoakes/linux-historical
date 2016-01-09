@@ -851,11 +851,7 @@ int dev_close(struct net_device *dev)
 	 * engine, but this requires more changes in devices. */
 
 	smp_mb__after_clear_bit(); /* Commit netif_running(). */
-	while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-		/* No hurry. */
-		current->state = TASK_INTERRUPTIBLE;
-		schedule_timeout(1);
-	}
+	netif_poll_disable(dev);
 
 	/*
 	 *	Call the device specific close. This cannot fail.
@@ -1539,10 +1535,10 @@ int netif_receive_skb(struct sk_buff *skb)
 	return ret;
 }
 
-static int process_backlog(struct net_device *blog_dev, int *budget)
+static int process_backlog(struct net_device *backlog_dev, int *budget)
 {
 	int work = 0;
-	int quota = min(blog_dev->quota, *budget);
+	int quota = min(backlog_dev->quota, *budget);
 	int this_cpu = smp_processor_id();
 	struct softnet_data *queue = &softnet_data[this_cpu];
 	unsigned long start_time = jiffies;
@@ -1579,17 +1575,17 @@ static int process_backlog(struct net_device *blog_dev, int *budget)
 #endif
 	}
 
-	blog_dev->quota -= work;
+	backlog_dev->quota -= work;
 	*budget -= work;
 	return -1;
 
 job_done:
-	blog_dev->quota -= work;
+	backlog_dev->quota -= work;
 	*budget -= work;
 
-	list_del(&blog_dev->poll_list);
+	list_del(&backlog_dev->poll_list);
 	smp_mb__before_clear_bit();
-	clear_bit(__LINK_STATE_RX_SCHED, &blog_dev->state);
+	netif_poll_enable(backlog_dev);
 
 	if (queue->throttle) {
 		queue->throttle = 0;

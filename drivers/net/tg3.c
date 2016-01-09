@@ -175,11 +175,15 @@ static struct pci_device_id tg3_pci_tbl[] = {
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5901_2,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
-	{ PCI_VENDOR_ID_SYSKONNECT, 0x4400,
+	{ PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9DXX,
+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+	{ PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9MXX,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1001,
+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1003,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
 	{ PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC9100,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
@@ -260,38 +264,6 @@ static void tg3_enable_ints(struct tg3 *tp)
 	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
 
 	tg3_cond_int(tp);
-}
-
-/* these netif_xxx funcs should be moved into generic net layer */
-static void netif_poll_disable(struct net_device *dev)
-{
-	while (test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-		current->state = TASK_INTERRUPTIBLE;
-		schedule_timeout(1);
-	}
-}
-
-static inline void netif_poll_enable(struct net_device *dev)
-{
-	clear_bit(__LINK_STATE_RX_SCHED, &dev->state);
-}
-
-/* same as netif_rx_complete, except that local_irq_save(flags)
- * has already been issued
- */
-static inline void __netif_rx_complete(struct net_device *dev)
-{
-	if (!test_bit(__LINK_STATE_RX_SCHED, &dev->state)) BUG();
-	list_del(&dev->poll_list);
-	smp_mb__before_clear_bit();
-	clear_bit(__LINK_STATE_RX_SCHED, &dev->state);
-}
-
-static inline void netif_tx_disable(struct net_device *dev)
-{
-	spin_lock_bh(&dev->xmit_lock);
-	netif_stop_queue(dev);
-	spin_unlock_bh(&dev->xmit_lock);
 }
 
 static inline void tg3_netif_stop(struct tg3 *tp)
@@ -6747,7 +6719,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 		tp->tg3_flags2 |= TG3_FLG2_SUN_5704;
 #endif
 
-	/* If we have an AMD 762 or Intel ICH/ICH0 chipset, write
+	/* If we have an AMD 762 or Intel ICH/ICH0/ICH2 chipset, write
 	 * reordering to the mailbox registers done by the host
 	 * controller can cause major troubles.  We read back from
 	 * every mailbox register write to force the writes to be
@@ -6757,6 +6729,10 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 			    PCI_DEVICE_ID_INTEL_82801AA_8, NULL) ||
 	    pci_find_device(PCI_VENDOR_ID_INTEL,
 			    PCI_DEVICE_ID_INTEL_82801AB_8, NULL) ||
+	    pci_find_device(PCI_VENDOR_ID_INTEL,
+			    PCI_DEVICE_ID_INTEL_82801BA_11, NULL) ||
+	    pci_find_device(PCI_VENDOR_ID_INTEL,
+			    PCI_DEVICE_ID_INTEL_82801BA_6, NULL) ||
 	    pci_find_device(PCI_VENDOR_ID_AMD,
 			    PCI_DEVICE_ID_AMD_FE_GATE_700C, NULL))
 		tp->tg3_flags |= TG3_FLAG_MBOX_WRITE_REORDER;
@@ -7550,10 +7526,10 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
 	}
 
 	/* Configure DMA attributes. */
-	if (!pci_set_dma_mask(pdev, (u64) 0xffffffffffffffffULL)) {
+	if (!pci_set_dma_mask(pdev, 0xffffffffffffffffULL)) {
 		pci_using_dac = 1;
 	} else {
-		err = pci_set_dma_mask(pdev, (u64) 0xffffffff);
+		err = pci_set_dma_mask(pdev, 0xffffffffULL);
 		if (err) {
 			printk(KERN_ERR PFX "No usable DMA configuration, "
 			       "aborting.\n");

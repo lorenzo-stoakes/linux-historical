@@ -87,6 +87,7 @@ masquerade_target(struct sk_buff **pskb,
 	key.dst = (*pskb)->nh.iph->daddr;
 	key.src = 0; /* Unknown: that's what we're trying to establish */
 	key.tos = RT_TOS((*pskb)->nh.iph->tos)|RTO_CONN;
+	key.oif = 0;
 #ifdef CONFIG_IP_ROUTE_FWMARK
 	key.fwmark = (*pskb)->nfmark;
 #endif

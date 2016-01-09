@@ -2975,12 +2975,12 @@ S: Santa Clara, California 95051
 S: USA
 
 N: Marcelo W. Tosatti
-E: marcelo@conectiva.com.br
-W: http://bazar.conectiva.com.br/~marcelo/
+E: marcelo@parcelfarce.linux.theplanet.co.uk
+E: marcelo.tosatti@cyclades.com.br
 D: Miscellaneous kernel hacker (mostly VM/MM work)
-S: Conectiva S.A.
-S: R. Tocantins, 89 - Cristo Rei
-S: 80050-430 - Curitiba - Paraná
+D: 2.4 maintainer
+S: Av Cristovao Colombo, 462. Floresta.
+S: Porto Alegre
 S: Brazil
 
 N: Stefan Traby

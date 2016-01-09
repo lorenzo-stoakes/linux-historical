@@ -1428,6 +1428,8 @@ void __init pcibios_init(void)
 		return;
 	}
 
+	pcibios_set_cacheline_size();
+
 	printk(KERN_INFO "PCI: Probing PCI hardware\n");
 #ifdef CONFIG_ACPI_PCI
 	if (use_acpi_pci && !acpi_pci_irq_init()) {

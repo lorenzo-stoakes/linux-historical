@@ -267,6 +267,10 @@ if [ "$CONFIG_ARCH_NETWINDER" = "y" ]; then
 fi
 dep_tristate 'NatSemi SCx200 GPIO Support' CONFIG_SCx200_GPIO $CONFIG_SCx200
 
+if [ "$CONFIG_IA64_GENERIC" = "y" -o "$CONFIG_IA64_SGI_SN2" = 'y' ] ; then
+   bool 'SGI SN2 fetchop support' CONFIG_FETCHOP
+fi
+
 if [ "$CONFIG_X86" = "y" -o "$CONFIG_X86_64" = "y" ]; then
    dep_tristate 'AMD 768/8111 Random Number Generator support' CONFIG_AMD_RNG $CONFIG_PCI
 fi
@@ -325,6 +329,7 @@ if [ "$CONFIG_AGP" != "n" ]; then
    if [ "$CONFIG_IA64" = "y" ]; then
       bool '  HP ZX1 AGP support' CONFIG_AGP_HP_ZX1
    fi
+   bool '  ATI IGP chipset support' CONFIG_AGP_ATI
 fi
 
 mainmenu_option next_comment

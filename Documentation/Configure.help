@@ -10262,35 +10262,16 @@ CONFIG_FARSYNC
   This driver supports the FarSync T-Series X.21 (and V.35/V.24) cards
   from FarSite Communications Ltd.
   Synchronous communication is supported on all ports at speeds up to
-  8Mb/s (128K on V.24) using synchronous PPP or Cisco HDLC.
+  8Mb/s (128K on V.24) using synchronous PPP, Cisco HDLC, raw HDLC,
+  Frame Relay or X.25/LAPB.
 
   If you want to compile this driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want)
   say M here and read <file:Documentation/modules.txt>.
   The module will be called farsync.o and if you want the module to be
   automatically loaded when the interface is referenced then you
-  should add "alias syncX farsync" to /etc/modules.conf for each
+  should add "alias hdlcX farsync" to /etc/modules.conf for each
   interface, where X is 0, 1, 2, ...
-
-CONFIG_HDLC_DEBUG_PKT
-  This option is for developers only - do NOT use on production
-  systems.
-
-CONFIG_HDLC_DEBUG_HARD_HEADER
-  This option is for developers only - do NOT use on production
-  systems.
-
-CONFIG_HDLC_DEBUG_ECN
-  This option is for developers only - do NOT use on production
-  systems.
-
-CONFIG_HDLC_DEBUG_RINGS
-  If you answer Y here you will be able to get a diagnostic dump of
-  port's TX and RX packet rings, using "sethdlc hdlcX private"
-  command. It does not affect normal operations.
-
-  If unsure, say Y here.
-
 
 Frame Relay (DLCI) support
 CONFIG_DLCI
@@ -11164,6 +11145,15 @@ CONFIG_HDLC_RAW
 
   If unsure, say N here.
 
+Raw HDLC Ethernet device support
+CONFIG_HDLC_RAW_ETH
+  Say Y to this option if you want generic HDLC driver to support
+  raw HDLC Ethernet device emulation over WAN (Wide Area Network)
+  connections.
+  You will need it for Ethernet over HDLC bridges.
+
+  If unsure, say N here.
+
 Cisco HDLC support
 CONFIG_HDLC_CISCO
   Say Y to this option if you want generic HDLC driver to support
@@ -11175,13 +11165,6 @@ Frame-Relay HDLC support
 CONFIG_HDLC_FR
   Say Y to this option if you want generic HDLC driver to support
   Frame-Relay protocol over WAN (Wide Area Network) connections.
-
-  If unsure, say N here.
-
-Frame-Relay bridging support
-CONFIG_HDLC_FR_BRIDGE
-  Say Y to this option if you want generic HDLC driver to support
-  bridging LAN frames over Frame-Relay links.
 
   If unsure, say N here.
 
@@ -11226,6 +11209,25 @@ CONFIG_C101
   will be called c101.o.
 
   If unsure, say N here.
+
+CONFIG_HDLC_DEBUG_PKT
+  This option is for developers only - do NOT use on production
+  systems.
+
+CONFIG_HDLC_DEBUG_HARD_HEADER
+  This option is for developers only - do NOT use on production
+  systems.
+
+CONFIG_HDLC_DEBUG_ECN
+  This option is for developers only - do NOT use on production
+  systems.
+
+CONFIG_HDLC_DEBUG_RINGS
+  If you answer Y here you will be able to get a diagnostic dump of
+  port's TX and RX packet rings, using "sethdlc hdlcX private"
+  command. It does not affect normal operations.
+
+  If unsure, say Y here.
 
 Ethernet (10 or 100Mbit)
 CONFIG_NET_ETHERNET
@@ -11555,33 +11557,60 @@ CONFIG_ACENIC_OMIT_TIGON_I
 
   The safe and default value for this is N.
 
-SysKonnect SK-98xx and SK-95xx Gigabit Ethernet Adapter family support
+Marvell Yukon / SysKonnect SK-98xx and SK-95xx Gigabit Ethernet Adapter family support
 CONFIG_SK98LIN
-  Say Y here if you have a SysKonnect SK-98xx or SK-95xx Gigabit 
-  Ethernet Server Adapter. The following adapters are supported by 
-  this driver:
-  - SK-9521 10/100/1000Base-T Adapter
-  - SK-9821 Gigabit Ethernet 1000Base-T Server Adapter
-  - SK-9822 Gigabit Ethernet 1000Base-T Dual Port Server Adapter
-  - SK-9841 Gigabit Ethernet 1000Base-LX Server Adapter
-  - SK-9842 Gigabit Ethernet 1000Base-LX Dual Port Server Adapter
-  - SK-9843 Gigabit Ethernet 1000Base-SX Server Adapter
-  - SK-9844 Gigabit Ethernet 1000Base-SX Dual Port Server Adapter
-  - SK-9861 Gigabit Ethernet 1000Base-SX Server Adapter
-  - SK-9862 Gigabit Ethernet 1000Base-SX Dual Port Server Adapter
-  - SK-9871 Gigabit Ethernet 1000Base-ZX Server Adapter
-  - SK-9872 Gigabit Ethernet 1000Base-ZX Dual Port Server Adapter
+  Say Y here if you have a Marvell Yukon or SysKonnect SK-98xx/SK-95xx
+  compliant Gigabit Ethernet Adapter. The following adapters are supported
+  by this driver:
+  - 3Com 3C940 Gigabit LOM Ethernet Adapter
+  - 3Com 3C941 Gigabit LOM Ethernet Adapter
+  - SK-9821 Gigabit Ethernet Server Adapter (SK-NET GE-T)
+  - SK-9822 Gigabit Ethernet Server Adapter (SK-NET GE-T dual link)
+  - SK-9841 Gigabit Ethernet Server Adapter (SK-NET GE-LX)
+  - SK-9842 Gigabit Ethernet Server Adapter (SK-NET GE-LX dual link)
+  - SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
+  - SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
+  - SK-9861 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition)
+  - SK-9862 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition dual link)
+  - SK-9871 Gigabit Ethernet Server Adapter (SK-NET GE-ZX)
+  - SK-9872 Gigabit Ethernet Server Adapter (SK-NET GE-ZX dual link)
+  - Allied Telesyn AT-2970SX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970LX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970TX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2971SX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2971T Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970SX/2SC Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970LX/2SC Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970TX/2TX Gigabit Ethernet Adapter
+  - Marvell RDK-8001 Adapter
+  - Marvell RDK-8002 Adapter
+  - Marvell RDK-8003 Adapter
+  - Marvell RDK-8004 Adapter
+  - Marvell RDK-8006 Adapter
+  - Marvell RDK-8007 Adapter
+  - Marvell RDK-8008 Adapter
+  - Marvell RDK-8009 Adapter
+  - Marvell RDK-8011 Adapter
+  - Marvell RDK-8012 Adapter
+  - SK-9521 V2.0 10/100/1000Base-T Adapter
   - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
   - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
   - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
   - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
   - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
   - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
+  - SK-9521 10/100/1000Base-T Adapter
+  - DGE-530T Gigabit Ethernet Adapter
+  - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter
+  - N-Way PCI-Bus Giga-Card 1000/100/10Mbps(L)
+  - EG1032 v2 Instant Gigabit Network Adapter
+  - EG1064 v2 Instant Gigabit Network Adapter
 
   The adapters support Jumbo Frames.
   The dual link adapters support link-failover and dual port features.
-  The V2.0 adapters support the scatter-gather functionality with
-  sendfile(). Read Documentation/networking/sk98lin.txt for information about
+  Both Marvell Yukon and SysKonnect SK-98xx/SK-95xx adapters support 
+  the scatter-gather functionality with sendfile(). Please refer to 
+  Documentation/networking/sk98lin.txt for more information about
   optional driver parameters.
   Questions concerning this driver may be addressed to:
     linux@syskonnect.de
@@ -11590,6 +11619,122 @@ CONFIG_SK98LIN
   inserted in and removed from the running kernel whenever you want),
   say M here and read Documentation/modules.txt. This is recommended.
   The module will be called sk98lin.o.
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T1
+  This driver supports:
+
+  - 3Com 3C940 Gigabit LOM Ethernet Adapter
+  - 3Com 3C941 Gigabit LOM Ethernet Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+SysKonnect SK98xx Support
+CONFIG_SK98LIN_T2
+  This driver supports:
+
+  - SK-9821 Gigabit Ethernet Server Adapter (SK-NET GE-T)
+  - SK-9822 Gigabit Ethernet Server Adapter (SK-NET GE-T dual link)
+  - SK-9841 Gigabit Ethernet Server Adapter (SK-NET GE-LX)
+  - SK-9842 Gigabit Ethernet Server Adapter (SK-NET GE-LX dual link)
+  - SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
+  - SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
+  - SK-9861 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition)
+  - SK-9862 Gigabit Ethernet Server Adapter (SK-NET GE-SX Volition dual link)
+  - SK-9871 Gigabit Ethernet Server Adapter (SK-NET GE-ZX)
+  - SK-9872 Gigabit Ethernet Server Adapter (SK-NET GE-ZX dual link)
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+SysKonnect SK98xx Support
+CONFIG_SK98LIN_T3
+  This driver supports:
+
+  - Allied Telesyn AT-2970SX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970LX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970TX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2971SX Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2971T Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970SX/2SC Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970LX/2SC Gigabit Ethernet Adapter
+  - Allied Telesyn AT-2970TX/2TX Gigabit Ethernet Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T4
+  This driver supports:
+
+  - Marvell RDK-8001 Adapter
+  - Marvell RDK-8002 Adapter
+  - Marvell RDK-8003 Adapter
+  - Marvell RDK-8004 Adapter
+  - Marvell RDK-8006 Adapter
+  - Marvell RDK-8007 Adapter
+  - Marvell RDK-8008 Adapter
+  - Marvell RDK-8009 Adapter
+  - Marvell RDK-8011 Adapter
+  - Marvell RDK-8012 Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T5
+  This driver supports:
+
+  - SK-9521 V2.0 10/100/1000Base-T Adapter
+  - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
+  - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
+  - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+  - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+  - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+  - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
+  - SK-9521 10/100/1000Base-T Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T6
+  This driver supports:
+
+  - DGE-530T Gigabit Ethernet Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T7
+  This driver supports:
+
+  - Marvell Yukon Gigabit Ethernet 10/100/1000Base-T Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T8
+  This driver supports:
+
+  - N-Way PCI-Bus Giga-Card 1000/100/10Mbps(L)
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
+Marvell Yukon Chipset
+CONFIG_SK98LIN_T9
+  This driver supports:
+
+  - EG1032 v2 Instant Gigabit Network Adapter
+  - EG1064 v2 Instant Gigabit Network Adapter
+
+  Questions concerning this driver may be addressed to:
+    linux@syskonnect.de
+
 
 Sun GEM support
 CONFIG_SUNGEM
@@ -27724,6 +27869,12 @@ CONFIG_TULIP_MWI
   This is experimental code, not yet tested on many boards.
 
   If unsure, say N.
+
+Hotplug firmware loading support (EXPERIMENTAL)
+CONFIG_FW_LOADER
+  This option is provided for the case where no in-kernel-tree modules require
+  hotplug firmware loading support, but a module built outside the kernel tree
+  does.
 
 NatSemi SCx200 support
 CONFIG_SCx200

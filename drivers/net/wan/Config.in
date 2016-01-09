@@ -68,6 +68,7 @@ fi
    tristate '  Generic HDLC layer' CONFIG_HDLC
    if [ "$CONFIG_HDLC" != "n" ]; then
       bool '    Raw HDLC support' CONFIG_HDLC_RAW
+      bool '    Raw HDLC Ethernet device support' CONFIG_HDLC_RAW_ETH
       bool '    Cisco HDLC support' CONFIG_HDLC_CISCO
       bool '    Frame Relay support' CONFIG_HDLC_FR
       bool '    Synchronous Point-to-Point Protocol (PPP) support' CONFIG_HDLC_PPP

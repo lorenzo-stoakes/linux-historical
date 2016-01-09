@@ -504,6 +504,14 @@ P:	James Morris
 M:	jmorris@intercode.com.au
 P:	David S. Miller
 M:	davem@redhat.com
+MARVELL YUKON / SYSKONNECT DRIVER
+P:	Mirko Lindner
+M: 	mlindner@syskonnect.de
+P:	Ralph Roesler
+M: 	rroesler@syskonnect.de
+W: 	http://www.syskonnect.com
+S: 	Supported
+M:	davem@redhat.com
 W	http://samba.org/~jamesm/crypto/
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
@@ -1749,12 +1757,6 @@ P:	Martin Mares
 M:	mj@ucw.cz
 L:	linux-video@atrey.karlin.mff.cuni.cz
 S:	Maintained
-
-SYSKONNECT DRIVER
-P: Mirko Lindner
-M: mlindner@syskonnect.de
-W: http://www.syskonnect.com
-S: Supported
 
 SYSV FILESYSTEM
 P:	Christoph Hellwig

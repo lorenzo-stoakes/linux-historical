@@ -843,11 +843,14 @@ static int axnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     u16 *data = (u16 *)&rq->ifr_data;
     ioaddr_t mii_addr = dev->base_addr + AXNET_MII_EEP;
     switch (cmd) {
+    case SIOCGMIIPHY:
     case SIOCDEVPRIVATE:
 	data[0] = info->phy_id;
+    case SIOCGMIIREG:		/* Read MII PHY register. */
     case SIOCDEVPRIVATE+1:
 	data[3] = mdio_read(mii_addr, data[0], data[1] & 0x1f);
 	return 0;
+    case SIOCSMIIREG:		/* Write MII PHY register. */
     case SIOCDEVPRIVATE+2:
 	if (!capable(CAP_NET_ADMIN))
 	    return -EPERM;

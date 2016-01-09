@@ -947,7 +947,7 @@ static int meye_do_ioctl(struct inode *inode, struct file *file,
 
 	case VIDIOCGCAP: {
 		struct video_capability *b = arg;
-		strcpy(b->name,meye.video_dev.name);
+		strcpy(b->name,meye.video_dev->name);
 		b->type = VID_TYPE_CAPTURE;
 		b->channels = 1;
 		b->audios = 0;
@@ -1252,6 +1252,7 @@ static struct video_device meye_template = {
 	.type		= VID_TYPE_CAPTURE,
 	.hardware	= VID_HARDWARE_MEYE,
 	.fops		= &meye_fops,
+	.minor		= -1,
 };
 
 #ifdef CONFIG_PM
@@ -1302,10 +1303,16 @@ static int __devinit meye_probe(struct pci_dev *pcidev,
 		goto out1;
 	}
 
-	sonypi_camera_command(SONYPI_COMMAND_SETCAMERA, 1);
-
 	meye.mchip_dev = pcidev;
-	memcpy(&meye.video_dev, &meye_template, sizeof(meye_template));
+	meye.video_dev = kmalloc(sizeof(struct video_device), GFP_KERNEL);
+	if (!meye.video_dev) {
+		printk(KERN_ERR "meye: video_device_alloc() failed!\n");
+		ret = -EBUSY;
+		goto out1;
+	}
+	memcpy(meye.video_dev, &meye_template, sizeof(meye_template));
+
+	sonypi_camera_command(SONYPI_COMMAND_SETCAMERA, 1);
 
 	if ((ret = pci_enable_device(meye.mchip_dev))) {
 		printk(KERN_ERR "meye: pci_enable_device failed\n");
@@ -1362,7 +1369,7 @@ static int __devinit meye_probe(struct pci_dev *pcidev,
 	wait_ms(1);
 	mchip_set(MCHIP_MM_INTA, MCHIP_MM_INTA_HIC_1_MASK);
 
-	if (video_register_device(&meye.video_dev, VFL_TYPE_GRABBER, video_nr) < 0) {
+	if (video_register_device(meye.video_dev, VFL_TYPE_GRABBER, video_nr) < 0) {
 
 		printk(KERN_ERR "meye: video_register_device failed\n");
 		ret = -EIO;
@@ -1410,6 +1417,9 @@ out4:
 out3:
 	pci_disable_device(meye.mchip_dev);
 out2:
+	kfree(meye.video_dev);
+	meye.video_dev = NULL;
+
 	sonypi_camera_command(SONYPI_COMMAND_SETCAMERA, 0);
 out1:
 	return ret;
@@ -1417,7 +1427,7 @@ out1:
 
 static void __devexit meye_remove(struct pci_dev *pcidev) {
 
-	video_unregister_device(&meye.video_dev);
+	video_unregister_device(meye.video_dev);
 
 	mchip_hic_stop();
 
@@ -1443,7 +1453,7 @@ static void __devexit meye_remove(struct pci_dev *pcidev) {
 	printk(KERN_INFO "meye: removed\n");
 }
 
-static struct pci_device_id meye_pci_tbl[] __devinitdata = {
+static struct pci_device_id meye_pci_tbl[] = {
 	{ PCI_VENDOR_ID_KAWASAKI, PCI_DEVICE_ID_MCHIP_KL5A72002, 
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 	{ }
@@ -1502,8 +1512,6 @@ __setup("meye=", meye_setup);
 MODULE_AUTHOR("Stelian Pop <stelian@popies.net>");
 MODULE_DESCRIPTION("video4linux driver for the MotionEye camera");
 MODULE_LICENSE("GPL");
-
-EXPORT_NO_SYMBOLS;
 
 MODULE_PARM(gbuffers,"i");
 MODULE_PARM_DESC(gbuffers,"number of capture buffers, default is 2 (32 max)");

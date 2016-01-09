@@ -31,6 +31,16 @@ u32 ethtool_op_get_tx_csum(struct net_device *dev)
 	return (dev->features & NETIF_F_IP_CSUM) != 0;
 }
 
+int ethtool_op_set_tx_csum(struct net_device *dev, u32 data)
+{
+	if (data)
+		dev->features |= NETIF_F_IP_CSUM;
+	else
+		dev->features &= ~NETIF_F_IP_CSUM;
+
+	return 0;
+}
+
 u32 ethtool_op_get_sg(struct net_device *dev)
 {
 	return (dev->features & NETIF_F_SG) != 0;
@@ -503,15 +513,15 @@ static int ethtool_get_strings(struct net_device *dev, void *useraddr)
 
 	switch (gstrings.string_set) {
 	case ETH_SS_TEST:
-		if (ops->self_test_count)
-			gstrings.len = ops->self_test_count(dev);
-		else
+		if (!ops->self_test_count)
 			return -EOPNOTSUPP;
+		gstrings.len = ops->self_test_count(dev);
+		break;
 	case ETH_SS_STATS:
-		if (ops->get_stats_count)
-			gstrings.len = ops->get_stats_count(dev);
-		else
+		if (!ops->get_stats_count)
 			return -EOPNOTSUPP;
+		gstrings.len = ops->get_stats_count(dev);
+		break;
 	default:
 		return -EINVAL;
 	}

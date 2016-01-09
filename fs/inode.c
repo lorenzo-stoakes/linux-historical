@@ -583,22 +583,25 @@ void clear_inode(struct inode *inode)
  * Dispose-list gets a local list with local inodes in it, so it doesn't
  * need to worry about list corruption and SMP locks.
  */
-static void dispose_list(struct list_head * head)
+static void dispose_list(struct list_head *head)
 {
-	struct list_head * inode_entry;
-	struct inode * inode;
+	int nr_disposed = 0;
 
-	while ((inode_entry = head->next) != head)
-	{
-		list_del(inode_entry);
+	while (!list_empty(head)) {
+		struct inode *inode;
 
-		inode = list_entry(inode_entry, struct inode, i_list);
+		inode = list_entry(head->next, struct inode, i_list);
+		list_del(&inode->i_list);
+
 		if (inode->i_data.nrpages)
 			truncate_inode_pages(&inode->i_data, 0);
 		clear_inode(inode);
 		destroy_inode(inode);
-		inodes_stat.nr_inodes--;
+		nr_disposed++;
 	}
+	spin_lock(&inode_lock);
+	inodes_stat.nr_inodes -= nr_disposed;
+	spin_unlock(&inode_lock);
 }
 
 /*

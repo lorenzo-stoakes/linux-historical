@@ -80,12 +80,12 @@ static struct pci_driver airo_driver = {
 #endif
 
 /* Support Cisco MIC feature */
-/* As this feature requires the AES encryption algorithm, it is not included
-   in the kernel tree. If you want to enable it, you need to download the
-   aes.c, aes.h and aestab.h files from the CVS at
-   http://sf.net/projects/airo-linux/ Put the files in the same directory
-   as airo.c and compile normally */
+#define MICSUPPORT
+
+#if defined(MICSUPPORT) && !defined(CONFIG_CRYPTO)
+#warning MIC support requires Crypto API
 #undef MICSUPPORT
+#endif
 
 /* Hack to do some power saving */
 #define POWER_ON_DOWN
@@ -1001,7 +1001,7 @@ static int micsetup(struct airo_info *ai);
 static int encapsulate(struct airo_info *ai, etherHead *pPacket, MICBuffer *buffer, int len);
 static int decapsulate(struct airo_info *ai, MICBuffer *mic, etherHead *pPacket, u16 payLen);
 
-#include "aes.c"
+#include <linux/crypto.h>
 #endif
 
 struct airo_info {
@@ -1073,7 +1073,7 @@ struct airo_info {
 #endif /* WIRELESS_EXT */
 #ifdef MICSUPPORT
 	/* MIC stuff */
-	aes			cx;
+	struct crypto_tfm	*tfm;
 	mic_module		mod[2];
 	mic_statistics		micstats;
 #endif
@@ -1097,7 +1097,7 @@ static int takedown_proc_entry( struct net_device *dev,
 
 static int RxSeqValid (struct airo_info *ai,miccntx *context,int mcast,u32 micSeq);
 static void MoveWindow(miccntx *context, u32 micSeq);
-void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, aes *cx);
+void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, struct crypto_tfm *);
 void emmh32_init(emmh32_context *context);
 void emmh32_update(emmh32_context *context, u8 *pOctets, int len);
 void emmh32_final(emmh32_context *context, u8 digest[4]);
@@ -1129,7 +1129,7 @@ static void micinit(struct airo_info *ai)
 			ai->mod[0].mCtx.valid   = 1;  //Key is now valid
   
 			/* Give key to mic seed */
-			emmh32_setseed(&ai->mod[0].mCtx.seed,mic_rid.multicast,sizeof(mic_rid.multicast), &ai->cx);
+			emmh32_setseed(&ai->mod[0].mCtx.seed,mic_rid.multicast,sizeof(mic_rid.multicast), ai->tfm);
 		}
 
 		/* Key must be valid and different */
@@ -1147,7 +1147,7 @@ static void micinit(struct airo_info *ai)
 			ai->mod[0].uCtx.valid   = 1;  //Key is now valid
 	
 			//Give key to mic seed
-			emmh32_setseed(&ai->mod[0].uCtx.seed, mic_rid.unicast, sizeof(mic_rid.unicast), &ai->cx);
+			emmh32_setseed(&ai->mod[0].uCtx.seed, mic_rid.unicast, sizeof(mic_rid.unicast), ai->tfm);
 		}
 	} else {
       /* So next time we have a valid key and mic is enabled, we will update
@@ -1162,6 +1162,14 @@ static void micinit(struct airo_info *ai)
 
 static int micsetup(struct airo_info *ai) {
 	int i;
+
+	if (ai->tfm == NULL)
+	        ai->tfm = crypto_alloc_tfm("aes", 0);
+
+        if (ai->tfm == NULL) {
+                printk(KERN_ERR "airo: failed to load transform for AES\n");
+                return ERROR;
+        }
 
 	for (i=0; i < NUM_MODULES; i++) {
 		memset(&ai->mod[i].mCtx,0,sizeof(miccntx));
@@ -1425,16 +1433,17 @@ static void MoveWindow(miccntx *context, u32 micSeq)
 static unsigned char aes_counter[16];
 
 /* expand the key to fill the MMH coefficient array */
-void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, aes *cx)
+void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, struct crypto_tfm *tfm)
 {
   /* take the keying material, expand if necessary, truncate at 16-bytes */
   /* run through AES counter mode to generate context->coeff[] */
   
 	int i,j;
 	u32 counter;
-	u8 cipher[16];
+	u8 *cipher;
+	struct scatterlist sg[1];
 
-	set_key(pkey, 16, 1, cx);
+	crypto_cipher_setkey(tfm, pkey, 16);
 	counter = 0;
 	for (i = 0; i < (sizeof(context->coeff)/sizeof(context->coeff[0])); ) {
 		aes_counter[15] = (u8)(counter >> 0);
@@ -1442,7 +1451,11 @@ void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, aes *cx)
 		aes_counter[13] = (u8)(counter >> 16);
 		aes_counter[12] = (u8)(counter >> 24);
 		counter++;
-		encrypt(&aes_counter[0], &cipher[0], cx);
+		sg[0].page = virt_to_page(aes_counter);
+		sg[0].offset = ((long) aes_counter & ~PAGE_MASK);
+		sg[0].length = 16;
+		crypto_cipher_encrypt(tfm, sg, sg, 16);
+		cipher = kmap(sg[0].page) + sg[0].offset;
 		for (j=0; (j<16) && (i< (sizeof(context->coeff)/sizeof(context->coeff[0]))); ) {
 			context->coeff[i++] = ntohl(*(u32 *)&cipher[j]);
 			j += 4;
@@ -2078,6 +2091,10 @@ void stop_airo_card( struct net_device *dev, int freeres )
 		/* PCMCIA frees this stuff, so only for PCI and ISA */
 	        release_region( dev->base_addr, 64 );
         }
+#ifdef MICSUPPORT
+	if (ai->tfm)
+		crypto_free_tfm(ai->tfm);
+#endif
 	del_airo_dev( dev );
 	kfree( dev );
 }
@@ -2179,7 +2196,9 @@ struct net_device *init_airo_card( unsigned short irq, int port, int is_pcmcia )
 	ai->thr_pid = kernel_thread(airo_thread, dev, CLONE_FS | CLONE_FILES);
 	if (ai->thr_pid < 0)
 		goto err_out_free;
-
+#ifdef MICSUPPORT
+	ai->tfm = NULL;
+#endif
 	rc = add_airo_dev( dev );
 	if (rc)
 		goto err_out_thr;
@@ -2654,11 +2673,13 @@ static void airo_interrupt ( int irq, void* dev_id, struct pt_regs *regs) {
 				if (decapsulate(apriv,&micbuf,(etherHead*)buffer,len)) {
 badmic:
 					dev_kfree_skb_irq (skb);
+#else
+				if (0) {
+#endif
 badrx:
 					OUT4500( apriv, EVACK, EV_RX);
-					goto badrx;
+					goto exitrx;
 				}
-#endif
 			}
 #if WIRELESS_EXT > 15
 #ifdef IW_WIRELESS_SPY		/* defined in iw_handler.h */
@@ -2725,7 +2746,7 @@ badrx:
 
 			netif_rx( skb );
 		}
-badrx:
+exitrx:
 
 		/* Check to see if a packet has been transmitted */
 		if (  status & ( EV_TX|EV_TXEXC ) ) {
@@ -4617,7 +4638,7 @@ static int __devinit airo_pci_probe(struct pci_dev *pdev,
 		return -ENODEV;
 
 	pci_set_drvdata(pdev, dev);
-	clear_bit (FLAG_PCI, &((struct airo_info *)dev->priv)->flags);
+	set_bit (FLAG_PCI, &((struct airo_info *)dev->priv)->flags);
 	return 0;
 }
 
@@ -4629,7 +4650,7 @@ static void __devexit airo_pci_remove(struct pci_dev *pdev)
 
 static int __init airo_init_module( void )
 {
-	int i, rc = 0, have_isa_dev = 0;
+	int i, have_isa_dev = 0;
 
 	airo_entry = create_proc_entry("aironet",
 				       S_IFDIR | airo_perm,
@@ -4647,7 +4668,7 @@ static int __init airo_init_module( void )
 
 #ifdef CONFIG_PCI
 	printk( KERN_INFO "airo:  Probing for PCI adapters\n" );
-	rc = pci_module_init(&airo_driver);
+	pci_module_init(&airo_driver);
 	printk( KERN_INFO "airo:  Finished probing for PCI adapters\n" );
 #endif
 
@@ -4670,8 +4691,11 @@ static void __exit airo_cleanup_module( void )
 	}
 	remove_proc_entry("aironet", proc_root_driver);
 
-	if (is_pci)
+	if (is_pci) {
+#ifdef CONFIG_PCI
 		pci_unregister_driver(&airo_driver);
+#endif
+	}
 }
 
 #ifdef WIRELESS_EXT
@@ -5654,9 +5678,10 @@ static int airo_get_power(struct net_device *dev,
 			  char *extra)
 {
 	struct airo_info *local = dev->priv;
+	int mode;
 
 	readConfigRid(local, 1);
-	int mode = local->config.powerSaveMode;
+	mode = local->config.powerSaveMode;
 	if ((vwrq->disabled = (mode == POWERSAVE_CAM)))
 		return 0;
 	if ((vwrq->flags & IW_POWER_TYPE) == IW_POWER_TIMEOUT) {
