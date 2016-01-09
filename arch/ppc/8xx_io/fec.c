@@ -1019,7 +1019,7 @@ static phy_info_t phy_info_qs6612 = {
 		{ mk_mii_end, }
 	},
 	(const phy_cmd_t []) {  /* startup - enable interrupts */
-		{ mk_mii_write(MII_QS6612_IMR, 0x003a), NULL },
+		{ mk_mii_write(MII_QS6612_IMR, 0x0050), NULL },
 		{ mk_mii_write(MII_REG_CR, 0x1200), NULL }, /* autonegotiate */
 		{ mk_mii_end, }
 	},

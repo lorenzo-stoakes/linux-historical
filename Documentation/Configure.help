@@ -2589,6 +2589,17 @@ CONFIG_IP_NF_IPTABLES
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+recent match support
+CONFIG_IP_NF_MATCH_RECENT
+  This match is used for creating one or many lists of recently
+  used addresses and then matching against that/those list(s).
+
+  Short options are available by using 'iptables -m recent -h'
+  Official Website: <http://snowman.net/projects/ipt_recent/>
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 limit match support
 CONFIG_IP_NF_MATCH_LIMIT
   limit matching allows you to control the rate at which a rule can be
@@ -12967,21 +12978,39 @@ CONFIG_MTD_REDBOOT_PARTS
   <file:Documentation/modules.txt>. The module will be called
   redboot.o
 
-Compaq bootldr partition table parsing
-CONFIG_MTD_BOOTLDR_PARTS
-  The Compaq bootldr deals with multiple 'images' in flash devices
-  by putting a table in one of the first erase blocks of the device,
-  similar to a partition table, which gives the offsets, lengths and
-  names of all the images stored in the flash.
-
-  If you need code which can detect and parse this table, and register
-  MTD 'partitions' corresponding to each image in the table, enable
-  this option.
+CONFIG_MTD_CMDLINE_PARTS
+  Allow generic configuration of the MTD paritition tables via the kernel
+  command line. Multiple flash resources are supported for hardware where
+  different kinds of flash memory are available. 
 
   You will still need the parsing functions to be called by the driver
   for your particular device. It won't happen automatically. The 
   SA1100 map driver (CONFIG_MTD_SA1100) has an option for this, for 
   example.
+
+  The format for the command line is as follows:
+
+  mtdparts=<mtddef>[;<mtddef]
+  <mtddef>  := <mtd-id>:<partdef>[,<partdef>]
+  <partdef> := <size>[@offset][<name>][ro]
+  <mtd-id>  := unique id used in mapping driver/device
+  <size>    := standard linux memsize OR "-" to denote all 
+  remaining space
+  <name>    := (NAME)
+
+  Due to the way Linux handles the command line, no spaces are 
+  allowed in the partition definition, including mtd id's and partition 
+  names.
+
+  Examples:
+
+  1 flash resource (mtd-id "sa1100"), with 1 single writable partition:
+  mtdparts=sa1100:-
+
+  Same flash, but 2 named partitions, the first one being read-only:
+  mtdparts=sa1100:256k(ARMboot)ro,-(root)
+
+  If unsure, say 'N'.
 
 ARM Firmware Suite flash layout / partition parsing
 CONFIG_MTD_AFS_PARTS
@@ -13150,6 +13179,10 @@ CONFIG_MTD_CFI_B4
   If you wish to support CFI devices on a physical bus which is
   32 bits wide, say 'Y'.
 
+CONFIG_MTD_CFI_B8
+  If you wish to support CFI devices on a physical bus which is
+  64 bits wide, say 'Y'.
+
 Support 1-chip flash interleave
 CONFIG_MTD_CFI_I1
   If your flash chips are not interleaved - i.e. you only have one
@@ -13163,6 +13196,10 @@ CONFIG_MTD_CFI_I2
 Support 4-chip flash interleave
 CONFIG_MTD_CFI_I4
   If your flash chips are interleaved in fours - i.e. you have four
+  flash chips addressed by each bus cycle, then say 'Y'.
+
+CONFIG_MTD_CFI_I8
+  If your flash chips are interleaved in eights - i.e. you have eight
   flash chips addressed by each bus cycle, then say 'Y'.
 
 # Choice: mtd_data_swap
@@ -13228,6 +13265,11 @@ CONFIG_MTD_AMDSTD
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>. The module will be called
   amd_flash.o
+
+CONFIG_MTD_CFI_STAA
+  The Common Flash Interface defines a number of different command
+  sets which a CFI-compliant chip may claim to implement. This code
+  provides support for one of those command sets.
 
 Support for RAM chips in bus mapping
 CONFIG_MTD_RAM

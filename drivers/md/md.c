@@ -1805,10 +1805,12 @@ static int do_md_stop(mddev_t * mddev, int ro)
 	int err = 0, resync_interrupted = 0;
 	kdev_t dev = mddev_to_kdev(mddev);
 
+#if 0 /* ->active is not currently reliable */
 	if (atomic_read(&mddev->active)>1) {
 		printk(STILL_IN_USE, mdidx(mddev));
 		OUT(-EBUSY);
 	}
+#endif
 
 	if (mddev->pers) {
 		/*
@@ -2742,12 +2744,17 @@ static int md_ioctl(struct inode *inode, struct file *file,
 			goto done_unlock;
 
 		case STOP_ARRAY:
-			if (!(err = do_md_stop (mddev, 0)))
+			if (inode->i_bdev->bd_openers > 1)
+				err = -EBUSY;
+			else if (!(err = do_md_stop (mddev, 0)))
 				mddev = NULL;
 			goto done_unlock;
 
 		case STOP_ARRAY_RO:
-			err = do_md_stop (mddev, 1);
+			if (inode->i_bdev->bd_openers > 1)
+				err = -EBUSY;
+			else 
+				err = do_md_stop (mddev, 1);
 			goto done_unlock;
 
 	/*

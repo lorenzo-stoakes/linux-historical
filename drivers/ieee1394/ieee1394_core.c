@@ -439,7 +439,7 @@ void hpsb_packet_sent(struct hpsb_host *host, struct hpsb_packet *packet,
         spin_unlock_irqrestore(&host->pending_pkt_lock, flags);
 
         up(&packet->state_change);
-        schedule_task(&host->timeout_tq);
+	mod_timer(&host->timeout, jiffies + host->timeout_interval);
 }
 
 /**
@@ -958,28 +958,23 @@ void abort_requests(struct hpsb_host *host)
         }
 }
 
-void abort_timedouts(struct hpsb_host *host)
+void abort_timedouts(unsigned long __opaque)
 {
+	struct hpsb_host *host = (struct hpsb_host *)__opaque;
         unsigned long flags;
         struct hpsb_packet *packet;
         unsigned long expire;
-        struct list_head *lh, *next, *tlh;
+        struct list_head *lh, *tlh;
         LIST_HEAD(expiredlist);
 
         spin_lock_irqsave(&host->csr.lock, flags);
-        expire = (host->csr.split_timeout_hi * 8000 
-                  + (host->csr.split_timeout_lo >> 19))
-                * HZ / 8000;
-        /* Avoid shortening of timeout due to rounding errors: */
-        expire++;
+	expire = host->csr.expire;
         spin_unlock_irqrestore(&host->csr.lock, flags);
-
 
         spin_lock_irqsave(&host->pending_pkt_lock, flags);
 
-	for (lh = host->pending_packets.next; lh != &host->pending_packets; lh = next) {
+	list_for_each_safe(lh, tlh, &host->pending_packets) {
                 packet = list_entry(lh, struct hpsb_packet, list);
-		next = lh->next;
                 if (time_before(packet->sendtime + expire, jiffies)) {
                         list_del(&packet->list);
                         list_add(&packet->list, &expiredlist);
@@ -987,7 +982,7 @@ void abort_timedouts(struct hpsb_host *host)
         }
 
         if (!list_empty(&host->pending_packets))
-		schedule_task(&host->timeout_tq);
+		mod_timer(&host->timeout, jiffies + host->timeout_interval);
 
         spin_unlock_irqrestore(&host->pending_pkt_lock, flags);
 

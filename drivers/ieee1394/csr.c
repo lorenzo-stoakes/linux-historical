@@ -19,6 +19,7 @@
 
 #include <linux/string.h>
 #include <linux/module.h> /* needed for MODULE_PARM */
+#include <linux/param.h>
 
 #include "ieee1394_types.h"
 #include "hosts.h"
@@ -87,6 +88,35 @@ static void host_reset(struct hpsb_host *host)
                                                          0x3f1));
 }
 
+/* 
+ * HI == seconds (bits 0:2)
+ * LO == fraction units of 1/8000 of a second, as per 1394 (bits 19:31)
+ *
+ * Convert to units and then to HZ, for comparison to jiffies.
+ *
+ * By default this will end up being 800 units, or 100ms (125usec per
+ * unit).
+ *
+ * NOTE: The spec says 1/8000, but also says we can compute based on 1/8192
+ * like CSR specifies. Should make our math less complex.
+ */
+static inline void calculate_expire(struct csr_control *csr)
+{
+	unsigned long units;
+	
+	/* Take the seconds, and convert to units */
+	units = (unsigned long)(csr->split_timeout_hi & 0x07) << 13;
+
+	/* Add in the fractional units */
+	units += (unsigned long)(csr->split_timeout_lo >> 19);
+
+	/* Convert to jiffies */
+	csr->expire = (unsigned long)(units * HZ) >> 13UL;
+
+	/* Just to keep from rounding low */
+	csr->expire++;
+}
+
 
 static void add_host(struct hpsb_host *host)
 {
@@ -98,6 +128,7 @@ static void add_host(struct hpsb_host *host)
         host->csr.node_ids              = 0;
         host->csr.split_timeout_hi      = 0;
         host->csr.split_timeout_lo      = 800 << 19;
+	calculate_expire(&host->csr);
         host->csr.cycle_time            = 0;
         host->csr.bus_time              = 0;
         host->csr.bus_manager_id        = 0x3f;
@@ -334,10 +365,12 @@ static int write_regs(struct hpsb_host *host, int nodeid, int destid,
         case CSR_SPLIT_TIMEOUT_HI:
                 host->csr.split_timeout_hi = 
                         be32_to_cpu(*(data++)) & 0x00000007;
+		calculate_expire(&host->csr);
                 out;
         case CSR_SPLIT_TIMEOUT_LO:
                 host->csr.split_timeout_lo = 
                         be32_to_cpu(*(data++)) & 0xfff80000;
+		calculate_expire(&host->csr);
                 out;
 
                 /* address gap */
