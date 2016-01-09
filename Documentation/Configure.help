@@ -2446,6 +2446,14 @@ CONFIG_IP_NF_MATCH_LENGTH
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+AH/ESP match support
+CONFIG_IP_NF_MATCH_AH_ESP
+  These two match extensions (`ah' and `esp') allow you to match a
+  range of SPIs inside AH or ESP headers of IPSec packets.
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 TOS match support
 CONFIG_IP_NF_MATCH_TOS
   TOS matching allows you to match packets based on the Type Of
@@ -2613,6 +2621,19 @@ CONFIG_IP_NF_MATCH_TCPMSS
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+ULOG target support
+CONFIG_IP_NF_TARGET_ULOG
+  This option adds a `ULOG' target, which allows you to create rules in
+  any iptables table. The packet is passed to a userspace logging
+  daemon using netlink multicast sockets; unlike the LOG target
+  which can only be viewed through syslog.
+
+  The apropriate userspace logging daemon (ulogd) may be obtained from
+  http://www.gnumonks.org/projects/ulogd
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 LOG target support
 CONFIG_IP_NF_TARGET_LOG
   This option adds a `LOG' target, which allows you to create rules in
@@ -2668,6 +2689,23 @@ CONFIG_IP6_NF_MATCH_MULTIPORT
 
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+IPV6 queue handler (EXPERIMENTAL)
+CONFIG_IP6_NF_QUEUE
+
+  This option adds a queue handler to the kernel for IPv6
+  packets which lets us to receive the filtered packets
+  with QUEUE target using libiptc as we can do with
+  the IPv4 now.
+
+  (C) Fernando Anton 2001
+  IPv64 Project - Work based in IPv64 draft by Arturo Azcorra.
+  Universidad Carlos III de Madrid
+  Universidad Politecnica de Alcala de Henares
+  email: fanton@it.uc3m.es
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt. If unsure, say `N'.
 
 Owner match support
 CONFIG_IP6_NF_MATCH_OWNER
@@ -3204,6 +3242,16 @@ CONFIG_AGP_INTEL
 
   You should say Y here if you use XFree86 3.3.6 or 4.x and want to
   use GLX or DRI.  If unsure, say N.
+
+Intel 460GX support
+CONFIG_AGP_I460
+  This option gives you AGP support for the Intel 460GX chipset.  This
+  chipset, the first to support Intel Itanium processors, is new and
+  this option is correspondingly a little experimental.
+
+  If you don't have a 460GX based machine (such as BigSur) with an AGP 
+  slot then this option isn't going to do you much good.  If you're
+  dying to do Direct Rendering on IA-64, this is what you're looking for.
 
 Intel I810/I815 DC100/I810e support
 CONFIG_AGP_I810
@@ -3813,6 +3861,7 @@ CONFIG_M386
    - "Pentium-4" for the Intel Pentium 4.
    - "K6" for the AMD K6, K6-II and K6-III (aka K6-3D).
    - "Athlon" for the AMD K7 family (Athlon/Duron/Thunderbird).
+   - "Elan" for the AMD Elan family (Elan SC400/SC410).
    - "Crusoe" for the Transmeta Crusoe series.
    - "Winchip-C6" for original IDT Winchip.
    - "Winchip-2" for IDT Winchip 2.
@@ -14891,6 +14940,18 @@ CONFIG_SGI_PARTITION
   Say Y here if you would like to be able to read the hard disk
   partition table format used by SGI machines.
 
+Intel EFI GUID partition support
+CONFIG_EFI_PARTITION
+  Say Y here if you would like to use hard disks under Linux which
+  were partitioned using EFI GPT.  Presently only useful on the
+  IA-64 platform.
+
+/dev/guid support (EXPERIMENTAL)
+CONFIG_DEVFS_GUID
+  Say Y here if you would like to access disks and partitions by
+  their Globally Unique Identifiers (GUIDs) which will appear as
+  symbolic links in /dev/guid.
+
 Ultrix partition table support
 CONFIG_ULTRIX_PARTITION
   Say Y here if you would like to be able to read the hard disk
@@ -23690,11 +23751,22 @@ CONFIG_IA64_GENERIC
 
   HP-simulator   For the HP simulator
                  (<http://software.hp.com/ia64linux/>).
-  SN1-simulator  For the SGI SN1 simulator.
+  SN1            For SGI SN1 Platforms.
+  SN2            For SGI SN2 Platforms.
   DIG-compliant  For DIG ("Developer's Interface Guide") compliant
                  system.
 
   If you don't know what to do, choose "generic".
+
+CONFIG_IA64_SGI_SN_SIM
+  Build a kernel that runs on both the SGI simulator AND on hardware.
+  There is a very slight performance penalty on hardware for including this
+  option.
+
+CONFIG_IA64_SGI_SN_DEBUG
+  This enables addition debug code that helps isolate
+  platform/kernel bugs. There is a small but measurable performance
+  degradation when this option is enabled.
 
 # Choice: pagesize
 Kernel page size
@@ -23713,53 +23785,13 @@ CONFIG_IA64_PAGE_SIZE_4KB
 
   If you don't know what to do, choose 8KB.
 
-Enable Itanium A-step specific code
-CONFIG_ITANIUM_ASTEP_SPECIFIC
-  Select this option to build a kernel for an Itanium prototype system
-  with an A-step CPU.  You have an A-step CPU if the "revision" field
-  in /proc/cpuinfo is 0.
-
 Enable Itanium B-step specific code
 CONFIG_ITANIUM_BSTEP_SPECIFIC
   Select this option to build a kernel for an Itanium prototype system
-  with a B-step CPU.  You have a B-step CPU if the "revision" field in
-  /proc/cpuinfo has a value in the range from 1 to 4.
-
-Enable Itanium B0-step specific code
-CONFIG_ITANIUM_B0_SPECIFIC
-  Select this option to build a kernel for an Itanium prototype system
-  with a B0-step CPU.  You have a B0-step CPU if the "revision" field
-  in /proc/cpuinfo is 1.
-
-Enable Itanium C-step specific code
-CONFIG_ITANIUM_CSTEP_SPECIFIC
-  Select this option to build a kernel for an Itanium prototype system
-  with a C-step CPU.  You have a C-step CPU if the "revision" field in
-  /proc/cpuinfo is in the range of 5 to 8.
-
-Enable Itanium B1-step specific code
-CONFIG_ITANIUM_B1_SPECIFIC
-  Select this option to build a kernel for an Itanium prototype system
-  with a B1-step CPU.  You have a B1-step CPU if the "revision" field
-  in /proc/cpuinfo is 2.
-
-Enable Itanium B2-step specific code
-CONFIG_ITANIUM_B2_SPECIFIC
-  Select this option to build a kernel for an Itanium prototype system
-  with a B2-step CPU.  You have a B2-step CPU if the "revision" field
-  in /proc/cpuinfo is 3.
-
-Enable Itanium C0-step specific code
-CONFIG_ITANIUM_C0_SPECIFIC
-  Select this option to build a kernel for an Itanium prototype system
-  with a C0-step CPU.  You have a C0-step CPU if the "revision" field
-  in /proc/cpuinfo is 5.
-
-Force interrupt redirection
-CONFIG_IA64_HAVE_IRQREDIR
-  Select this option if you know that your system has the ability to
-  redirect interrupts to different CPUs.  Select N here if you're
-  unsure.
+  with a B-step CPU.  Only B3 step CPUs are supported.  You have a B3-step
+  CPU if the "revision" field in /proc/cpuinfo is equal to 4.  If the
+  "revision" field shows a number bigger than 4, you do not have to turn
+  on this option.
 
 Enable IA-64 Machine Check Abort
 CONFIG_IA64_MCA
@@ -23824,6 +23856,15 @@ CONFIG_IA64_PALINFO
   Layer) information in /proc/pal.  This contains useful information
   about the processors in your systems, such as cache and TLB sizes
   and the PAL firmware version in use.
+
+  To use this option, you have to check that the "/proc file system
+  support" (CONFIG_PROC_FS) is enabled, too.
+
+/proc/efi/vars support
+CONFIG_EFI_VARS
+  If you say Y here, you are able to get EFI (Extensible Firmware
+  Interface) variable information in /proc/efi/vars.  You may read,
+  write, create, and destroy EFI variables through this interface.
 
   To use this option, you have to check that the "/proc file system
   support" (CONFIG_PROC_FS) is enabled, too.
@@ -24298,6 +24339,16 @@ CONFIG_GDB_CONSOLE
   If you are using GDB for remote debugging over a serial port and
   would like kernel messages to be formatted into GDB $O packets so
   that GDB prints them as program output, say 'Y'.
+
+802.1Q VLAN Support
+CONFIG_VLAN_8021Q
+  Select this and you will be able to create 802.1Q VLAN interfaces on your
+  ethernet interfaces.  802.1Q VLAN supports almost everything a regular
+  ethernet interface does, including firewalling, bridging, and of course
+  IP traffic.  You will need the 'vconfig' tool from the VLAN project in
+  order to effectively use VLANs.  See the VLAN web page for more
+  information:  http://www.candelatech.com/~greear/vlan.html  If unsure,
+  you can safely say 'N'.
 
 #
 # A couple of things I keep forgetting:

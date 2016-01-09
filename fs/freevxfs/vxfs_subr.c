@@ -114,7 +114,7 @@ vxfs_bread(struct inode *ip, int block)
 	daddr_t			pblock;
 
 	pblock = vxfs_bmap1(ip, block);
-	bp = bread(ip->i_dev, pblock, ip->i_sb->s_blocksize);
+	bp = sb_bread(ip->i_sb, pblock);
 
 	return (bp);
 }

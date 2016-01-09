@@ -1857,6 +1857,9 @@ static int __init intel_820_setup (struct pci_dev *pdev)
        agp_bridge.free_by_type = agp_generic_free_by_type;
        agp_bridge.agp_alloc_page = agp_generic_alloc_page;
        agp_bridge.agp_destroy_page = agp_generic_destroy_page;
+       agp_bridge.suspend = agp_generic_suspend;
+       agp_bridge.resume = agp_generic_resume;
+       agp_bridge.cant_use_aperture = 0;
 
        return 0;
 
@@ -1887,7 +1890,9 @@ static int __init intel_830mp_setup (struct pci_dev *pdev)
        agp_bridge.free_by_type = agp_generic_free_by_type;
        agp_bridge.agp_alloc_page = agp_generic_alloc_page;
        agp_bridge.agp_destroy_page = agp_generic_destroy_page;
-
+       agp_bridge.suspend = agp_generic_suspend;
+       agp_bridge.resume = agp_generic_resume;
+       agp_bridge.cant_use_aperture = 0;
        return 0;
 
        (void) pdev; /* unused */

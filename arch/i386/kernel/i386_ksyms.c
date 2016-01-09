@@ -35,6 +35,8 @@ extern spinlock_t rtc_lock;
 #if defined(CONFIG_APM) || defined(CONFIG_APM_MODULE)
 extern void machine_real_restart(unsigned char *, int);
 EXPORT_SYMBOL(machine_real_restart);
+extern void default_idle(void);
+EXPORT_SYMBOL(default_idle);
 #endif
 
 #ifdef CONFIG_SMP

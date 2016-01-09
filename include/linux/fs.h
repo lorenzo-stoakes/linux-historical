@@ -108,6 +108,7 @@ extern int leases_enable, dir_notify_enable, lease_break_time;
 #define MS_NOATIME	1024	/* Do not update access times. */
 #define MS_NODIRATIME	2048	/* Do not update directory access times */
 #define MS_BIND		4096
+#define MS_MOVE		8192
 #define MS_REC		16384
 #define MS_VERBOSE	32768
 #define MS_ACTIVE	(1<<30)
@@ -1365,6 +1366,18 @@ static inline void bforget(struct buffer_head *buf)
 }
 extern int set_blocksize(kdev_t, int);
 extern struct buffer_head * bread(kdev_t, int, int);
+static inline struct buffer_head * sb_bread(struct super_block *sb, int block)
+{
+	return bread(sb->s_dev, block, sb->s_blocksize);
+}
+static inline struct buffer_head * sb_getblk(struct super_block *sb, int block)
+{
+	return getblk(sb->s_dev, block, sb->s_blocksize);
+}
+static inline struct buffer_head * sb_get_hash_table(struct super_block *sb, int block)
+{
+	return get_hash_table(sb->s_dev, block, sb->s_blocksize);
+}
 extern void wakeup_bdflush(void);
 extern void put_unused_buffer_head(struct buffer_head * bh);
 extern struct buffer_head * get_unused_buffer_head(int async);
@@ -1392,8 +1405,9 @@ int generic_block_bmap(struct address_space *, long, get_block_t *);
 int generic_commit_write(struct file *, struct page *, unsigned, unsigned);
 int block_truncate_page(struct address_space *, loff_t, get_block_t *);
 extern int generic_direct_IO(int, struct inode *, struct kiobuf *, unsigned long, int, get_block_t *);
+extern int waitfor_one_page(struct page *);
+extern int writeout_one_page(struct page *);
 
-extern int waitfor_one_page(struct page*);
 extern int generic_file_mmap(struct file *, struct vm_area_struct *);
 extern int file_read_actor(read_descriptor_t * desc, struct page *page, unsigned long offset, unsigned long size);
 extern ssize_t generic_file_read(struct file *, char *, size_t, loff_t *);

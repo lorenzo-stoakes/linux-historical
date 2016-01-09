@@ -1,4 +1,4 @@
-/* $Id: riowatchdog.c,v 1.3 2001/10/08 22:19:51 davem Exp $
+/* $Id: riowatchdog.c,v 1.3.2.2 2002/01/23 18:48:02 davem Exp $
  * riowatchdog.c - driver for hw watchdog inside Super I/O of RIO
  *
  * Copyright (C) 2001 David S. Miller (davem@redhat.com)
@@ -131,6 +131,7 @@ static int riowd_ioctl(struct inode *inode, struct file *filp,
 	       	WDIOF_SETTIMEOUT, 0, "Natl. Semiconductor PC97317"
 	};
 	unsigned int options;
+	int new_margin;
 
 	switch (cmd) {
 	case WDIOC_GETSUPPORT:
