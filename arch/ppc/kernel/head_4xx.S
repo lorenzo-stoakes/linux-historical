@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.head_4xx.S 1.6 05/21/01 11:50:00 paulus
- */
-/*
  *    Copyright (c) 1995-1996 Gary Thomas <gdt@linuxppc.org>
  *      Initial PowerPC version.
  *    Copyright (c) 1996 Cort Dougan <cort@cs.nmt.edu>

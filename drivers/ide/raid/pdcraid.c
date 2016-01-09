@@ -159,47 +159,10 @@ static int pdcraid_ioctl(struct inode *inode, struct file *file, unsigned int cm
 }
 
 
-unsigned long partition_map_normal(unsigned long block, unsigned long partition_off, unsigned long partition_size, int stride)
+static unsigned long partition_map_normal(unsigned long block, unsigned long partition_off, unsigned long partition_size, int stride)
 {
 	return block + partition_off;
 }
-
-unsigned long partition_map_linux(unsigned long block, unsigned long partition_off, unsigned long partition_size, int stride)
-{
-	unsigned long newblock;
-	
-	newblock = stride - (partition_off%stride); if (newblock == stride) newblock = 0;
-	newblock += block;
-	newblock = newblock % partition_size;
-	newblock += partition_off;
-	
-	return newblock;
-}
-
-static int funky_remap[8] = { 0, 1,  2, 3, 4, 5, 6, 7 };
-
-unsigned long partition_map_linux_raid0_4disk(unsigned long block, unsigned long partition_off, unsigned long partition_size, int stride)
-{
-	unsigned long newblock,temp,temp2;
-	
-	newblock = stride - (partition_off%stride); if (newblock == stride) newblock = 0;
-
-	if (block < (partition_size / (8*stride))*8*stride ) {
-		temp = block % stride;
-		temp2 = block / stride;
-		temp2 = ((temp2>>3)<<3)|(funky_remap[temp2&7]);
-		block = temp2*stride+temp;
-	}
-
-	
-	newblock += block;
-	newblock = newblock % partition_size;
-	newblock += partition_off;
-	
-	return newblock;
-}
-
-
 
 static int pdcraid0_make_request (request_queue_t *q, int rw, struct buffer_head * bh)
 {

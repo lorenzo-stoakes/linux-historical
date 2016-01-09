@@ -456,6 +456,7 @@
 #define  RCV_RULE_DISABLE_MASK		 0x7fffffff
 #define MAC_RCV_RULE_CFG		0x00000500
 #define  RCV_RULE_CFG_DEFAULT_CLASS	0x00000008
+#define MAC_LOW_WMARK_MAX_RX_FRAME	0x00000504
 /* 0x504 --> 0x590 unused */
 #define MAC_SERDES_CFG			0x00000590
 #define MAC_SERDES_STAT			0x00000594
@@ -1794,6 +1795,7 @@ struct tg3 {
 #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
 #define TG3_FLAG_USE_MI_INTERRUPT	0x00000010
 #define TG3_FLAG_ENABLE_ASF		0x00000020
+#define TG3_FLAG_5701_REG_WRITE_BUG	0x00000040
 #define TG3_FLAG_POLL_SERDES		0x00000080
 #define TG3_FLAG_MBOX_WRITE_REORDER	0x00000100
 #define TG3_FLAG_PCIX_TARGET_HWBUG	0x00000200
@@ -1819,6 +1821,8 @@ struct tg3 {
 #define TG3_FLAG_GOT_SERDES_FLOWCTL	0x20000000
 #define TG3_FLAG_SPLIT_MODE		0x40000000
 #define TG3_FLAG_INIT_COMPLETE		0x80000000
+	u32				tg3_flags2;
+#define TG3_FLG2_RESTART_TIMER		0x00000001
 
 	u32				split_mode_max_reqs;
 #define SPLIT_MODE_5704_MAX_REQ		3
@@ -1887,6 +1891,7 @@ struct tg3 {
 
 	struct tg3_hw_stats		*hw_stats;
 	dma_addr_t			stats_mapping;
+	struct tq_struct		reset_task;
 };
 
 #endif /* !(_T3_H) */

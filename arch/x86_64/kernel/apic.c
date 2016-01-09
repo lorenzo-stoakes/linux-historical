@@ -31,6 +31,8 @@
 #include <asm/pgalloc.h>
 #include <asm/timex.h>
 
+int apic_disabled;
+
 extern spinlock_t i8253_lock;
 
 /* Using APIC to generate smp_local_timer_interrupt? */
@@ -1063,8 +1065,10 @@ asmlinkage void smp_error_interrupt(void)
  */
 int __init APIC_init_uniprocessor (void)
 {
-	if (!smp_found_config && !cpu_has_apic)
+	if (!smp_found_config && !cpu_has_apic) { 
+		apic_disabled = 1;
 		return -1;
+	} 
 
 	/*
 	 * Complain if the BIOS pretends there is one.
@@ -1072,6 +1076,7 @@ int __init APIC_init_uniprocessor (void)
 	if (!cpu_has_apic && APIC_INTEGRATED(apic_version[boot_cpu_id])) {
 		printk(KERN_ERR "BIOS bug, local APIC #%d not detected!...\n",
 			boot_cpu_id);
+		apic_disabled = 1;
 		return -1;
 	}
 

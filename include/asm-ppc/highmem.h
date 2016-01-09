@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.highmem.h 1.10 06/28/01 15:50:17 paulus
- */
-/*
  * highmem.h: virtual kernel memory mappings for high memory
  *
  * PowerPC version, stolen from the i386 version.

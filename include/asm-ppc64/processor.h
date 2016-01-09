@@ -671,7 +671,9 @@ struct thread_struct {
 	swapper_pg_dir, /* pgdir */ \
 	0, /* last_syscall */ \
 	PPC_FLAG_RUN_LIGHT, /* flags */ \
-	{0}, 0, 0 \
+	{0}, /* fprs */ \
+	0, /* fpscr */ \
+	MSR_FE0|MSR_FE1, /* fpexc_mode */ \
 }
 
 /*

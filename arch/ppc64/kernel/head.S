@@ -1040,6 +1040,13 @@ _GLOBAL(do_stab_bolted)
 #ifdef CONFIG_XMON
 	bl	.xmon
 #endif
+#ifdef CONFIG_KDB
+	/*	    kdb(KDB_REASON_FAULT,regs->trap,regs); */
+	li      r3,1   /* reason_call, regs considered invalid*/
+	li      r4,0x200  /* trap */
+	li      r5,0      /* pointers to regs.*/
+	bl	.kdb
+#endif
 1:	b	1b
 2:
 	/* (((ea >> 28) & 0x1fff) << 15) | (ea >> 60) */

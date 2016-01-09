@@ -695,9 +695,6 @@ static int sohci_submit_urb (struct urb * urb)
 	if (urb->timeout) {
 		struct list_head	*entry;
 
-		// FIXME:  usb-uhci uses relative timeouts (like this),
-		// while uhci uses absolute ones (probably better).
-		// Pick one solution and change the affected drivers.
 		urb->timeout += jiffies;
 
 		list_for_each (entry, &ohci->timeout_list) {

@@ -3942,9 +3942,8 @@ static int ali_reset_5451(struct trident_card *card)
 			return 0;
 		udelay(5000);
 	}
-
-	printk(KERN_ERR "ALi 5451 did not come out of reset.\n");
-	return 1;
+	/* This is non fatal if you have a non PM capable codec.. */
+	return 0;
 }
 
 /* AC97 codec initialisation. */

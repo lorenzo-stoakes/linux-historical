@@ -7211,7 +7211,7 @@ ips_verify_bios_memio(ips_ha_t *ha, char *buffer, uint32_t buffersize, uint32_t 
 /*     Assumes that ips_read_adapter_status() is called first filling in     */
 /*     the data for SubSystem Parameters.                                    */
 /*     Called from ips_write_driver_status() so it also assumes NVRAM Page 5 */
-/*     Data is availaible.                                                   */
+/*     Data is available.                                                   */
 /*                                                                           */
 /*---------------------------------------------------------------------------*/
 static void ips_version_check(ips_ha_t *ha, int intr) {

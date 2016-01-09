@@ -343,6 +343,8 @@
  *    - Move the scanner ioctls to usb_scanner_ioctl.h to allow access by archs
  *      that need it (by Greg KH).
  *    - New maintainer: Henning Meier-Geinitz.
+ *    - Print ids and device number when a device was detected.
+ *    - Don't print errors when the device is busy.
  *      
  * TODO
  *    - Performance
@@ -456,7 +458,7 @@ open_scanner(struct inode * inode, struct file * file)
 	}
 
 	if (scn->isopen) {
-		err("open_scanner(%d): Scanner device is already open", scn_minor);
+		dbg("open_scanner(%d): Scanner device is already open", scn_minor);
 		err = -EBUSY;
 		goto out_error;
 	}
@@ -1047,6 +1049,8 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	if (scn->devfs == NULL)
 		dbg("scanner%d: device node registration failed", scn_minor);
 
+	info ("USB scanner device (0x%04x/0x%04x) now attached to %s",
+	      dev->descriptor.idVendor, dev->descriptor.idProduct, name);
 	p_scn_table[scn_minor] = scn;
 
 	up(&scn_mutex);

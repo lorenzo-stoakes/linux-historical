@@ -122,7 +122,7 @@ do {											\
 	unsigned long ip, psr;								\
 											\
 	__asm__ __volatile__ ("mov %0=psr;; rsm psr.i;;" : "=r" (psr) :: "memory");	\
-	if (psr & (1UL << 14)) {							\
+	if (psr & IA64_PSR_I) {								\
 		__asm__ ("mov %0=ip" : "=r"(ip));					\
 		last_cli_ip = ip;							\
 	}										\
@@ -134,10 +134,21 @@ do {											\
 	unsigned long ip, psr;								\
 											\
 	__asm__ __volatile__ ("mov %0=psr;; rsm psr.i;;" : "=r" (psr) :: "memory");	\
-	if (psr & (1UL << 14)) {							\
+	if (psr & IA64_PSR_I) {								\
 		__asm__ ("mov %0=ip" : "=r"(ip));					\
 		last_cli_ip = ip;							\
 	}										\
+} while (0)
+
+# define local_irq_set(x)								\
+do {											\
+	unsigned long psr;								\
+											\
+	__asm__ __volatile__ ("mov %0=psr;;"						\
+			      "ssm psr.i;;"						\
+			      "srlz.d"							\
+			      : "=r" (psr) :: "memory");				\
+	(x) = psr;									\
 } while (0)
 
 # define local_irq_restore(x)							\
@@ -148,7 +159,7 @@ do {										\
 			      "cmp.ne p6,p7=%1,r0;;"				\
 			      "(p6) ssm psr.i;"					\
 			      "(p7) rsm psr.i;;"				\
-			      "srlz.d"						\
+			      "(p6) srlz.d"					\
 			      : "=&r" (old_psr) : "r"((psr) & IA64_PSR_I)	\
 			      : "p6", "p7", "memory");				\
 	if ((old_psr & IA64_PSR_I) && !(psr & IA64_PSR_I)) {			\
@@ -163,6 +174,10 @@ do {										\
 						      : "=r" (x) :: "memory")
 # define local_irq_disable()	__asm__ __volatile__ (";; rsm psr.i;;" ::: "memory")
 /* (potentially) setting psr.i requires data serialization: */
+# define local_irq_set(x)	__asm__ __volatile__ ("mov %0=psr;;"			\
+						      "ssm psr.i;;"			\
+						      "srlz.d"				\
+						      : "=r" (x) :: "memory")
 # define local_irq_restore(x)	__asm__ __volatile__ ("cmp.ne p6,p7=%0,r0;;"		\
 						      "(p6) ssm psr.i;"			\
 						      "(p7) rsm psr.i;;"		\
@@ -171,21 +186,14 @@ do {										\
 						      : "p6", "p7", "memory")
 #endif /* !CONFIG_IA64_DEBUG_IRQ */
 
-#error andre hedrick screwed this up please help unscrew in order to clean up
-/*
- * __save_and_sti(x) == __save_flags(x); ide__sti();
- *                      __save_flags(x); __sti();
- *
- * local_irq_set(x) == __save_and_sti(x)
- */
-
-
 #define local_irq_enable()	__asm__ __volatile__ (";; ssm psr.i;; srlz.d" ::: "memory")
 
 #define __cli()			local_irq_disable ()
 #define __save_flags(flags)	__asm__ __volatile__ ("mov %0=psr" : "=r" (flags) :: "memory")
 #define __save_and_cli(flags)	local_irq_save(flags)
+#define __save_and_sti(flags)	local_irq_set(flags)
 #define save_and_cli(flags)	__save_and_cli(flags)
+#define save_and_sti(flags)	__save_and_sti(flags)
 #define __sti()			local_irq_enable ()
 #define __restore_flags(flags)	local_irq_restore(flags)
 
@@ -394,7 +402,7 @@ extern void ia64_save_extra (struct task_struct *task);
 extern void ia64_load_extra (struct task_struct *task);
 
 #ifdef CONFIG_PERFMON
-# define PERFMON_IS_SYSWIDE() (local_cpu_data->pfm_syst_wide != 0)
+# define PERFMON_IS_SYSWIDE() (local_cpu_data->pfm_syst_info & 0x1)
 #else
 # define PERFMON_IS_SYSWIDE() (0)
 #endif

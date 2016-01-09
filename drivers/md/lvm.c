@@ -2405,7 +2405,7 @@ static int __extend_reduce(vg_t *vg_ptr, lv_t *old_lv, lv_t *new_lv) {
 		}
 	}
 
-	/* save availiable i/o statistic data */
+	/* save available i/o statistic data */
 	if (old_lv->lv_stripes < 2) {	/* linear logical volume */
 		end = min(old_lv->lv_current_le, new_lv->lv_current_le);
 		for (l = 0; l < end; l++) {

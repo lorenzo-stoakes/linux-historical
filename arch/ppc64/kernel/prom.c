@@ -363,7 +363,7 @@ prom_initialize_naca(unsigned long mem)
 			 * d-cache and i-cache sizes... -Peter
 			 */
 			if ( num_cpus == 1 ) {
-				u32 size, lsize, sets;
+				u32 size, lsize;
 
 				call_prom(RELOC("getprop"), 4, 1, node,
 					  RELOC("d-cache-size"),
@@ -631,7 +631,6 @@ prom_instantiate_rtas(void)
 	unsigned long offset = reloc_offset();
 	struct prom_t *_prom = PTRRELOC(&prom);
 	struct rtas_t *_rtas = PTRRELOC(&rtas);
-	struct naca_struct *_naca = RELOC(naca);
 	struct systemcfg *_systemcfg = RELOC(systemcfg);
 	ihandle prom_rtas;
         u32 getprop_rval;
@@ -1060,7 +1059,6 @@ prom_hold_cpus(unsigned long mem)
         unsigned long *spinloop     = __v2a(&__secondary_hold_spinloop);
         unsigned long *acknowledge  = __v2a(&__secondary_hold_acknowledge);
         unsigned long secondary_hold = (unsigned long)__v2a(*PTRRELOC((unsigned long *)__secondary_hold));
-        struct naca_struct *_naca = RELOC(naca);
         struct systemcfg *_systemcfg = RELOC(systemcfg);
 	struct paca_struct *_xPaca = PTRRELOC(&paca[0]);
 	struct prom_t *_prom = PTRRELOC(&prom);

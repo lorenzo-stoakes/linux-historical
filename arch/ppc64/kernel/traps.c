@@ -81,7 +81,7 @@ void (*debugger)(struct pt_regs *regs) = kdb;
 int (*debugger_bpt)(struct pt_regs *regs);
 int (*debugger_sstep)(struct pt_regs *regs);
 int (*debugger_iabr_match)(struct pt_regs *regs);
-int (*debugger_dabr_match)(struct pt_regs *regs);
+int (*debugger_dabr_match)(struct pt_regs *regs) = kdb;
 /* - only defined during (xmon) mread */
 void (*debugger_fault_handler)(struct pt_regs *regs);
 #endif /* kdb */
@@ -104,7 +104,8 @@ _exception(int signr, siginfo_t *info, struct pt_regs *regs)
 		debugger(regs);
 #endif
 #if defined(CONFIG_KDB)
-		kdb(KDB_REASON_OOPS, 0, (kdb_eframe_t) regs);
+		if (kdb(KDB_REASON_BREAK, 0, (kdb_eframe_t) regs))
+		    return;
 #endif
 		print_backtrace((unsigned long *)regs->gpr[1]);
 		panic("Exception in kernel pc %lx signal %d",regs->nip,signr);
@@ -211,10 +212,6 @@ MachineCheckException(struct pt_regs *regs)
 			return;
 		}
 #endif
-#ifdef CONFIG_KDB
-		if (kdb(KDB_REASON_FAULT, 0, regs))
-			return;
-#endif
 		printk("Machine check in kernel mode.\n");
 		printk("Caused by (from SRR1=%lx): ", regs->msr);
 		show_regs(regs);
@@ -287,7 +284,7 @@ InstructionBreakpointException(struct pt_regs *regs)
 #endif
 #ifdef CONFIG_KDB
 	if (kdb(KDB_REASON_BREAK, 0, regs))
-		return ;
+		return;
 #endif
 
 	info.si_signo = SIGTRAP;

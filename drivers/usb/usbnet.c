@@ -35,7 +35,7 @@
  *	- GeneSys GL620USB-A
  *	- NetChip 1080 (interoperates with NetChip Win32 drivers)
  *	- Prolific PL-2301/2302 (replaces "plusb" driver)
- *	- PXA-250 or SA-1100 Linux PDAs like iPaq, Yopy, and Zaurus
+ *	- PXA-250 or SA-1100 Linux PDAs like iPAQ, Yopy, and Zaurus
  *
  * USB devices can implement their side of this protocol at the cost
  * of two bulk endpoints; it's not restricted to "cable" applications.
@@ -1276,7 +1276,7 @@ static const struct driver_info	pxa_info = {
 /*-------------------------------------------------------------------------
  *
  * Intel's SA-1100 chip integrates basic USB support, and is used
- * in PDAs like some iPaqs, the Yopy, some Zaurus models, and more.
+ * in PDAs like some iPAQs, the Yopy, some Zaurus models, and more.
  * When they run Linux, arch/arm/mach-sa1100/usb-eth.c may be used to
  * network using minimal USB framing data.
  *

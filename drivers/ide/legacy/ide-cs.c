@@ -92,10 +92,11 @@ typedef struct ide_info_t {
     int		ndev;
     dev_node_t	node;
     int		hd;
+    struct tq_struct rel_task;
 } ide_info_t;
 
 static void ide_config(dev_link_t *link);
-static void ide_release(u_long arg);
+static void ide_release(void *arg);
 static int ide_event(event_t event, int priority,
 		     event_callback_args_t *args);
 
@@ -136,9 +137,8 @@ static dev_link_t *ide_attach(void)
     if (!info) return NULL;
     memset(info, 0, sizeof(*info));
     link = &info->link; link->priv = info;
+    INIT_TQUEUE(&info->rel_task, ide_release, link);
 
-    link->release.function = &ide_release;
-    link->release.data = (u_long)link;
     link->io.Attributes1 = IO_DATA_PATH_WIDTH_AUTO;
     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
     link->io.IOAddrLines = 3;
@@ -187,6 +187,7 @@ static dev_link_t *ide_attach(void)
 static void ide_detach(dev_link_t *link)
 {
     dev_link_t **linkp;
+    ide_info_t *info = link->priv;
     int ret;
 
     DEBUG(0, "ide_detach(0x%p)\n", link);
@@ -197,9 +198,10 @@ static void ide_detach(dev_link_t *link)
     if (*linkp == NULL)
 	return;
 
-    del_timer(&link->release);
-    if (link->state & DEV_CONFIG)
-	ide_release((u_long)link);
+    if (link->state & DEV_CONFIG) {
+	schedule_task(&info->rel_task);
+	flush_scheduled_tasks();
+    }
     
     if (link->handle) {
 	ret = CardServices(DeregisterClient, link->handle);
@@ -209,7 +211,7 @@ static void ide_detach(dev_link_t *link)
     
     /* Unlink, free device structure */
     *linkp = link->next;
-    kfree(link->priv);
+    kfree(info);
     
 } /* ide_detach */
 
@@ -381,7 +383,7 @@ void ide_config(dev_link_t *link)
 cs_failed:
     cs_error(link->handle, last_fn, last_ret);
 failed:
-    ide_release((u_long)link);
+    ide_release(link);
 
 } /* ide_config */
 
@@ -393,12 +395,15 @@ failed:
     
 ======================================================================*/
 
-void ide_release(u_long arg)
+static void ide_release(void *arg)
 {
-    dev_link_t *link = (dev_link_t *)arg;
+    dev_link_t *link = arg;
     ide_info_t *info = link->priv;
     
-    DEBUG(0, "ide_release(0x%p)\n", link);
+    if (!(link->state & DEV_CONFIG))
+	return;
+
+    DEBUG(0, "ide_do_release(0x%p)\n", link);
 
     if (info->ndev) {
         /* FIXME: if this fails we need to queue the cleanup somehow
@@ -435,6 +440,7 @@ int ide_event(event_t event, int priority,
 	      event_callback_args_t *args)
 {
     dev_link_t *link = args->client_data;
+    ide_info_t *info = link->priv;
 
     DEBUG(1, "ide_event(0x%06x)\n", event);
     
@@ -442,7 +448,7 @@ int ide_event(event_t event, int priority,
     case CS_EVENT_CARD_REMOVAL:
 	link->state &= ~DEV_PRESENT;
 	if (link->state & DEV_CONFIG)
-	    mod_timer(&link->release, jiffies + HZ/20);
+	    schedule_task(&info->rel_task);
 	break;
     case CS_EVENT_CARD_INSERTION:
 	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;

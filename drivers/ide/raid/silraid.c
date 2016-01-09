@@ -157,7 +157,7 @@ static int silraid_ioctl(struct inode *inode, struct file *file, unsigned int cm
 }
 
 
-unsigned long partition_map_normal(unsigned long block, unsigned long partition_off, unsigned long partition_size, int stride)
+static unsigned long partition_map_normal(unsigned long block, unsigned long partition_off, unsigned long partition_size, int stride)
 {
 	return block + partition_off;
 }

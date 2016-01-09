@@ -435,8 +435,8 @@ static int isd200_transfer_partial( struct us_data *us,
                         return ISD200_TRANSPORT_FAILED;
                 }
 
-                /* -ENOENT -- we canceled this transfer */
-                if (result == -ENOENT) {
+                /* -ECONNRESET -- we canceled this transfer */
+                if (result == -ECONNRESET) {
                         US_DEBUGP("isd200_transfer_partial(): transfer aborted\n");
                         return ISD200_TRANSPORT_ABORTED;
                 }
@@ -574,7 +574,7 @@ int isd200_Bulk_transport( struct us_data *us, Scsi_Cmnd *srb,
 				   &partial);
         US_DEBUGP("Bulk command transfer result=%d\n", result);
     
-	if (result == -ENOENT)
+	if (result == -ECONNRESET)
 		return ISD200_TRANSPORT_ABORTED;
 	else if (result == -EPIPE) {
 		/* if we stall, we need to clear it before we go on */
@@ -603,7 +603,7 @@ int isd200_Bulk_transport( struct us_data *us, Scsi_Cmnd *srb,
         US_DEBUGP("Attempting to get CSW...\n");
         result = usb_stor_bulk_msg(us, &bcs, pipe, US_BULK_CS_WRAP_LEN, 
 				   &partial);
-        if (result == -ENOENT)
+        if (result == -ECONNRESET)
                 return ISD200_TRANSPORT_ABORTED;
 
         /* did the attempt to read the CSW fail? */
@@ -617,7 +617,7 @@ int isd200_Bulk_transport( struct us_data *us, Scsi_Cmnd *srb,
                                            US_BULK_CS_WRAP_LEN, &partial);
 
                 /* if the command was aborted, indicate that */
-                if (result == -ENOENT)
+                if (result == -ECONNRESET)
                         return ISD200_TRANSPORT_ABORTED;
         
                 /* if it fails again, we need a reset and return an error*/

@@ -490,6 +490,7 @@ static void __init build_iSeries_Memory_Map(void)
 	num_ptegs = hptSizePages * (PAGE_SIZE/(sizeof(HPTE)*HPTES_PER_GROUP));
 	htab_data.htab_num_ptegs = num_ptegs;
 	htab_data.htab_hash_mask = num_ptegs - 1;
+	naca->pftSize = __ilog2(num_ptegs << 7);
 	
 	/* 
 	 * Calculate the number of bits to shift the pteg selector such that we
@@ -563,7 +564,7 @@ static void __init build_iSeries_Memory_Map(void)
 	lmb_init();
 	lmb_add(0, systemcfg->physicalMemorySize);
 	lmb_analyze();	/* ?? */
-	lmb_reserve( 0, __pa(klimit));
+	lmb_reserve(0, __pa(klimit));
 
 	/* 
 	 * Hardcode to GP size.  I am not sure where to get this info. DRENG

@@ -9,8 +9,6 @@
 
 #define DISPLAY_SIIMAGE_TIMINGS
 
-#define CONFIG_TRY_MMIO_SIIMAGE
-//#undef CONFIG_TRY_MMIO_SIIMAGE
 #undef SIIMAGE_VIRTUAL_DMAPIO
 #undef SIIMAGE_BUFFERED_TASKFILE
 #undef SIIMAGE_LARGE_DMA
@@ -35,56 +33,6 @@ typedef struct ide_io_ops_s siimage_iops {
 #define HWIFADDR(R)	((((unsigned long)hwif->hwif_data)*(hwif->mmio))|(R))
 #define DEVADDR(R)	(((unsigned long) pci_get_drvdata(dev))|(R))
 
-
-inline u8 sii_inb (unsigned long port)
-{
-	return (u8) readb(port);
-}
-
-inline u16 sii_inw (unsigned long port)
-{
-	return (u16) readw(port);
-}
-
-inline void sii_insw (unsigned long port, void *addr, u32 count)
-{
-	__ide_mm_insw(port, addr, count);
-}
-
-inline u32 sii_inl (unsigned long port)
-{
-	return (u32) readl(port);
-}
-
-inline void sii_insl (unsigned long port, void *addr, u32 count)
-{
-	__ide_mm_insw(port, addr, (count)<<1);
-}
-
-inline void sii_outb (u8 value, unsigned long port)
-{
-	writeb(value, port);
-}
-
-inline void sii_outw (u16 value, unsigned long port)
-{
-	writew(value, port);
-}
-
-inline void sii_outsw (unsigned long port, void *addr, u32 count)
-{
-	__ide_mm_outsw(port, addr, count);
-}
-
-inline void sii_outl (u32 value, unsigned long port)
-{
-	writel(value, port);
-}
-
-inline void sii_outsl (unsigned long port, void *addr, u32 count)
-{
-	__ide_mm_outsw(port, addr, (count)<<1);
-}
 
 #if defined(DISPLAY_SIIMAGE_TIMINGS) && defined(CONFIG_PROC_FS)
 #include <linux/stat.h>

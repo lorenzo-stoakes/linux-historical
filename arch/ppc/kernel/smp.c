@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.smp.c 1.40 03/28/02 16:54:23 hozer
- */
-/*
  * Smp support for ppc.
  *
  * Written by Cort Dougan (cort@cs.nmt.edu) borrowing a great

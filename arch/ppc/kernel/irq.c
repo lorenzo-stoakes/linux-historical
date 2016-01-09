@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/kernel/irq.c
  *
  *  Derived from arch/i386/kernel/irq.c
@@ -176,15 +173,6 @@ setup_irq(unsigned int irq, struct irqaction * new)
 	register_irq_proc(irq);
 	return 0;
 }
-
-#if (defined(CONFIG_8xx) || defined(CONFIG_8260))
-/* Name change so we can catch standard drivers that potentially mess up
- * the internal interrupt controller on 8xx and 8260.  Just bear with me,
- * I don't like this either and I am searching a better solution.  For
- * now, this is what I need. -- Dan
- */
-#define request_irq	request_8xxirq
-#endif
 
 void free_irq(unsigned int irq, void* dev_id)
 {

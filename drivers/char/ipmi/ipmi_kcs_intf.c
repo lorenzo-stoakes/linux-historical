@@ -252,6 +252,7 @@ static void handle_flags(struct kcs_info *kcs_info)
 	if (kcs_info->msg_flags & WDT_PRE_TIMEOUT_INT) {
 		/* Watchdog pre-timeout */
 		start_clear_flags(kcs_info);
+		kcs_info->msg_flags &= ~WDT_PRE_TIMEOUT_INT;
 		spin_unlock(&(kcs_info->kcs_lock));
 		ipmi_smi_watchdog_pretimeout(kcs_info->intf);
 		spin_lock(&(kcs_info->kcs_lock));
@@ -323,12 +324,17 @@ static void handle_transaction_done(struct kcs_info *kcs_info)
 	case KCS_GETTING_FLAGS:
 	{
 		unsigned char msg[4];
+		unsigned int  len;
 
 		/* We got the flags from the KCS, now handle them. */
-		kcs_get_result(kcs_info->kcs_sm, msg, 4);
+		len = kcs_get_result(kcs_info->kcs_sm, msg, 4);
 		if (msg[2] != 0) {
 			/* Error fetching flags, just give up for
 			   now. */
+			kcs_info->kcs_state = KCS_NORMAL;
+		} else if (len < 3) {
+			/* Hmm, no flags.  That's technically illegal, but
+			   don't use uninitialized data. */
 			kcs_info->kcs_state = KCS_NORMAL;
 		} else {
 			kcs_info->msg_flags = msg[3];
@@ -1036,7 +1042,9 @@ static __init int init_ipmi_kcs(void)
 	int		rv = 0;
 	int		pos = 0;
 	int		i = 0;
+#ifdef CONFIG_ACPI
 	unsigned long	physaddr = 0;
+#endif
 
 	if (initialized)
 		return 0;

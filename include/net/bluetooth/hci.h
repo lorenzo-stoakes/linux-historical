@@ -439,6 +439,12 @@ typedef struct {
 /* Status params */
 #define OGF_STATUS_PARAM 	0x05
 
+/* Testing commands */
+#define OGF_TESTING_CMD 	0x3e
+
+/* Vendor specific commands */
+#define OGF_VENDOR_CMD  	0x3f
+
 /* ---- HCI Events ---- */
 #define EVT_INQUIRY_COMPLETE 	0x01
 

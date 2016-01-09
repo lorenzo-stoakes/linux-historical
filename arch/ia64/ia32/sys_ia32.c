@@ -623,7 +623,8 @@ sys32_mprotect (unsigned int start, unsigned int len, int prot)
 			/* end address is 4KB aligned but not page aligned. */
 			retval = mprotect_subpage(PAGE_START(end), prot);
 			if (retval < 0)
-				return retval;
+				goto out;
+
 			end = PAGE_START(end);
 		}
 		retval = sys_mprotect(start, end - start, prot);
@@ -3912,6 +3913,37 @@ sys32_brk (unsigned int brk)
 	if (ret < obrk)
 		clear_user((void *) ret, PAGE_ALIGN(ret) - ret);
 	return ret;
+}
+
+/*
+ * Exactly like fs/open.c:sys_open(), except that it doesn't set the O_LARGEFILE flag.
+ */
+asmlinkage long
+sys32_open (const char * filename, int flags, int mode)
+{
+	char * tmp;
+	int fd, error;
+
+	tmp = getname(filename);
+	fd = PTR_ERR(tmp);
+	if (!IS_ERR(tmp)) {
+		fd = get_unused_fd();
+		if (fd >= 0) {
+			struct file *f = filp_open(tmp, flags, mode);
+			error = PTR_ERR(f);
+			if (IS_ERR(f))
+				goto out_error;
+			fd_install(fd, f);
+		}
+out:
+		putname(tmp);
+	}
+	return fd;
+
+out_error:
+	put_unused_fd(fd);
+	fd = error;
+	goto out;
 }
 
 #ifdef	NOTYET  /* UNTESTED FOR IA64 FROM HERE DOWN */

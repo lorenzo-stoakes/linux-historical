@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/nvidia.c		Version 0.01
+ * linux/drivers/ide/pci/nvidia.c		Version 0.01
  *
  * Copyright (C) 2002-2002		Andre Hedrick <andre@linux-ide.org>
  * May be copied or modified under the terms of the GNU General Public License

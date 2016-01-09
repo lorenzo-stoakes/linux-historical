@@ -12,7 +12,7 @@
  *  vsyscalls. One vsyscall can reserve more than 1 slot to avoid
  *  jumping out of line if necessary.
  *
- *  $Id: vsyscall.c,v 1.23 2003/01/10 15:20:52 ak Exp $
+ *  $Id: vsyscall.c,v 1.25 2003/02/07 01:58:27 ak Exp $
  */
 
 /*
@@ -66,6 +66,7 @@ static inline void do_vgettimeofday(struct timeval * tv)
 		switch (__vxtime.mode) {
 
 			case VXTIME_TSC:
+				sync_core();
 				rdtscll(t);
 				usec += (((t  - __vxtime.last_tsc) * __vxtime.tsc_quot) >> 32);
 				break;
@@ -83,16 +84,6 @@ static inline void do_vgettimeofday(struct timeval * tv)
 	tv->tv_usec = usec % 1000000;
 }
 
-static inline int do_sgettimeofday(struct timeval * tv)
-{
-	int r;
-	asm volatile("syscall"
-		: "=a" (r)
-		: "0" (__NR_gettimeofday), "D" (tv), "S" (NULL)
-		: "r11", "rcx","memory");
-	return r;
-
-}
 
 static inline void do_get_tz(struct timezone * tz)
 {
@@ -110,12 +101,8 @@ static inline void do_get_tz(struct timezone * tz)
 
 static long __vsyscall(0) vgettimeofday(struct timeval * tv, struct timezone * tz)
 {
-	if (tv) {
-		if (__vxtime.mode)
+	if (tv)
 			do_vgettimeofday(tv);
-		else
-			do_sgettimeofday(tv);
-	}
 
 	if (tz)
 		do_get_tz(tz);
@@ -141,11 +128,11 @@ static long __vsyscall(3) venosys_1(void)
 	return -ENOSYS;
 }
 
+extern char vsyscall_syscall[], __vsyscall_0[];
+
 static void __init map_vsyscall(void)
 {
-	extern char __vsyscall_0;
-	unsigned long physaddr_page0 = (unsigned long) &__vsyscall_0 - __START_KERNEL_map;
-
+	unsigned long physaddr_page0 = __pa_symbol(&__vsyscall_0);
 	__set_fixmap(VSYSCALL_FIRST_PAGE, physaddr_page0, PAGE_KERNEL_VSYSCALL);
 	if (hpet_address)
 		__set_fixmap(VSYSCALL_HPET, hpet_address, PAGE_KERNEL_VSYSCALL);

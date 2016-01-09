@@ -42,6 +42,7 @@
 #include "csr.h"
 #include "nodemgr.h"
 #include "ieee1394_hotplug.h"
+#include "dma.h"
 
 /*
  * Disable the nodemgr detection and config rom reading functionality.
@@ -81,10 +82,10 @@ static void process_complete_tasks(struct hpsb_packet *packet)
 	struct list_head *lh, *next;
 
 	list_for_each_safe(lh, next, &packet->complete_tq) {
-		struct hpsb_queue_struct *tq =
-			list_entry(lh, struct hpsb_queue_struct, hpsb_queue_list);
-		list_del(&tq->hpsb_queue_list);
-		hpsb_schedule_work(tq);
+		struct tq_struct *tq =
+			list_entry(lh, struct tq_struct, list);
+		list_del(&tq->list);
+		schedule_task(tq);
 	}
 
 	return;
@@ -93,11 +94,11 @@ static void process_complete_tasks(struct hpsb_packet *packet)
 /**
  * hpsb_add_packet_complete_task - add a new task for when a packet completes
  * @packet: the packet whose completion we want the task added to
- * @tq: the hpsb_queue_struct describing the task to add
+ * @tq: the tq_struct describing the task to add
  */
-void hpsb_add_packet_complete_task(struct hpsb_packet *packet, struct hpsb_queue_struct *tq)
+void hpsb_add_packet_complete_task(struct hpsb_packet *packet, struct tq_struct *tq)
 {
-	list_add_tail(&tq->hpsb_queue_list, &packet->complete_tq);
+	list_add_tail(&tq->list, &packet->complete_tq);
 	return;
 }
 
@@ -437,7 +438,7 @@ void hpsb_packet_sent(struct hpsb_host *host, struct hpsb_packet *packet,
         spin_unlock_irqrestore(&host->pending_pkt_lock, flags);
 
         up(&packet->state_change);
-        hpsb_schedule_work(&host->timeout_tq);
+        schedule_task(&host->timeout_tq);
 }
 
 /**
@@ -881,7 +882,7 @@ void abort_timedouts(struct hpsb_host *host)
         }
 
         if (!list_empty(&host->pending_packets))
-		hpsb_schedule_work(&host->timeout_tq);
+		schedule_task(&host->timeout_tq);
 
         spin_unlock_irqrestore(&host->pending_pkt_lock, flags);
 
@@ -1030,7 +1031,7 @@ static int ieee1394_dispatch_open(struct inode *inode, struct file *file)
 	   to get the index of the ieee1394_driver
 	   we want */
 	
-	blocknum = (minor(inode->i_rdev) >> 4) & 0xF;
+	blocknum = (MINOR(inode->i_rdev) >> 4) & 0xF;
 
 	/* look up the driver */
 
@@ -1218,3 +1219,15 @@ EXPORT_SYMBOL(ieee1394_unregister_chardev);
 EXPORT_SYMBOL(ieee1394_devfs_handle);
 
 EXPORT_SYMBOL(ieee1394_procfs_entry);
+
+/** dma.c **/
+EXPORT_SYMBOL(dma_prog_region_init);
+EXPORT_SYMBOL(dma_prog_region_alloc);
+EXPORT_SYMBOL(dma_prog_region_free);
+EXPORT_SYMBOL(dma_region_init);
+EXPORT_SYMBOL(dma_region_alloc);
+EXPORT_SYMBOL(dma_region_free);
+EXPORT_SYMBOL(dma_region_sync);
+EXPORT_SYMBOL(dma_region_mmap);
+EXPORT_SYMBOL(dma_region_offset_to_bus);
+

@@ -1794,6 +1794,15 @@ C_LABEL(fpload):
 	retl
 	 nop
 
+	.globl	C_LABEL(ndelay)
+C_LABEL(ndelay):
+	save	%sp, -REGWIN_SZ, %sp
+	mov	%i0, %o0
+	call	.umul
+	 mov	5, %o1
+	ba	delay_continue
+	 nop
+
 	.globl	C_LABEL(udelay)
 C_LABEL(udelay):
 	save	%sp, -REGWIN_SZ, %sp
@@ -1801,6 +1810,7 @@ C_LABEL(udelay):
 	sethi	%hi(0x10c6), %o1
 	call	.umul
 	 or	%o1, %lo(0x10c6), %o1
+delay_continue:
 #ifndef CONFIG_SMP
 	sethi	%hi(C_LABEL(loops_per_jiffy)), %o3
 	call	.umul

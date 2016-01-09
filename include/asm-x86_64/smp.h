@@ -88,6 +88,11 @@ extern __inline int hard_smp_processor_id(void)
 	return GET_APIC_ID(*(unsigned long *)(APIC_BASE+APIC_ID));
 }
 
+extern int apic_disabled;
+extern int slow_smp_processor_id(void);
+#define safe_smp_processor_id() \
+	(!apic_disabled ? hard_smp_processor_id() : slow_smp_processor_id())
+
 #endif /* !ASSEMBLY */
 
 #define NO_PROC_ID		0xFF		/* No processor magic marker */
@@ -112,5 +117,6 @@ extern __inline int hard_smp_processor_id(void)
 
 #ifndef CONFIG_SMP
 #define stack_smp_processor_id() 0
+#define safe_smp_processor_id() 0
 #endif
 #endif

@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/ide-m8xx.c
+ *  linux/drivers/ide/ppc/ide-m8xx.c
  *
  *  Copyright (C) 2000, 2001 Wolfgang Denk, wd@denx.de
  *  Modified for direct IDE interface

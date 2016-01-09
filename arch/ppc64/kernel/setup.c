@@ -45,7 +45,6 @@ extern unsigned long klimit;
 /* extern void *stab; */
 extern HTAB htab_data;
 extern unsigned long loops_per_jiffy;
-extern int preferred_console;	/* from kernel/printk.c */
 extern int blk_nohighio;
 
 extern unsigned long embedded_sysmap_start;
@@ -91,26 +90,6 @@ unsigned long SYSRQ_KEY;
 #endif /* CONFIG_MAGIC_SYSRQ */
 
 struct machdep_calls ppc_md;
-
-/*
- * Perhaps we can put the pmac screen_info[] here
- * on pmac as well so we don't need the ifdef's.
- * Until we get multiple-console support in here
- * that is.  -- Cort
- * Maybe tie it to serial consoles, since this is really what
- * these processors use on existing boards.  -- Dan
- */ 
-struct screen_info screen_info = {
-	0, 25,			/* orig-x, orig-y */
-	0,			/* unused */
-	0,			/* orig-video-page */
-	0,			/* orig-video-mode */
-	80,			/* orig-video-cols */
-	0,0,0,			/* ega_ax, ega_bx, ega_cx */
-	25,			/* orig-video-lines */
-	1,			/* orig-video-isVGA */
-	16			/* orig-video-points */
-};
 
 /*
  * These are used in binfmt_elf.c to put aux entries on the stack
@@ -167,7 +146,6 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 
 	if (systemcfg->platform & PLATFORM_PSERIES) {
 		register_console(&udbg_console);
-		preferred_console = -1;
 		udbg_printf("---- start early boot console ----\n");
 	}
 
@@ -176,10 +154,11 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 	printk("-----------------------------------------------------\n");
 	printk("naca                          = 0x%p\n", naca);
 	printk("naca->pftSize                 = 0x%lx\n", naca->pftSize);
-	printk("naca->debug_switch            = 0x%lx\n", naca->debug_switch);
-	printk("naca->interrupt_controller    = 0x%lx\n", naca->interrupt_controller);
-	printk("systemcf                      = 0x%p\n", systemcfg);
-	printk("systemcfg->processorCount     = 0x%x\n", systemcfg->processorCount);
+	printk("naca->paca                    = 0x%lx\n\n", naca->paca);
+	printk("systemcfg                     = 0x%p\n", systemcfg);
+	printk("systemcfg->platform           = 0x%x\n", systemcfg->platform);
+	printk("systemcfg->processor          = 0x%x\n", systemcfg->processor);
+	printk("systemcfg->processorCount     = 0x%lx\n", systemcfg->processorCount);
 	printk("systemcfg->physicalMemorySize = 0x%lx\n", systemcfg->physicalMemorySize);
 	printk("systemcfg->dCacheL1LineSize   = 0x%x\n", systemcfg->dCacheL1LineSize);
 	printk("systemcfg->iCacheL1LineSize   = 0x%x\n", systemcfg->iCacheL1LineSize);
@@ -195,10 +174,10 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 	mm_init_ppc64();
 
 	switch (systemcfg->platform) {
-	case PLATFORM_ISERIES_LPAR:
+	    case PLATFORM_ISERIES_LPAR:
 		iSeries_init();
 		break;
-	default:
+	    default:
 		/* The following relies on the device tree being */
 		/* fully configured.                             */
 		parse_cmd_line(r3, r4, r5, r6, r7);
@@ -208,15 +187,12 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 
 /* This is called just before console_init().
  * It will be obsolete when Linux gets real early console support (2.5?)
- * We need to hack preferred_console to retain the correct behavior
  */
 void setup_before_console_init(void)
 {
 	if (systemcfg->platform & PLATFORM_PSERIES) {
-		int save = preferred_console;
 		unregister_console(&udbg_console);
 		udbg_console.next = NULL;
-		preferred_console = save;
 		udbg_printf("---- end early boot console ----\n");
 	}
 }
@@ -344,11 +320,11 @@ struct seq_operations cpuinfo_op = {
 };
 
 /*
- * Fetch the cmd_line from open firmware. */
+ * Fetch the cmd_line from open firmware. 
+ */
 void parse_cmd_line(unsigned long r3, unsigned long r4, unsigned long r5,
 		  unsigned long r6, unsigned long r7)
 {
-	struct device_node *chosen;
 	char *p;
 
 #ifdef CONFIG_BLK_DEV_INITRD

@@ -1,7 +1,8 @@
 /*
- 	Hardware driver for the AMD 768 Random Number Generator (RNG)
+ 	Hardware driver for the AMD 768/8111 Random Number Generator (RNG)
 	(c) Copyright 2001 Red Hat Inc <alan@redhat.com>
- 
+	(c) Copyright 2002,2003 Andi Kleen, SuSE Labs
+
  	derived from
  
 	Hardware driver for Intel i810 Random Number Generator (RNG)
@@ -238,13 +239,14 @@ err_out:
  */
 static struct pci_device_id rng_pci_tbl[] __initdata = {
 	{ 0x1022, 0x7443, PCI_ANY_ID, PCI_ANY_ID, },
+	{ 0x1022, 0x746b, PCI_ANY_ID, PCI_ANY_ID, },
 	{ 0, },
 };
 MODULE_DEVICE_TABLE (pci, rng_pci_tbl);
 
 
-MODULE_AUTHOR("Alan Cox, Jeff Garzik, Philipp Rumpf, Matt Sottek");
-MODULE_DESCRIPTION("AMD 768 Random Number Generator (RNG) driver");
+MODULE_AUTHOR("Alan Cox, Jeff Garzik, Philipp Rumpf, Matt Sottek, Andi Kleen");
+MODULE_DESCRIPTION("AMD 768/8111 Random Number Generator (RNG) driver");
 MODULE_LICENSE("GPL");
 
 

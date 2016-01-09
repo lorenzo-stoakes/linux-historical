@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.process.c 1.34 11/23/01 16:38:29 paulus
- */
-/*
  *  linux/arch/ppc/kernel/process.c
  *
  *  Derived from "arch/i386/kernel/process.c"
@@ -401,7 +398,13 @@ void start_thread(struct pt_regs *regs, unsigned long nip, unsigned long sp)
 		last_task_used_math = 0;
 	if (last_task_used_altivec == current)
 		last_task_used_altivec = 0;
+	memset(current->thread.fpr, 0, sizeof(current->thread.fpr));
 	current->thread.fpscr = 0;
+#ifdef CONFIG_ALTIVEC
+	memset(current->thread.vr, 0, sizeof(current->thread.vr));
+	memset(&current->thread.vscr, 0, sizeof(current->thread.vscr));
+	current->thread.vrsave = 0;
+#endif /* CONFIG_ALTIVEC */
 }
 
 /*
@@ -441,7 +444,7 @@ int get_fpexc_mode(struct task_struct *tsk, unsigned long adr)
 int sys_clone(int p1, int p2, int p3, int p4, int p5, int p6,
 	      struct pt_regs *regs)
 {
-	return do_fork(p1, regs->gpr[1], regs, 0);
+	return do_fork(p1, p2, regs, 0);
 }
 
 int sys_fork(int p1, int p2, int p3, int p4, int p5, int p6,
@@ -487,6 +490,8 @@ print_backtrace(unsigned long *sp)
 	int cnt = 0;
 	unsigned long i;
 
+	if (sp == NULL)
+		asm("mr %0,1" : "=r" (sp));
 	printk("Call backtrace: ");
 	while (sp) {
 		if (__get_user( i, &sp[1] ))

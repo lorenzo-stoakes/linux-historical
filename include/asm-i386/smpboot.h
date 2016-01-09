@@ -116,6 +116,6 @@ static inline int target_cpus(void)
 	return cpu_online_map;
 }
 #else
-#define target_cpus() (0x01)
+#define target_cpus() (cpu_online_map)
 #endif
 #endif

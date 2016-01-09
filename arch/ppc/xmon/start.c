@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.start.c 1.20 04/09/02 21:01:58 paulus
- */
-/*
  * Copyright (C) 1996 Paul Mackerras.
  */
 #include <linux/config.h>

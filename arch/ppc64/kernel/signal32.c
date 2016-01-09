@@ -402,28 +402,10 @@ setup_frame32(struct pt_regs *regs, struct sigregs32 *frame,
 	 * Note the +1 is needed in order to get the lower 32 bits
 	 * of 64 bit register
 	 */
-	for (i = 0; i < 32; i++) {
+	for (i = 0; i < sizeof(struct pt_regs32)/sizeof(u32); i++) {
 		if (__copy_to_user(&frame->gp_regs[i], (u32*)(&regs->gpr[i])+1, sizeof(u32)))
 			goto badframe;
 	}
-
-  	/*
-  	 * Copy the non gpr registers to the user stack
-  	 */
-	if (__copy_to_user(&frame->gp_regs[PT_NIP], (u32*)(&regs->gpr[PT_NIP])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_MSR], (u32*)(&regs->gpr[PT_MSR])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_ORIG_R3], (u32*)(&regs->gpr[PT_ORIG_R3])+1,
-			      sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_CTR], (u32*)(&regs->gpr[PT_CTR])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_LNK], (u32*)(&regs->gpr[PT_LNK])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_XER], (u32*)(&regs->gpr[PT_XER])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_CCR], (u32*)(&regs->gpr[PT_CCR])+1, sizeof(u32))
-# if 0
-	    || __copy_to_user(&frame->gp_regs[PT_MQ], (u32*)(&regs->gpr[PT_MQ])+1, sizeof(u32))
-#endif
-	    || __copy_to_user(&frame->gp_regs[PT_RESULT], (u32*)(&regs->gpr[PT_RESULT])+1,
-			      sizeof(u32)))
-		goto badframe;
 
 	/*
 	 * Now copy the floating point registers onto the user stack 
@@ -797,7 +779,7 @@ siginfo64to32(siginfo_t32 *d, siginfo_t *s)
 	case SIGBUS:
 	case SIGFPE:
 	case SIGILL:
-		d->si_addr = (long)(s->si_addr);
+		d->si_addr = (unsigned int)(s->si_addr);
         break;
 	case SIGPOLL:
 		d->si_band = s->si_band;
@@ -1008,25 +990,10 @@ setup_rt_frame32(struct pt_regs *regs, struct sigregs32 *frame,
 	 * Note the +1 is needed in order to get the lower 32 bits
 	 * of 64 bit register
 	 */
-	for (i = 0; i < 32; i++) {
+	for (i = 0; i < sizeof(struct pt_regs32)/sizeof(u32); i++) {
 		if (__copy_to_user(&frame->gp_regs[i], (u32*)(&regs->gpr[i])+1, sizeof(u32)))
 			goto badframe;
 	}
-
-	/*
-	 * Copy the non gpr registers to the user stack
-	 */
-	if (__copy_to_user(&frame->gp_regs[PT_NIP], (u32*)(&regs->gpr[PT_NIP])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_MSR], (u32*)(&regs->gpr[PT_MSR])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_ORIG_R3], (u32*)(&regs->gpr[PT_ORIG_R3])+1,
-			      sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_CTR], (u32*)(&regs->gpr[PT_CTR])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_LNK], (u32*)(&regs->gpr[PT_LNK])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_XER], (u32*)(&regs->gpr[PT_XER])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_CCR], (u32*)(&regs->gpr[PT_CCR])+1, sizeof(u32))
-	    || __copy_to_user(&frame->gp_regs[PT_RESULT], (u32*)(&regs->gpr[PT_RESULT])+1,
-			      sizeof(u32)))
-		goto badframe;
 
 
 	/*

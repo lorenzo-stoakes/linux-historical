@@ -96,13 +96,18 @@ void do_page_fault(struct pt_regs *regs, unsigned long address,
 		return;
 	}
 
-#if defined(CONFIG_XMON) || defined(CONFIG_KGDB)
+#if defined(CONFIG_XMON) || defined(CONFIG_KGDB) || defined(CONFIG_KDB)
 	if (error_code & 0x00400000) {
 		/* DABR match */
+#if defined(CONFIG_KDB)
+	    if (kdb(KDB_REASON_BREAK,regs->trap,regs))
+			return;
+#else
 		if (debugger_dabr_match(regs))
 			return;
+#endif
 	}
-#endif /* CONFIG_XMON || CONFIG_KGDB */
+#endif /* CONFIG_XMON || CONFIG_KGDB || CONFIG_KDB */
 
 	if (in_interrupt() || mm == NULL) {
 		bad_page_fault(regs, address);

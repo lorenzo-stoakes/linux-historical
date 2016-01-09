@@ -1,6 +1,6 @@
 /* $Id: cmd64x.c,v 1.21 2000/01/30 23:23:16
  *
- * linux/drivers/ide/cmd64x.c		Version 1.30	Sept 10, 2002
+ * linux/drivers/ide/pci/cmd64x.c		Version 1.30	Sept 10, 2002
  *
  * cmd64x.c: Enable interrupts at initialization time on Ultra/PCI machines.
  *           Note, this driver is not used at all on other systems because

@@ -81,3 +81,8 @@ void __udelay(unsigned long usecs)
 {
 	__const_udelay(usecs * 0x000010c6);  /* 2**32 / 1000000 */
 }
+
+void __ndelay(unsigned long usecs)
+{
+	__const_udelay(usecs * 0x00005);  /* 2**32 / 1000000000 (rounded up) */
+}

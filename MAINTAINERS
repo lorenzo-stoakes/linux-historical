@@ -90,6 +90,12 @@ M:	Philip.Blundell@pobox.com
 L:	linux-net@vger.kernel.org
 S:	Maintained
 
+3CR990 NETWORK DRIVER
+P:	David Dillow
+M:	dave@thedillows.org
+L:	linux-net@vger.kernel.org
+S:	Maintained
+
 53C700 AND 53C700-66 SCSI DRIVER
 P:	James E.J. Bottomley
 M:	James.Bottomley@HansenPartnership.com
@@ -200,6 +206,13 @@ M:	Juergen Fischer <fischer@norbit.de>
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 
+ALTERA EPXA1/EPXA10 DEVELOPMENT BOARD PORT
+P:	Clive Davies
+M:	cdavies@altera.com
+L:	linux-arm-kernel@lists.arm.linux.org.uk
+W:      http://www.arm.linux.org.uk/
+S:	Maintained
+
 APM DRIVER
 P:	Stephen Rothwell
 M:	sfr@canb.auug.org.au
@@ -216,6 +229,13 @@ S:	Maintained
 ARM MFM AND FLOPPY DRIVERS
 P:	Dave Gilbert
 M:	linux@treblig.org
+S:	Maintained
+
+ARM/PT DIGITAL BOARD PORT
+P:	Stefan Eletzhofer
+M:	stefan.eletzhofer@eletztrick.de
+L:	linux-arm-kernel@lists.arm.linux.org.uk
+W:	http://www.arm.linux.org.uk/
 S:	Maintained
 
 ARM/SHARK MACHINE SUPPORT
@@ -711,6 +731,13 @@ L:	linux-ia64@linuxia64.org
 W:	http://www.linuxia64.org/
 S:	Maintained
 
+SN-IA64 (Itanium) SUB-PLATFORM
+P:	John Hesterberg
+M:	jh@sgi.com
+L:	linux-ia64@linuxia64.org
+W:	http://www.sgi.com/altix
+S:	Maintained
+
 IBM MCA SCSI SUBSYSTEM DRIVER
 P:	Michael Lang
 M:	langa2@kph.uni-mainz.de
@@ -1175,7 +1202,7 @@ S:	Maintained
 
 NVIDIA (RIVA) FRAMEBUFFER DRIVER
 P:	Ani Joshi
-M:	ajoshi@shell.unixbox.com
+M:	ajoshi@kernel.crashing.org
 L:	linux-nvidia@lists.surfsouth.com
 S:	Maintained
 
@@ -1412,7 +1439,7 @@ S:	Supported
 SA1100 SUPPORT
 P:	Nicolas Pitre
 M:	nico@cam.org
-L:	sa1100-linux@pa.dec.com
+L:	linux-arm@lists.arm.linux.org.uk
 S:	Maintained
 
 SBPCD CDROM DRIVER

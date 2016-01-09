@@ -76,7 +76,6 @@ struct cpuinfo_x86 cpu_data[NR_CPUS] __cacheline_aligned;
 /* Set when the idlers are all forked */
 int smp_threads_ready;
 
-extern int last_tsc;
 extern void time_init_smp(void);
 
 /*
@@ -239,6 +238,7 @@ static void __init synchronize_tsc_bp (void)
 		 */
 		atomic_inc(&tsc_count_start);
 
+		sync_core();
 		rdtscll(tsc_values[smp_processor_id()]);
 
 		/*
@@ -247,7 +247,6 @@ static void __init synchronize_tsc_bp (void)
 
 		if (i == NR_LOOPS-1) {
 			write_tsc(0, 0);
-			last_tsc = 0;
 		}
 
 		/*
@@ -309,6 +308,7 @@ static void __init synchronize_tsc_ap (void)
 		atomic_inc(&tsc_count_start);
 		while (atomic_read(&tsc_count_start) != smp_num_cpus) mb();
 
+		sync_core();
 		rdtscll(tsc_values[smp_processor_id()]);
 		if (i == NR_LOOPS-1)
 			write_tsc(0, 0);
@@ -897,6 +897,7 @@ void __init smp_boot_cpus(void)
 		io_apic_irqs = 0;
 		cpu_online_map = phys_cpu_present_map = 1;
 		smp_num_cpus = 1;
+		apic_disabled = 1;
 		goto smp_done;
 	}
 
@@ -911,6 +912,7 @@ void __init smp_boot_cpus(void)
 		io_apic_irqs = 0;
 		cpu_online_map = phys_cpu_present_map = 1;
 		smp_num_cpus = 1;
+		apic_disabled = 1;
 		goto smp_done;
 	}
 

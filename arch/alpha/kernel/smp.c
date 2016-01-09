@@ -77,7 +77,7 @@ unsigned long cpu_present_mask;
 /* cpus reported in the hwrpb */
 static unsigned long hwrpb_cpu_present_mask __initdata = 0;
 
-static int max_cpus = -1;	/* Command-line limitation.  */
+static int max_cpus = NR_CPUS;	/* Command-line limitation.  */
 int smp_num_probed;		/* Internal processor count */
 int smp_num_cpus = 1;		/* Number that came online.  */
 int smp_threads_ready;		/* True once the per process idle is forked. */
@@ -103,7 +103,7 @@ static int __init maxcpus(char *str)
 	return 1;
 }
 
-__setup("maxcpus", maxcpus);
+__setup("maxcpus=", maxcpus);
 
 
 /*
@@ -584,6 +584,9 @@ smp_boot_cpus(void)
 
 	cpu_count = 1;
 	for (i = 0; i < NR_CPUS; i++) {
+		if (cpu_count >= max_cpus)
+			break;
+
 		if (i == boot_cpuid)
 			continue;
 

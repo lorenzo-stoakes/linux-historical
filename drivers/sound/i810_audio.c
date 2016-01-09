@@ -66,6 +66,9 @@
  *
  *	This driver is cursed. (Ben LaHaise)
  *
+ *  ICH 3 caveats
+ *	Intel errata #7 for ICH3 IO. We need to disable SMI stuff
+ *	when codec probing. [Not Yet Done]
  *
  *  ICH 4 caveats
  *

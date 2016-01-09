@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/kernel/cputable.c
  *
  *  Copyright (C) 2001 Ben. Herrenschmidt (benh@kernel.crashing.org)
@@ -38,7 +35,7 @@ extern void __setup_cpu_generic(unsigned long offset, int cpu_nr, struct cpu_spe
 
 #define CLASSIC_PPC (!defined(CONFIG_8xx) && 	 \
 		     !defined(CONFIG_4xx) && !defined(CONFIG_POWER3) &&  \
-		     !defined(CONFIG_POWER4) && !defined(CONFIG_PPC_ISERIES))
+		     !defined(CONFIG_POWER4))
 
 /* This table only contains "desktop" CPUs, it need to be filled with embedded
  * ones as well...
@@ -144,7 +141,16 @@ struct cpu_spec	cpu_specs[] = {
 	32, 32,
 	__setup_cpu_750cx
     },
-    {	/* 750FX (All revs for now) */
+    {	/* 750FX rev 2.0 must disable HID0[DPM] */
+    	0xffffffff, 0x70000200, "750FX",
+    	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_CAN_DOZE | CPU_FTR_USE_TB |
+	CPU_FTR_L2CR | CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_CAN_NAP |
+	CPU_FTR_NO_DPM,
+	COMMON_PPC,
+	32, 32,
+	__setup_cpu_750
+    },
+    {	/* 750FX (All revs except 2.0) */
     	0xffff0000, 0x70000000, "750FX",
     	CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_CAN_DOZE | CPU_FTR_USE_TB |
 	CPU_FTR_L2CR | CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_CAN_NAP |

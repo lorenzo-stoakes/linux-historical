@@ -178,6 +178,8 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long new_stackp,
         /* save fprs, if used in last task */
 	save_fp_regs(&p->thread.fp_regs);
         p->thread.user_seg = __pa((unsigned long) p->mm->pgd) | _REGION_TABLE;
+	/* start new process with ar4 pointing to the correct address space */
+	p->thread.ar4 = get_fs().ar4;
         /* Don't copy debug registers */
         memset(&p->thread.per_info,0,sizeof(p->thread.per_info));
         return 0;

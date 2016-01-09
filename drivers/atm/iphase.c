@@ -1889,7 +1889,7 @@ static int open_tx(struct atm_vcc *vcc)
                     return -EINVAL; 
                 }
                 if (vcc->qos.txtp.max_pcr > iadev->LineRate) {
-                   IF_CBR(printk("PCR is not availble\n");)
+                   IF_CBR(printk("PCR is not available\n");)
                    return -1;
                 }
                 vc->type = CBR;
@@ -1899,7 +1899,7 @@ static int open_tx(struct atm_vcc *vcc)
                 }
        } 
 	else  
-           printk("iadev:  Non UBR, ABR and CBR traffic not supportedn"); 
+           printk("iadev:  Non UBR, ABR and CBR traffic not supported\n"); 
         
         iadev->testTable[vcc->vci]->vc_status |= VC_ACTIVE;
 	IF_EVENT(printk("ia open_tx returning \n");)  

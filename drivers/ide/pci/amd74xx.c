@@ -1,9 +1,30 @@
 /*
- * linux/drivers/ide/amd74xx.c		Version 0.05	June 9, 2000
+ * linux/drivers/ide/pci/amd74xx.c		Version 0.05	June 9, 2000
  *
  * Copyright (C) 1999-2000		Andre Hedrick <andre@linux-ide.org>
  * May be copied or modified under the terms of the GNU General Public License
  *
+ * Documentation
+ *	Publically available from AMD
+ *
+ * Errata
+ *	AMD 756: Errata #1
+ *	Single word DMA is not supported by old AMD IDE devices
+ *
+ *	AMD 766: Errata #15
+ *	IDE may hang if prefetch is enabled. The BIOS does not enable
+ *	prefetch.
+ *
+ *	AMD 766: Errata #19
+ *	Poor UDMA100 performance
+ *
+ *	AMD 761: Errata #55
+ *	AMD 762: Errata #56
+ *	A problem exists with IDE prefetch and the last page before the
+ *	640K boundary. Users hitting this problem can add a PS/2 mouse
+ *	to the system, causing that page to become an EBDA page and not
+ *	used by the OS. A full work around is under investigation.
+ *	BIOS updates should also avoid this.
  */
 
 #include <linux/config.h>

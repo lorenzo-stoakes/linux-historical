@@ -110,7 +110,7 @@ static int sddr09_send_control(struct us_data *us,
 
 	if (result < 0) {
 		/* if the command was aborted, indicate that */
-		if (result == -ENOENT)
+		if (result == -ECONNRESET)
 			return USB_STOR_TRANSPORT_ABORTED;
 
 		/* a stall is a fatal condition from the device */
@@ -161,8 +161,8 @@ static int sddr09_raw_bulk(struct us_data *us,
                         return US_BULK_TRANSFER_FAILED;
                 }
 
-                /* -ENOENT -- we canceled this transfer */
-                if (result == -ENOENT) {
+                /* -ECONNRESET -- we canceled this transfer */
+                if (result == -ECONNRESET) {
                         US_DEBUGP("usbat_raw_bulk():"
 				" transfer aborted\n");
                         return US_BULK_TRANSFER_ABORTED;

@@ -96,6 +96,7 @@ SECTIONS
 
   /* Sections to be discarded */
   /DISCARD/ : {
+	*(.text.exit)
 	*(.data.exit)
 	*(.exitcall.exit)
 	*(.eh_frame)

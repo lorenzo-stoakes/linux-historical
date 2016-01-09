@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/trm290.c		Version 1.02	Mar. 18, 2000
+ *  linux/drivers/ide/pci/trm290.c		Version 1.02	Mar. 18, 2000
  *
  *  Copyright (c) 1997-1998  Mark Lord
  *  May be copied or modified under the terms of the GNU General Public License

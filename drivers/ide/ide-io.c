@@ -833,14 +833,14 @@ void ide_do_request (ide_hwgroup_t *hwgroup, int masked_irq)
 		 * happens anyway when any interrupt comes in, IDE or otherwise
 		 *  -- the kernel masks the IRQ while it is being handled.
 		 */
-		if (masked_irq && hwif->irq != masked_irq)
+		if (hwif->irq != masked_irq)
 			disable_irq_nosync(hwif->irq);
 		spin_unlock(&io_request_lock);
 		local_irq_enable();
 			/* allow other IRQs while we start this request */
 		startstop = start_request(drive, rq);
 		spin_lock_irq(&io_request_lock);
-		if (masked_irq && hwif->irq != masked_irq)
+		if (hwif->irq != masked_irq)
 			enable_irq(hwif->irq);
 		if (startstop == ide_stopped)
 			hwgroup->busy = 0;
@@ -866,7 +866,7 @@ EXPORT_SYMBOL(ide_get_queue);
  */
 void do_ide_request(request_queue_t *q)
 {
-	ide_do_request(q->queuedata, 0);
+	ide_do_request(q->queuedata, IDE_NO_IRQ);
 }
 
 /*
@@ -1014,7 +1014,7 @@ void ide_timer_expiry (unsigned long data)
 				hwgroup->busy = 0;
 		}
 	}
-	ide_do_request(hwgroup, 0);
+	ide_do_request(hwgroup, IDE_NO_IRQ);
 	spin_unlock_irqrestore(&io_request_lock, flags);
 }
 
@@ -1319,7 +1319,7 @@ int ide_do_drive_cmd (ide_drive_t *drive, struct request *rq, ide_action_t actio
 			queue_head = queue_head->next;
 	}
 	list_add(&rq->queue, queue_head);
-	ide_do_request(hwgroup, 0);
+	ide_do_request(hwgroup, IDE_NO_IRQ);
 	spin_unlock_irqrestore(&io_request_lock, flags);
 	if (action == ide_wait) {
 		/* wait for it to be serviced */

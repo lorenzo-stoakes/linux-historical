@@ -45,7 +45,7 @@
 #define GP_REGS_SIZE	MIN(sizeof(elf_gregset_t), sizeof(struct pt_regs))
 #define FP_REGS_SIZE	sizeof(elf_fpregset_t)
 
-#define TRAMP_TRACEBACK	2
+#define TRAMP_TRACEBACK	3
 #define TRAMP_SIZE	6
 
 /*
@@ -57,6 +57,7 @@
  */
 
 struct sigframe {
+	/* sys_sigreturn requires the sigcontext be the first field */
 	struct sigcontext sc;
 	unsigned int tramp[TRAMP_SIZE];
 	/* 64 bit ABI allows for 288 bytes below sp before decrementing it. */
@@ -64,12 +65,13 @@ struct sigframe {
 };
 
 struct rt_sigframe {
+	/* sys_rt_sigreturn requires the ucontext be the first field */
+	struct ucontext uc;
 	unsigned long _unused[2];
 	unsigned int tramp[TRAMP_SIZE];
 	struct siginfo *pinfo;
 	void *puc;
 	struct siginfo info;
-	struct ucontext uc;
 	/* 64 bit ABI allows for 288 bytes below sp before decrementing it. */
 	char abigap[288];
 };
@@ -296,21 +298,43 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size)
         return (void *)((newsp - frame_size) & -8ul);
 }
 
+static int
+setup_trampoline(unsigned int syscall, unsigned int *tramp)
+{
+	int i, err = 0;
+
+	/* addi r1, r1, __SIGNAL_FRAMESIZE  # Pop the dummy stackframe */
+	err |= __put_user(0x38210000UL | (__SIGNAL_FRAMESIZE & 0xffff), &tramp[0]);
+	/* li r0, __NR_[rt_]sigreturn| */
+	err |= __put_user(0x38000000UL | (syscall & 0xffff), &tramp[1]);
+	/* sc */
+	err |= __put_user(0x44000002UL, &tramp[2]);
+
+	/* Minimal traceback info */
+	for (i=TRAMP_TRACEBACK; i < TRAMP_SIZE ;i++)
+		err |= __put_user(0, &tramp[i]);
+
+	if (!err)
+		flush_icache_range((unsigned long) &tramp[0],
+			   (unsigned long) &tramp[TRAMP_SIZE]);
+
+	return err;
+}
+
+
 asmlinkage int
 sys_rt_sigreturn(unsigned long r3, unsigned long r4, unsigned long r5,
 		 unsigned long r6, unsigned long r7, unsigned long r8,
 		 struct pt_regs *regs)
 {
-	struct rt_sigframe *frame;
+	struct ucontext *uc = (struct ucontext *)regs->gpr[1];
 	sigset_t set;
 	stack_t st;
 
-	frame = (struct rt_sigframe *)(regs->gpr[1] + __SIGNAL_FRAMESIZE);
-
-	if (verify_area(VERIFY_READ, frame, sizeof(*frame)))
+	if (verify_area(VERIFY_READ, uc, sizeof(*uc)))
 		goto badframe;
 
-	if (__copy_from_user(&set, &frame->uc.uc_sigmask, sizeof(set)))
+	if (__copy_from_user(&set, &uc->uc_sigmask, sizeof(set)))
 		goto badframe;
 
 	sigdelsetmask(&set, ~_BLOCKABLE);
@@ -319,10 +343,10 @@ sys_rt_sigreturn(unsigned long r3, unsigned long r4, unsigned long r5,
 	recalc_sigpending(current);
 	spin_unlock_irq(&current->sigmask_lock);
 
-	if (restore_sigcontext(regs, NULL, &frame->uc.uc_mcontext))
+	if (restore_sigcontext(regs, NULL, &uc->uc_mcontext))
 		goto badframe;
 
-	if (__copy_from_user(&st, &frame->uc.uc_stack, sizeof(st)))
+	if (__copy_from_user(&st, &uc->uc_stack, sizeof(st)))
 		goto badframe;
 
 	/* This function sets back the stack flags into
@@ -347,7 +371,7 @@ setup_rt_frame(int signr, struct k_sigaction *ka, siginfo_t *info,
 	func_descr_t *funct_desc_ptr;
 	struct rt_sigframe *frame;
 	unsigned long newsp;
-	int i, err = 0;
+	int err = 0;
 
 	frame = get_sigframe(ka, regs, sizeof(*frame));
 
@@ -374,18 +398,9 @@ setup_rt_frame(int signr, struct k_sigaction *ka, siginfo_t *info,
 		goto give_sigsegv;
 
 	/* Set up to return from userspace. */
-	/* li r0, __NR_rt_sigreturn */
-	err |= __put_user(0x38000000UL + __NR_rt_sigreturn, &frame->tramp[0]);
-	/* sc */
-	err |= __put_user(0x44000002UL, &frame->tramp[1]);
-	/* Minimal traceback info */
-	for (i=TRAMP_TRACEBACK; i < TRAMP_SIZE ;i++)
-		err |= __put_user(0, &frame->tramp[i]);
+	err |= setup_trampoline(__NR_rt_sigreturn, &frame->tramp[0]);
 	if (err)
 		goto give_sigsegv;
-
-	flush_icache_range((unsigned long) &frame->tramp[0],
-			   (unsigned long) &frame->tramp[TRAMP_SIZE]);
 
 	funct_desc_ptr = (func_descr_t *) ka->sa.sa_handler;
 
@@ -423,15 +438,13 @@ sys_sigreturn(unsigned long r3, unsigned long r4, unsigned long r5,
 	      unsigned long r6, unsigned long r7, unsigned long r8,
 	      struct pt_regs *regs)
 {
-	struct sigframe *frame;
+	struct sigcontext *sc = (struct sigcontext *)regs->gpr[1];
 	sigset_t set;
 
-        frame = (struct sigframe *)(regs->gpr[1] + __SIGNAL_FRAMESIZE);
-
-	if (verify_area(VERIFY_READ, frame, sizeof(*frame)))
+	if (verify_area(VERIFY_READ, sc, sizeof(*sc)))
 		goto badframe;
 
-	if (restore_sigcontext(regs, &set, &frame->sc))
+	if (restore_sigcontext(regs, &set, sc))
 		goto badframe;
 
 	sigdelsetmask(&set, ~_BLOCKABLE);
@@ -459,7 +472,7 @@ setup_frame(int signr, struct k_sigaction *ka, sigset_t *set,
 	func_descr_t *funct_desc_ptr;
 	struct sigframe *frame;
 	unsigned long newsp;
-	int i, err = 0;
+	int err = 0;
 
 	frame = get_sigframe(ka, regs, sizeof(*frame));
 
@@ -470,18 +483,9 @@ setup_frame(int signr, struct k_sigaction *ka, sigset_t *set,
 				(unsigned long)ka->sa.sa_handler);
 
 	/* Set up to return from userspace. */
-	/* li r0, __NR_rt_sigreturn */
-	err |= __put_user(0x38000000UL + __NR_sigreturn, &frame->tramp[0]);
-	/* sc */
-	err |= __put_user(0x44000002UL, &frame->tramp[1]);
-	/* Minimal traceback info */
-	for (i=TRAMP_TRACEBACK; i < TRAMP_SIZE ;i++)
-		err |= __put_user(0, &frame->tramp[i]);
+	err |= setup_trampoline(__NR_sigreturn, &frame->tramp[0]);
 	if (err)
 		goto badframe;
-
-	flush_icache_range((unsigned long) &frame->tramp[0],
-			   (unsigned long) &frame->tramp[TRAMP_SIZE]);
 
 	funct_desc_ptr = (func_descr_t *) ka->sa.sa_handler;
 

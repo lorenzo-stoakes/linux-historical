@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  linux/include/asm-ppc/ide.h
  *
  *  Copyright (C) 1994-1996 Linus Torvalds & authors */
@@ -64,8 +61,24 @@ static __inline__ void ide_init_hwif_ports(hw_regs_t *hw,
 					   ide_ioreg_t data_port,
 					   ide_ioreg_t ctrl_port, int *irq)
 {
-	if (ppc_ide_md.ide_init_hwif != NULL)
+	ide_ioreg_t reg = data_port;
+	int i;
+
+	if (ppc_ide_md.ide_init_hwif != NULL) {
 		ppc_ide_md.ide_init_hwif(hw, data_port, ctrl_port, irq);
+		return;
+	}
+	for (i = IDE_DATA_OFFSET; i <= IDE_STATUS_OFFSET; i++)
+		hw->io_ports[i] = reg++;
+	if (ctrl_port) {
+		hw->io_ports[IDE_CONTROL_OFFSET] = ctrl_port;
+	} else {
+		hw->io_ports[IDE_CONTROL_OFFSET] =
+			hw->io_ports[IDE_DATA_OFFSET] + 0x206;
+	}
+	if (irq != NULL)
+		*irq = 0;
+	hw->io_ports[IDE_IRQ_OFFSET] = 0;
 }
 
 static __inline__ void ide_init_default_hwifs(void)

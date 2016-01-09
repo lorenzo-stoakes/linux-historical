@@ -1,5 +1,3 @@
-# BK Id: SCCS/s.Makefile 1.8 08/16/01 17:25:47 paulus
-#
 #
 # Makefile for the linux ppc-specific parts of the memory manager.
 #

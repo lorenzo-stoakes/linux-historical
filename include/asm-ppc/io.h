@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.io.h 1.14 10/16/01 15:58:42 trini
- */
 #ifdef __KERNEL__
 #ifndef _PPC_IO_H
 #define _PPC_IO_H
@@ -249,7 +246,7 @@ extern inline void * phys_to_virt(unsigned long address)
 /*
  * Change "struct page" to physical address.
  */
-#define page_to_phys(page)	((page - mem_map) << PAGE_SHIFT)
+#define page_to_phys(page)	(((page - mem_map) << PAGE_SHIFT) + PPC_MEMSTART)
 #define page_to_bus(page)	(page_to_phys(page) + PCI_DRAM_OFFSET)
 
 /*
@@ -262,7 +259,7 @@ extern inline void eieio(void)
 	__asm__ __volatile__ ("eieio" : : : "memory");
 }
 
-/* Enforce in-order execution of data I/O. 
+/* Enforce in-order execution of data I/O.
  * No distinction between read/write on PPC; use eieio for all three.
  */
 #define iobarrier_rw() eieio()

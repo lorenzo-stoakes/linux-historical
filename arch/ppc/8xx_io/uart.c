@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.uart.c 1.23 12/29/01 14:50:03 trini
- */
-/*
  *  UART driver for MPC860 CPM SCC or SMC
  *  Copyright (c) 1997 Dan Malek (dmalek@jlc.net)
  *
@@ -44,15 +41,13 @@
 #include <asm/8xx_immap.h>
 #include <asm/mpc8xx.h>
 #include <asm/commproc.h>
+#include <asm/irq.h>
+#include <asm/kgdb.h>
 #ifdef CONFIG_MAGIC_SYSRQ
 #include <linux/sysrq.h>
 #endif
 
-#ifdef CONFIG_KGDB
-extern void breakpoint(void);
-extern void set_debug_traps(void);
-extern int  kgdb_output_string (const char* s, unsigned int count);
-#endif
+extern int kgdb_output_string (const char* s, unsigned int count);
 
 #ifdef CONFIG_SERIAL_CONSOLE
 #include <linux/console.h>
@@ -134,6 +129,17 @@ static unsigned long break_pressed; /* break, really ... */
 #define smc_scc_num	hub6
 #define NUM_IS_SCC	((int)0x00010000)
 #define PORT_NUM(P)	((P) & 0x0000ffff)
+
+/* The serial port to use for KGDB. */
+#ifdef CONFIG_KGDB_TTYS1
+#define KGDB_SER_IDX	1	/* SCC1/SMC1 */
+#elif CONFIG_KGDB_TTYS2
+#define KGDB_SER_IDX	2	/* SCC2/SMC2 */
+#elif CONFIG_KGDB_TTYS3
+#define KGDB_SER_IDX	3	/* SCC4/SMC4 (future?) */
+#else				/* Unset, or ttyS0, use SCC1/SMC1 */
+#define KGDB_SER_IDX	0
+#endif
 
 /* Processors other than the 860 only get SMCs configured by default.
  * Either they don't have SCCs or they are allocated somewhere else.
@@ -390,6 +396,14 @@ static _INLINE_ void receive_chars(ser_info_t *info, struct pt_regs *regs)
 		cp = (unsigned char *)__va(bdp->cbd_bufaddr);
 		status = bdp->cbd_sc;
 
+#ifdef CONFIG_KGDB
+		if (info->state->smc_scc_num == KGDB_SER_IDX) {
+			if (*cp == 0x03 || *cp == '$')
+				breakpoint();
+			return;
+		}
+#endif
+
 		/* Check to see if there is room in the tty buffer for
 		 * the characters in our BD buffer.  If not, we exit
 		 * now, leaving the BD with the characters.  We'll pick
@@ -615,7 +629,7 @@ static _INLINE_ void check_modem_status(struct async_struct *info)
 /*
  * This is the serial driver's interrupt routine for a single port
  */
-static void rs_8xx_interrupt(void *dev_id, struct pt_regs *regs)
+static void rs_8xx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	u_char	events;
 	int	idx;
@@ -1059,7 +1073,7 @@ static int rs_8xx_write(struct tty_struct * tty, int from_user,
 	ser_info_t *info = (ser_info_t *)tty->driver_data;
 	volatile cbd_t *bdp;
 
-#ifdef CONFIG_KGDB
+#ifdef CONFIG_KGDB_CONSOLE
         /* Try to let stub handle output. Returns true if it did. */ 
         if (kgdb_output_string(buf, count))
             return ret;
@@ -2302,7 +2316,7 @@ static void my_console_write(int idx, const char *s,
 static void serial_console_write(struct console *c, const char *s,
 				unsigned count)
 {
-#ifdef CONFIG_KGDB
+#ifdef CONFIG_KGDB_CONSOLE
 	/* Try to let stub handle output. Returns true if it did. */ 
 	if (kgdb_output_string(s, count))
 		return;
@@ -2316,14 +2330,6 @@ xmon_8xx_write(const char *s, unsigned count)
 {
 	my_console_write(0, s, count);
 	return(count);
-}
-#endif
-
-#ifdef CONFIG_KGDB
-void
-putDebugChar(char ch)
-{
-	my_console_write(0, &ch, 1);
 }
 #endif
 
@@ -2418,7 +2424,13 @@ xmon_8xx_read_char(void)
 static char kgdb_buf[RX_BUF_SIZE], *kgdp;
 static int kgdb_chars;
 
-unsigned char
+void
+putDebugChar(char ch)
+{
+	my_console_write(0, &ch, 1);
+}
+
+char
 getDebugChar(void)
 {
 	if (kgdb_chars <= 0) {
@@ -2430,9 +2442,18 @@ getDebugChar(void)
 	return(*kgdp++);
 }
 
-void kgdb_interruptible(int state)
+void kgdb_interruptible(int yes)
 {
+	volatile smc_t	*smcp;
+
+	smcp = &cpmp->cp_smc[KGDB_SER_IDX];
+
+	if (yes == 1)
+		smcp->smc_smcm |= SMCM_RX;
+	else
+		smcp->smc_smcm &= ~SMCM_RX;
 }
+
 void kgdb_map_scc(void)
 {
 	struct		serial_state *ser;
@@ -2459,7 +2480,7 @@ void kgdb_map_scc(void)
 	/* Allocate space for an input FIFO, plus a few bytes for output.
 	 * Allocate bytes to maintain word alignment.
 	 */
-	mem_addr = (uint)(&cpmp->cp_dpmem[0x1000]);
+	mem_addr = (uint)(&cpmp->cp_dpmem[0xa00]);
 
 	/* Set the physical address of the host memory buffers in
 	 * the buffer descriptors.
@@ -2489,7 +2510,7 @@ long __init console_8xx_init(long kmem_start, long kmem_end)
 	return kmem_start;
 }
 
-#endif
+#endif /* CONFIG_SERIAL_CONSOLE */
 
 /* Index in baud rate table of the default console baud rate.
 */
@@ -2874,7 +2895,8 @@ int __init rs_8xx_init(void)
 
 			/* Install interrupt handler.
 			*/
-			cpm_install_handler(state->irq, rs_8xx_interrupt, info);
+			if ((request_irq(CPM_IRQ_OFFSET + state->irq, rs_8xx_interrupt, 0, cpm_int_name[state->irq], info)) != 0)
+				panic("Could not allocate UART IRQ!");
 
 			/* Set up the baud rate generator.
 			*/

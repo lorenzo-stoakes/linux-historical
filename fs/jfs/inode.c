@@ -47,7 +47,7 @@ void jfs_clear_inode(struct inode *inode)
 		 */
 		return;
 
-	jFYI(1, ("jfs_clear_inode called ip = 0x%p\n", inode));
+	jfs_info("jfs_clear_inode called ip = 0x%p", inode);
 
 	if (ji->active_ag != -1) {
 		struct bmap *bmap = JFS_SBI(inode->i_sb)->bmap;
@@ -57,10 +57,10 @@ void jfs_clear_inode(struct inode *inode)
 	ASSERT(list_empty(&ji->anon_inode_list));
 
 	if (ji->atlhead) {
-		jERROR(1, ("jfs_clear_inode: inode %p has anonymous tlocks\n",
-					inode));
-		jERROR(1, ("i_state = 0x%lx, cflag = 0x%lx\n",
-					inode->i_state, ji->cflag));
+		jfs_err("jfs_clear_inode: inode %p has anonymous tlocks",
+			inode);
+		jfs_err("i_state = 0x%lx, cflag = 0x%lx", inode->i_state,
+			ji->cflag);
 	}
 
 	free_jfs_inode(inode);
@@ -72,10 +72,10 @@ void jfs_read_inode(struct inode *inode)
 
 	rc = alloc_jfs_inode(inode);
 	if (rc) {
-		jFYI(1, ("In jfs_read_inode, alloc_jfs_inode failed"));
+		jfs_warn("In jfs_read_inode, alloc_jfs_inode failed");
 		goto bad_inode;
 	}
-	jFYI(1, ("In jfs_read_inode, inode = 0x%p\n", inode));
+	jfs_info("In jfs_read_inode, inode = 0x%p", inode);
 
 	if (diRead(inode))
 		goto bad_inode_free;
@@ -121,7 +121,7 @@ int jfs_commit_inode(struct inode *inode, int wait)
 	tid_t tid;
 	static int noisy = 5;
 
-	jFYI(1, ("In jfs_commit_inode, inode = 0x%p\n", inode));
+	jfs_info("In jfs_commit_inode, inode = 0x%p", inode);
 
 	/*
 	 * Don't commit if inode has been committed since last being
@@ -136,9 +136,9 @@ int jfs_commit_inode(struct inode *inode, int wait)
 		 * partitions and may think inode is dirty
 		 */
 		if (!special_file(inode->i_mode) && noisy) {
-			jERROR(1, ("jfs_commit_inode(0x%p) called on "
-				   "read-only volume\n", inode));
-			jERROR(1, ("Is remount racy?\n"));
+			jfs_err("jfs_commit_inode(0x%p) called on "
+				   "read-only volume", inode);
+			jfs_err("Is remount racy?");
 			noisy--;
 		}
 		return 0;
@@ -164,13 +164,13 @@ void jfs_write_inode(struct inode *inode, int wait)
 		return;
 
 	if (jfs_commit_inode(inode, wait)) {
-		jERROR(1, ("jfs_write_inode: jfs_commit_inode failed!\n"));
+		jfs_err("jfs_write_inode: jfs_commit_inode failed!");
 	}
 }
 
 void jfs_delete_inode(struct inode *inode)
 {
-	jFYI(1, ("In jfs_delete_inode, inode = 0x%p\n", inode));
+	jfs_info("In jfs_delete_inode, inode = 0x%p", inode);
 
 	if (test_cflag(COMMIT_Freewmap, inode))
 		freeZeroLink(inode);
@@ -189,9 +189,8 @@ void jfs_dirty_inode(struct inode *inode)
 			/* kernel allows writes to devices on read-only
 			 * partitions and may try to mark inode dirty
 			 */
-			jERROR(1, ("jfs_dirty_inode called on "
-				   "read-only volume\n"));
-			jERROR(1, ("Is remount racy?\n"));
+			jfs_err("jfs_dirty_inode called on read-only volume");
+			jfs_err("Is remount racy?");
 			noisy--;
 		}
 		return;
@@ -391,7 +390,7 @@ void jfs_truncate_nolock(struct inode *ip, loff_t length)
 
 void jfs_truncate(struct inode *ip)
 {
-	jFYI(1, ("jfs_truncate: size = 0x%lx\n", (ulong) ip->i_size));
+	jfs_info("jfs_truncate: size = 0x%lx", (ulong) ip->i_size);
 
 	block_truncate_page(ip->i_mapping, ip->i_size, jfs_get_block);
 

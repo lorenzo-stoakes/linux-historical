@@ -93,6 +93,7 @@ enum kcs_states {
 #define MAX_ERROR_RETRIES 10
 
 #define IPMI_ERR_MSG_TRUNCATED	0xc6
+#define IPMI_ERR_UNSPECIFIED	0xff
 
 struct kcs_data
 {
@@ -291,6 +292,12 @@ int kcs_get_result(struct kcs_data *kcs, unsigned char *data, int length)
 
 	memcpy(data, kcs->read_data, kcs->read_pos);
 
+	if ((length >= 3) && (kcs->read_pos < 3)) {
+		/* Guarantee that we return at least 3 bytes, with an
+		   error in the third byte if it is too short. */
+		data[2] = IPMI_ERR_UNSPECIFIED;
+		kcs->read_pos = 3;
+	}
 	if (kcs->truncated) {
 		/* Report a truncated error.  We might overwrite
 		   another error, but that's too bad, the user needs

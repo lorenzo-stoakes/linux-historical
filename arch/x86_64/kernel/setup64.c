@@ -3,7 +3,7 @@
  * Copyright (C) 1995  Linus Torvalds
  * Copyright 2001, 2002 SuSE Labs / Andi Kleen.
  * See setup.c for older changelog.
- * $Id: setup64.c,v 1.17 2002/11/14 17:07:03 ak Exp $
+ * $Id: setup64.c,v 1.18 2003/01/24 20:02:09 ak Exp $
  */ 
 #include <linux/config.h>
 #include <linux/init.h>
@@ -107,10 +107,10 @@ void __init cpu_init (void)
 
 	/* CPU 0 is initialised in head64.c */
 	if (nr != 0) {
-		estacks = (char *)__get_free_pages(GFP_ATOMIC, 0); 
+		pda_init(nr);
+		estacks = (char *)__get_free_pages(GFP_ATOMIC, EXCEPTION_STK_ORDER); 
 		if (!estacks)
 			panic("Can't allocate exception stacks for CPU %d\n",nr);
-		pda_init(nr);  
 	} else 
 		estacks = boot_exception_stacks; 
 

@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/icside.c
+ * linux/drivers/ide/arm/icside.c
  *
  * Copyright (c) 1996,1997 Russell King.
  *

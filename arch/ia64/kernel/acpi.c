@@ -443,9 +443,8 @@ acpi_parse_iosapic (acpi_table_entry_header *header)
 
 	if (iosapic_init) {
 #ifndef CONFIG_ITANIUM
-		/* PCAT_COMPAT flag indicates dual-8259 setup */
 		iosapic_init(iosapic->address, iosapic->global_irq_base,
-			     acpi_madt->flags.pcat_compat);
+			     has_8259);
 #else
 		/* Firmware on old Itanium systems is broken */
 		iosapic_init(iosapic->address, iosapic->global_irq_base, 1);
@@ -595,59 +594,6 @@ acpi_parse_fadt (unsigned long phys_addr, unsigned long size)
 }
 
 
-#ifdef CONFIG_SERIAL_ACPI
-
-#include <linux/acpi_serial.h>
-
-static int __init
-acpi_parse_spcr (unsigned long phys_addr, unsigned long size)
-{
-	acpi_ser_t *spcr;
-	u32 gsi, gsi_base;
-	char *iosapic_address;
-
-	if (!phys_addr || !size)
-		return -EINVAL;
-
-	if (!iosapic_register_intr)
-		return -ENODEV;
-
-	/*
-	 * ACPI is able to describe serial ports that live at non-standard
-	 * memory addresses and use non-standard interrupts, either via
-	 * direct SAPIC mappings or via PCI interrupts.  We handle interrupt
-	 * routing for SAPIC-based (non-PCI) devices here.  Interrupt routing
-	 * for PCI devices will be handled when processing the PCI Interrupt
-	 * Routing Table (PRT).
-	 */
-
-	spcr = (acpi_ser_t *) __va(phys_addr);
-	setup_serial_acpi(spcr);
-
-	if (spcr->length < sizeof(acpi_ser_t))
-		/* Table not long enough for full info, thus no interrupt */
-		return -ENODEV;
-
-	if ((spcr->base_addr.space_id != ACPI_SERIAL_PCICONF_SPACE) &&
-	    (spcr->int_type == ACPI_SERIAL_INT_SAPIC)) {
-
-		/* We have a UART in memory space with an SAPIC interrupt */
-
-		gsi = (spcr->global_int[3] << 24) |
-		      (spcr->global_int[2] << 16) |
-		      (spcr->global_int[1] << 8)  |
-		      (spcr->global_int[0]);
-
-		if (!acpi_find_iosapic(gsi, &gsi_base, &iosapic_address))
-			iosapic_register_intr(gsi, 1, 1,
-					      gsi_base, iosapic_address);
-	}
-	return 0;
-}
-
-#endif /*CONFIG_SERIAL_ACPI*/
-
-
 unsigned long __init
 acpi_find_rsdp (void)
 {
@@ -727,10 +673,6 @@ skip_madt:
 	 */
 	if (acpi_table_parse(ACPI_FACP, acpi_parse_fadt) < 1)
 		printk(KERN_ERR PREFIX "Can't find FADT\n");
-
-#ifdef CONFIG_SERIAL_ACPI
-	acpi_table_parse(ACPI_SPCR, acpi_parse_spcr);
-#endif
 
 #ifdef CONFIG_SMP
 	if (available_cpus == 0) {

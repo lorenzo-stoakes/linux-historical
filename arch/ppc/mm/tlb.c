@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains the routines for TLB flushing.
  * On machines where the MMU uses a hash table to store virtual to
  * physical translations, these routines flush entries from the 
@@ -30,7 +27,7 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/init.h>
-
+#include <asm/mmu.h>
 #include "mmu_decl.h"
 
 /*

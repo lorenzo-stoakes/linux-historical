@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/sis5513.c		Version 0.14ac	Sept 11, 2002
+ * linux/drivers/ide/pci/sis5513.c		Version 0.14ac	Sept 11, 2002
  *
  * Copyright (C) 1999-2000	Andre Hedrick <andre@linux-ide.org>
  * Copyright (C) 2002		Lionel Bouton <Lionel.Bouton@inet6.fr>, Maintainer
@@ -18,6 +18,10 @@
  * ATA100 tests and design on the SiS735/5513 chipset.
  * ATA16/33 support from specs
  * ATA133 support for SiS961/962 by L.C. Chang <lcchang@sis.com.tw>
+ *
+ * Documentation:
+ *	SiS chipset documentation available under NDA to companies not
+ *	individuals only.
  */
 
 /*

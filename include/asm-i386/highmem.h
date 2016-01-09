@@ -56,16 +56,19 @@ extern void kmap_init(void) __init;
 #define PKMAP_NR(virt)  ((virt-PKMAP_BASE) >> PAGE_SHIFT)
 #define PKMAP_ADDR(nr)  (PKMAP_BASE + ((nr) << PAGE_SHIFT))
 
-extern void * FASTCALL(kmap_high(struct page *page));
+extern void * FASTCALL(kmap_high(struct page *page, int nonblocking));
 extern void FASTCALL(kunmap_high(struct page *page));
 
-static inline void *kmap(struct page *page)
+#define kmap(page) __kmap(page, 0)
+#define kmap_nonblock(page) __kmap(page, 1)
+
+static inline void *__kmap(struct page *page, int nonblocking)
 {
 	if (in_interrupt())
 		out_of_line_bug();
 	if (page < highmem_start_page)
 		return page_address(page);
-	return kmap_high(page);
+	return kmap_high(page, nonblocking);
 }
 
 static inline void kunmap(struct page *page)

@@ -40,19 +40,10 @@ unsigned long __wall_jiffies __section_wall_jiffies;
 struct timeval __xtime __section_xtime;
 struct timezone __sys_tz __section_sys_tz;
 
-long last_tsc;
-spinlock_t last_tsc_lock = SPIN_LOCK_UNLOCKED;
-
-void rdtscll_safe(long *x)
+static inline void rdtscll_sync(unsigned long *tsc)
 {
-	long temp;
-	unsigned long flags;
-
-	spin_lock_irqsave(&last_tsc_lock, flags);
-	rdtscll(temp);
-	if (last_tsc - temp < 0L) last_tsc = temp;
-	*x = last_tsc;
-	spin_unlock_irqrestore(&last_tsc_lock, flags);
+	sync_core();
+	rdtscll(*tsc);
 }
 
 /*
@@ -63,14 +54,7 @@ void rdtscll_safe(long *x)
 static unsigned int do_gettimeoffset_tsc(void)
 {
 	unsigned long t;
-	rdtscll(t);	
-	return ((t  - vxtime.last_tsc) * vxtime.tsc_quot) >> 32;
-}
-
-static unsigned int do_gettimeoffset_tsc_safe(void)
-{
-	unsigned long t;
-	rdtscll_safe(&t);	
+	rdtscll_sync(&t);	
 	return ((t  - vxtime.last_tsc) * vxtime.tsc_quot) >> 32;
 }
 
@@ -80,7 +64,6 @@ static unsigned int do_gettimeoffset_hpet(void)
 }
 
 unsigned int (*do_gettimeoffset)(void) = do_gettimeoffset_tsc;
-unsigned int (*do_gettimeoffset_safe)(void) = do_gettimeoffset_tsc_safe;
 
 /*
  * This version of gettimeofday() has microsecond resolution and better than
@@ -90,17 +73,20 @@ unsigned int (*do_gettimeoffset_safe)(void) = do_gettimeoffset_tsc_safe;
 
 void do_gettimeofday(struct timeval *tv)
 {
-	unsigned long flags;
+	unsigned long sequence;
  	unsigned int sec, usec;
 
-	read_lock_irqsave(&xtime_lock, flags);
+	do { 
+		sequence = __vxtime_sequence[1];
+		rmb();
 
 	sec = xtime.tv_sec;
 	usec = xtime.tv_usec
 		+ (jiffies - wall_jiffies) * tick
-		+ do_gettimeoffset_safe();
+			+ do_gettimeoffset();
 
-	read_unlock_irqrestore(&xtime_lock, flags);
+		rmb(); 
+	} while (sequence != __vxtime_sequence[0]);
 
 	tv->tv_sec = sec + usec / 1000000;
 	tv->tv_usec = usec % 1000000;
@@ -118,7 +104,7 @@ void do_settimeofday(struct timeval *tv)
 	vxtime_lock();
 
 	tv->tv_usec -= (jiffies - wall_jiffies) * tick
-			+ do_gettimeoffset_safe();
+			+ do_gettimeoffset();
 
 	while (tv->tv_usec < 0) {
 		tv->tv_usec += 1000000;
@@ -238,7 +224,7 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 			delay = LATCH - 1 - delay;
 		}
 
-		rdtscll_safe(&tsc);
+		rdtscll_sync(&tsc);
 
 		if (vxtime.mode == VXTIME_HPET) {
 
@@ -377,6 +363,7 @@ static unsigned int __init hpet_calibrate_tsc(void)
 	do {
 		__cli();
 		hpet_now = hpet_readl(HPET_COUNTER);
+		sync_core();
 		rdtscl(tsc_now);
 		__restore_flags(flags);
 	} while ((tsc_now - tsc_start) < TICK_COUNT && (hpet_now - hpet_start) < TICK_COUNT);
@@ -475,11 +462,23 @@ void __init pit_init(void)
 	spin_unlock_irq(&i8253_lock);
 }
 
-int __init time_setup(char *str)
+static int __init time_setup(char *str)
 {
 	report_lost_ticks = 1;
 	return 1;
 }
+
+/* Only used on SMP */
+static int notsc __initdata = 0; 
+
+static int __init notsc_setup(char *str)
+{ 
+#ifdef CONFIG_SMP
+	printk(KERN_INFO "notsc ignored on non SMP kernel\n"); 
+#endif
+	notsc = 1;
+	return 1;
+} 
 
 static struct irqaction irq0 = { timer_interrupt, SA_INTERRUPT, 0, "timer", NULL, NULL};
 
@@ -521,10 +520,10 @@ void __init time_init(void)
 		timename = "PIT";
 	}
 
-	vxtime.mode = VXTIME_TSC_SAFE;
+	vxtime.mode = VXTIME_TSC;
 	vxtime.quot = (1000000L << 32) / vxtime_hz;
 	vxtime.tsc_quot = (1000L << 32) / cpu_khz;
-	rdtscll_safe(&vxtime.last_tsc);
+	rdtscll_sync(&vxtime.last_tsc);
 
 	setup_irq(0, &irq0);
 
@@ -539,29 +538,23 @@ void __init time_init_smp(void)
 	char *timetype;
 
 	if (hpet_address) {
-		if (smp_num_cpus > 1) {
+		if (notsc) { 
 			timetype = "HPET";
 			vxtime.last = hpet_readl(HPET_T0_CMP) - hpet_tick;
 			vxtime.mode = VXTIME_HPET;
 			do_gettimeoffset = do_gettimeoffset_hpet;
-			do_gettimeoffset_safe = do_gettimeoffset_hpet;
 		} else {
 			timetype = "HPET/TSC";
 			vxtime.mode = VXTIME_TSC;
 			do_gettimeoffset = do_gettimeoffset_tsc;
-			do_gettimeoffset_safe = do_gettimeoffset_tsc;
 		}		
 	} else {
-		if (smp_num_cpus > 1) {
-			timetype = "PIT/TSC/SpinLock";
-		} else {
 			timetype = "PIT/TSC";
 			vxtime.mode = VXTIME_TSC;
-			do_gettimeoffset_safe = do_gettimeoffset_tsc;
-		}
 	}
-
 	printk(KERN_INFO "time.c: Using %s based timekeeping.\n", timetype);
 }
 
+__setup("notsc", notsc_setup);
 __setup("report_lost_ticks", time_setup);
+

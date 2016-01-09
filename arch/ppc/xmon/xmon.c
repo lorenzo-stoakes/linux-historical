@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.xmon.c 1.18 12/01/01 20:09:07 benh
- */
-/*
  * Routines providing a simple monitor for use on the PowerMac.
  *
  * Copyright (C) 1996 Paul Mackerras.
@@ -14,6 +11,8 @@
 #include <asm/string.h>
 #include <asm/prom.h>
 #include <asm/bitops.h>
+#include <asm/mmu.h>
+
 #include "nonstdio.h"
 #include "privinst.h"
 
@@ -921,15 +920,22 @@ openforth()
 }
 #endif
 
+#ifndef CONFIG_PPC_STD_MMU
+static void
+dump_hash_table()
+{
+	printf("This CPU doesn't have a hash table.\n");
+}
+#else
+
 #ifndef CONFIG_PPC64BRIDGE
 static void
 dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 {
-	extern void *Hash;
-	extern unsigned long Hash_size;
-	unsigned *htab = Hash;
-	unsigned hsize = Hash_size;
-	unsigned v, hmask, va, last_va;
+	void *htab = Hash;
+	unsigned long hsize = Hash_size;
+	unsigned long hmask;
+	unsigned v, va, last_va;
 	int found, last_found, i;
 	unsigned *hg, w1, last_w2, last_va0;
 
@@ -984,11 +990,10 @@ dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 static void
 dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 {
-	extern void *Hash;
-	extern unsigned long Hash_size;
-	unsigned *htab = Hash;
-	unsigned hsize = Hash_size;
-	unsigned v, hmask, va, last_va;
+	void *htab = Hash;
+	unsigned long hsize = Hash_size;
+	unsigned long hmask;
+	unsigned v, va, last_va;
 	int found, last_found, i;
 	unsigned *hg, w1, last_w2, last_va0;
 
@@ -1050,6 +1055,8 @@ dump_hash_table()
 	int seg;
 	unsigned seg_start, seg_end;
 
+	if (Hash == NULL)
+		return;
 	hash_ctx = 0;
 	hash_start = 0;
 	hash_end = 0xfffff000;
@@ -1067,6 +1074,7 @@ dump_hash_table()
 		seg_start = seg_end + 0x1000;
 	}
 }
+#endif /* CONFIG_PPC_STD_MMU */
 
 /*
  * Stuff for reading and writing memory safely

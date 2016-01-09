@@ -89,7 +89,7 @@ static volatile unsigned long cpu_callin_map;
 struct smp_boot_data smp_boot_data __initdata;
 
 /* Set when the idlers are all forked */
-volatile int smp_threads_ready;
+int smp_threads_ready;
 
 unsigned long ap_wakeup_vector = -1; /* External Int use to wakeup APs */
 

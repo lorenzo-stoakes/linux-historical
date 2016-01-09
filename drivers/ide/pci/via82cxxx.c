@@ -24,6 +24,10 @@
  *	Michel Aubry
  *	Jeff Garzik
  *	Andre Hedrick
+ *
+ * Documentation:
+ *	Obsolete device documentation publically available from via.com.tw
+ *	Current device documentation available under NDA only
  */
 
 /*

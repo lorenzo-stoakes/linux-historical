@@ -7,7 +7,7 @@
  *  Pentium III FXSR, SSE support
  *	Gareth Hughes <gareth@valinux.com>, May 2000
  *
- *  $Id: traps.c,v 1.54 2003/01/10 15:12:03 ak Exp $
+ *  $Id: traps.c,v 1.57 2003/02/07 04:32:49 ak Exp $
  */
 
 /*
@@ -70,6 +70,12 @@ asmlinkage void alignment_check(void);
 asmlinkage void machine_check(void);
 asmlinkage void spurious_interrupt_bug(void);
 asmlinkage void call_debug(void);
+
+static inline void conditional_sti(struct pt_regs *regs)
+{
+	if (regs->eflags & X86_EFLAGS_IF)
+		__sti();
+}
 
 extern char iret_address[];
 
@@ -159,8 +165,7 @@ void show_trace(unsigned long *stack)
 {
 	unsigned long addr;
 	unsigned long *irqstack, *irqstack_end, *estack_end;
-	/* FIXME: should read the cpuid from the APIC; to still work with bogus %gs */
-	const int cpu = smp_processor_id();
+	const int cpu = safe_smp_processor_id();
 	int i;
 
 	printk("\nCall Trace: ");
@@ -243,7 +248,7 @@ void show_stack(unsigned long * rsp)
 {
 	unsigned long *stack;
 	int i;
-	const int cpu = smp_processor_id();
+	const int cpu = safe_smp_processor_id();
 	unsigned long *irqstack_end = (unsigned long *) (cpu_pda[cpu].irqstackptr);
 	unsigned long *irqstack = (unsigned long *) (cpu_pda[cpu].irqstackptr - IRQSTACKSIZE);    
 
@@ -276,12 +281,7 @@ void show_registers(struct pt_regs *regs)
 	int i;
 	int in_kernel = 1;
 	unsigned long rsp;
-#ifdef CONFIG_SMP
-	/* For SMP should get the APIC id here, just to protect against corrupted GS */ 
-	const int cpu = smp_processor_id(); 
-#else
-	const int cpu = 0;
-#endif	
+	const int cpu = safe_smp_processor_id(); 
 	struct task_struct *cur = cpu_pda[cpu].pcurrent; 
 
 	rsp = (unsigned long) (&regs->rsp);
@@ -351,7 +351,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 	bust_spinlocks(1);
 	handle_BUG(regs);		
 	printk(KERN_EMERG "%s: %04lx\n", str, err & 0xffff);
-	cpu = smp_processor_id(); 
+	cpu = safe_smp_processor_id(); 
 	/* racy, but better than risking deadlock. */ 
 	__cli();
 	if (!spin_trylock(&die_lock)) { 
@@ -386,10 +386,12 @@ static inline unsigned long get_cr2(void)
 static void do_trap(int trapnr, int signr, char *str, 
 		    struct pt_regs * regs, long error_code, siginfo_t *info)
 {
+	conditional_sti(regs);
+
 #if defined(CONFIG_CHECKING) && defined(CONFIG_LOCAL_APIC)
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + hard_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
@@ -419,11 +421,6 @@ static void do_trap(int trapnr, int signr, char *str,
 		unsigned long fixup = search_exception_table(regs->rip);
 		if (fixup) {
 			extern int exception_trace; 
-			if (0 && exception_trace)
-	       printk(KERN_ERR
-	             "%s: fixed kernel exception at %lx err:%ld\n",
-	             current->comm, regs->rip, error_code);
-		
 			regs->rip = fixup;
 		} else	
 			die(str, regs, error_code);
@@ -472,14 +469,21 @@ extern void dump_pagetable(unsigned long);
 
 asmlinkage void do_general_protection(struct pt_regs * regs, long error_code)
 {
+	conditional_sti(regs);
+
 #ifdef CONFIG_CHECKING
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
+			/* Avoid wakeup in printk in case this was triggered
+			   by the segment reloads in __switch_to. Otherwise
+			   the wake_up could deadlock on scheduler locks. */
+			oops_in_progress++;
 			printk("general protection handler: wrong gs %lx expected %p\n", gs, pda);
+			oops_in_progress--; 
 		}
 	}
 #endif
@@ -500,12 +504,6 @@ asmlinkage void do_general_protection(struct pt_regs * regs, long error_code)
 		unsigned long fixup;
 		fixup = search_exception_table(regs->rip);
 		if (fixup) {
-			extern int exception_trace; 
-			if (exception_trace)
-				printk(KERN_ERR
-			       "%s: fixed kernel exception at %lx err:%ld\n",
-				       current->comm, regs->rip, error_code);
-
 			regs->rip = fixup;
 			return;
 		}
@@ -547,7 +545,7 @@ asmlinkage void do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = inb(0x61);
 
-	++nmi_count(smp_processor_id());
+	++nmi_count(safe_smp_processor_id());
 	
 	if (!(reason & 0xc0)) {
 #if CONFIG_X86_LOCAL_APIC
@@ -588,10 +586,14 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 	struct task_struct *tsk = current;
 	siginfo_t info;
 
+	asm("movq %%db6,%0" : "=r" (condition));
+
+	conditional_sti(regs);
+
 #ifdef CONFIG_CHECKING
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
@@ -599,8 +601,6 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 		}
 	}
 #endif
-
-	asm("movq %%db6,%0" : "=r" (condition));
 
 	if (notify_die(DIE_DEBUG, "debug", regs, error_code) == NOTIFY_BAD)
 		return; 
@@ -711,6 +711,7 @@ void math_error(void *rip)
 
 asmlinkage void do_coprocessor_error(struct pt_regs * regs, long error_code)
 {
+	conditional_sti(regs);
 	math_error((void *)regs->rip);
 }
 
@@ -770,6 +771,7 @@ static inline void simd_math_error(void *rip)
 asmlinkage void do_simd_coprocessor_error(struct pt_regs * regs,
 					  long error_code)
 {
+	conditional_sti(regs);
 	simd_math_error((void *)regs->rip);
 }
 

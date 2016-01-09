@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.enet.c 1.17 10/11/01 11:55:47 trini
- */
-/*
  * Ethernet driver for Motorola MPC8xx.
  * Copyright (c) 1997 Dan Malek (dmalek@jlc.net)
  *
@@ -48,6 +45,7 @@
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
 #include <asm/commproc.h>
+#include <asm/irq.h>
 
 /*
  *				Theory of Operation
@@ -147,7 +145,6 @@ struct scc_enet_private {
 static int scc_enet_open(struct net_device *dev);
 static int scc_enet_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static int scc_enet_rx(struct net_device *dev);
-static void scc_enet_interrupt(void *dev_id, struct pt_regs *regs);
 static int scc_enet_close(struct net_device *dev);
 static struct net_device_stats *scc_enet_get_stats(struct net_device *dev);
 static void set_multicast_list(struct net_device *dev);
@@ -303,7 +300,7 @@ scc_enet_timeout(struct net_device *dev)
  * This is called from the CPM handler, not the MPC core interrupt.
  */
 static void
-scc_enet_interrupt(void *dev_id, struct pt_regs *regs)
+scc_enet_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct	net_device *dev = dev_id;
 	volatile struct	scc_enet_private *cep;
@@ -880,7 +877,9 @@ int __init scc_enet_init(void)
 
 	/* Install our interrupt handler.
 	*/
-	cpm_install_handler(CPMVEC_ENET, scc_enet_interrupt, dev);
+	if ((request_irq(CPM_IRQ_OFFSET + CPMVEC_ENET, scc_enet_interrupt,
+			0, cpm_int_name[CPMVEC_ENET], dev)) != 0)
+		panic("Could not allocate SCC ethernet IRQ!");
 
 	/* Set GSMR_H to enable all normal operating modes.
 	 * Set GSMR_L to enable Ethernet to MC68160.

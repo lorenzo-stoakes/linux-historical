@@ -386,7 +386,6 @@ typedef struct ohci {
 	struct ohci_regs * regs;	/* OHCI controller's memory */
 	struct list_head ohci_hcd_list;	/* list of all ohci_hcd */
 
-	struct ohci * next; 		// chain of ohci device contexts
 	struct list_head timeout_list;
 	// struct list_head urb_list; 	// list of all pending urbs
 	// spinlock_t urb_list_lock; 	// lock to keep consistency 

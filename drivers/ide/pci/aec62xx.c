@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/aec62xx.c		Version 0.11	March 27, 2002
+ * linux/drivers/ide/pci/aec62xx.c		Version 0.11	March 27, 2002
  *
  * Copyright (C) 1999-2002	Andre Hedrick <andre@linux-ide.org>
  *

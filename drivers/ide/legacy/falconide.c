@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/falconide.c -- Atari Falcon IDE Driver
+ *  linux/drivers/ide/legacy/falconide.c -- Atari Falcon IDE Driver
  *
  *     Created 12 Jul 1997 by Geert Uytterhoeven
  *

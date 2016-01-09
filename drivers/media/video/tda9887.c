@@ -361,6 +361,7 @@ static int tda9887_attach(struct i2c_adapter *adap, int addr,
 	t->client = client_template;
         t->client.data = t;
 	t->pinnacle_id = -1;
+	t->tvnorm=VIDEO_MODE_PAL;
         i2c_attach_client(&t->client);
         
 	MOD_INC_USE_COUNT;
@@ -419,6 +420,7 @@ tda9887_command(struct i2c_client *client, unsigned int cmd, void *arg)
 		int *i = arg;
 
 		t->pinnacle_id = *i;
+		tda9887_miro(t);
 		break;
 	}
 	/* --- v4l ioctls --- */

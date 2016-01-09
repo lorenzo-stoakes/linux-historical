@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.uaccess.h 1.10 05/21/02 21:44:32 paulus
- */
 #ifdef __KERNEL__
 #ifndef _PPC_UACCESS_H
 #define _PPC_UACCESS_H

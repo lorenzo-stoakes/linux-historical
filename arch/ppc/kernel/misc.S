@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains miscellaneous low-level functions.
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -364,6 +361,7 @@ _GLOBAL(_tlbia)
 10:	lwarx	r7,0,r9
 	cmpi	0,r7,0
 	bne-	10b
+	/* No 405 Erratum 77 fix needed here, because 4xx can't do SMP */
 	stwcx.	r8,0,r9
 	bne-	10b
 #endif /* CONFIG_SMP */
@@ -651,6 +649,7 @@ _GLOBAL(copy_page)
 _GLOBAL(xchg_u32)
 	mr	r5,r3		/* Save pointer */
 10:	lwarx	r3,0,r5		/* Fetch old value & reserve */
+	PPC405_ERR77(0,r5)
 	stwcx.	r4,0,r5		/* Update with new value */
 	bne-	10b		/* Retry if "reservation" (i.e. lock) lost */
 	blr
@@ -662,12 +661,14 @@ _GLOBAL(xchg_u32)
 _GLOBAL(atomic_clear_mask)
 10:	lwarx	r5,0,r4
 	andc	r5,r5,r3
+	PPC405_ERR77(0,r4)
 	stwcx.	r5,0,r4
 	bne-	10b
 	blr
 _GLOBAL(atomic_set_mask)
 10:	lwarx	r5,0,r4
 	or	r5,r5,r3
+	PPC405_ERR77(0,r4)
 	stwcx.	r5,0,r4
 	bne-	10b
 	blr

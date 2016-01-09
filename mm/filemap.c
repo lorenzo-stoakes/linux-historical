@@ -2943,7 +2943,7 @@ generic_file_write(struct file *file,const char *buf,size_t count, loff_t *ppos)
 	struct page	*page, *cached_page;
 	ssize_t		written;
 	long		status = 0;
-	int		err;
+	ssize_t		err;
 	unsigned	bytes;
 
 	if ((ssize_t) count < 0)

@@ -246,8 +246,8 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 /* used in the idle loop; sti takes one instruction cycle to complete */
 #define safe_halt()		__asm__ __volatile__("sti; hlt": : :"memory")
 
-#define __save_and_cli(x)      do { __save_flags(x); __cli(); } while(0);
-#define __save_and_sti(x)      do { __save_flags(x); __sti(); } while(0);
+#define __save_and_cli(x)      do { __save_flags(x); __cli(); } while(0)
+#define __save_and_sti(x)      do { __save_flags(x); __sti(); } while(0)
 
 /* For spinlocks etc */
 #define local_irq_save(x) 	do { warn_if_not_ulong(x); __asm__ __volatile__("# local_irq_save \n\t pushfq ; popq %0 ; cli":"=g" (x): /* no input */ :"memory"); } while (0)

@@ -380,7 +380,7 @@ static inline u32 reg_read(const struct ti_ohci *ohci, int offset)
 
 /* OHCI evt_* error types, table 3-2 of the OHCI 1.1 spec. */
 #define EVT_NO_STATUS		0x0	/* No event status */
-#define EVT_RESERVED		0x1	/* Reserved, not used !!! */
+#define EVT_RESERVED_A		0x1	/* Reserved, not used !!! */
 #define EVT_LONG_PACKET		0x2	/* The revc data was longer than the buf */
 #define EVT_MISSING_ACK		0x3	/* A subaction gap was detected before an ack
 					   arrived, or recv'd ack had a parity error */
@@ -399,6 +399,17 @@ static inline u32 reg_read(const struct ti_ohci *ohci, int offset)
 					   16-bit host memory write */
 #define EVT_BUS_RESET		0x9	/* Identifies a PHY packet in the recv buffer as
 					   being a synthesized bus reset packet */
+#define EVT_TIMEOUT		0xa	/* Indicates that the asynchronous transmit response
+					   packet expired and was not transmitted, or that an
+					   IT DMA context experienced a skip processing overflow */
+#define EVT_TCODE_ERR		0xb	/* A bad tCode is associated with this packet.
+					   The packet was flushed */
+#define EVT_RESERVED_B		0xc	/* Reserved, not used !!! */
+#define EVT_RESERVED_C		0xd	/* Reserved, not used !!! */
+#define EVT_UNKNOWN		0xe	/* An error condition has occurred that cannot be
+					   represented by any other event codes defined herein. */
+#define EVT_FLUSHED		0xf	/* Send by the link side of output FIFO when asynchronous
+					   packets are being flushed due to a bus reset. */
 
 #define OHCI1394_TCODE_PHY               0xE
 

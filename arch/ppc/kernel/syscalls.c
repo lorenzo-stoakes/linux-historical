@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * linux/arch/ppc/kernel/sys_ppc.c
  *
  *  PowerPC version 

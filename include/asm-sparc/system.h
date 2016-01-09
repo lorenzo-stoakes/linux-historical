@@ -132,6 +132,7 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	"wr	%%g4, 0x20, %%psr\n\t"							\
 	"nop\n\t"									\
 	"nop\n\t"									\
+	"nop\n\t"	/* LEON needs this: load to %sp depends on CWP. */		\
 	"ldd	[%%g6 + %4], %%sp\n\t"							\
 	"wr	%%g5, 0x0, %%wim\n\t"							\
 	"ldd	[%%sp + 0x00], %%l0\n\t"						\

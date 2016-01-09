@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.87 2003/01/14 14:37:08 ak Exp $		
+ *  $Id: entry.S,v 1.89 2003/02/11 03:08:27 kkeil Exp $		
  */
 
 /*
@@ -452,7 +452,6 @@ error_entry:
 	je error_kernelspace
 	swapgs	
 	movl $1,%r15d	
-	sti	
 error_action:
 	movq  %rdi,RDI(%rsp) 	
 	movq %rsp,%rdi
@@ -519,7 +518,8 @@ ENTRY(load_gs_index)
 	swapgs
 gs_change:	
 	movl %edi,%gs	
-2:	swapgs
+2:	sfence
+	swapgs
 	popf
 	ret
 	

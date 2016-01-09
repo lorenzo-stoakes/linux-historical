@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #ifdef __KERNEL__
 #ifndef __ASM_PPC_PROCESSOR_H
 #define __ASM_PPC_PROCESSOR_H
@@ -12,6 +9,7 @@
 #define current_text_addr() ({ __label__ _l; _l: &&_l;})
 
 #include <linux/config.h>
+#include <linux/stringify.h>
 
 #include <asm/ptrace.h>
 #include <asm/types.h>
@@ -452,7 +450,8 @@
 #define	ICMP	SPRN_ICMP	/* Instruction TLB Compare Register */
 #define	IMISS	SPRN_IMISS	/* Instruction TLB Miss Register */
 #define	IMMR	SPRN_IMMR      	/* PPC 860/821 Internal Memory Map Register */
-#define	L2CR	SPRN_L2CR    	/* PPC 750 L2 control register */
+#define	L2CR	SPRN_L2CR    	/* Classic PPC L2 cache control register */
+#define	L3CR	SPRN_L3CR	/* PPC 745x L3 cache control register */
 #define	LR	SPRN_LR
 #define	PVR	SPRN_PVR	/* Processor Version */
 #define	RPA	SPRN_RPA	/* Required Physical Address Register */
@@ -565,22 +564,19 @@ n:
 
 /* Macros for setting and retrieving special purpose registers */
 
-#define stringify(s)	tostring(s)
-#define tostring(s)	#s
-
 #define mfdcr(rn)	({unsigned int rval; \
-			asm volatile("mfdcr %0," stringify(rn) \
+			asm volatile("mfdcr %0," __stringify(rn) \
 				     : "=r" (rval)); rval;})
-#define mtdcr(rn, v)	asm volatile("mtdcr " stringify(rn) ",%0" : : "r" (v))
+#define mtdcr(rn, v)	asm volatile("mtdcr " __stringify(rn) ",%0" : : "r" (v))
 
 #define mfmsr()		({unsigned int rval; \
 			asm volatile("mfmsr %0" : "=r" (rval)); rval;})
 #define mtmsr(v)	asm volatile("mtmsr %0" : : "r" (v))
 
 #define mfspr(rn)	({unsigned int rval; \
-			asm volatile("mfspr %0," stringify(rn) \
+			asm volatile("mfspr %0," __stringify(rn) \
 				     : "=r" (rval)); rval;})
-#define mtspr(rn, v)	asm volatile("mtspr " stringify(rn) ",%0" : : "r" (v))
+#define mtspr(rn, v)	asm volatile("mtspr " __stringify(rn) ",%0" : : "r" (v))
 
 /* Segment Registers */
 

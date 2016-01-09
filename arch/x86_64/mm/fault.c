@@ -109,14 +109,18 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	/* get the address */
 	__asm__("movq %%cr2,%0":"=r" (address));
 
+	if (regs->eflags & X86_EFLAGS_IF)
+		__sti();
+
 #ifdef CONFIG_CHECKING
 	if (page_fault_trace) 
 		printk("pagefault rip:%lx rsp:%lx cs:%lu ss:%lu address %lx error %lx\n",
 		       regs->rip,regs->rsp,regs->cs,regs->ss,address,error_code); 
 
+
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
@@ -125,8 +129,6 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	}
 #endif
 			
-
-
 	tsk = current;
 	mm = tsk->mm;
 	info.si_code = SEGV_MAPERR;

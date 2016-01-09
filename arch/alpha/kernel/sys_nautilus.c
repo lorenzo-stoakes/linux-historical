@@ -31,6 +31,7 @@
 #include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/reboot.h>
+#include <linux/bootmem.h>
 
 #include <asm/ptrace.h>
 #include <asm/system.h>
@@ -172,6 +173,76 @@ nautilus_machine_check(unsigned long vector, unsigned long la_ptr,
 }
 
 
+extern void free_reserved_mem(void *, void *);
+extern void pbus_size_bridges(struct pci_bus *);
+extern void pbus_assign_resources(struct pci_bus *);
+
+void __init
+nautilus_init_pci(void)
+{
+	struct pci_controller *hose = hose_head;
+	struct pci_bus *bus;
+	struct pci_dev *irongate, *dev;
+	unsigned long saved_io_start, saved_io_end;
+	unsigned long saved_mem_start, saved_mem_end;
+	unsigned long bus_align, bus_size, pci_mem;
+	unsigned long memtop = max_low_pfn << PAGE_SHIFT;
+
+	/* Scan our single hose.  */
+	bus = pci_scan_bus(0, alpha_mv.pci_ops, hose);
+	hose->bus = bus;
+	hose->last_busno = bus->subordinate;
+
+	/* We're going to size the root bus, so we must
+	   - have a non-NULL PCI device associated with the bus
+	   - preserve hose resources. */
+	irongate = pci_find_slot(0, 0);
+	bus->self = irongate;
+	saved_io_start = bus->resource[0]->start;
+	saved_io_end = bus->resource[0]->end;
+	saved_mem_start = bus->resource[1]->start;
+	saved_mem_end = bus->resource[1]->end;
+
+	pbus_size_bridges(bus);
+
+	/* Don't care about IO. */
+	bus->resource[0]->start = saved_io_start;
+	bus->resource[0]->end = saved_io_end;
+
+	bus_align = bus->resource[1]->start;
+	bus_size = bus->resource[1]->end + 1 - bus_align;
+	/* Align to 16Mb. */
+	if (bus_align < 0x1000000UL)
+		bus_align = 0x1000000UL;
+
+	/* Restore hose MEM resource. */
+	bus->resource[1]->start = saved_mem_start;
+	bus->resource[1]->end = saved_mem_end;
+
+	pci_mem = (0x100000000UL - bus_size) & -bus_align;
+
+	if (pci_mem < memtop && pci_mem > alpha_mv.min_mem_address) {
+		free_reserved_mem(__va(alpha_mv.min_mem_address),
+				  __va(pci_mem));
+		printk("nautilus_init_arch: %ldk freed\n",
+			(pci_mem - alpha_mv.min_mem_address) >> 10);
+	}
+
+	alpha_mv.min_mem_address = pci_mem;
+	if ((IRONGATE0->dev_vendor >> 16) > 0x7006)	/* Albacore? */
+		IRONGATE0->pci_mem = pci_mem;
+
+	pbus_assign_resources(bus);
+
+	pci_for_each_dev(dev) {
+		pdev_enable_device(dev);
+	}
+
+	/* To break the loop in common_swizzle() */
+	bus->self = NULL;
+
+	pci_fixup_irqs(alpha_mv.pci_swizzle, alpha_mv.pci_map_irq);
+}
 
 /*
  * The System Vectors
@@ -194,7 +265,7 @@ struct alpha_machine_vector nautilus_mv __initmv = {
 	init_arch:		irongate_init_arch,
 	init_irq:		nautilus_init_irq,
 	init_rtc:		common_init_rtc,
-	init_pci:		common_init_pci,
+	init_pci:		nautilus_init_pci,
 	kill_arch:		nautilus_kill_arch,
 	pci_map_irq:		nautilus_map_irq,
 	pci_swizzle:		common_swizzle,

@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/alim15x3.c		Version 0.16	2003/01/02
+ * linux/drivers/ide/pci/alim15x3.c		Version 0.16	2003/01/02
  *
  *  Copyright (C) 1998-2000 Michel Aubry, Maintainer
  *  Copyright (C) 1998-2000 Andrzej Krzysztofowicz, Maintainer
@@ -19,6 +19,10 @@
  *	Don't use LBA48 mode on ALi <= 0xC4
  *	Don't poke 0x79 with a non ALi northbridge
  *	Don't flip undefined bits on newer chipsets (fix Fujitsu laptop hang)
+ *
+ *  Documentation
+ *	Chipset documentation available under NDA only
+ *
  */
 
 #include <linux/config.h>

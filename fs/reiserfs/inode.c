@@ -418,6 +418,7 @@ static int reiserfs_get_block_direct_io (struct inode * inode, long block,
 			struct buffer_head * bh_result, int create) {
     int ret ;
 
+    bh_result->b_page = NULL;
     ret = reiserfs_get_block(inode, block, bh_result, create) ;
 
     /* don't allow direct io onto tail pages */
@@ -427,6 +428,14 @@ static int reiserfs_get_block_direct_io (struct inode * inode, long block,
 	*/
 	reiserfs_unmap_buffer(bh_result);
         ret = -EINVAL ;
+    }
+    /* Possible unpacked tail. Flush the data before pages have
+       disappeared */
+    if (inode->u.reiserfs_i.i_flags & i_pack_on_close_mask) {
+	lock_kernel();
+	reiserfs_commit_for_inode(inode);
+	inode->u.reiserfs_i.i_flags &= ~i_pack_on_close_mask;
+	unlock_kernel();
     }
     return ret ;
 }
@@ -566,7 +575,12 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	return ret;
     }
 
-    inode->u.reiserfs_i.i_flags |= i_pack_on_close_mask;
+    /* If file is of such a size, that it might have a tail and tails are enabled
+    ** we should mark it as possibly needing tail packing on close
+    */
+    if ( (have_large_tails (inode->i_sb) && inode->i_size < block_size (inode)*4) ||
+	 (have_small_tails (inode->i_sb) && inode->i_size < block_size(inode)) )
+	inode->u.reiserfs_i.i_flags |= i_pack_on_close_mask;
 
     windex = push_journal_writer("reiserfs_get_block") ;
   
@@ -757,15 +771,21 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	    */
 	    mark_buffer_uptodate (unbh, 1);
 
-	    /* we've converted the tail, so we must 
-	    ** flush unbh before the transaction commits
+	    /* unbh->b_page == NULL in case of DIRECT_IO request, this means
+	       buffer will disappear shortly, so it should not be added to
+	       any of our lists.
 	    */
-	    add_to_flushlist(inode, unbh) ;
+	    if ( unbh->b_page ) {
+		/* we've converted the tail, so we must 
+		** flush unbh before the transaction commits
+		*/
+		add_to_flushlist(inode, unbh) ;
 
-	    /* mark it dirty now to prevent commit_write from adding
-	     ** this buffer to the inode's dirty buffer list
-	     */
-	    __mark_buffer_dirty(unbh) ;
+		/* mark it dirty now to prevent commit_write from adding
+		 ** this buffer to the inode's dirty buffer list
+		 */
+		__mark_buffer_dirty(unbh) ;
+	    }
 
 	    //inode->i_blocks += inode->i_sb->s_blocksize / 512;
 	    //mark_tail_converted (inode);
@@ -2062,6 +2082,13 @@ static int reiserfs_commit_write(struct file *f, struct page *page,
     if (pos > inode->i_size) {
 	struct reiserfs_transaction_handle th ;
 	lock_kernel();
+	/* If the file have grown beyond the border where it
+	   can have a tail, unmark it as needing a tail
+	   packing */
+	if ( (have_large_tails (inode->i_sb) && inode->i_size < block_size (inode)*4) ||
+	     (have_small_tails (inode->i_sb) && inode->i_size < block_size(inode)) )
+	    inode->u.reiserfs_i.i_flags &= ~i_pack_on_close_mask;
+
 	journal_begin(&th, inode->i_sb, 1) ;
 	reiserfs_update_inode_transaction(inode) ;
 	inode->i_size = pos ;

@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  PowerPC version 
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -853,11 +850,11 @@ stack_ovf:
 	RFI
 
 /*
- * Disable FP for the task which had the FPU previously,
+ * This task wants to use the FPU now.
+ * On UP, disable FP for the task which had the FPU previously,
  * and save its floating-point registers in its thread_struct.
- * Enables the FPU for use in the kernel on return.
- * On SMP we know the fpu is free, since we give it up every
- * switch.  -- Cort
+ * Load up this task's FP registers from its thread_struct,
+ * enable the FPU for the current task and return to the task.
  */
 load_up_fpu:
 	mfmsr	r5
@@ -874,14 +871,13 @@ load_up_fpu:
  * to another.  Instead we call giveup_fpu in switch_to.
  */
 #ifndef CONFIG_SMP
-	lis	r6,0                    /* get __pa constant */
-	tophys(r6,r6)
+	tophys(r6,0)			/* get __pa constant */
 	addis	r3,r6,last_task_used_math@ha
 	lwz	r4,last_task_used_math@l(r3)
 	cmpi	0,r4,0
 	beq	1f
 	add	r4,r4,r6
-	addi	r4,r4,THREAD	        /* want THREAD of last_task_used_math */
+	addi	r4,r4,THREAD		/* want last_task_used_math->thread */
 	SAVE_32FPRS(0, r4)
 	mffs	fr0
 	stfd	fr0,THREAD_FPSCR-4(r4)
@@ -894,8 +890,10 @@ load_up_fpu:
 1:
 #endif /* CONFIG_SMP */
 	/* enable use of FP after return */
-	ori	r23,r23,MSR_FP|MSR_FE0|MSR_FE1
 	mfspr	r5,SPRG3		/* current task's THREAD (phys) */
+	lwz	r4,THREAD_FPEXC_MODE(r5)
+	ori	r23,r23,MSR_FP		/* enable FP for current */
+	or	r23,r23,r4
 	lfd	fr0,THREAD_FPSCR-4(r5)
 	mtfsf	0xff,fr0
 	REST_32FPRS(0, r5)
@@ -1077,7 +1075,7 @@ giveup_fpu:
 	ori	r5,r5,MSR_FP
 	SYNC
 	mtmsr	r5			/* enable use of fpu now */
-	SYNC
+	SYNC_601
 	isync
 	cmpi	0,r3,0
 	beqlr-				/* if no previous owner, done */
@@ -1348,12 +1346,14 @@ _GLOBAL(__setup_cpu_750fx)
 	blr
 _GLOBAL(__setup_cpu_7400)
 	mflr	r4
+	bl	setup_7400_workarounds
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
 	mtlr	r4
 	blr
 _GLOBAL(__setup_cpu_7410)
 	mflr	r4
+	bl	setup_7410_workarounds
 	bl	setup_common_caches
 	bl	setup_750_7400_hid0
 	li	r3,0
@@ -1414,6 +1414,47 @@ setup_604_hid0:
 	isync
 	blr
 
+/* 7400 <= rev 2.7 and 7410 rev = 1.0 suffer from some
+ * erratas we work around here.
+ * Moto MPC710CE.pdf describes them, those are errata
+ * #3, #4 and #5
+ * Note that we assume the firmware didn't choose to
+ * apply other workarounds (there are other ones documented
+ * in the .pdf). It appear that Apple firmware only works
+ * around #3 and with the same fix we use. We may want to
+ * check if the CPU is using 60x bus mode in which case
+ * the workaround for errata #4 is useless. Also, we may
+ * want to explicitely clear HID0_NOPDST as this is not
+ * needed once we have applied workaround #5 (though it's
+ * not set by Apple's firmware at least).
+ */
+setup_7400_workarounds:
+	mfpvr	r3
+	rlwinm	r3,r3,0,20,31
+	cmpwi	0,r3,0x0207
+	ble	1f
+	blr
+setup_7410_workarounds:
+	mfpvr	r3
+	rlwinm	r3,r3,0,20,31
+	cmpwi	0,r3,0x0100
+	bnelr
+1:
+	mfspr	r11,SPRN_MSSSR0
+	/* Errata #3: Set L1OPQ_SIZE to 0x10 */
+	rlwinm	r11,r11,0,9,6
+	oris	r11,r11,0x0100
+	/* Errata #4: Set L2MQ_SIZE to 1 (check for MPX mode first ?) */
+	oris	r11,r11,0x0002
+	/* Errata #5: Set DRLT_SIZE to 0x01 */
+	rlwinm	r11,r11,0,5,2
+	oris	r11,r11,0x0800
+	sync
+	mtspr	SPRN_MSSSR0,r11
+	sync
+	isync
+	blr
+	
 /* 740/750/7400/7410
  * Enable Store Gathering (SGE), Address Brodcast (ABE),
  * Branch History Table (BHTE), Branch Target ICache (BTIC)
@@ -1423,7 +1464,9 @@ setup_604_hid0:
 setup_750_7400_hid0:
 	mfspr	r11,HID0
 	ori	r11,r11,HID0_SGE | HID0_ABE | HID0_BHTE | HID0_BTIC
+BEGIN_FTR_SECTION
 	oris	r11,r11,HID0_DPM@h	/* enable dynamic power mgmt */
+END_FTR_SECTION_IFCLR(CPU_FTR_NO_DPM)
 	li	r3,HID0_SPD
 	andc	r11,r11,r3		/* clear SPD: enable speculative */
  	li	r3,0
@@ -1439,6 +1482,18 @@ setup_750_7400_hid0:
  * (waiting for confirmation)
  */
 setup_750cx:
+	mfspr	r10, SPRN_HID1
+	rlwinm	r10,r10,4,28,31
+	cmpi	cr0,r10,7
+	cmpi	cr1,r10,9
+	cmpi	cr2,r10,11
+	cror	4*cr0+eq,4*cr0+eq,4*cr1+eq
+	cror	4*cr0+eq,4*cr0+eq,4*cr2+eq
+	bnelr
+	lwz	r6,CPU_SPEC_FEATURES(r5)
+	li	r7,CPU_FTR_CAN_NAP
+	andc	r6,r6,r7
+	stw	r6,CPU_SPEC_FEATURES(r5)
 	blr
 
 /* 750fx specific
@@ -1476,7 +1531,9 @@ setup_745x_specifics:
 	/* All of the bits we have to set.....
 	 */
 	ori	r11,r11,HID0_SGE | HID0_FOLD | HID0_BHTE | HID0_BTIC | HID0_LRSTK
+BEGIN_FTR_SECTION
 	oris	r11,r11,HID0_DPM@h	/* enable dynamic power mgmt */
+END_FTR_SECTION_IFCLR(CPU_FTR_NO_DPM)
 
 	/* All of the bits we have to clear....
 	 */

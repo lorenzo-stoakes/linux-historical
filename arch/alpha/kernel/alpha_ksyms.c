@@ -121,7 +121,7 @@ EXPORT_SYMBOL(copy_page);
 EXPORT_SYMBOL(clear_page);
 
 EXPORT_SYMBOL(__delay);
-EXPORT_SYMBOL(__udelay);
+EXPORT_SYMBOL(ndelay);
 EXPORT_SYMBOL(udelay);
 
 EXPORT_SYMBOL(__direct_map_base);

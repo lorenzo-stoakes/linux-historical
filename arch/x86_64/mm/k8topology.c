@@ -6,7 +6,7 @@
  * Instead the northbridge registers are read directly. 
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: k8topology.c,v 1.3 2002/09/12 12:51:39 ak Exp $
+ * $Id: k8topology.c,v 1.4 2003/02/11 04:52:33 ak Exp $
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -130,10 +130,8 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 
 		if (limit > end_pfn << PAGE_SHIFT) 
 			limit = end_pfn << PAGE_SHIFT; 
-		if (limit <= base) { 
-			printk(KERN_INFO "Node %d beyond memory map\n", nodeid);
+		if (limit <= base)
 			continue; 
-		} 
 			
 		base >>= 16;
 		base <<= 24; 

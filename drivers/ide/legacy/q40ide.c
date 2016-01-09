@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/q40ide.c -- Q40 I/O port IDE Driver
+ *  linux/drivers/ide/legacy/q40ide.c -- Q40 I/O port IDE Driver
  *
  *     (c) Richard Zidlicky
  *

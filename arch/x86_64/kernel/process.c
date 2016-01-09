@@ -9,7 +9,7 @@
  *  X86-64 port
  *	Andi Kleen.
  * 
- *  $Id: process.c,v 1.60 2003/01/10 15:16:30 ak Exp $
+ *  $Id: process.c,v 1.61 2003/02/11 03:08:27 kkeil Exp $
  */
 
 /*
@@ -496,12 +496,15 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 		   also reload when it has changed. 
 		   when prev process used 64bit base always reload
 		   to avoid an information leak. */
-		if (unlikely((fsindex | next->fsindex) || prev->fs))
+		if (unlikely((fsindex | next->fsindex) || prev->fs)) {
 			loadsegment(fs, next->fsindex);
-		/* check if the user changed the selector
-		   if yes clear 64bit base. */
-		if (unlikely(fsindex != prev->fsindex))
+			/* check if the user use a selector != 0
+			 * if yes clear 64bit base, since overloaded base
+			 * is allways mapped to the Null selector
+			 */
+			if (fsindex)
 			prev->fs = 0; 
+		}
 		/* when next process has a 64bit base use it */
 		if (next->fs) 
 			wrmsrl(MSR_FS_BASE, next->fs); 
@@ -510,10 +513,11 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 	{
 		unsigned gsindex;
 		asm volatile("movl %%gs,%0" : "=g" (gsindex)); 
-		if (unlikely((gsindex | next->gsindex) || prev->gs))
+		if (unlikely((gsindex | next->gsindex) || prev->gs)) {
 			load_gs_index(next->gsindex);
-		if (unlikely(gsindex != prev->gsindex)) 
+			if (gsindex)
 			prev->gs = 0;				
+		}
 		if (next->gs)
 			wrmsrl(MSR_KERNEL_GS_BASE, next->gs); 
 		prev->gsindex = gsindex;
@@ -665,26 +669,20 @@ asmlinkage long sys_arch_prctl(int code, unsigned long addr)
 
 	switch (code) { 
 	case ARCH_SET_GS:
-#ifndef GS_SWITCH_WORKING
-		/* Disabled for now because we still have one unexplained bug
-		   in the context switch for this. */ 
-		return -EINVAL; 
-#else
 		if (addr >= TASK_SIZE) 
 			return -EPERM; 
-		asm volatile("movw %%gs,%0" : "=g" (current->thread.gsindex)); 
 		asm volatile("movl %0,%%gs" :: "r" (0)); 
+		current->thread.gsindex = 0;
 		current->thread.gs = addr;
 		ret = checking_wrmsrl(MSR_KERNEL_GS_BASE, addr); 
 		break;
-#endif
 	case ARCH_SET_FS:
 		/* Not strictly needed for fs, but do it for symmetry
 		   with gs. */
 		if (addr >= TASK_SIZE)
 			return -EPERM; 
-		asm volatile("movw %%fs,%0" : "=g" (current->thread.fsindex)); 
 		asm volatile("movl %0,%%fs" :: "r" (0)); 
+		current->thread.fsindex = 0;
 		current->thread.fs = addr;
 		ret = checking_wrmsrl(MSR_FS_BASE, addr); 
 		break;

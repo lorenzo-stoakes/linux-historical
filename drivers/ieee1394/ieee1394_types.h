@@ -10,27 +10,6 @@
 #include <asm/byteorder.h>
 
 
-/* The great kdev_t changeover in 2.5.x */
-#include <linux/kdev_t.h>
-#ifndef minor
-#define minor(dev) MINOR(dev)
-#endif
-
-#ifndef __devexit_p
-#define __devexit_p(x) x
-#endif
-
-#include <linux/spinlock.h>
-
-#ifndef list_for_each_safe
-#define list_for_each_safe(pos, n, head) \
-	for (pos = (head)->next, n = pos->next; pos != (head); \
-		pos = n, n = pos->next)
-
-#endif
-
-#define pte_offset_kernel pte_offset
-
 #ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #endif
@@ -38,15 +17,6 @@
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
-
-
-/* Use task queue */
-#include <linux/tqueue.h>
-#define hpsb_queue_struct tq_struct
-#define hpsb_queue_list list
-#define hpsb_schedule_work(x) schedule_task(x)
-#define HPSB_INIT_WORK(x,y,z) INIT_TQUEUE(x,y,z)
-#define HPSB_PREPARE_WORK(x,y,z) PREPARE_TQUEUE(x,y,z)
 
 
 typedef u32 quadlet_t;

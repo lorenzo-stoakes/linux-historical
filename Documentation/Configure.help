@@ -10915,31 +10915,41 @@ CONFIG_ACENIC_OMIT_TIGON_I
 
   The safe and default value for this is N.
 
-SysKonnect SK-98xx support
+SysKonnect SK-98xx and SK-95xx Gigabit Ethernet Adapter family support
 CONFIG_SK98LIN
-  Say Y here if you have a SysKonnect SK-98xx Gigabit Ethernet Server
-  Adapter. The following adapters are supported by this driver:
-  - SK-9841 (single link 1000Base-LX)
-  - SK-9842 (dual link   1000Base-LX)
-  - SK-9843 (single link 1000Base-SX)
-  - SK-9844 (dual link   1000Base-SX)
-  - SK-9821 (single link 1000Base-T)
-  - SK-9822 (dual link   1000Base-T)
-  - SK-9861 (single link Volition connector)
-  - SK-9862 (dual link   Volition connector)
-  The driver also supports the following adapters from Allied Telesyn:
-  - AT2970...
+  Say Y here if you have a SysKonnect SK-98xx or SK-95xx Gigabit 
+  Ethernet Server Adapter. The following adapters are supported by 
+  this driver:
+  - SK-9521 10/100/1000Base-T Adapter
+  - SK-9821 Gigabit Ethernet 1000Base-T Server Adapter
+  - SK-9822 Gigabit Ethernet 1000Base-T Dual Port Server Adapter
+  - SK-9841 Gigabit Ethernet 1000Base-LX Server Adapter
+  - SK-9842 Gigabit Ethernet 1000Base-LX Dual Port Server Adapter
+  - SK-9843 Gigabit Ethernet 1000Base-SX Server Adapter
+  - SK-9844 Gigabit Ethernet 1000Base-SX Dual Port Server Adapter
+  - SK-9861 Gigabit Ethernet 1000Base-SX Server Adapter
+  - SK-9862 Gigabit Ethernet 1000Base-SX Dual Port Server Adapter
+  - SK-9871 Gigabit Ethernet 1000Base-ZX Server Adapter
+  - SK-9872 Gigabit Ethernet 1000Base-ZX Dual Port Server Adapter
+  - SK-9821 V2.0 Gigabit Ethernet 10/100/1000Base-T Adapter
+  - SK-9841 V2.0 Gigabit Ethernet 1000Base-LX Adapter
+  - SK-9843 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+  - SK-9851 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+  - SK-9861 V2.0 Gigabit Ethernet 1000Base-SX Adapter
+  - SK-9871 V2.0 Gigabit Ethernet 1000Base-ZX Adapter
 
-  The dual link adapters support a link-failover feature.  Read
-  <file:Documentation/networking/sk98lin.txt> for information about
+  The adapters support Jumbo Frames.
+  The dual link adapters support link-failover and dual port features.
+  The V2.0 adapters support the scatter-gather functionality with
+  sendfile(). Read Documentation/networking/sk98lin.txt for information about
   optional driver parameters.
   Questions concerning this driver may be addressed to:
     linux@syskonnect.de
 
   If you want to compile this driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
-  say M here and read <file:Documentation/modules.txt>.  This is
-  recommended.  The module will be called sk98lin.o.
+  say M here and read Documentation/modules.txt. This is recommended.
+  The module will be called sk98lin.o.
 
 Sun GEM support
 CONFIG_SUNGEM
@@ -11266,6 +11276,24 @@ CONFIG_VORTEX
   inserted in and removed from the running kernel whenever you want),
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called 3c59x.o.
+
+3cr990 series "Typhoon" support
+CONFIG_TYPHOON
+  This option enables driver support for the 3cr990 series of cards:
+
+  3C990-TX, 3CR990-TX-95, 3CR990-TX-97, 3CR990-FX-95, 3CR990-FX-97,
+  3CR990SVR, 3CR990SVR95, 3CR990SVR97, 3CR990-FX-95 Server,
+  3CR990-FX-97 Server, 3C990B-TX-M, 3C990BSVR
+
+  If you have a network (Ethernet) card of this type, say Y and read
+  the Ethernet-HOWTO, available from
+  <http://www.linuxdoc.org/docs.html#howto>.
+
+  This driver is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called typhoon.o.  If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt> as well
+  as <file:Documentation/networking/net-modules.txt>.
 
 Other ISA cards
 CONFIG_NET_ISA
@@ -11822,6 +11850,13 @@ CONFIG_EEPRO100
   The module will be called eepro100.o.  If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt> as
   well as <file:Documentation/networking/net-modules.txt>.
+
+Use PIO instead of MMIO
+CONFIG_EEPRO100_PIO
+  This instructs the driver to use programmed I/O ports (PIO) instead
+  of PCI shared memory (MMIO).  This can possibly solve some problems
+  in case your mainboard has memory consistency issues.  If unsure,
+  say N.
 
 Enable Power Management
 CONFIG_EEPRO100_PM
@@ -13819,8 +13854,8 @@ CONFIG_USB_WACOM
 Griffin Technology PowerMate support
 CONFIG_USB_POWERMATE
   Say Y here if you want to use the Griffin Technology, Inc. USB
-  PowerMate device. This device is a stainless steel dial which 
-  can measure clockwise and anticlockwise rotation. The dial also
+  PowerMate device. This device is an aluminum dial which can
+  measure clockwise and anticlockwise rotation. The dial also
   acts as a pushbutton. The base contains an LED which can be
   instructed to pulse or to switch to a particular intensity.
 
@@ -14713,7 +14748,7 @@ CONFIG_USB_RIO500
   The module will be called rio500.o. If you want to compile it as
   a module, say M here and read <file:Documenatation/modules.txt>.
 
-USB Auerswald ISDN device support
+Auerswald device support
 CONFIG_USB_AUERSWALD
   Say Y here if you want to connect an Auerswald USB ISDN Device
   to your computer's USB port.

@@ -44,6 +44,8 @@
 #include <linux/notifier.h>
 #include <linux/nmi.h>
 #include <linux/reboot.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
 #ifdef CONFIG_X86_LOCAL_APIC
 #include <asm/apic.h>
 #endif
@@ -73,6 +75,14 @@
 #define WDOG_PRETIMEOUT_NMI		2
 #define WDOG_PRETIMEOUT_MSG_INT		3
 
+/* Operations that can be performed on a pretimout. */
+#define WDOG_PREOP_NONE		0
+#define WDOG_PREOP_PANIC	1
+#define WDOG_PREOP_GIVE_DATA	2 /* Cause data to be available to
+                                     read.  Doesn't work in NMI
+                                     mode. */
+
+/* Actions to perform on a full timeout. */
 #define WDOG_SET_TIMEOUT_ACT(byte, use) \
 	byte = ((byte) & 0xf8) | ((use) & 0x7)
 #define WDOG_GET_TIMEOUT_ACT(byte) ((byte) & 0x7)
@@ -133,10 +143,20 @@ static unsigned char preaction_val = WDOG_PRETIMEOUT_NONE;
 
 static char *preaction = "pre_none";
 
+static unsigned char preop_val = WDOG_PREOP_NONE;
+
+static char *preop = "preop_none";
+static spinlock_t ipmi_read_lock = SPIN_LOCK_UNLOCKED;
+static char data_to_read = 0;
+static DECLARE_WAIT_QUEUE_HEAD(read_q);
+static struct fasync_struct *fasync_q = NULL;
+static char pretimeout_since_last_heartbeat = 0;
+
 MODULE_PARM(timeout, "i");
 MODULE_PARM(pretimeout, "i");
 MODULE_PARM(action, "s");
 MODULE_PARM(preaction, "s");
+MODULE_PARM(preop, "s");
 
 /* Default state of the timer. */
 static unsigned char ipmi_watchdog_state = WDOG_TIMEOUT_NONE;
@@ -373,6 +393,15 @@ static int ipmi_heartbeat(void)
 		return ipmi_set_timeout();
 	}
 
+	if (pretimeout_since_last_heartbeat) {
+		/* A pretimeout occurred, make sure we set the timeout.
+		   We don't want to set the action, though, we want to
+		   leave that alone (thus it can't be combined with the
+		   above operation. */
+		pretimeout_since_last_heartbeat = 0;
+		return ipmi_set_timeout();
+	}
+
 	down(&heartbeat_lock);
 
 	atomic_set(&heartbeat_tofree, 2);
@@ -552,12 +581,53 @@ static ssize_t ipmi_read(struct file *file,
 			 size_t      count,
 			 loff_t      *ppos)
 {
+	int          rv = 0;
+	wait_queue_t wait;
+
 	/*  Can't seek (pread) on this device  */
 	if (ppos != &file->f_pos)
 		return -ESPIPE;
 
-	/* Also can't read it. */
-	return -EINVAL;
+	if (count <= 0)
+		return 0;
+
+	/* Reading returns if the pretimeout has gone off, and it only does
+	   it once per pretimeout. */
+	spin_lock(&ipmi_read_lock);
+	if (!data_to_read) {
+		if (file->f_flags & O_NONBLOCK) {
+			rv = -EAGAIN;
+			goto out;
+		}
+		
+		init_waitqueue_entry(&wait, current);
+		add_wait_queue(&read_q, &wait);
+		while (!data_to_read) {
+			set_current_state(TASK_INTERRUPTIBLE);
+			spin_unlock(&ipmi_read_lock);
+			schedule();
+			spin_lock(&ipmi_read_lock);
+		}
+		remove_wait_queue(&read_q, &wait);
+	    
+		if (signal_pending(current)) {
+			rv = -ERESTARTSYS;
+			goto out;
+		}
+	}
+	data_to_read = 0;
+
+ out:
+	spin_unlock(&ipmi_read_lock);
+
+	if (rv == 0) {
+		if (copy_to_user(buf, &data_to_read, 1))
+			rv = -EFAULT;
+		else
+			rv = 1;
+	}
+
+	return rv;
 }
 
 static int ipmi_open(struct inode *ino, struct file *filep)
@@ -580,6 +650,29 @@ static int ipmi_open(struct inode *ino, struct file *filep)
         }
 }
 
+static unsigned int ipmi_poll(struct file *file, poll_table *wait)
+{
+	unsigned int mask = 0;
+	
+	poll_wait(file, &read_q, wait);
+
+	spin_lock(&ipmi_read_lock);
+	if (data_to_read)
+		mask |= (POLLIN | POLLRDNORM);
+	spin_unlock(&ipmi_read_lock);
+
+	return mask;
+}
+
+static int ipmi_fasync(int fd, struct file *file, int on)
+{
+	int result;
+
+	result = fasync_helper(fd, file, on, &fasync_q);
+
+	return (result);
+}
+
 static int ipmi_close(struct inode *ino, struct file *filep)
 {
 	if (minor(ino->i_rdev)==WATCHDOG_MINOR)
@@ -590,16 +683,21 @@ static int ipmi_close(struct inode *ino, struct file *filep)
 #endif		
 	        ipmi_wdog_open = 0;
 	}
+
+	ipmi_fasync (-1, filep, 0);
+
 	return 0;
 }
 
 static struct file_operations ipmi_wdog_fops = {
 	.owner   = THIS_MODULE,
 	.read    = ipmi_read,
+	.poll    = ipmi_poll,
 	.write   = ipmi_write,
 	.ioctl   = ipmi_ioctl,
 	.open    = ipmi_open,
 	.release = ipmi_close,
+	.fasync  = ipmi_fasync,
 };
 
 static struct miscdevice ipmi_wdog_miscdev = {
@@ -611,7 +709,7 @@ static struct miscdevice ipmi_wdog_miscdev = {
 static DECLARE_RWSEM(register_sem);
 
 static void ipmi_wdog_msg_handler(struct ipmi_recv_msg *msg,
-				  void            *handler_data)
+				  void                 *handler_data)
 {
 	if (msg->msg.data[0] != 0) {
 		printk(KERN_ERR "IPMI Watchdog response: Error %x on cmd %x\n",
@@ -624,7 +722,23 @@ static void ipmi_wdog_msg_handler(struct ipmi_recv_msg *msg,
 
 static void ipmi_wdog_pretimeout_handler(void *handler_data)
 {
-	panic("Watchdog pre-timeout");
+	if (preaction_val != WDOG_PRETIMEOUT_NONE) {
+		if (preop_val == WDOG_PREOP_PANIC)
+			panic("Watchdog pre-timeout");
+		else if (preop_val == WDOG_PREOP_GIVE_DATA) {
+			spin_lock(&ipmi_read_lock);
+			data_to_read = 1;
+			wake_up_interruptible(&read_q);
+			kill_fasync(&fasync_q, SIGIO, POLL_IN);
+
+			/* On some machines, the heartbeat will give
+			   an error and not work unless we re-enable
+			   the timer.   So do so. */
+			pretimeout_since_last_heartbeat = 1;
+
+			spin_unlock(&ipmi_read_lock);
+		}
+	}
 }
 
 static struct ipmi_user_hndl ipmi_hndlrs =
@@ -676,7 +790,7 @@ ipmi_nmi(void *dev_id, struct pt_regs *regs, int cpu, int handled)
 {
 	/* If no one else handled the NMI, we assume it was the IPMI
            watchdog. */
-	if (!handled)
+	if ((!handled) && (preop_val == WDOG_PREOP_PANIC))
 		panic("IPMI watchdog pre-timeout");
 	return NOTIFY_DONE;
 }
@@ -807,8 +921,27 @@ static int __init ipmi_wdog_init(void)
 		       " none\n", preaction);
 	}
 
+	if (strcmp(preop, "preop_none") == 0) {
+		preop_val = WDOG_PREOP_NONE;
+	} else if (strcmp(preop, "preop_panic") == 0) {
+		preop_val = WDOG_PREOP_PANIC;
+	} else if (strcmp(preop, "preop_give_data") == 0) {
+		preop_val = WDOG_PREOP_GIVE_DATA;
+	} else {
+		action_val = WDOG_PREOP_NONE;
+		printk("ipmi_watchdog: Unknown preop '%s', defaulting to"
+		       " none\n", preop);
+	}
+
 #ifdef HAVE_NMI_HANDLER
 	if (preaction_val == WDOG_PRETIMEOUT_NMI) {
+		if (preop_val == WDOG_PREOP_GIVE_DATA) {
+			printk(KERN_WARNING
+			       "ipmi_watchdog: Pretimeout op is to give data"
+			       " but NMI pretimeout is enabled, setting"
+			       " pretimeout op to none\n");
+			preop_val = WDOG_PREOP_NONE;
+		}
 #ifdef CONFIG_X86_LOCAL_APIC
 		if (nmi_watchdog == NMI_IO_APIC) {
 			printk(KERN_WARNING
@@ -864,14 +997,14 @@ static void ipmi_unregister_watchdog(void)
 		release_nmi(&ipmi_nmi_handler);
 #endif
 
+	notifier_chain_unregister(&panic_notifier_list, &wdog_panic_notifier);
+	unregister_reboot_notifier(&wdog_reboot_notifier);
+
 	if (! watchdog_user)
 		goto out;
 
 	/* Make sure no one can call us any more. */
 	misc_deregister(&ipmi_wdog_miscdev);
-
-	notifier_chain_unregister(&panic_notifier_list, &wdog_panic_notifier);
-	unregister_reboot_notifier(&wdog_reboot_notifier);
 
 	/*  Disable the timer. */
 	ipmi_watchdog_state = WDOG_TIMEOUT_NONE;
@@ -955,6 +1088,15 @@ static int __init ipmi_wdog_setup(char *str)
 		}
 		else if (strcmp(option, "start_now") == 0) {
 			start_now = 1;
+		}
+		else if (strcmp(option, "preop_none") == 0) {
+			preop = "preop_none";
+		}
+		else if (strcmp(option, "preop_panic") == 0) {
+			preop = "preop_panic";
+		}
+		else if (strcmp(option, "preop_none") == 0) {
+			preop = "preop_give_data";
 		} else {
 		    printk("Unknown IPMI watchdog option: '%s'\n", option);
 		}

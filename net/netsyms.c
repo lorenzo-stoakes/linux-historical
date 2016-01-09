@@ -93,6 +93,7 @@ extern int sysctl_max_syn_backlog;
 /* Skbuff symbols. */
 EXPORT_SYMBOL(skb_over_panic);
 EXPORT_SYMBOL(skb_under_panic);
+EXPORT_SYMBOL(skb_pad);
 
 /* Socket layer registration */
 EXPORT_SYMBOL(sock_register);

@@ -24,7 +24,7 @@ CROSS32_COMPILE =
 #CROSS32_COMPILE = /usr/local/ppc/bin/powerpc-linux-
 
 BOOTCC = $(CROSS32_COMPILE)gcc
-BOOTCFLAGS = $(HOSTCFLAGS) -I$(HPATH)
+BOOTCFLAGS = $(HOSTCFLAGS) -fno-builtin -I$(HPATH)
 BOOTLD = $(CROSS32_COMPILE)ld
 BOOTAS = $(CROSS32_COMPILE)as
 BOOTAFLAGS = -D__ASSEMBLY__ $(HOSTCFLAGS) -I$(HPATH)
@@ -40,7 +40,6 @@ CFLAGS	= $(CPPFLAGS) -O -fno-builtin -DSTDC_HEADERS
 LD_ARGS = -Ttext 0x00400000 -e _start
 
 OBJS = crt0.o string.o prom.o zImage.o zlib.o imagesize.o
-#LIBS = $(TOPDIR)/lib/lib.a
 LIBS =
 
 ifeq ($(CONFIG_SMP),y)

@@ -77,7 +77,7 @@
 	printk(KERN_ERR fmt, ## args)
 
 static char version[] __devinitdata =
-	"$Rev: 601 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 771 $ Ben Collins <bcollins@debian.org>";
 
 /* Our ieee1394 highlevel driver */
 #define ETHER1394_DRIVER_NAME "ether1394"
@@ -368,6 +368,7 @@ static void ether1394_add_host (struct hpsb_host *host)
 	if (register_netdev (dev)) {
 		ETH1394_PRINT (KERN_ERR, dev->name, "Error registering network driver\n");
 		kfree (dev);
+		kfree (hi);
 		return;
 	}
 
@@ -682,8 +683,8 @@ static int ether1394_tx (struct sk_buff *skb, struct net_device *dev)
 	ptask->skb = skb;
 	ptask->addr = addr;
 	ptask->dest_node = dest_node;
-	HPSB_INIT_WORK(&ptask->tq, hpsb_write_sched, ptask);
-	hpsb_schedule_work(&ptask->tq);
+	INIT_TQUEUE(&ptask->tq, hpsb_write_sched, ptask);
+	schedule_task(&ptask->tq);
 
 	return 0;
 fail:

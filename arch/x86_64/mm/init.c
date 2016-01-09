@@ -495,7 +495,7 @@ void si_meminfo(struct sysinfo *val)
 	return;
 }
 
-void reserve_bootmem_generic(unsigned long phys, unsigned len) 
+void __init reserve_bootmem_generic(unsigned long phys, unsigned len) 
 { 
 	/* Should check here against the e820 map to avoid double free */ 
 #ifdef CONFIG_DISCONTIGMEM

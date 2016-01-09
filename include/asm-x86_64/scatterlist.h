@@ -7,8 +7,8 @@ struct scatterlist {
     struct page * page; /* Location for highmem page, if any */
     unsigned int offset;/* for highmem, page offset */
 
-    dma_addr_t dma_address;
     unsigned int length;
+    dma_addr_t dma_address;
 };
 
 #define ISA_DMA_THRESHOLD (0x00ffffff)

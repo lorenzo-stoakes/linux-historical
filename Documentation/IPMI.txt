@@ -307,7 +307,7 @@ watchdog timer interface.  It has three module parameters that can be
 used to control it:
 
   insmod ipmi_watchdog timeout=<t> pretimeout=<t> action=<action type>
-      preaction=<preaction type>
+      preaction=<preaction type> preop=<preop type>
 
 The timeout is the number of seconds to the action, and the pretimeout
 is the amount of seconds before the reset that the pre-timeout panic will
@@ -319,7 +319,18 @@ specifies what to do when the timer times out, and defaults to
 
 The preaction may be "pre_smi" for an indication through the SMI
 interface, "pre_int" for an indication through the SMI with an
-interrupts, and "pre_nmi" for a NMI on a preaction.
+interrupts, and "pre_nmi" for a NMI on a preaction.  This is how
+the driver is informed of the pretimeout.
+
+The preop may be set to "preop_none" for no operation on a pretimeout,
+"preop_panic" to set the preoperation to panic, or "preop_give_data"
+to provide data to read from the watchdog device when the pretimeout
+occurs.  A "pre_nmi" setting CANNOT be used with "preop_give_data"
+because you can't do data operations from an NMI.
+
+When preop is set to "preop_give_data", one byte comes ready to read
+on the device when the pretimeout occurs.  Select and fasync work on
+the device, as well.
 
 When compiled into the kernel, the kernel command line is available
 for configuring the watchdog:

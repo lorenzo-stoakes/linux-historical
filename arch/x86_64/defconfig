@@ -56,6 +56,7 @@ CONFIG_PCI_DIRECT=y
 # CONFIG_PCI_NAMES is not set
 # CONFIG_HOTPLUG is not set
 # CONFIG_PCMCIA is not set
+# CONFIG_HOTPLUG_PCI is not set
 CONFIG_SYSVIPC=y
 # CONFIG_BSD_PROCESS_ACCT is not set
 CONFIG_SYSCTL=y
@@ -200,7 +201,6 @@ CONFIG_BLK_DEV_IDECD=y
 # CONFIG_BLK_DEV_IDEFLOPPY is not set
 # CONFIG_BLK_DEV_IDESCSI is not set
 # CONFIG_IDE_TASK_IOCTL is not set
-# CONFIG_IDE_TASKFILE_IO is not set
 
 #
 # IDE chipset support/bugfixes
@@ -255,6 +255,7 @@ CONFIG_BLK_DEV_IDE_MODES=y
 # CONFIG_BLK_DEV_ATARAID is not set
 # CONFIG_BLK_DEV_ATARAID_PDC is not set
 # CONFIG_BLK_DEV_ATARAID_HPT is not set
+# CONFIG_BLK_DEV_ATARAID_SII is not set
 
 #
 # SCSI support
@@ -485,6 +486,11 @@ CONFIG_PSMOUSE=y
 # Input core support is needed for joysticks
 #
 # CONFIG_QIC02_TAPE is not set
+# CONFIG_IPMI_HANDLER is not set
+# CONFIG_IPMI_PANIC_EVENT is not set
+# CONFIG_IPMI_DEVICE_INTERFACE is not set
+# CONFIG_IPMI_KCS is not set
+# CONFIG_IPMI_WATCHDOG is not set
 
 #
 # Watchdog Cards
@@ -515,15 +521,6 @@ CONFIG_AGP_ALI=y
 CONFIG_AGP_SWORKS=y
 # CONFIG_DRM is not set
 # CONFIG_MWAVE is not set
-
-#
-# Bluetooth support
-#
-# CONFIG_BLUEZ is not set
-
-#
-# Misc devices
-#
 
 #
 # Multimedia devices
@@ -685,6 +682,11 @@ CONFIG_VGA_CONSOLE=y
 # CONFIG_USB is not set
 
 #
+# Bluetooth support
+#
+# CONFIG_BLUEZ is not set
+
+#
 # Kernel hacking
 #
 CONFIG_DEBUG_KERNEL=y
@@ -694,4 +696,11 @@ CONFIG_MAGIC_SYSRQ=y
 # CONFIG_CHECKING is not set
 # CONFIG_INIT_DEBUG is not set
 # CONFIG_IOMMU_DEBUG is not set
+# CONFIG_IOMMU_LEAK is not set
 CONFIG_DEBUG_STACKOVERFLOW=y
+
+#
+# Library routines
+#
+# CONFIG_ZLIB_INFLATE is not set
+# CONFIG_ZLIB_DEFLATE is not set

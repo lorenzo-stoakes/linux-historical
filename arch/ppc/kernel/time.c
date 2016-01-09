@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Common time routines among all ppc machines.
  *
  * Written by Cort Dougan (cort@cs.nmt.edu) to merge
@@ -186,7 +183,7 @@ int timer_interrupt(struct pt_regs * regs)
 		 * We should have an rtc call that only sets the minutes and
 		 * seconds like on Intel to avoid problems with non UTC clocks.
 		 */
-		if ( (time_status & STA_UNSYNC) == 0 &&
+		if ( ppc_md.set_rtc_time && (time_status & STA_UNSYNC) == 0 &&
 		     xtime.tv_sec - last_rtc_update >= 659 &&
 		     abs(xtime.tv_usec - (1000000-1000000/HZ)) < 500000/HZ &&
 		     jiffies - wall_jiffies == 1) {
@@ -197,8 +194,6 @@ int timer_interrupt(struct pt_regs * regs)
 				last_rtc_update += 60;
 		}
 		write_unlock(&xtime_lock);
-		
-
 	}
 	if (!disarm_decr[cpu])
 		set_dec(next_dec);

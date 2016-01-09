@@ -1,6 +1,4 @@
 /*
- * BK Id: SCCS/s.misc.c 1.25 01/26/02 12:27:41 trini
- *
  * arch/ppc/boot/prep/misc.c
  *
  * Adapted for PowerPC by Gary Thomas
@@ -23,6 +21,16 @@
 #include "nonstdio.h"
 #include "zlib.h"
 
+#ifdef CONFIG_CMDLINE
+#define CMDLINE CONFIG_CMDLINE
+#else
+#define CMDLINE ""
+#endif
+
+#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#define INTERACTIVE_CONSOLE	1
+#endif
+
 /*
  * Please send me load/board info and such data for hardware not
  * listed here so I can keep track since things are getting tricky
@@ -38,11 +46,6 @@ extern char __image_begin, __image_end;
 extern char __ramdisk_begin, __ramdisk_end;
 extern char _end[];
 
-#ifdef CONFIG_CMDLINE
-#define CMDLINE CONFIG_CMDLINE
-#else
-#define CMDLINE ""
-#endif
 char cmd_preset[] = CMDLINE;
 char cmd_buf[256];
 char *cmd_line = cmd_buf;
@@ -56,9 +59,7 @@ unsigned long orig_MSR;
 char *zimage_start;
 int zimage_size;
 
-#if defined(CONFIG_SERIAL_CONSOLE)
 unsigned long com_port;
-#endif /* CONFIG_SERIAL_CONSOLE */
 #ifdef CONFIG_VGA_CONSOLE
 char *vidmem = (char *)0xC00B8000;
 int lines = 25, cols = 80;
@@ -122,9 +123,12 @@ unsigned long
 decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		  RESIDUAL *residual, void *OFW_interface)
 {
+#ifdef INTERACTIVE_CONSOLE
 	int timer = 0;
+	char ch;
+#endif
 	extern unsigned long start;
-	char *cp, ch;
+	char *cp;
 	unsigned long TotalMemory;
 	int dev_handle;
 	int mem_info[2];
@@ -135,9 +139,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 	unsigned int pci_viddid, pci_did, tulip_pci_base, tulip_base;
 
 	serial_fixups();
-#if defined(CONFIG_SERIAL_CONSOLE)
 	com_port = serial_init(0, NULL);
-#endif /* CONFIG_SERIAL_CONSOLE */
 #if defined(CONFIG_VGA_CONSOLE)
 	vga_init((unsigned char *)0xC0000000);
 #endif /* CONFIG_VGA_CONSOLE */
@@ -304,6 +306,11 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 	memcpy (cmd_line, cmd_preset, sizeof(cmd_preset));
 	while ( *cp )
 		putc(*cp++);
+#ifdef INTERACTIVE_CONSOLE
+	/*
+	 * If they have a console, allow them to edit the command line.
+	 * Otherwise, don't bother wasting the five seconds.
+	 */
 	while (timer++ < 5*1000) {
 		if (tstc()) {
 			while ((ch = getc()) != '\n' && ch != '\r') {
@@ -328,6 +335,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum,
 		}
 		udelay(1000);  /* 1 msec */
 	}
+#endif
 	*cp = 0;
 	puts("\nUncompressing Linux...");
 

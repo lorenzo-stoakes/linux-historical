@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.vc_ioctl.h 1.5 05/17/01 18:14:26 cort
- */
 #ifndef _LINUX_VC_IOCTL_H
 #define _LINUX_VC_IOCTL_H
 

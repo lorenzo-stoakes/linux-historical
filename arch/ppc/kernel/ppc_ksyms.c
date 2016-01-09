@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/threads.h>
@@ -341,10 +338,13 @@ EXPORT_SYMBOL(debugger_fault_handler);
 
 #ifdef  CONFIG_8xx
 EXPORT_SYMBOL(__res);
-EXPORT_SYMBOL(request_8xxirq);
 EXPORT_SYMBOL(cpm_install_handler);
 EXPORT_SYMBOL(cpm_free_handler);
 #endif /* CONFIG_8xx */
+
+/* Those should really be inline */
+EXPORT_SYMBOL(atomic_clear_mask);
+EXPORT_SYMBOL(atomic_set_mask);
 
 EXPORT_SYMBOL(ret_to_user_hook);
 EXPORT_SYMBOL(next_mmu_context);

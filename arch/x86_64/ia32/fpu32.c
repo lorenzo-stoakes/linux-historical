@@ -2,7 +2,7 @@
  * Copyright 2002 Andi Kleen, SuSE Labs.
  * FXSAVE<->i387 conversion support. Based on code by Gareth Hughes.
  * This is used for ptrace, signals and coredumps in 32bit emulation.
- * $Id: fpu32.c,v 1.2 2003/01/10 15:11:11 ak Exp $
+ * $Id: fpu32.c,v 1.3 2003/01/31 18:57:41 ak Exp $
  */ 
 
 #include <linux/sched.h>
@@ -146,6 +146,7 @@ int restore_i387_ia32(struct task_struct *tsk, struct _fpstate_ia32 *buf, int fs
 			return -1;
 	} 
 	tsk->thread.i387.fxsave.mxcsr &= 0xffbf;
+	current->used_math = 1;
 	return convert_fxsr_from_user(&tsk->thread.i387.fxsave, buf);
 }  
 

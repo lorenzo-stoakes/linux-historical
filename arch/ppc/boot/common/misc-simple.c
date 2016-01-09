@@ -10,12 +10,10 @@
  * Author: Matt Porter <mporter@mvista.com>
  * Derived from arch/ppc/boot/prep/misc.c
  *
- * Copyright 2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * 2001 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <linux/types.h>
@@ -27,6 +25,7 @@
 #include <asm/mmu.h>
 #include <asm/bootinfo.h>
 
+#include "mpc10x.h"
 #include "nonstdio.h"
 #include "zlib.h"
 
@@ -42,6 +41,12 @@
 #define HAS_KEYB 1
 #else
 #define HAS_KEYB 0
+#endif
+
+/* Will / Can the user give input? */
+#if (defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)) \
+	&& !defined(CONFIG_GEMINI)
+#define INTERACTIVE_CONSOLE	1
 #endif
 
 char *avail_ram;
@@ -64,6 +69,7 @@ extern char _end[];
 extern unsigned long start;
 
 extern int CRT_tstc(void);
+extern unsigned long mpc10x_get_mem_size(int map);
 extern unsigned long serial_init(int chan, void *ignored);
 extern void serial_close(unsigned long com_port);
 extern void gunzip(void *, int, unsigned char *, int *);
@@ -72,13 +78,24 @@ extern void serial_fixups(void);
 struct bi_record *
 decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 {
+#ifdef INTERACTIVE_CONSOLE
 	int timer = 0;
-	char *cp, ch;
+	char ch;
+#endif
+	char *cp;
 	struct bi_record *rec;
-	unsigned long rec_loc, initrd_loc;
+	unsigned long rec_loc, initrd_loc, TotalMemory = 0;
 
 	serial_fixups();
 	com_port = serial_init(0, NULL);
+
+#ifdef CONFIG_LOPEC
+	/*
+	 * This should work on any board with an MPC10X which is properly
+	 * initalized.
+	 */
+	TotalMemory = mpc10x_get_mem_size(MPC10X_MEM_MAP_B);
+#endif
 
 	/* assume the chunk below 8M is free */
 	end_avail = (char *)0x00800000;
@@ -149,8 +166,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 	memcpy (cmd_line, cmd_preset, sizeof(cmd_preset));
 	while ( *cp ) putc(*cp++);
 
-#if (defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)) \
-	&& !defined(CONFIG_GEMINI)
+#ifdef INTERACTIVE_CONSOLE
 	/*
 	 * If they have a console, allow them to edit the command line.
 	 * Otherwise, don't bother wasting the five seconds.
@@ -216,6 +232,13 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 	rec->tag = BI_FIRST;
 	rec->size = sizeof(struct bi_record);
 	rec = (struct bi_record *)((unsigned long)rec + rec->size);
+
+	if ( TotalMemory ) {
+		rec->tag = BI_MEMSIZE;
+		rec->data[0] = TotalMemory;
+		rec->size = sizeof(struct bi_record) + sizeof(unsigned long);
+		rec = (struct bi_record *)((unsigned long)rec + rec->size);
+	}
 
 	rec->tag = BI_CMD_LINE;
 	memcpy( (char *)rec->data, cmd_line, strlen(cmd_line)+1);

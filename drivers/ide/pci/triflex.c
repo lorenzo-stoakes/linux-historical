@@ -22,6 +22,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
  * Loosely based on the piix & svwks drivers.
+ *
+ * Documentation:
+ *	Not publically available.
  */
 
 #include <linux/config.h>

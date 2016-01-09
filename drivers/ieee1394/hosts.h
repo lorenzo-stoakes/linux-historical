@@ -3,6 +3,7 @@
 
 #include <linux/wait.h>
 #include <linux/list.h>
+#include <linux/tqueue.h>
 #include <asm/semaphore.h>
 
 #include "ieee1394_types.h"
@@ -30,7 +31,7 @@ struct hpsb_host {
 
         struct list_head pending_packets;
         spinlock_t pending_pkt_lock;
-        struct hpsb_queue_struct timeout_tq;
+        struct tq_struct timeout_tq;
 
         /* A bitmask where a set bit means that this tlabel is in use.
          * FIXME - should be handled per node instead of per bus. */

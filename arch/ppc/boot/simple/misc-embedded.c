@@ -1,6 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- *
  * Originally adapted by Gary Thomas.  Much additional work by
  * Cort Dougan <cort@fsmlabs.com>.  On top of that still more work by
  * Dan Malek <dmalek@jlc.net>.
@@ -27,6 +25,10 @@
 
 #include "nonstdio.h"
 #include "zlib.h"
+
+#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#define INTERACTIVE_CONSOLE	1
+#endif
 
 /* The linker tells us where the image is. */
 extern char __image_begin, __image_end;
@@ -79,17 +81,19 @@ extern void embed_config(bd_t **bp);
 unsigned long
 decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum, bd_t *bp)
 {
-	char *cp, ch;
-	int timer = 0, zimage_size;
+#ifdef INTERACTIVE_CONSOLE
+	int timer = 0;
+	char ch;
+#endif
+	char *cp;
+	int zimage_size;
 	unsigned long initrd_size;
 
 	/* First, capture the embedded board information.  Then
 	 * initialize the serial console port.
 	 */
 	embed_config(&bp);
-#ifdef CONFIG_SERIAL_CONSOLE
 	com_port = serial_init(0, bp);
-#endif
 
 	/* copy board data */
 	if (bp)
@@ -172,7 +176,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum, b
 #endif
 	while ( *cp )
 		putc(*cp++);
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#ifdef INTERACTIVE_CONSOLE
 	/*
 	 * If they have a console, allow them to edit the command line.
 	 * Otherwise, don't bother wasting the five seconds.

@@ -18,7 +18,7 @@ list-multi		:= usbcore.o hid.o pwc.o
 usbcore-objs		:= usb.o usb-debug.o hub.o
 hid-objs		:= hid-core.o
 pwc-objs		:= pwc-if.o pwc-misc.o pwc-ctrl.o pwc-uncompress.o
-
+auerswald-objs		:= auerbuf.o auerchain.o auerchar.o auermain.o
 
 # Optional parts of multipart objects.
 
@@ -32,6 +32,12 @@ endif
 
 ifeq ($(CONFIG_USB_HIDINPUT),y)
 	hid-objs	+= hid-input.o
+endif
+
+ifdef CONFIG_USB_AUERISDN
+ifneq ($(CONFIG_USB_AUERISDN),n)
+	auerswald-objs	+= auerisdn.o auerisdn_b.o
+endif
 endif
 
 # Object file lists.
@@ -125,3 +131,6 @@ hid.o: $(hid-objs)
 
 pwc.o: $(pwc-objs)
 	$(LD) -r -o $@ $(pwc-objs)
+
+auerswald.o: $(auerswald-objs)
+	$(LD) -r -o $@ $(auerswald-objs)

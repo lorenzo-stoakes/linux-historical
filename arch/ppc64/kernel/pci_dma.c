@@ -1409,7 +1409,7 @@ void pci_unmap_sg( struct pci_dev *hwdev, struct scatterlist *sg, int nelms, int
  	/* Client asked for way to much space.  This is checked later anyway */
 	/* It is easier to debug here for the drivers than in the tce tables.*/
  	if(order >= NUM_TCE_LEVELS) {
-		printk("PCI_DMA: dma_start_page:0x%x  dma_end_page:0x%x\n",dma_start_page,dma_end_page);
+		printk("PCI_DMA: dma_start_page:0x%lx  dma_end_page:0x%lx\n",dma_start_page,dma_end_page);
 		printk("PCI_DMA: pci_unmap_sg size to large: 0x%x \n",(numTces << PAGE_SHIFT));
  		return;
  	}

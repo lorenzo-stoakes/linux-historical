@@ -153,7 +153,7 @@ printk(level "%s: " fmt "\n" , OHCI1394_DRIVER_NAME , ## args)
 printk(level "%s_%d: " fmt "\n" , OHCI1394_DRIVER_NAME, card , ## args)
 
 static char version[] __devinitdata =
-	"$Rev: 693 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 758 $ Ben Collins <bcollins@debian.org>";
 
 /* Module Parameters */
 MODULE_PARM(attempt_root,"i");
@@ -1225,8 +1225,8 @@ static void ohci_irq_handler(int irq, void *dev_id,
 			PRINT(KERN_ERR, ohci->id,
 			      "SelfID received outside of bus reset sequence");
 
-		event &= ~OHCI1394_selfIDComplete;
 selfid_not_valid:
+		event &= ~OHCI1394_selfIDComplete;
 	}
 
 	/* Make sure we handle everything, just in case we accidentally
@@ -1439,7 +1439,7 @@ static void dma_trm_tasklet (unsigned long data)
 	struct ti_ohci *ohci = (struct ti_ohci*)(d->ohci);
 	struct hpsb_packet *packet;
 	unsigned long flags;
-	u32 ack;
+	u32 status, ack;
         size_t datasize;
 
 	spin_lock_irqsave(&d->lock, flags);
@@ -1448,24 +1448,15 @@ static void dma_trm_tasklet (unsigned long data)
 		packet = driver_packet(d->fifo_list.next);
                 datasize = packet->data_size;
 		if (datasize && packet->type != hpsb_raw)
-			ack = le32_to_cpu(
+			status = le32_to_cpu(
 				d->prg_cpu[d->sent_ind]->end.status) >> 16;
 		else 
-			ack = le32_to_cpu(
+			status = le32_to_cpu(
 				d->prg_cpu[d->sent_ind]->begin.status) >> 16;
 
-		if (ack == 0) 
+		if (status == 0) 
 			/* this packet hasn't been sent yet*/
 			break;
-
-		if (!(ack & 0x10)) {
-			/* XXX: This is an OHCI evt_* code. We need to handle
-			 * this specially! For right now, we just fake an
-			 * ackx_send_error. */
-			PRINT(KERN_DEBUG, ohci->id, "Received OHCI evt_* error 0x%x",
-			       ack & 0xf);
-			ack = (ack & 0xffe0) | ACK_BUSY_A;
-		}
 
 #ifdef OHCI1394_DEBUG
 		if (datasize)
@@ -1478,7 +1469,7 @@ static void dma_trm_tasklet (unsigned long data)
                                         >>4)&0xf,
                                 (le32_to_cpu(d->prg_cpu[d->sent_ind]->data[0])
                                         >>10)&0x3f,
-                                ack&0x1f, (ack>>5)&0x3, 
+                                status&0x1f, (status>>5)&0x3, 
                                 le32_to_cpu(d->prg_cpu[d->sent_ind]->data[3])
                                         >>16,
                                 d->ctx);
@@ -1492,13 +1483,64 @@ static void dma_trm_tasklet (unsigned long data)
                                         >>4)&0xf,
                                 (le32_to_cpu(d->prg_cpu[d->sent_ind]->data[0])
                                         >>10)&0x3f,
-                                ack&0x1f, (ack>>5)&0x3, 
+                                status&0x1f, (status>>5)&0x3, 
                                 le32_to_cpu(d->prg_cpu[d->sent_ind]->data[3]),
                                 d->ctx);
 #endif		
 
+		if (status & 0x10) {
+			ack = status & 0xf;
+		} else {
+			switch (status & 0x1f) {
+			case EVT_NO_STATUS: /* that should never happen */
+			case EVT_RESERVED_A: /* that should never happen */
+			case EVT_LONG_PACKET: /* that should never happen */
+				PRINT(KERN_WARNING, ohci->id, "Received OHCI evt_* error 0x%x", status & 0x1f);
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_MISSING_ACK:
+				ack = ACKX_TIMEOUT;
+				break;
+			case EVT_UNDERRUN:
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_OVERRUN: /* that should never happen */
+				PRINT(KERN_WARNING, ohci->id, "Received OHCI evt_* error 0x%x", status & 0x1f);
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_DESCRIPTOR_READ:
+			case EVT_DATA_READ:
+			case EVT_DATA_WRITE:
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_BUS_RESET: /* that should never happen */
+				PRINT(KERN_WARNING, ohci->id, "Received OHCI evt_* error 0x%x", status & 0x1f);
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_TIMEOUT:
+				ack = ACKX_TIMEOUT;
+				break;
+			case EVT_TCODE_ERR:
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_RESERVED_B: /* that should never happen */
+			case EVT_RESERVED_C: /* that should never happen */
+				PRINT(KERN_WARNING, ohci->id, "Received OHCI evt_* error 0x%x", status & 0x1f);
+				ack = ACKX_SEND_ERROR;
+				break;
+			case EVT_UNKNOWN:
+			case EVT_FLUSHED:
+				ack = ACKX_SEND_ERROR;
+				break;
+			default:
+				PRINT(KERN_ERR, ohci->id, "Unhandled OHCI evt_* error 0x%x", status & 0x1f);
+				ack = ACKX_SEND_ERROR;
+				BUG();
+			}
+		}
+
                 list_del(&packet->driver_list);
-		hpsb_packet_sent(ohci->host, packet, ack & 0xf);
+		hpsb_packet_sent(ohci->host, packet, ack);
 
 		if (datasize) {
 			pci_unmap_single(ohci->dev, 
@@ -1739,7 +1781,7 @@ alloc_dma_trm_ctx(struct ti_ohci *ohci, struct dma_trm_ctx *d,
 	/* initialize tasklet */
 	if (type == DMA_CTX_ISO) {
 		ohci1394_init_iso_tasklet(&ohci->it_tasklet, OHCI_ISO_TRANSMIT,
-					  dma_rcv_tasklet, (unsigned long) d);
+					  dma_trm_tasklet, (unsigned long) d);
 		if (ohci1394_register_iso_tasklet(ohci,
 						  &ohci->it_tasklet) < 0) {
 			PRINT(KERN_ERR, ohci->id, "No IT DMA context available");

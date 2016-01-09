@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001-2002 Hewlett-Packard Co
+ * Copyright (C) 2001-2003 Hewlett-Packard Co
  *               Stephane Eranian <eranian@hpl.hp.com>
  */
 
@@ -40,6 +40,7 @@
 #define PFM_FL_INHERIT_ALL	 0x02	/* always clone pfm_context across fork() */
 #define PFM_FL_NOTIFY_BLOCK    	 0x04	/* block task on user level notifications */
 #define PFM_FL_SYSTEM_WIDE	 0x08	/* create a system wide context */
+#define PFM_FL_EXCL_IDLE         0x20   /* exclude idle task from system wide session */
 
 /*
  * PMC flags
@@ -108,34 +109,6 @@ typedef struct {
 } pfarg_features_t;
 
 /*
- * This header is at the beginning of the sampling buffer returned to the user.
- * It is exported as Read-Only at this point. It is directly followed by the
- * first record.
- */
-typedef struct {
-	unsigned int	hdr_version;		/* contains perfmon version (smpl format diffs) */
-	unsigned int	reserved;
-	unsigned long	hdr_entry_size;		/* size of one entry in bytes */
-	unsigned long	hdr_count;		/* how many valid entries */
-	unsigned long	hdr_pmds[4];		/* which pmds are recorded */
-} perfmon_smpl_hdr_t;
-
-/*
- * Define the version numbers for both perfmon as a whole and the sampling buffer format.
- */
-#define PFM_VERSION_MAJ		1U
-#define PFM_VERSION_MIN		2U
-#define PFM_VERSION		(((PFM_VERSION_MAJ&0xffff)<<16)|(PFM_VERSION_MIN & 0xffff))
-
-#define PFM_SMPL_VERSION_MAJ	1U
-#define PFM_SMPL_VERSION_MIN	0U
-#define PFM_SMPL_VERSION	(((PFM_SMPL_VERSION_MAJ&0xffff)<<16)|(PFM_SMPL_VERSION_MIN & 0xffff))
-
-
-#define PFM_VERSION_MAJOR(x)	(((x)>>16) & 0xffff)
-#define PFM_VERSION_MINOR(x)	((x) & 0xffff)
-
-/*
  * Entry header in the sampling buffer.
  * The header is directly followed with the PMDS saved in increasing index 
  * order: PMD4, PMD5, .... How many PMDs are present is determined by the 
@@ -157,12 +130,41 @@ typedef struct {
 	unsigned long	stamp;		 /* timestamp (unique per CPU) */
 	unsigned long	ip;		 /* where did the overflow interrupt happened */
 	unsigned long	regs;		 /* bitmask of which registers overflowed */
-	unsigned long   period;		 /* sampling period used by overflowed counter (smallest pmd index) */
+	unsigned long   period;		 /* unused */
 } perfmon_smpl_entry_t;
 
-extern int perfmonctl(pid_t pid, int cmd, void *arg, int narg);
+/*
+ * This header is at the beginning of the sampling buffer returned to the user.
+ * It is exported as Read-Only at this point. It is directly followed by the
+ * first record.
+ */
+typedef struct {
+	unsigned int	hdr_version;		/* contains perfmon version (smpl format diffs) */
+	unsigned int	reserved;
+	unsigned long	hdr_entry_size;		/* size of one entry in bytes */
+	unsigned long	hdr_count;		/* how many valid entries */
+	unsigned long	hdr_pmds[4];		/* which pmds are recorded */
+} perfmon_smpl_hdr_t;
+
+/*
+ * Define the version numbers for both perfmon as a whole and the sampling buffer format.
+ */
+#define PFM_VERSION_MAJ		1U
+#define PFM_VERSION_MIN		3U
+#define PFM_VERSION		(((PFM_VERSION_MAJ&0xffff)<<16)|(PFM_VERSION_MIN & 0xffff))
+
+#define PFM_SMPL_VERSION_MAJ	1U
+#define PFM_SMPL_VERSION_MIN	0U
+#define PFM_SMPL_VERSION	(((PFM_SMPL_VERSION_MAJ&0xffff)<<16)|(PFM_SMPL_VERSION_MIN & 0xffff))
+
+
+#define PFM_VERSION_MAJOR(x)	(((x)>>16) & 0xffff)
+#define PFM_VERSION_MINOR(x)	((x) & 0xffff)
+
 
 #ifdef __KERNEL__
+
+extern long perfmonctl(pid_t pid, int cmd, void *arg, int narg);
 
 typedef struct {
 	void (*handler)(int irq, void *arg, struct pt_regs *regs);
@@ -179,7 +181,7 @@ extern void pfm_cleanup_owners (struct task_struct *);
 extern int  pfm_use_debug_registers(struct task_struct *);
 extern int  pfm_release_debug_registers(struct task_struct *);
 extern int  pfm_cleanup_smpl_buf(struct task_struct *);
-extern void pfm_syst_wide_update_task(struct task_struct *, int);
+extern void pfm_syst_wide_update_task(struct task_struct *, unsigned long info, int is_ctxswin);
 extern void pfm_init_percpu(void);
 
 /* 
@@ -188,6 +190,13 @@ extern void pfm_init_percpu(void);
  */
 extern int pfm_install_alternate_syswide_subsystem(pfm_intr_handler_desc_t *h);
 extern int pfm_remove_alternate_syswide_subsystem(pfm_intr_handler_desc_t *h);
+
+/*
+ * describe the content of the local_cpu_date->pfm_syst_info field
+ */
+#define PFM_CPUINFO_SYST_WIDE	0x1	/* if set a system wide session exist on the CPU */
+#define PFM_CPUINFO_DCR_PP	0x2	/* if set a system wide session started on the CPU */
+#define PFM_CPUINFO_EXCL_IDLE	0x4	/* system wide session excludes the idle task */
 
 #endif /* __KERNEL__ */
 

@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/ide/macide.c -- Macintosh IDE Driver
+ *  linux/drivers/ide/legacy/macide.c -- Macintosh IDE Driver
  *
  *     Copyright (C) 1998 by Michael Schmitz
  *

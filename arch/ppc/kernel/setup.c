@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * Common prep/pmac/chrp boot and setup code.
  */
 
@@ -35,6 +32,7 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/pmac_feature.h>
+#include <asm/kgdb.h>
 
 extern void platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7);
@@ -562,7 +560,14 @@ void __init setup_arch(char **cmdline_p)
 #if defined(CONFIG_KGDB)
 	kgdb_map_scc();
 	set_debug_traps();
-	breakpoint();
+	if (strstr(cmd_line, "nokgdb"))
+		printk("kgdb default breakpoint deactivated on command line\n");
+	else {
+		if (ppc_md.progress)
+			ppc_md.progress("setup_arch: kgdb breakpoint", 0x4000);
+		printk("kgdb default breakpoint activated\n");
+		breakpoint();
+	}
 #endif
 
 	/*

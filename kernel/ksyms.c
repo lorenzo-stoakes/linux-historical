@@ -452,6 +452,9 @@ EXPORT_SYMBOL(interruptible_sleep_on);
 EXPORT_SYMBOL(interruptible_sleep_on_timeout);
 EXPORT_SYMBOL(schedule);
 EXPORT_SYMBOL(schedule_timeout);
+#if CONFIG_SMP
+EXPORT_SYMBOL(set_cpus_allowed);
+#endif
 EXPORT_SYMBOL(yield);
 EXPORT_SYMBOL(__cond_resched);
 EXPORT_SYMBOL(jiffies);

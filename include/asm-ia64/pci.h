@@ -89,12 +89,18 @@ pcibios_penalize_isa_irq (int irq)
 extern int pci_mmap_page_range (struct pci_dev *dev, struct vm_area_struct *vma,
 				enum pci_mmap_state mmap_state, int write_combine);
 
+struct pci_window {
+	struct resource resource;
+	u64 offset;
+};
+
 struct pci_controller {
 	void *acpi_handle;
 	void *iommu;
 	int segment;
 
-	u64 mem_offset;
+	unsigned int windows;
+	struct pci_window *window;
 
 	void *platform_data;
 };

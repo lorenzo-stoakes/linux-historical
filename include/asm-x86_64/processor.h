@@ -335,6 +335,7 @@ struct thread_struct {
 #define NMI_STACK 3 
 #define N_EXCEPTION_STACKS 3  /* hw limit: 7 */
 #define EXCEPTION_STKSZ 1024
+#define EXCEPTION_STK_ORDER 0
 
 extern void load_gs_index(unsigned);
 
@@ -394,6 +395,13 @@ extern inline void rep_nop(void)
 {
 	__asm__ __volatile__("rep;nop");
 }
+
+/* Avoid speculative execution by the CPU */
+extern inline void sync_core(void)
+{ 
+	int tmp;
+	asm volatile("cpuid" : "=a" (tmp) : "0" (1) : "ebx","ecx","edx","memory");
+} 
 
 #define cpu_has_fpu 1
 

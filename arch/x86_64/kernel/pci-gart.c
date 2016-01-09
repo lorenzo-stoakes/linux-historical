@@ -8,7 +8,7 @@
  * See Documentation/DMA-mapping.txt for the interface specification.
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: pci-gart.c,v 1.18 2002/11/30 03:46:14 ak Exp $
+ * $Id: pci-gart.c,v 1.19 2003/02/03 14:53:03 ak Exp $
  */
 
 /* 
@@ -220,7 +220,7 @@ void pci_free_consistent(struct pci_dev *hwdev, size_t size,
 	free_iommu(iommu_page, size);
 }
 
-#ifdef CONFIG_IOMMU_DEBUG
+#ifdef CONFIG_IOMMU_LEAK
 /* Debugging aid for drivers that don't free their IOMMU tables */
 static void **iommu_leak_tab; 
 static int leak_trace;
@@ -267,7 +267,7 @@ static void iommu_full(struct pci_dev *dev, void *addr, size_t size, int dir)
 			panic("PCI-DMA: Random memory will be DMAed\n"); 
 	} 
 
-#ifdef CONFIG_IOMMU_DEBUG
+#ifdef CONFIG_IOMMU_LEAK
 	dump_leak(); 
 #endif
 } 
@@ -321,7 +321,9 @@ dma_addr_t __pci_map_single(struct pci_dev *dev, void *addr, size_t size,
 #ifdef CONFIG_IOMMU_DEBUG
 		/* paranoia check */
 		BUG_ON(GPTE_DECODE(iommu_gatt_base[iommu_page+i]) != phys_mem); 
+#endif
 
+#ifdef CONFIG_IOMMU_LEAK
 		/* XXX need eventually caller of pci_map_sg */
 		if (iommu_leak_tab) 
 			iommu_leak_tab[iommu_page + i] = __builtin_return_address(0); 
@@ -349,7 +351,7 @@ void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 	npages = round_up(size + (dma_addr & ~PAGE_MASK), PAGE_SIZE) >> PAGE_SHIFT;
 	for (i = 0; i < npages; i++) { 
 		iommu_gatt_base[iommu_page + i] = 0; 
-#ifdef CONFIG_IOMMU_DEBUG
+#ifdef CONFIG_IOMMU_LEAK
 		if (iommu_leak_tab)
 			iommu_leak_tab[iommu_page + i] = 0; 
 #endif
@@ -506,7 +508,7 @@ void __init pci_iommu_init(void)
 		panic("Cannot allocate iommu bitmap\n"); 
 	memset(iommu_gart_bitmap, 0, iommu_pages/8);
 
-#ifdef CONFIG_IOMMU_DEBUG
+#ifdef CONFIG_IOMMU_LEAK
 	if (leak_trace) { 
 		iommu_leak_tab = (void *)__get_free_pages(GFP_KERNEL, 
 				  get_order(iommu_pages*sizeof(void *)));
@@ -564,7 +566,7 @@ __init int iommu_setup(char *opt)
 		    if (*p == '=' && get_option(&p, &arg))
 			    fallback_aper_order = arg;
 	    } 
-#ifdef CONFIG_IOMMU_DEBUG
+#ifdef CONFIG_IOMMU_LEAK
 	    if (!memcmp(p,"leak", 4)) { 
 		    leak_trace = 1;
 		    p += 4; 

@@ -273,10 +273,6 @@ EXPORT_SYMBOL_NOVERS(memcmp);
 
 EXPORT_SYMBOL(abs);
 
-#ifdef CONFIG_VT
-EXPORT_SYMBOL(screen_info);
-#endif
-
 EXPORT_SYMBOL(timer_interrupt);
 EXPORT_SYMBOL(irq_desc);
 void ppc_irq_dispatch_handler(struct pt_regs *, int);

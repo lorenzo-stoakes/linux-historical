@@ -1,4 +1,4 @@
-/* $Id: ia32_ioctl.c,v 1.27 2002/11/28 06:03:48 ak Exp $
+/* $Id: ia32_ioctl.c,v 1.28 2003/02/11 07:24:59 ak Exp $
  * ioctl32.c: Conversion between 32bit and 64bit native ioctls.
  *
  * Copyright (C) 1997-2000  Jakub Jelinek  (jakub@redhat.com)
@@ -58,6 +58,8 @@
 #include <linux/reiserfs_fs.h>
 #include <linux/if_tun.h>
 #include <linux/ctype.h>
+#include <net/bluetooth/bluetooth.h>
+#include <net/bluetooth/rfcomm.h>
 #if defined(CONFIG_BLK_DEV_LVM) || defined(CONFIG_BLK_DEV_LVM_MODULE)
 /* Ugh. This header really is not clean */
 #define min min
@@ -3057,6 +3059,14 @@ static int do_blkgetsize64(unsigned int fd, unsigned int cmd,
        return sys_ioctl(fd, BLKGETSIZE64, arg);
 }
 
+/* Bluetooth ioctls */
+#define HCIUARTSETPROTO        _IOW('U', 200, int)
+#define HCIUARTGETPROTO        _IOR('U', 201, int)
+
+#define BNEPCONNADD    _IOW('B', 200, int)
+#define BNEPCONNDEL    _IOW('B', 201, int)
+#define BNEPGETCONNLIST        _IOR('B', 210, int)
+#define BNEPGETCONNINFO        _IOR('B', 211, int)
 
 struct usbdevfs_ctrltransfer32 {
 	__u8 requesttype;
@@ -4216,6 +4226,17 @@ COMPATIBLE_IOCTL(HCISETLINKMODE)
 COMPATIBLE_IOCTL(HCISETACLMTU)
 COMPATIBLE_IOCTL(HCISETSCOMTU)
 COMPATIBLE_IOCTL(HCIINQUIRY)
+COMPATIBLE_IOCTL(HCIUARTSETPROTO)
+COMPATIBLE_IOCTL(HCIUARTGETPROTO)
+COMPATIBLE_IOCTL(RFCOMMCREATEDEV)
+COMPATIBLE_IOCTL(RFCOMMRELEASEDEV)
+COMPATIBLE_IOCTL(RFCOMMGETDEVLIST)
+COMPATIBLE_IOCTL(RFCOMMGETDEVINFO)
+COMPATIBLE_IOCTL(RFCOMMSTEALDLC)
+COMPATIBLE_IOCTL(BNEPCONNADD)
+COMPATIBLE_IOCTL(BNEPCONNDEL)
+COMPATIBLE_IOCTL(BNEPGETCONNLIST)
+COMPATIBLE_IOCTL(BNEPGETCONNINFO)
 /* Misc. */
 COMPATIBLE_IOCTL(0x41545900)		/* ATYIO_CLKR */
 COMPATIBLE_IOCTL(0x41545901)		/* ATYIO_CLKW */

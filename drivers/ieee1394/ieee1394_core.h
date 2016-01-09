@@ -77,7 +77,7 @@ struct hpsb_packet {
 };
 
 /* add a new task for when a packet completes */
-void hpsb_add_packet_complete_task(struct hpsb_packet *packet, struct hpsb_queue_struct *tq);
+void hpsb_add_packet_complete_task(struct hpsb_packet *packet, struct tq_struct *tq);
 
 static inline struct hpsb_packet *driver_packet(struct list_head *l)
 {
@@ -194,7 +194,7 @@ void hpsb_packet_received(struct hpsb_host *host, quadlet_t *data, size_t size,
 /* return the index (within a minor number block) of a file */
 static inline unsigned char ieee1394_file_to_instance(struct file *file)
 {
-	unsigned char minor = minor(file->f_dentry->d_inode->i_rdev);
+	unsigned char minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	
 	/* return lower 4 bits */
 	return minor & 0xF;

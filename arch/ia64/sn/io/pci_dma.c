@@ -9,6 +9,7 @@
  * a description of how these routines should be used.
  */
 
+#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/mm.h>
 #include <linux/string.h>
@@ -30,18 +31,6 @@
 #include <asm/sn/alenlist.h>
 #include <asm/sn/pci/pci_bus_cvlink.h>
 #include <asm/sn/nag.h>
-
-/* DMA, PIO, and memory allocation flags */
-#ifdef CONFIG_IA64_SGI_SN1
-#define DMA_DATA_FLAGS		( PCIIO_BYTE_STREAM | PCIIO_DMA_DATA )
-#define DMA_CONTROL_FLAGS	( PCIIO_BYTE_STREAM | PCIBR_BARRIER | \
-				  PCIIO_DMA_CMD )
-#elif defined(CONFIG_IA64_SGI_SN2)
-#define DMA_DATA_FLAGS		( PCIIO_DMA_DATA )
-#define DMA_CONTROL_FLAGS	( PCIBR_BARRIER | PCIIO_DMA_CMD )
-#else
-#error need to define DMA mapping flags for this platform
-#endif
 
 /*
  * For ATE allocations
@@ -129,9 +118,6 @@ find_sn_dma_map(dma_addr_t dma_addr, unsigned char busnum)
 		}
 	}
 
-	printk(KERN_WARNING "find_sn_dma_map: Unable find the corresponding "
-	       "dma map\n");
-
 	return NULL;
 }
 
@@ -151,12 +137,15 @@ void
 sn_dma_sync(struct pci_dev *hwdev)
 {
 
+#ifdef SN_DMA_SYNC
+
 	struct sn_device_sysdata *device_sysdata;
 	volatile unsigned long dummy;
 
 	/*
-	 * It is expected that on an IA64 platform, a DMA sync ensures that 
-	 * all the DMA from a particular device is complete and coherent.  We
+	 * A DMA sync is supposed to ensure that 
+	 * all the DMA from a particular device
+	 * is complete and coherent.  We
 	 * try to do this by
 	 *	1. flushing the write wuffers from Bridge
 	 *	2. flushing the Xbow port.
@@ -167,12 +156,13 @@ sn_dma_sync(struct pci_dev *hwdev)
 	dummy = (volatile unsigned long ) *device_sysdata->dma_buf_sync;
 
 	/*
-	 * For the Xbow port flush, we maybe denied the request because 
+	 * For the Xbow port flush, we may be denied the request because 
 	 * someone else may be flushing the port .. try again.
 	 */
 	while((volatile unsigned long ) *device_sysdata->xbow_buf_sync) {
 		udelay(2);
 	}
+#endif
 }
 
 /**
@@ -183,13 +173,12 @@ sn_dma_sync(struct pci_dev *hwdev)
  *
  * pci_alloc_consistent() returns a pointer to a memory region suitable for
  * coherent DMA traffic to/from a PCI device.  On SN platforms, this means
- * that @dma_handle will have the PCIBR_BARRIER and PCIIO_DMA_CMD flags
- * set.
+ * that @dma_handle will have the %PCIIO_DMA_CMD flag set.
  *
  * This interface is usually used for "command" streams (e.g. the command
  * queue for a SCSI controller).  See Documentation/DMA-mapping.txt for
- * more information.  Note that this routine should always put a 32 bit
- * DMA address into @dma_handle.  This is because most other platforms
+ * more information.  Note that this routine will always put a 32 bit
+ * DMA address into @dma_handle.  This is because most devices
  * that are capable of 64 bit PCI DMA transactions can't do 64 bit _coherent_
  * DMAs, and unfortunately this interface has to cater to the LCD.  Oh well.
  *
@@ -232,15 +221,40 @@ sn_pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *dma_hand
 	/* physical addr. of the memory we just got */
 	phys_addr = __pa(cpuaddr);
 
+	/*
+	 * This will try to use a Direct Map register to do the
+	 * 32 bit DMA mapping, but it may not succeed if another
+	 * device on the same bus is already mapped with different
+	 * attributes or to a different memory region.
+	 */
+#ifdef CONFIG_IA64_SGI_SN1
 	*dma_handle = pciio_dmatrans_addr(vhdl, NULL, phys_addr, size,
-					  DMA_CONTROL_FLAGS);
+					  PCIIO_BYTE_STREAM |
+					  PCIIO_DMA_CMD);
+#elif defined(CONFIG_IA64_SGI_SN2)
+	*dma_handle = pciio_dmatrans_addr(vhdl, NULL, phys_addr, size,
+			((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+					  PCIIO_DMA_CMD);
+#else
+#error unsupported platform
+#endif
+
 	/*
 	 * It is a 32 bit card and we cannot do direct mapping,
-	 * so we use an ATE.
+	 * so we try to use an ATE.
 	 */
 	if (!(*dma_handle)) {
+#ifdef CONFIG_IA64_SGI_SN1
 		dma_map = pciio_dmamap_alloc(vhdl, NULL, size,
-					     DMA_CONTROL_FLAGS | PCIIO_FIXED);
+					     PCIIO_BYTE_STREAM |
+					     PCIIO_DMA_CMD);
+#elif defined(CONFIG_IA64_SGI_SN2)
+		dma_map = pciio_dmamap_alloc(vhdl, NULL, size,
+				((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+					     PCIIO_DMA_CMD);
+#else
+#error unsupported platform
+#endif
 		if (!dma_map) {
 			printk(KERN_ERR "sn_pci_alloc_consistent: Unable to "
 			       "allocate anymore 32 bit page map entries.\n");
@@ -250,13 +264,7 @@ sn_pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *dma_hand
 							     size);
 		sn_dma_map = (struct sn_dma_maps_s *)dma_map;
 		sn_dma_map->dma_addr = *dma_handle;
-		printk(KERN_INFO "%s: PMU mapping: %p\n", __FUNCTION__,
-		       (void *)*dma_handle);
 	}
-	else
-		printk(KERN_INFO "%s: direct mapping: %p\n", __FUNCTION__,
-		       (void *)*dma_handle);
-	
 
         return cpuaddr;
 }
@@ -309,6 +317,7 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
 
 	int i;
 	devfs_handle_t vhdl;
+	dma_addr_t dma_addr;
 	unsigned long phys_addr;
 	struct sn_device_sysdata *device_sysdata;
 	pciio_dmamap_t dma_map;
@@ -332,28 +341,36 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
                    attempt to map scatterlists that they have
                    previously mapped.  we print a warning and
                    continue, but the driver should be fixed */
+		switch (((u64)sg->address) >> 60) {
+		case 0xa:
+		case 0xb:
 #ifdef DEBUG
-		if (sg->dma_address) {
 /* This needs to be cleaned up at some point. */
 			NAG("A PCI driver (for device at%8s) has attempted to "
 			    "map a scatterlist that was previously mapped at "
 			    "%p - this is currently being worked around.\n",
-			    hwdev->slot_name, (void *)sg->dma_address);
-			phys_addr = (u64)sg->dma_address & TO_PHYS_MASK;
-		} else
+			    hwdev->slot_name, (void *)sg->address);
 #endif
-			phys_addr = __pa(sg->address ? sg->address :
-					page_address(sg->page) + offset);
+			phys_addr = (u64)sg->address & TO_PHYS_MASK;
+			break;
+		default: /* not previously mapped, get the phys. addr */
+			phys_addr = __pa(sg->address);
+			break;
+		}
+		sg->page = NULL;
+		dma_addr = 0;
 
 		/*
 		 * Handle the most common case: 64 bit cards.  This
 		 * call should always succeed.
 		 */
 		if (IS_PCIA64(hwdev)) {
-			sg->dma_address = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
+			dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
 						       sg->length,
-						       DMA_DATA_FLAGS | PCIIO_DMA_A64 );
-			sg->dma_length = sg->length;
+			       ((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+						       PCIIO_DMA_DATA |
+						       PCIIO_DMA_A64);
+			sg->address = (char *)dma_addr;
 			continue;
 		}
 
@@ -361,14 +378,26 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
 		 * Handle 32-63 bit cards via direct mapping
 		 */
 		if (IS_PCI32G(hwdev)) {
-			sg->dma_address = pciio_dmatrans_addr(vhdl, NULL,
-								phys_addr,
-								sg->length,
-								DMA_DATA_FLAGS);
-			sg->dma_length = sg->length;
-
-			if (sg->dma_address)
+#ifdef CONFIG_IA64_SGI_SN1
+			dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
+						       sg->length,
+						       PCIIO_BYTE_STREAM |
+						       PCIIO_DMA_DATA);
+#elif defined(CONFIG_IA64_SGI_SN2)
+			dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
+						       sg->length,
+					((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+						       PCIIO_DMA_DATA);
+#else
+#error unsupported platform
+#endif
+			/*
+			 * See if we got a direct map entry
+			 */
+			if (dma_addr) {
+				sg->address = (char *)dma_addr;
 				continue;
+			}
 
 		}
 
@@ -377,17 +406,26 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
 		 * so we use an ATE.
 		 */
 		dma_map = 0;
+#ifdef CONFIG_IA64_SGI_SN1
 		dma_map = pciio_dmamap_alloc(vhdl, NULL, sg->length,
-					     DMA_DATA_FLAGS);
+					     PCIIO_BYTE_STREAM |
+					     PCIIO_DMA_DATA);
+#elif defined(CONFIG_IA64_SGI_SN2)
+		dma_map = pciio_dmamap_alloc(vhdl, NULL, sg->length,
+				((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+					     PCIIO_DMA_DATA);
+#else
+#error unsupported platform
+#endif
 		if (!dma_map) {
 			printk(KERN_ERR "sn_pci_map_sg: Unable to allocate "
 			       "anymore 32 bit page map entries.\n");
 			BUG();
 		}
-		sg->dma_address = pciio_dmamap_addr(dma_map, phys_addr, sg->length);
-		sg->dma_length = sg->length;
-#warning BADBADBAD scsi retries will die since sglist is unmapped and reused.
-		sg->page = (char *)dma_map;
+		dma_addr = pciio_dmamap_addr(dma_map, phys_addr, sg->length);
+		sg->address = (char *)dma_addr;
+		sg->page = (struct page *)dma_map;
+		
 	}
 
 	return nents;
@@ -409,20 +447,19 @@ void
 sn_pci_unmap_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int direction)
 {
 	int i;
+	struct sn_dma_maps_s *sn_dma_map;
 
 	/* can't go anywhere w/o a direction in life */
 	if (direction == PCI_DMA_NONE)
 		BUG();
 
 	for (i = 0; i < nents; i++, sg++)
-#warning need to derive sn_dma_map from sg->dma_address instead
 		if (sg->page) {
-			struct sn_dma_maps_s *sn_dma_map;
 			/*
 			 * We maintain the DMA Map pointer in sg->page if 
 			 * it is ever allocated.
 			 */
-			sg->dma_address = 0;
+			sg->address = 0;
 			sn_dma_map = (struct sn_dma_maps_s *)sg->page;
 			pciio_dmamap_done((pciio_dmamap_t)sn_dma_map);
 			pciio_dmamap_free((pciio_dmamap_t)sn_dma_map);
@@ -466,7 +503,8 @@ sn_pci_map_single(struct pci_dev *hwdev, void *ptr, size_t size, int direction)
 		BUG();
 
 	/* SN cannot support DMA addresses smaller than 32 bits. */
-	if (IS_PCI32L(hwdev)) return 0;
+	if (IS_PCI32L(hwdev))
+		return 0;
 
 	/*
 	 * find vertex for the device
@@ -481,23 +519,32 @@ sn_pci_map_single(struct pci_dev *hwdev, void *ptr, size_t size, int direction)
 	phys_addr = __pa(ptr);
 
 	if (IS_PCIA64(hwdev)) {
-		/*
-		 * This device supports 64 bit DMA addresses.
-		 */
+		/* This device supports 64 bit DMA addresses. */
 		dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr, size,
-					       DMA_DATA_FLAGS | PCIIO_DMA_A64);
+		       ((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+					       PCIIO_DMA_DATA |
+					       PCIIO_DMA_A64);
 		return dma_addr;
 	}
 
 	/*
-	 * Devices that supports 32 bit to 63 bit DMA addresses get
+	 * Devices that support 32 bit to 63 bit DMA addresses get
 	 * 32 bit DMA addresses.
 	 *
 	 * First try to get a 32 bit direct map register.
 	 */
 	if (IS_PCI32G(hwdev)) {
+#ifdef CONFIG_IA64_SGI_SN1
 		dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr, size,
-					       DMA_DATA_FLAGS);
+					       PCIIO_BYTE_STREAM |
+					       PCIIO_DMA_DATA);
+#elif defined(CONFIG_IA64_SGI_SN2)
+		dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr, size,
+			((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+					       PCIIO_DMA_DATA);
+#else
+#error unsupported platform
+#endif
 		if (dma_addr)
 			return dma_addr;
 	}
@@ -507,11 +554,20 @@ sn_pci_map_single(struct pci_dev *hwdev, void *ptr, size_t size, int direction)
 	 * let's use the PMU instead.
 	 */
 	dma_map = NULL;
-	dma_map = pciio_dmamap_alloc(vhdl, NULL, size, DMA_DATA_FLAGS);
+#ifdef CONFIG_IA64_SGI_SN1
+	dma_map = pciio_dmamap_alloc(vhdl, NULL, size, PCIIO_BYTE_STREAM |
+				     PCIIO_DMA_DATA);
+#elif defined(CONFIG_IA64_SGI_SN2)
+	dma_map = pciio_dmamap_alloc(vhdl, NULL, size, 
+			((IS_PIC_DEVICE(hwdev)) ? 0 : PCIIO_BYTE_STREAM) |
+			PCIIO_DMA_DATA);
+#else
+#error unsupported platform
+#endif
 
 	if (!dma_map) {
 		printk(KERN_ERR "pci_map_single: Unable to allocate anymore "
-		       "32 bits page map entries.\n");
+		       "32 bit page map entries.\n");
 		BUG();
 	}
 
@@ -599,6 +655,19 @@ sn_pci_dma_sync_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int
 }
 
 /**
+ * sn_dma_address - get the DMA address for the first entry of a scatterlist
+ * @sg: sg to look at
+ *
+ * Gets the DMA address for the scatterlist @sg.  Also known as
+ * platform_dma_address() by the IA64 machvec code.
+ */
+unsigned long
+sn_dma_address(struct scatterlist *sg)
+{
+	return ((unsigned long)sg->address);
+}
+
+/**
  * sn_dma_supported - test a DMA mask
  * @hwdev: device to test
  * @mask: DMA mask to test
@@ -607,7 +676,9 @@ sn_pci_dma_sync_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int
  * properly.  For example, if your device can only drive the low 24-bits
  * during PCI bus mastering, then you would pass 0x00ffffff as the mask to
  * this function.  Of course, SN only supports devices that have 32 or more
- * address bits.
+ * address bits when using the PMU.  We could theoretically support <32 bit
+ * cards using direct mapping, but we'll worry about that later--on the off
+ * chance that someone actually wants to use such a card.
  */
 int
 sn_pci_dma_supported(struct pci_dev *hwdev, u64 mask)
@@ -624,5 +695,6 @@ EXPORT_SYMBOL(sn_pci_map_sg);
 EXPORT_SYMBOL(sn_pci_unmap_sg);
 EXPORT_SYMBOL(sn_pci_alloc_consistent);
 EXPORT_SYMBOL(sn_pci_free_consistent);
+EXPORT_SYMBOL(sn_dma_address);
 EXPORT_SYMBOL(sn_pci_dma_supported);
 
