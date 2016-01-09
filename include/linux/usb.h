@@ -398,7 +398,53 @@ struct usb_device_id {
 	unsigned long	driver_info;
 };
 
+/**
+ * struct usb_driver - identifies USB driver to usbcore
+ * @owner: Pointer to the module owner of this driver; initialize
+ *      it using THIS_MODULE.
+ * @name: The driver name should be unique among USB drivers,
+ *      and should normally be the same as the module name.
+ * @probe: Called to see if the driver is willing to manage a particular
+ *      interface on a device.  The probe routine returns a handle that 
+ *      will later be provided to disconnect(), or a null pointer to
+ *      indicate that the driver will not handle the interface.
+ *      The handle is normally a pointer to driver-specific data.
+ *      If the probe() routine needs to access the interface
+ *      structure itself, use usb_ifnum_to_if() to make sure it's using
+ *      the right one.
+ * @disconnect: Called when the interface is no longer accessible, usually
+ *      because its device has been (or is being) disconnected.  The
+ *      handle passed is what was returned by probe(), or was provided
+ *      to usb_driver_claim_interface().
+ * @ioctl: Used for drivers that want to talk to userspace through
+ *      the "usbfs" filesystem.  This lets devices provide ways to
+ *      expose information to user space regardless of where they
+ *      do (or don't) show up otherwise in the filesystem.
+ * @fops: pointer to a fops structure if the driver wants to use the USB
+ *	major number.
+ * @minor: the starting minor number for this driver, if the fops
+ *	pointer is set.
+ * @id_table: USB drivers use ID table to support hotplugging.
+ *      Export this with MODULE_DEVICE_TABLE(usb,...), or use NULL to
+ *      say that probe() should be called for any unclaimed interface.
+ *
+ * USB drivers must provide a name, probe() and disconnect() methods,
+ * and an id_table.  Other driver fields are optional.
+ *
+ * The id_table is used in hotplugging.  It holds a set of descriptors,
+ * and specialized data may be associated with each entry.  That table
+ * is used by both user and kernel mode hotplugging support.
+ * The probe() and disconnect() methods are called in a context where
+ * they can sleep, but they should avoid abusing the privilege.  Most
+ * work to connect to a device should be done when the device is opened,
+ * and undone at the last close.  The disconnect code needs to address
+ * concurrency issues with respect to open() and close() methods, as
+ * well as forcing all pending I/O requests to complete (by unlinking
+ * them as necessary, and blocking until the unlinks complete).
+ */
 struct usb_driver {
+	struct module *owner;
+
 	const char *name;
 
 	void *(*probe)(
@@ -415,18 +461,9 @@ struct usb_driver {
 
 	struct semaphore serialize;
 
-	/* ioctl -- userspace apps can talk to drivers through usbdevfs */
 	int (*ioctl)(struct usb_device *dev, unsigned int code, void *buf);
 
-	/* support for "new-style" USB hotplugging
-	 * binding policy can be driven from user mode too
-	 */
 	const struct usb_device_id *id_table;
-
-	/* suspend before the bus suspends;
-	 * disconnect or resume when the bus resumes */
-	// void (*suspend)(struct usb_device *dev);
-	// void (*resume)(struct usb_device *dev);
 };
 	
 /*----------------------------------------------------------------------------* 

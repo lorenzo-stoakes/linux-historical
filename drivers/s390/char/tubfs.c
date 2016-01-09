@@ -381,6 +381,9 @@ fs3270_read(struct file *fp, char *dp, size_t len, loff_t *off)
 		return rc;
 	}
 
+	if(len > 8192)
+		len = 8192;
+		
 	kp = kmalloc(len, GFP_KERNEL|GFP_DMA);
 	if (kp == NULL) {
 		TUBUNLOCK(tubp->irq, flags);
@@ -412,7 +415,11 @@ fs3270_read(struct file *fp, char *dp, size_t len, loff_t *off)
 			*(int*)((long)kp + 4),
 			*(int*)((long)kp + 8),
 			*(int*)((long)kp + 12));
-	copy_to_user(dp, kp, len);
+	if(copy_to_user(dp, kp, len))
+	{
+		kfree(kp);
+		return -EFAULT;
+	}
 	kfree(kp);
 	return len;
 }
@@ -433,6 +440,12 @@ fs3270_write(struct file *fp, const char *dp, size_t len, loff_t *off)
 	if ((tubp = INODE2TUB((struct inode *)fp->private_data)) == NULL)
 		return -ENODEV;
 
+	/* Buffer limit
+	   FIXME: we should probably loop through I/O's waiting as we go
+	 */
+	if(len > 8192)
+		len = 8192;
+		
 	/* Copy data to write from user address space */
 	if ((kb = kmalloc(len, GFP_KERNEL|GFP_DMA)) == NULL)
 		return -ENOMEM;

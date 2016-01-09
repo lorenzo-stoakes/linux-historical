@@ -45,7 +45,29 @@
 #include <asm/irq.h>
 #include <asm/proto.h>
 
+#ifdef CONFIG_DEBUG_STACKOVERFLOW
+/* 
+ * Probalistic stack overflow check: 
+ * 
+ * Only check the stack in process context, because everything else
+ * runs on the big interrupt stacks. Checking reliably is too expensive,
+ * so we just check from interrupts. 
+ */ 
+static inline void stack_overflow_check(struct pt_regs *regs)
+{ 
+	u64 curbase = (u64) current;
+	static unsigned long warned = -60*HZ; 
 
+	if (regs->rsp >= curbase && regs->rsp <= curbase + THREAD_SIZE &&
+	    regs->rsp <  curbase + sizeof(struct task_struct) + 128 && 
+	    warned + 60*HZ >= jiffies) { 
+		printk("do_IRQ: %s near stack overflow (cur:%Lx,rsp:%lx)\n",
+		       current->comm, curbase, regs->rsp); 
+		show_stack(NULL);
+		warned = jiffies;
+	}
+}
+#endif
 
 /*
  * Linux has a controller-independent x86 interrupt architecture.
@@ -196,7 +218,8 @@ unsigned volatile long global_irq_lock; /* pendantic: long for set_bit --RR */
 extern void show_stack(unsigned long* esp);
 
 
-/* XXX: this unfortunately doesn't support irqstacks currently, should check the other PDAs */
+/* XXX: this unfortunately doesn't support irqs/exception stacks currently, 
+   should check the other PDAs */
 static void show(char * str)
 {
 	int i;
@@ -581,13 +604,17 @@ asmlinkage unsigned int do_IRQ(struct pt_regs *regs)
 	struct irqaction * action;
 	unsigned int status;
 
+
+#ifdef CONFIG_DEBUG_STACKOVERFLOW
+	stack_overflow_check(regs); 
+#endif
+	       
 	kstat.irqs[cpu][irq]++;
 	spin_lock(&desc->lock);
 	desc->handler->ack(irq);
 	/*
 	   REPLAY is when Linux resends an IRQ that was dropped earlier
-	   WAITING is used by probe to mark irqs that are being tested
-	   */
+	   WAITING is used by probe to mark irqs that are being tested */
 	status = desc->status & ~(IRQ_REPLAY | IRQ_WAITING);
 	status |= IRQ_PENDING; /* we _want_ to handle it */
 

@@ -830,7 +830,6 @@ forte_dsp_ioctl (struct inode *inode, struct file *file, unsigned int cmd,
 		 unsigned long arg)
 {
 	int ival, ret, rval, rd, wr, count;
-	unsigned long flags;
 	struct forte_chip *chip;
 	struct audio_buf_info abi;
 	struct count_info cinfo;
@@ -1200,7 +1199,6 @@ static int
 forte_dsp_open (struct inode *inode, struct file *file)
 {
 	struct forte_chip *chip = forte; /* FIXME: HACK FROM HELL! */
-	struct forte_channel *channel;
 
 	if (down_interruptible (&chip->open_sem)) {
 		DPRINTK ("%s: returning -ERESTARTSYS\n", __FUNCTION__);
@@ -1252,7 +1250,6 @@ forte_dsp_release (struct inode *inode, struct file *file)
 		forte_channel_free (chip, &chip->rec);
 	}
 
- out:
 	up (&chip->open_sem);
 
 	return ret;
@@ -1484,7 +1481,7 @@ forte_dsp_read (struct file *file, char *buffer, size_t bytes,
 {
 	struct forte_chip *chip;
 	struct forte_channel *channel;
-	unsigned int i = bytes, sz, ret;
+	unsigned int i = bytes, sz;
 	unsigned long flags;
 
 	if (ppos != &file->f_pos)

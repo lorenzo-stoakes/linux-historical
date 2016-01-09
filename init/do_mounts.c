@@ -181,6 +181,13 @@ static struct dev_name_struct {
 	{ "ida/c0d13p",0x48D0 },
 	{ "ida/c0d14p",0x48E0 },
 	{ "ida/c0d15p",0x48F0 },
+	{ "ida/c1d0p",0x4900 },
+	{ "ida/c2d0p",0x4A00 },
+	{ "ida/c3d0p",0x4B00 },
+	{ "ida/c4d0p",0x4C00 },
+	{ "ida/c5d0p",0x4D00 },
+	{ "ida/c6d0p",0x4E00 },
+	{ "ida/c7d0p",0x4F00 }, 
 #endif
 #if defined(CONFIG_BLK_CPQ_CISS_DA) || defined(CONFIG_BLK_CPQ_CISS_DA_MODULE)
 	{ "cciss/c0d0p",0x6800 },
@@ -199,6 +206,13 @@ static struct dev_name_struct {
 	{ "cciss/c0d13p",0x68D0 },
 	{ "cciss/c0d14p",0x68E0 },
 	{ "cciss/c0d15p",0x68F0 },
+	{ "cciss/c1d0p",0x6900 },
+	{ "cciss/c2d0p",0x6A00 },
+	{ "cciss/c3d0p",0x6B00 },
+	{ "cciss/c4d0p",0x6C00 },
+	{ "cciss/c5d0p",0x6D00 },
+	{ "cciss/c6d0p",0x6E00 },
+	{ "cciss/c7d0p",0x6F00 },
 #endif
 	{ "ataraid/d0p",0x7200 },
 	{ "ataraid/d1p",0x7210 },

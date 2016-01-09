@@ -389,13 +389,15 @@ void pcibios_fixup_pbus_ranges(
 ** than res->start.
 */
 void __devinit
-pcibios_align_resource(void *data, struct resource *res, unsigned long size)
+pcibios_align_resource(void *data, struct resource *res,
+		       unsigned long size, unsigned long alignment)
 {
 	unsigned long mask, align;
 
-	DBG_RES("pcibios_align_resource(%s, (%p) [%lx,%lx]/%x, 0x%lx)\n",
+	DBG_RES("pcibios_align_resource(%s, (%p) [%lx,%lx]/%x, 0x%lx, 0x%lx)\n",
 		((struct pci_dev *) data)->slot_name,
-		res->parent, res->start, res->end, (int) res->flags, size);
+		res->parent, res->start, res->end,
+		(int) res->flags, size, alignment);
 
 	/* has resource already been aligned/assigned? */
 	if (res->parent)

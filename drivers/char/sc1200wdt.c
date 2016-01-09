@@ -253,7 +253,10 @@ static ssize_t sc1200wdt_write(struct file *file, const char *data, size_t len, 
 
 		for (i = 0; i != len; i++)
 		{
-			if (data[i] == 'V')
+			char c;
+			if(get_user(c, data+i))
+				return -EFAULT;
+			if (c == 'V')
 				expect_close = 42;
 		}
 #endif

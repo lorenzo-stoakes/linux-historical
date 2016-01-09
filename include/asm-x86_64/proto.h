@@ -19,10 +19,26 @@ extern void cpu_idle(void);
 extern void sys_ni_syscall(void);
 extern void config_acpi_tables(void);
 extern void ia32_syscall(void);
+extern void iommu_hole_init(void);
 
 extern void do_softirq_thunk(void);
 
 extern int setup_early_printk(char *); 
 extern void early_printk(const char *fmt, ...) __attribute__((format(printf,1,2)));
+
+extern int k8_scan_nodes(unsigned long start, unsigned long end);
+
+extern int numa_initmem_init(unsigned long start_pfn, unsigned long end_pfn);
+extern unsigned long numa_free_all_bootmem(void);
+
+extern void reserve_bootmem_generic(unsigned long phys, unsigned len);
+extern void free_bootmem_generic(unsigned long phys, unsigned len);
+
+extern unsigned long start_pfn, end_pfn; 
+
+extern void show_stack(unsigned long * rsp);
+
+#define round_up(x,y) (((x) + (y) - 1) & ~((y)-1))
+#define round_down(x,y) ((x) & ~((y)-1))
 
 #endif

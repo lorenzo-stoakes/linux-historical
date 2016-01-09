@@ -4,6 +4,7 @@
 #include <asm/atomic.h>
 #include <asm/rwlock.h>
 #include <asm/page.h>
+#include <linux/kernel.h>
 #include <linux/config.h>
 
 extern int printk(const char * fmt, ...)
@@ -49,7 +50,7 @@ typedef struct {
  * We make no fairness assumptions. They have a cost.
  */
 
-#define spin_is_locked(x)	(*(volatile char *)(&(x)->lock) <= 0)
+#define spin_is_locked(x)	(*(volatile signed char *)(&(x)->lock) <= 0)
 #define spin_unlock_wait(x)	do { barrier(); } while(spin_is_locked(x))
 
 #define spin_lock_string \

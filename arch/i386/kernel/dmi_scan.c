@@ -648,8 +648,8 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 	
 	{ swab_apm_power_in_minutes, "Sony VAIO", {	/* Handle problems with APM on Sony Vaio PCG-Z505LS (with updated BIOS) */
 			MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies LTD"),
-			MATCH(DMI_BIOS_VERSION, "R0209Z3"),
-			MATCH(DMI_BIOS_DATE, "05/12/01"), NO_MATCH
+			MATCH(DMI_BIOS_VERSION, "WXP01Z3"),
+			MATCH(DMI_BIOS_DATE, "10/26/01"), NO_MATCH
 			} },
 	
 	{ swab_apm_power_in_minutes, "Sony VAIO", {	/* Handle problems with APM on Sony Vaio PCG-F104K */

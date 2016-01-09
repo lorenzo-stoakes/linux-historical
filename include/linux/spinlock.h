@@ -71,7 +71,7 @@
  * Some older gcc versions had a nasty bug with empty initializers.
  * (XXX: could someone please confirm whether egcs 1.1 still has this bug?)
  */
-#if (__GNUC__ > 2 || __GNUC_MINOR__ > 91)
+#if (__GNUC__ > 2 || __GNUC_MINOR__ > 95)
   typedef struct { } spinlock_t;
   #define SPIN_LOCK_UNLOCKED (spinlock_t) { }
 #else

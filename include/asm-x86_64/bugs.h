@@ -1,5 +1,5 @@
 /*
- *  include/asm-i386/bugs.h
+ *  include/asm-x86_64/bugs.h
  *
  *  Copyright (C) 1994  Linus Torvalds
  *  Copyright (C) 2000  SuSE
@@ -21,20 +21,14 @@ static inline void check_fpu(void)
 	extern void __bad_fxsave_alignment(void);
 	if (offsetof(struct task_struct, thread.i387.fxsave) & 15)
 		__bad_fxsave_alignment();
+
+	/* This should not be here */	
 	set_in_cr4(X86_CR4_OSFXSR);
 	set_in_cr4(X86_CR4_OSXMMEXCPT);
 }
-
-/*
- * If we configured ourselves for FXSR, we'd better have it.
- */
 
 static void __init check_bugs(void)
 {
 	identify_cpu(&boot_cpu_data);
 	check_fpu();
-#if !defined(CONFIG_SMP)
-	printk("CPU: ");
-	print_cpu_info(&boot_cpu_data);
-#endif
 }

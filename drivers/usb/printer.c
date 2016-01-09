@@ -257,7 +257,7 @@ static void usblp_bulk(struct urb *urb)
  * Get and print printer errors.
  */
 
-static char *usblp_messages[] = { "ok", "out of paper", "off-line", "on fire" };
+static char *usblp_messages[] = { "ok", "out of paper", "off-line", "unknown error" };
 
 static int usblp_check_status(struct usblp *usblp, int err)
 {

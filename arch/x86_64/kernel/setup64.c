@@ -3,7 +3,7 @@
  * Copyright (C) 1995  Linus Torvalds
  * Copyright 2001, 2002 SuSE Labs / Andi Kleen.
  * See setup.c for older changelog.
- * $Id: setup64.c,v 1.14 2002/07/18 09:49:42 ak Exp $
+ * $Id: setup64.c,v 1.15 2002/09/05 15:25:43 ak Exp $
  */ 
 #include <linux/config.h>
 #include <linux/init.h>
@@ -151,6 +151,9 @@ void __init cpu_init (void)
 			__supported_pte_mask &= ~_PAGE_NX; 
 		} 
 	}
+
+	t->io_map_base = INVALID_IO_BITMAP_OFFSET;	
+	memset(t->io_bitmap, 0xff, sizeof(t->io_bitmap));
 
 	/* Flags to clear on syscall */
 	wrmsrl(MSR_SYSCALL_MASK, EF_TF|EF_DF|EF_IE); 

@@ -213,3 +213,10 @@ EXPORT_SYMBOL(memcpy_toio);
 
 EXPORT_SYMBOL(ip_compute_csum);
 
+
+#ifdef CONFIG_DISCONTIGMEM
+EXPORT_SYMBOL(memnode_shift);
+EXPORT_SYMBOL(memnodemap);
+EXPORT_SYMBOL(plat_node_data);
+EXPORT_SYMBOL(fake_node);
+#endif

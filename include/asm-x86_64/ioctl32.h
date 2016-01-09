@@ -1,6 +1,8 @@
 #ifndef IOCTL32_H
 #define IOCTL32_H 1
 
+struct file;
+
 int sys_ioctl(unsigned int, unsigned int, unsigned long);
 
 /* 

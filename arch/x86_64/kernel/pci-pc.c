@@ -334,10 +334,13 @@ static void __devinit pci_scan_mptable(void)
 
 	/* Handle ACPI here */
 	if (!smp_found_config) { 
-		printk(KERN_WARNING "PCI: Warning: no mptable. Scanning busses upto 0xfe\n"); 
-		pcibios_last_bus = 0xfe; 
+		printk(KERN_WARNING "PCI: Warning: no mptable. Scanning busses upto 0xff\n"); 
+		pcibios_last_bus = 0xff; 
 		return;
 	} 
+
+	pcibios_last_bus = 0xff;
+
 	for (i = 0; i < MAX_MP_BUSSES; i++) {
 		int n = mp_bus_id_to_pci_bus[i]; 
 		if (n < 0 || n >= 0xff)
@@ -460,11 +463,11 @@ unsigned int pcibios_assign_all_busses(void)
 	return (pci_probe & PCI_ASSIGN_ALL_BUSSES) ? 1 : 0;
 }
 
-int pcibios_enable_device(struct pci_dev *dev)
+int pcibios_enable_device(struct pci_dev *dev, int mask)
 {
 	int err;
 
-	if ((err = pcibios_enable_resources(dev)) < 0)
+	if ((err = pcibios_enable_resources(dev, mask)) < 0)
 		return err;
 	pcibios_enable_irq(dev);
 	return 0;

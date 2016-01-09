@@ -70,6 +70,10 @@
 
 #define MTRR_VERSION "2.02 (20020716)"
 
+#undef Dprintk
+
+#define Dprintk(...) 
+
 #define TRUE  1
 #define FALSE 0
 
@@ -312,30 +316,30 @@ static int __init set_fixed_ranges_testing (mtrr_type * frs)
 	int i;
 	u32 lo, hi;
 
-	printk (KERN_INFO "mtrr: rdmsr 64K_00000\n");
+	Dprintk (KERN_INFO "mtrr: rdmsr 64K_00000\n");
 	rdmsr (MSR_MTRRfix64K_00000, lo, hi);
 	if (p[0] != lo || p[1] != hi) {
-		printk (KERN_INFO "mtrr: Writing %x:%x to 64K MSR. lohi were %x:%x\n", p[0], p[1], lo, hi);
+		Dprintk (KERN_INFO "mtrr: Writing %x:%x to 64K MSR. lohi were %x:%x\n", p[0], p[1], lo, hi);
 		wrmsr (MSR_MTRRfix64K_00000, p[0], p[1]);
 		changed = TRUE;
 	}
 
-	printk (KERN_INFO "mtrr: rdmsr 16K_80000\n");
+	Dprintk (KERN_INFO "mtrr: rdmsr 16K_80000\n");
 	for (i = 0; i < 2; i++) {
 		rdmsr (MSR_MTRRfix16K_80000 + i, lo, hi);
 		if (p[2 + i * 2] != lo || p[3 + i * 2] != hi) {
-			printk (KERN_INFO "mtrr: Writing %x:%x to 16K MSR%d. lohi were %x:%x\n", p[2 + i * 2], p[3 + i * 2], i, lo, hi );
+			Dprintk (KERN_INFO "mtrr: Writing %x:%x to 16K MSR%d. lohi were %x:%x\n", p[2 + i * 2], p[3 + i * 2], i, lo, hi );
 			wrmsr (MSR_MTRRfix16K_80000 + i, p[2 + i * 2], p[3 + i * 2]);
 			changed = TRUE;
 		}
 	}
 
-	printk (KERN_INFO "mtrr: rdmsr 4K_C0000\n");
+	Dprintk (KERN_INFO "mtrr: rdmsr 4K_C0000\n");
 	for (i = 0; i < 8; i++) {
 		rdmsr (MSR_MTRRfix4K_C0000 + i, lo, hi);
-		printk (KERN_INFO "mtrr: MTRRfix4K_C0000+%d = %x:%x\n", i, lo, hi);
+		Dprintk (KERN_INFO "mtrr: MTRRfix4K_C0000+%d = %x:%x\n", i, lo, hi);
 		if (p[6 + i * 2] != lo || p[7 + i * 2] != hi) {
-			printk (KERN_INFO "mtrr: Writing %x:%x to 4K MSR%d. lohi were %x:%x\n", p[6 + i * 2], p[7 + i * 2], i, lo, hi);
+			Dprintk (KERN_INFO "mtrr: Writing %x:%x to 4K MSR%d. lohi were %x:%x\n", p[6 + i * 2], p[7 + i * 2], i, lo, hi);
 			wrmsr (MSR_MTRRfix4K_C0000 + i, p[6 + i * 2], p[7 + i * 2]);
 			changed = TRUE;
 		}
@@ -501,12 +505,12 @@ static void __init mtrr_state_warn (u32 mask)
 	if (!mask)
 		return;
 	if (mask & MTRR_CHANGE_MASK_FIXED)
-		printk ("mtrr: your CPUs had inconsistent fixed MTRR settings\n");
+		printk (KERN_INFO "mtrr: your CPUs had inconsistent fixed MTRR settings\n");
 	if (mask & MTRR_CHANGE_MASK_VARIABLE)
-		printk ("mtrr: your CPUs had inconsistent variable MTRR settings\n");
+		printk (KERN_INFO "mtrr: your CPUs had inconsistent variable MTRR settings\n");
 	if (mask & MTRR_CHANGE_MASK_DEFTYPE)
-		printk ("mtrr: your CPUs had inconsistent MTRRdefType settings\n");
-	printk ("mtrr: probably your BIOS does not setup all CPUs\n");
+		printk (KERN_INFO "mtrr: your CPUs had inconsistent MTRRdefType settings\n");
+	printk (KERN_INFO "mtrr: probably your BIOS does not setup all CPUs\n");
 }
 
 #endif	/*  CONFIG_SMP  */
@@ -609,15 +613,15 @@ int mtrr_add_page (u64 base, u32 size, unsigned int type, char increment)
 		return -EINVAL;
 	}
 
-#if defined(__x86_64__) && defined(CONFIG_AGP) 
-/*	{
+#if 0 && defined(__x86_64__) && defined(CONFIG_AGP) 
+	{
 	agp_kern_info info; 
 	if (type != MTRR_TYPE_UNCACHABLE && agp_copy_info(&info) >= 0 && 
 	    base<<PAGE_SHIFT >= info.aper_base && 
             (base<<PAGE_SHIFT)+(size<<PAGE_SHIFT) >= 
 			info.aper_base+info.aper_size*1024*1024)
 		printk(KERN_INFO "%s[%d] setting conflicting mtrr into agp aperture\n",current->comm,current->pid); 
-	}*/
+	}
 #endif
 
 	/*  Check upper bits of base and last are equal and lower bits are 0
@@ -646,7 +650,7 @@ int mtrr_add_page (u64 base, u32 size, unsigned int type, char increment)
 	}
 
 	if (base & (size_or_mask>>PAGE_SHIFT)) {
-		printk (KERN_WARNING "mtrr: base(%lx) exceeds the MTRR width(%lx)\n",
+		printk (KERN_WARNING "mtrr: base(%Lx) exceeds the MTRR width(%Lx)\n",
 				base, (size_or_mask>>PAGE_SHIFT));
 		return -EINVAL;
 	}
@@ -868,8 +872,8 @@ static int mtrr_file_add (u64 base, u32 size, unsigned int type,
 	if (!page) {
 		if ((base & (PAGE_SIZE - 1)) || (size & (PAGE_SIZE - 1))) {
 			printk
-			    ("mtrr: size and base must be multiples of 4 kiB\n");
-			printk ("mtrr: size: 0x%x  base: 0x%Lx\n", size, base);
+			    (KERN_INFO "mtrr: size and base must be multiples of 4 kiB\n");
+			printk (KERN_INFO "mtrr: size: 0x%x  base: 0x%Lx\n", size, base);
 			return -EINVAL;
 		}
 		base >>= PAGE_SHIFT;
@@ -893,8 +897,8 @@ static int mtrr_file_del (u64 base, u32 size,
 	if (!page) {
 		if ((base & (PAGE_SIZE - 1)) || (size & (PAGE_SIZE - 1))) {
 			printk
-			    ("mtrr: size and base must be multiples of 4 kiB\n");
-			printk ("mtrr: size: 0x%x  base: 0x%Lx\n", size, base);
+			    (KERN_INFO "mtrr: size and base must be multiples of 4 kiB\n");
+			printk (KERN_INFO "mtrr: size: 0x%x  base: 0x%Lx\n", size, base);
 			return -EINVAL;
 		}
 		base >>= PAGE_SHIFT;
@@ -969,7 +973,7 @@ static ssize_t mtrr_write (struct file *file, const char *buf,
 	}
 
 	if (strncmp (line, "base=", 5)) {
-		printk ("mtrr: no \"base=\" in line: \"%s\"\n", line);
+		printk (KERN_INFO "mtrr: no \"base=\" in line: \"%s\"\n", line);
 		return -EINVAL;
 	}
 
@@ -978,22 +982,22 @@ static ssize_t mtrr_write (struct file *file, const char *buf,
 	for (; isspace (*ptr); ++ptr) ;
 
 	if (strncmp (ptr, "size=", 5)) {
-		printk ("mtrr: no \"size=\" in line: \"%s\"\n", line);
+		printk (KERN_INFO "mtrr: no \"size=\" in line: \"%s\"\n", line);
 		return -EINVAL;
 	}
 
 	size = simple_strtoull (ptr + 5, &ptr, 0);
 
 	if ((base & 0xfff) || (size & 0xfff)) {
-		printk ("mtrr: size and base must be multiples of 4 kiB\n");
-		printk ("mtrr: size: 0x%x  base: 0x%Lx\n", size, base);
+		printk (KERN_INFO "mtrr: size and base must be multiples of 4 kiB\n");
+		printk (KERN_INFO "mtrr: size: 0x%x  base: 0x%Lx\n", size, base);
 		return -EINVAL;
 	}
 
 	for (; isspace (*ptr); ++ptr) ;
 
 	if (strncmp (ptr, "type=", 5)) {
-		printk ("mtrr: no \"type=\" in line: \"%s\"\n", line);
+		printk (KERN_INFO "mtrr: no \"type=\" in line: \"%s\"\n", line);
 		return -EINVAL;
 	}
 	ptr += 5;
@@ -1010,7 +1014,7 @@ static ssize_t mtrr_write (struct file *file, const char *buf,
 			return err;
 		return len;
 	}
-	printk ("mtrr: illegal type: \"%s\"\n", ptr);
+	printk (KERN_INFO "mtrr: illegal type: \"%s\"\n", ptr);
 	return -EINVAL;
 }
 
@@ -1243,7 +1247,6 @@ static void __init mtrr_setup (void)
 			 */
 			size_and_mask = (~size_or_mask) & 0x000ffffffffff000L;
 		}
-		printk ("mtrr: detected mtrr type: x86-64\n");
 	}
 }
 

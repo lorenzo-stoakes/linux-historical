@@ -3,7 +3,7 @@
  * 		
  * Copyright 2000,2001 Andi Kleen, SuSE Labs.
  * 
- * $Id: ia32entry.S,v 1.35 2002/05/28 21:55:05 ak Exp $ 		
+ * $Id: ia32entry.S,v 1.36 2002/09/12 12:55:05 ak Exp $ 		
  */		 
 
 #include <asm/calling.h>
@@ -331,15 +331,15 @@ ia32_sys_call_table:
 	.quad sys_getgid		/* 200 */
 	.quad sys_geteuid
 	.quad sys_getegid
-	.quad sys32_setreuid
-	.quad sys32_setregid
-	.quad sys32_getgroups	/* 205 */
-	.quad sys32_setgroups
+	.quad sys_setreuid
+	.quad sys_setregid
+	.quad sys_getgroups	/* 205 */
+	.quad sys_setgroups
 	.quad sys_fchown
-	.quad sys32_setresuid
-	.quad sys32_getresuid
-	.quad sys32_setresgid	/* 210 */
-	.quad sys32_getresgid
+	.quad sys_setresuid
+	.quad sys_getresuid
+	.quad sys_setresgid	/* 210 */
+	.quad sys_getresgid
 	.quad sys_chown
 	.quad sys_setuid
 	.quad sys_setgid
@@ -354,6 +354,34 @@ ia32_sys_call_table:
 	.quad sys_ni_syscall    /* security */
 	.quad sys_gettid	
 	.quad sys_readahead	/* 225 */ 
+	.quad sys_setxattr
+	.quad sys_lsetxattr
+	.quad sys_fsetxattr
+	.quad sys_getxattr
+	.quad sys_lgetxattr	/* 230 */
+	.quad sys_fgetxattr
+	.quad sys_listxattr
+	.quad sys_llistxattr
+	.quad sys_flistxattr
+	.quad sys_removexattr	/* 235 */
+	.quad sys_lremovexattr
+	.quad sys_fremovexattr
+	.quad sys_tkill		/* 238 */ 
+	.quad sys_ni_syscall	/* sendfile64 */
+	.quad sys_ni_syscall	/* futex */
+	.quad sys_ni_syscall	/* sched_setaffinity */
+	.quad sys_ni_syscall	/* sched_getaffinity */
+	.quad sys_ni_syscall	/* set_threadarea */
+	.quad sys_ni_syscall	/* get_threadarea */
+	.quad sys_ni_syscall	/* io_setup */
+	.quad sys_ni_syscall	/* io_destroy */
+	.quad sys_ni_syscall	/* io_getevents */
+	.quad sys_ni_syscall	/* io_submit */
+	.quad sys_ni_syscall	/* io_cancel */
+	.quad sys_ni_syscall	/* alloc_hugepages */
+	.quad sys_ni_syscall	/* free_hugepages */
+	.quad sys_ni_syscall	/* exit_group */
+
 ia32_syscall_end:		
 	.rept IA32_NR_syscalls-(ia32_syscall_end-ia32_sys_call_table)/8
 		.quad ni_syscall

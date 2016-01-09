@@ -26,6 +26,8 @@
 #include <asm/mtrr.h>
 #include <asm/mpspec.h>
 #include <asm/pgalloc.h>
+#include <asm/e820.h>
+#include <asm/proto.h>
 
 /* Have we found an MP table */
 int smp_found_config = 0;
@@ -133,7 +135,9 @@ static void __init MP_bus_info (struct mpc_config_bus *m)
 	str[6] = 0;
 	Dprintk("Bus #%d is %s\n", m->mpc_busid, str);
 
-	if (strncmp(str, "ISA", 3) == 0) {
+	if (m->mpc_busid >= MAX_MP_BUSSES) {
+		printk(KERN_ERR "MAX_MP_BUSSES ERROR mpc_busid %d, max %d\n", m->mpc_busid, MAX_MP_BUSSES);
+	} else if (strncmp(str, "ISA", 3) == 0) {
 		mp_bus_id_to_type[m->mpc_busid] = MP_BUS_ISA;
 	} else if (strncmp(str, "EISA", 4) == 0) {
 		mp_bus_id_to_type[m->mpc_busid] = MP_BUS_EISA;
@@ -489,12 +493,11 @@ void __init get_smp_config (void)
 		construct_default_ISA_mptable(mpf->mpf_feature1);
 
 	} else if (mpf->mpf_physptr) {
-
 		/*
 		 * Read the physical hardware table.  Anything here will
 		 * override the defaults.
 		 */
-		if (!smp_read_mpc((void *)(unsigned long)mpf->mpf_physptr)) {
+		if (!smp_read_mpc(__va(mpf->mpf_physptr))) {
 			smp_found_config = 0;
 			printk(KERN_ERR "BIOS bug, MP table errors detected!...\n");
 			printk(KERN_ERR "... disabling SMP support. (tell your hw vendor)\n");
@@ -532,7 +535,7 @@ static int __init smp_scan_config (unsigned long base, unsigned long length)
 	unsigned int *bp = phys_to_virt(base);
 	struct intel_mp_floating *mpf;
 
-	Dprintk("Scan SMP from %p for %ld bytes.\n", bp,length);
+	printk("Scan SMP from %p for %ld bytes.\n", bp,length);
 	if (sizeof(*mpf) != 16)
 		printk("Error: MPF size\n");
 
@@ -545,11 +548,11 @@ static int __init smp_scan_config (unsigned long base, unsigned long length)
 				|| (mpf->mpf_specification == 4)) ) {
 
 			smp_found_config = 1;
-			printk("found SMP MP-table at %08lx\n",
+			printk(KERN_INFO "found SMP MP-table at %016lx\n",
 						virt_to_phys(mpf));
-			reserve_bootmem(virt_to_phys(mpf), PAGE_SIZE);
+			reserve_bootmem_generic(virt_to_phys(mpf), PAGE_SIZE); 
 			if (mpf->mpf_physptr)
-				reserve_bootmem(mpf->mpf_physptr, PAGE_SIZE);
+				reserve_bootmem_generic(mpf->mpf_physptr, PAGE_SIZE); 
 			mpf_found = mpf;
 			return 1;
 		}
@@ -561,7 +564,7 @@ static int __init smp_scan_config (unsigned long base, unsigned long length)
 
 void __init find_intel_smp (void)
 {
-	unsigned int address;
+	unsigned long address;
 
 	/*
 	 * FIXME: Linux assumes you have 640K of base ram..
@@ -575,6 +578,8 @@ void __init find_intel_smp (void)
 		smp_scan_config(639*0x400,0x400) ||
 			smp_scan_config(0xF0000,0x10000))
 		return;
+		printk("ok\n");
+		
 	/*
 	 * If it is an SMP machine we should know now, unless the
 	 * configuration is in an EISA/MCA bus machine with an

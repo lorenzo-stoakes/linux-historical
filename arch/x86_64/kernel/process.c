@@ -9,7 +9,7 @@
  *  X86-64 port
  *	Andi Kleen.
  * 
- *  $Id: process.c,v 1.56 2002/08/03 17:42:35 ak Exp $
+ *  $Id: process.c,v 1.57 2002/09/12 12:56:36 ak Exp $
  */
 
 /*
@@ -285,7 +285,7 @@ void show_regs(struct pt_regs * regs)
 	printk("\n");
 	printk("Pid: %d, comm: %.20s %s\n", current->pid, current->comm, print_tainted());
 	printk("RIP: %04lx:[<%016lx>]\n", regs->cs & 0xffff, regs->rip);
-	printk("RSP: %016lx  EFLAGS: %08lx\n", regs->rsp, regs->eflags);
+	printk("RSP: %04lx:%016lx  EFLAGS: %08lx\n", regs->ss, regs->rsp, regs->eflags);
 	printk("RAX: %016lx RBX: %016lx RCX: %016lx\n",
 	       regs->rax, regs->rbx, regs->rcx);
 	printk("RDX: %016lx RSI: %016lx RDI: %016lx\n",
@@ -499,7 +499,6 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
 	struct tss_struct *tss = init_tss + smp_processor_id();
-
 
 	unlazy_fpu(prev_p);
 

@@ -700,10 +700,14 @@ int dev_open(struct net_device *dev)
 	 *	Call device private open method
 	 */
 	if (try_inc_mod_count(dev->owner)) {
+		set_bit(__LINK_STATE_START, &dev->state);
 		if (dev->open) {
 			ret = dev->open(dev);
-			if (ret != 0 && dev->owner)
-				__MOD_DEC_USE_COUNT(dev->owner);
+			if (ret != 0) {
+				clear_bit(__LINK_STATE_START, &dev->state);
+				if (dev->owner)
+					__MOD_DEC_USE_COUNT(dev->owner);
+			}
 		}
 	} else {
 		ret = -ENODEV;
@@ -719,8 +723,6 @@ int dev_open(struct net_device *dev)
 		 *	Set the flags.
 		 */
 		dev->flags |= IFF_UP;
-
-		set_bit(__LINK_STATE_START, &dev->state);
 
 		/*
 		 *	Initialize multicasting status 

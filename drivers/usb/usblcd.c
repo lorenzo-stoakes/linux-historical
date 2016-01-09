@@ -1,7 +1,7 @@
 /***************************************************************************** 
  *                          USBLCD Kernel Driver                             *
  *        See http://www.usblcd.de for Hardware and Documentation.           *
- *                            Version 1.01                                   *
+ *                            Version 1.03                                   *
  *             (C) 2002 Adams IT Services <info@usblcd.de>                   *
  *                                                                           *
  *     This file is licensed under the GPL. See COPYING in the package.      *
@@ -9,6 +9,7 @@
  * hp_scanner.c by David E. Nelson (dnelson@jump.net)                        *
  *                                                                           *
  * 23.7.02 RA changed minor device number to the official assigned one       *
+ * 18.9.02 RA Vendor ID change, longer timeouts                              *
  *****************************************************************************/
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -18,15 +19,15 @@
 #include <asm/uaccess.h>
 #include <linux/usb.h>
 
-#define DRIVER_VERSION "USBLCD Driver Version 1.01"
+#define DRIVER_VERSION "USBLCD Driver Version 1.03"
 
-#define USBLCD_MINOR		128
+#define USBLCD_MINOR		144
 
 #define IOCTL_GET_HARD_VERSION	1
 #define IOCTL_GET_DRV_VERSION	2
 
 /* stall/wait timeout for USBLCD */
-#define NAK_TIMEOUT	(HZ)
+#define NAK_TIMEOUT	(10*HZ)
 
 #define IBUF_SIZE	0x1000
 #define OBUF_SIZE	0x10000
@@ -293,7 +294,7 @@ static void disconnect_lcd(struct usb_device *dev, void *ptr)
 }
 
 static struct usb_device_id id_table [] = {
-	{ .idVendor = 0x1212, .match_flags = USB_DEVICE_ID_MATCH_VENDOR, },
+	{ .idVendor = 0x10D2, .match_flags = USB_DEVICE_ID_MATCH_VENDOR, },
 	{},
 };
 

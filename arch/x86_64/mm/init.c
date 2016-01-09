@@ -35,6 +35,7 @@
 #include <asm/tlb.h>
 #include <asm/pda.h>
 #include <asm/mmu_context.h>
+#include <asm/proto.h>
 
 mmu_gather_t mmu_gathers[NR_CPUS];
 
@@ -62,6 +63,7 @@ int do_check_pgt_cache(int low, int high)
 	return freed;
 }
 
+#ifndef CONFIG_DISCONTIGMEM
 /*
  * NOTE: pagetable_init alloc all the fixmap pagetables contiguous on the
  * physical space so we can cache the place of the first one and move
@@ -93,6 +95,7 @@ void show_mem(void)
 	printk("%ld pages in page table cache\n",read_pda(pgtable_cache_sz));
 	show_buffers();
 }
+#endif
 
 /* References to section boundaries */
 
@@ -107,7 +110,7 @@ static void *spp_getpage(void)
 	if (after_bootmem)
 		ptr = (void *) get_free_page(GFP_ATOMIC); 
 	else
-		ptr = alloc_bootmem_low(PAGE_SIZE); 
+		ptr = alloc_bootmem_low_pages(PAGE_SIZE); 
 	if (!ptr)
 		panic("set_pte_phys: cannot allocate page data %s\n", after_bootmem?"after bootmem":"");
 	return ptr;
@@ -165,8 +168,9 @@ void __set_fixmap (enum fixed_addresses idx, unsigned long phys, pgprot_t prot)
 	set_pte_phys(address, phys, prot);
 }
 
-extern unsigned long start_pfn, end_pfn; 
 extern pmd_t temp_boot_pmds[]; 
+
+unsigned long __initdata table_start, table_end; 
 
 static  struct temp_map { 
 	pmd_t *pmd; 
@@ -182,21 +186,21 @@ static __init void *alloc_low_page(int *index, unsigned long *phys)
 { 
 	struct temp_map *ti;
 	int i; 
-	unsigned long pfn = start_pfn++, paddr; 
+	unsigned long pfn = table_end++, paddr; 
 	void *adr;
 
-	if (pfn >= end_pfn) 
-		panic("alloc_low_page: ran out of memory"); 
+	if (table_end >= end_pfn) 
+		panic("alloc_low_page: ran out of page mappings"); 
 	for (i = 0; temp_mappings[i].allocated; i++) {
 		if (!temp_mappings[i].pmd) 
 			panic("alloc_low_page: ran out of temp mappings"); 
 	} 
 	ti = &temp_mappings[i];
-	paddr = (pfn & (~511)) << PAGE_SHIFT; 
+	paddr = (pfn << PAGE_SHIFT) & PMD_MASK; 
 	set_pmd(ti->pmd, __pmd(paddr | _KERNPG_TABLE | _PAGE_PSE)); 
 	ti->allocated = 1; 
 	__flush_tlb(); 	       
-	adr = ti->address + (pfn & 511)*PAGE_SIZE; 
+	adr = ti->address + ((pfn << PAGE_SHIFT) & ~PMD_MASK); 
 	*index = i; 
 	*phys  = pfn * PAGE_SIZE;  
 	return adr; 
@@ -217,20 +221,26 @@ static void __init phys_pgd_init(pgd_t *pgd, unsigned long address, unsigned lon
 	pgd = pgd + i;
 	for (; i < PTRS_PER_PGD; pgd++, i++) {
 		int map; 
-		unsigned long paddr = i*PGDIR_SIZE, pmd_phys;
+		unsigned long paddr, pmd_phys;
 		pmd_t *pmd;
 
+		paddr = (address & PML4_MASK) + i*PGDIR_SIZE; 
 		if (paddr >= end) { 
 			for (; i < PTRS_PER_PGD; i++, pgd++) 
 				set_pgd(pgd, __pgd(0)); 
 			break;
 		} 
+
+		if (!e820_mapped(paddr, paddr+PGDIR_SIZE, 0)) { 
+			set_pgd(pgd, __pgd(0)); 
+			continue;
+		} 
+
 		pmd = alloc_low_page(&map, &pmd_phys);
 		set_pgd(pgd, __pgd(pmd_phys | _KERNPG_TABLE));
-		for (j = 0; j < PTRS_PER_PMD; pmd++, j++) {
+		for (j = 0; j < PTRS_PER_PMD; pmd++, j++ , paddr += PMD_SIZE) {
 			unsigned long pe;
 
-			paddr = i*PGDIR_SIZE + j*PMD_SIZE;
 			if (paddr >= end) { 
 				for (; j < PTRS_PER_PMD; j++, pmd++)
 					set_pmd(pmd,  __pmd(0)); 
@@ -252,15 +262,42 @@ void __init init_memory_mapping(void)
 	unsigned long adr;	       
 	unsigned long end;
 	unsigned long next; 
+	unsigned long pgds, pmds, tables; 
 
-	end = PAGE_OFFSET + (end_pfn * PAGE_SIZE); 
+	end = end_pfn << PAGE_SHIFT; 
+
+	/* 
+	 * Find space for the kernel direct mapping tables.
+	 * Later we should allocate these tables in the local node of the memory
+	 * mapped.  Unfortunately this is done currently before the nodes are 
+	 * discovered.
+	 */
+
+	pgds = (end + PGDIR_SIZE - 1) >> PGDIR_SHIFT;
+	pmds = (end + PMD_SIZE - 1) >> PMD_SHIFT; 
+	tables = round_up(pgds*8, PAGE_SIZE) + round_up(pmds * 8, PAGE_SIZE); 
+
+	/* Direct mapping must currently fit below the kernel in the first MB.
+	   This is because we have no way to tell the later passes to not reuse
+	   the memory, until bootmem is initialised */
+	/* Should limit MAXMEM for this */
+	table_start = find_e820_area(/*0*/ 0x8000, __pa_symbol(&_text), tables); 
+	if (table_start == -1UL) 
+		panic("Cannot find space for the kernel page tables"); 
+
+	table_start >>= PAGE_SHIFT; 
+	table_end = table_start;
+       
+	end += __PAGE_OFFSET; /* turn virtual */  
+
 	for (adr = PAGE_OFFSET; adr < end; adr = next) { 
 		int map;
 		unsigned long pgd_phys; 
 		pgd_t *pgd = alloc_low_page(&map, &pgd_phys);
-		next = adr + (512UL * 1024 * 1024 * 1024);
+		next = adr + PML4_SIZE;
 		if (next > end) 
 			next = end; 
+
 		phys_pgd_init(pgd, adr-PAGE_OFFSET, next-PAGE_OFFSET); 
 		set_pml4(init_level4_pgt + pml4_index(adr), 
 			 mk_kernel_pml4(pgd_phys, KERNPG_TABLE));
@@ -268,6 +305,9 @@ void __init init_memory_mapping(void)
 	} 
 	asm volatile("movq %%cr4,%0" : "=r" (mmu_cr4_features));
 	__flush_tlb_all();
+	printk("kernel direct mapping tables upto %lx @ %lx-%lx\n", end, 
+	       table_start<<PAGE_SHIFT, 
+	       table_end<<PAGE_SHIFT);
 } 
 
 void __init zap_low_mappings (void)
@@ -277,26 +317,25 @@ void __init zap_low_mappings (void)
 		if (cpu_pda[i].level4_pgt) 
 			cpu_pda[i].level4_pgt[0] = 0; 
 	}
+
 	flush_tlb_all();
 }
 
+#ifndef CONFIG_DISCONTIGMEM
 void __init paging_init(void)
 {
 	unsigned long zones_size[MAX_NR_ZONES] = {0, 0, 0};
-	unsigned int max_dma, low;
+	unsigned int max_dma;
 	
 	max_dma = virt_to_phys((char *)MAX_DMA_ADDRESS) >> PAGE_SHIFT;
-	low = max_low_pfn;
-	
-	if (low < max_dma)
-		zones_size[ZONE_DMA] = low;
+	if (end_pfn < max_dma)
+		zones_size[ZONE_DMA] = end_pfn;
 	else {
 		zones_size[ZONE_DMA] = max_dma;
-		zones_size[ZONE_NORMAL] = low - max_dma;
+		zones_size[ZONE_NORMAL] = end_pfn - max_dma;
 	}
 	free_area_init(zones_size);
 }
-
 
 static inline int page_is_ram (unsigned long pagenr)
 {
@@ -319,38 +358,47 @@ static inline int page_is_ram (unsigned long pagenr)
 	}
 	return 0;
 }
+#endif
 
 void __init mem_init(void)
 {
-	int codesize, reservedpages, datasize, initsize;
-	int tmp;
+	unsigned long codesize, reservedpages, datasize, initsize;
+	unsigned long tmp;
 
-	if (!mem_map)
-		BUG();
-
-	max_mapnr = num_physpages = max_low_pfn;
-	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
+	max_mapnr = end_pfn; 
+	num_physpages = end_pfn; /* XXX not true because of holes */
+	high_memory = (void *) __va(end_pfn << PAGE_SHIFT);
 
 	/* clear the zero-page */
 	memset(empty_zero_page, 0, PAGE_SIZE);
 
+	reservedpages = 0;
+
 	/* this will put all low memory onto the freelists */
+#ifdef CONFIG_DISCONTIGMEM
+	totalram_pages += numa_free_all_bootmem();
+	tmp = 0;
+	/* should count reserved pages here for all nodes */ 
+#else
+	if (!mem_map) BUG();
+
 	totalram_pages += free_all_bootmem();
 
-	after_bootmem = 1;
-
-	reservedpages = 0;
-	for (tmp = 0; tmp < max_low_pfn; tmp++)
+	for (tmp = 0; tmp < end_pfn; tmp++)
 		/*
 		 * Only count reserved RAM pages
 		 */
 		if (page_is_ram(tmp) && PageReserved(mem_map+tmp))
 			reservedpages++;
+#endif
+
+	after_bootmem = 1;
+
 	codesize =  (unsigned long) &_etext - (unsigned long) &_text;
 	datasize =  (unsigned long) &_edata - (unsigned long) &_etext;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
 
-	printk("Memory: %luk/%luk available (%dk kernel code, %dk reserved, %dk data, %dk init)\n",
+	printk("Memory: %luk/%luk available (%ldk kernel code, %ldk reserved, %ldk data, %ldk init)\n",
 		(unsigned long) nr_free_pages() << (PAGE_SHIFT-10),
 		max_mapnr << (PAGE_SHIFT-10),
 		codesize >> 10,
@@ -404,16 +452,16 @@ void __init __map_kernel_range(void *address, int len, pgprot_t prot)
 
 void free_initmem(void)
 {
-	unsigned long addr;
+	void *addr;
 
-	addr = (unsigned long)(&__init_begin);
-	for (; addr < (unsigned long)(&__init_end); addr += PAGE_SIZE) {
+	addr = (&__init_begin);
+	for (; addr < (void *)(&__init_end); addr += PAGE_SIZE) {
 		ClearPageReserved(virt_to_page(addr));
 		set_page_count(virt_to_page(addr), 1);
 #ifdef CONFIG_INIT_DEBUG
-		memset(addr & ~(PAGE_SIZE-1), 0xcc, PAGE_SIZE); 
+		memset((unsigned long)addr & ~(PAGE_SIZE-1), 0xcc, PAGE_SIZE); 
 #endif
-		free_page(addr);
+		free_page((unsigned long)addr);
 		totalram_pages++;
 	}
 	printk ("Freeing unused kernel memory: %luk freed\n", (&__init_end - &__init_begin) >> 10);
@@ -444,4 +492,24 @@ void si_meminfo(struct sysinfo *val)
 	val->freehigh = nr_free_highpages();
 	val->mem_unit = PAGE_SIZE;
 	return;
+}
+
+void reserve_bootmem_generic(unsigned long phys, unsigned len) 
+{ 
+	/* Should check here against the e820 map to avoid double free */ 
+#ifdef CONFIG_DISCONTIGMEM
+	reserve_bootmem_node(NODE_DATA(phys_to_nid(phys)), phys, len);
+#else       		
+	reserve_bootmem(phys, len);    
+#endif
+}
+
+
+void free_bootmem_generic(unsigned long phys, unsigned len) 
+{ 
+#ifdef CONFIG_DISCONTIGMEM
+	free_bootmem_node(NODE_DATA(phys_to_nid(phys)), phys, len);
+#else       		
+	free_bootmem(phys, len);    
+#endif
 }

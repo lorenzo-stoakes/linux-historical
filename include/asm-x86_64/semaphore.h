@@ -111,7 +111,7 @@ asmlinkage void __up(struct semaphore * sem);
 /*
  * This is ugly, but we want the default case to fall through.
  * "__down_failed" is a special asm handler that calls the C
- * routine that actually waits. See arch/i386/kernel/semaphore.c
+ * routine that actually waits. See arch/x86_64/kernel/semaphore.c
  */
 static inline void down(struct semaphore * sem)
 {
@@ -225,5 +225,11 @@ static inline void up(struct semaphore * sem)
 		:"D" (sem)
 		:"memory");
 }
+
+static inline int sem_getcount(struct semaphore *sem)
+{
+       return atomic_read(&sem->count);
+}
+
 #endif /* __KERNEL__ */
 #endif

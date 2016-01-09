@@ -54,7 +54,6 @@ define_bool CONFIG_EISA n
 define_bool CONFIG_X86_IO_APIC y
 define_bool CONFIG_X86_LOCAL_APIC y
 
-#currently broken:
 bool 'MTRR (Memory Type Range Register) support' CONFIG_MTRR
 bool 'Symmetric multi-processing support' CONFIG_SMP
 bool 'HPET timers' CONFIG_HPET_TIMER
@@ -70,6 +69,11 @@ else
 fi
 
 bool 'Machine check support' CONFIG_MCE
+bool 'K8 NUMA support' CONFIG_K8_NUMA
+if [ "$CONFIG_K8_NUMA" = "y" ]; then
+   define_bool CONFIG_DISCONTIGMEM y 
+   define_bool CONFIG_NUMA y
+fi
 
 endmenu
 
@@ -237,5 +241,7 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  Spinlock debugging' CONFIG_DEBUG_SPINLOCK
    bool '  Additional run-time checks' CONFIG_CHECKING
    bool '  Debug __init statements' CONFIG_INIT_DEBUG
+   bool '  IOMMU leak tracing' CONFIG_IOMMU_LEAK
+   bool '  Probalistic stack overflow check' CONFIG_DEBUG_STACKOVERFLOW
 fi
 endmenu

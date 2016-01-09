@@ -8607,8 +8607,13 @@ static ssize_t
 cio_ignore_proc_write (struct file *file, const char *user_buf,
 		       size_t user_len, loff_t * offset)
 {
-	char *buffer = vmalloc (user_len + 1);
-
+	char *buffer
+	
+	if(user_len > 65536)
+		user_len = 65536;
+	
+	buffer = vmalloc (user_len + 1);
+	
 	if (buffer == NULL)
 		return -ENOMEM;
 	if (copy_from_user (buffer, user_buf, user_len)) {
@@ -8845,7 +8850,12 @@ static ssize_t
 cio_chpids_proc_write (struct file *file, const char *user_buf,
 		       size_t user_len, loff_t * offset)
 {
-	char *buffer = vmalloc (user_len + 1);
+	char *buffer;
+	
+	if(user_len > 65536)
+		user_len = 65536;
+	
+	buffer = vmalloc (user_len + 1);
 
 	if (buffer == NULL)
 		return -ENOMEM;

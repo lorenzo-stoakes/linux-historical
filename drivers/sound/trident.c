@@ -36,6 +36,12 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  *  History
+ *  v0.14.10h
+ *	Sept 10 2002 Pascal Schmidt <der.eremit@email.de>
+ *	added support for ALi 5451 joystick port
+ *  v0.14.10g
+ *	Sept 05 2002 Alan Cox <alan@redhat.com>
+ *	adapt to new pci joystick attachment interface
  *  v0.14.10f
  *      July 24 2002 Muli Ben-Yehuda <mulix@actcom.co.il>
  *      patch from Eric Lemar (via Ian Soboroff): in suspend and resume, 
@@ -197,6 +203,8 @@
 #include <linux/proc_fs.h>
 #include <linux/interrupt.h>
 #include <linux/pm.h>
+#include <linux/gameport.h>
+#include <linux/pci_gameport.h>
 #include <asm/uaccess.h>
 #include <asm/hardirq.h>
 #include <asm/io.h>
@@ -208,7 +216,7 @@
 
 #include "trident.h"
 
-#define DRIVER_VERSION "0.14.10f"
+#define DRIVER_VERSION "0.14.10h"
 
 /* magic numbers to protect our data structures */
 #define TRIDENT_CARD_MAGIC	0x5072696E /* "Prin" */
@@ -419,6 +427,8 @@ struct trident_card {
 	/* Added for hardware volume control */
 	int hwvolctl;
 	struct timer_list timer;
+
+	struct pcigame *joystick;	/* joystick device */
 };
 
 /* table to map from CHANNELMASK to channel attribute for SiS 7018 */
@@ -4236,6 +4246,11 @@ static int __init trident_probe(struct pci_dev *pci_dev, const struct pci_device
 
 	/* Enable Address Engine Interrupts */
 	trident_enable_loop_interrupts(card);
+	
+	/* Attach joystick */
+	if((pci_dev->vendor == PCI_VENDOR_ID_TRIDENT) ||
+	   (pci_dev->vendor == PCI_VENDOR_ID_AL))
+		card->joystick = pcigame_attach(pci_dev, PCIGAME_4DWAVE);
 out:	return rc;
 out_unregister_sound_dsp:
 	unregister_sound_dsp(card->dev_audio);
@@ -4287,6 +4302,9 @@ static void __devexit trident_remove(struct pci_dev *pci_dev)
 			kfree (card->ac97_codec[i]);
 		}
 	unregister_sound_dsp(card->dev_audio);
+	
+	if(card->joystick)
+		pcigame_detach(card->joystick);
 
 	kfree(card);
 

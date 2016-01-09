@@ -17,6 +17,7 @@
 #include <asm/bitops.h>
 #include <asm/pda.h>
 #include <linux/threads.h>
+#include <linux/config.h>
 
 extern pgd_t level3_kernel_pgt[512];
 extern pgd_t level3_physmem_pgt[512];
@@ -65,7 +66,7 @@ extern void paging_init(void);
 			"movq %0, %%cr3;                     \n"	\
 			"movq %2, %%cr4;  # turn PGE back on \n"	\
 			: "=&r" (tmpreg)				\
-			: "r" (mmu_cr4_features & ~X86_CR4_PGE),	\
+			: "r" (mmu_cr4_features & ~(u64)X86_CR4_PGE),	\
 			  "r" (mmu_cr4_features)			\
 			: "memory");					\
 	} while (0)
@@ -161,6 +162,8 @@ extern inline void pgd_clear (pgd_t * pgd)
 #define pte_same(a, b)		((a).pte == (b).pte)
 #define __mk_pte(page_nr,pgprot) __pte(((page_nr) << PAGE_SHIFT) | pgprot_val(pgprot))
 
+#define PML4_SIZE	(1UL << PML4_SHIFT)
+#define PML4_MASK	(~(PML4_SIZE-1))
 #define PMD_SIZE	(1UL << PMD_SHIFT)
 #define PMD_MASK	(~(PMD_SIZE-1))
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
@@ -172,15 +175,19 @@ extern inline void pgd_clear (pgd_t * pgd)
 #define USER_PGD_PTRS (PAGE_OFFSET >> PGDIR_SHIFT)
 #define KERNEL_PGD_PTRS (PTRS_PER_PGD-USER_PGD_PTRS)
 
-#define TWOLEVEL_PGDIR_SHIFT	20
 #define BOOT_USER_L4_PTRS 1
 #define BOOT_KERNEL_L4_PTRS 511	/* But we will do it in 4rd level */
 
 
 
 #ifndef __ASSEMBLY__
+/* IO mappings are the 509th slot in the PML4. We map them high up to make sure
+   they never appear in the node hash table in DISCONTIG configs. */
+#define IOMAP_START      0xfffffe8000000000
+
 /* vmalloc space occupies the 510th slot in the PML4. You can have upto 512GB of
    vmalloc/ioremap space. */ 
+
 #define VMALLOC_START	 0xffffff0000000000
 #define VMALLOC_END      0xffffff7fffffffff
 #define VMALLOC_VMADDR(x) ((unsigned long)(x))
@@ -295,10 +302,11 @@ extern void __handle_bad_pmd_kernel(pmd_t * pmd);
 #define	pmd_bad(x)	\
 	((pmd_val(x) & (~PAGE_MASK & (~_PAGE_USER))) != _KERNPG_TABLE )
 
-#define pages_to_mb(x) ((x) >> (20-PAGE_SHIFT))	/* FIXME: is this
-						   right? */
-#define pte_page(x) (pfn_to_page((pte_val(x) & PHYSICAL_PAGE_MASK) >> PAGE_SHIFT))
+#define pages_to_mb(x) ((x) >> (20-PAGE_SHIFT))
 
+#ifndef CONFIG_DISCONTIGMEM
+#define pte_page(x) (pfn_to_page((pte_val(x) & PHYSICAL_PAGE_MASK) >> PAGE_SHIFT))
+#endif
 /*
  * The following only work if pte_present() is true.
  * Undefined behaviour if not..
@@ -353,7 +361,7 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 }
 
 #define page_pte(page) page_pte_prot(page, __pgprot(0))
-#define pmd_page(pmd) ((unsigned long) __va(pmd_val(pmd) & PAGE_MASK))
+#define __pmd_page(pmd) (__va(pmd_val(pmd) & PHYSICAL_PAGE_MASK))
 
 /* to find an entry in a page-table-directory. */
 #define pgd_index(address) ((address >> PGDIR_SHIFT) & (PTRS_PER_PGD-1))
@@ -376,7 +384,7 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 /* Find an entry in the third-level page table.. */
 #define __pte_offset(address) \
 		((address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
-#define pte_offset(dir, address) ((pte_t *) pmd_page(*(dir)) + \
+#define pte_offset(dir, address) ((pte_t *) __pmd_page(*(dir)) + \
 			__pte_offset(address))
 
 /* never use these in the common code */
@@ -400,6 +408,7 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 #define pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
 #define swp_entry_to_pte(x)		((pte_t) { (x).val })
 
+struct page;
 /* 
  * Change attributes of an kernel page.
  */
@@ -417,7 +426,7 @@ extern void __map_kernel_range(void *, int, pgprot_t);
 
 /* Needs to be defined here and not in linux/mm.h, as it is arch dependent */
 #define PageSkip(page)		(0)
-#define kern_addr_valid(addr)	(1)
+#define kern_addr_valid(kaddr)  ((kaddr)>>PAGE_SHIFT < max_mapnr)
 
 #define io_remap_page_range remap_page_range
 

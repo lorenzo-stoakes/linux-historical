@@ -465,12 +465,28 @@ __SYSCALL(__NR_tkill, sys_ni_syscall)
 __SYSCALL(__NR_time, sys_time)
 #define __NR_futex		202 /* 2.5 only */
 __SYSCALL(__NR_futex, sys_ni_syscall)
+#define __NR_sched_setaffinity    203
+__SYSCALL(__NR_sched_setaffinity, sys_ni_syscall)
+#define __NR_sched_getaffinity     204
+__SYSCALL(__NR_sched_getaffinity, sys_ni_syscall)
+#define __NR_set_thread_area	205
+__SYSCALL(__NR_set_thread_area, sys_ni_syscall)
+#define __NR_io_setup	206
+__SYSCALL(__NR_io_setup, sys_ni_syscall)
+#define __NR_io_destroy	207
+__SYSCALL(__NR_io_destroy, sys_ni_syscall)
+#define __NR_io_getevents	208
+__SYSCALL(__NR_io_getevents, sys_ni_syscall)
+#define __NR_io_submit	209
+__SYSCALL(__NR_io_submit, sys_ni_syscall)
+#define __NR_io_cancel	210
+__SYSCALL(__NR_io_cancel, sys_ni_syscall)
+#define __NR_get_thread_area	211
+__SYSCALL(__NR_get_thread_area, sys_ni_syscall)
 
-#define __NR_syscall_max __NR_futex
+#define __NR_syscall_max __NR_get_thread_area
 
 #ifndef __NO_STUBS
-
-/* user-visible error numbers are in the range -1 - -124: see <asm-i386/errno.h> */
 
 #define __syscall_clobber "r11","rcx","memory" 
 
@@ -487,7 +503,7 @@ do { \
 
 #define __syscall "syscall"
 
-/* XXX - _foo needs to be __foo, while __NR_bar could be _NR_bar. */
+
 #define _syscall0(type,name) \
 type name(void) \
 { \
@@ -498,30 +514,25 @@ __asm__ volatile (__syscall \
 __syscall_return(type,__res); \
 }
 
-#define __syscall1(type,rtype,name,type1,arg1) \
+#define _syscall1(type,name,type1,arg1) \
 type name(type1 arg1) \
 { \
 long __res; \
 __asm__ volatile (__syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)) : __syscall_clobber ); \
-__syscall_return(rtype,__res); \
+__syscall_return(type,__res); \
 }
 
-#define __syscall2(type,rtype,name,type1,arg1,type2,arg2) \
+#define _syscall2(type,name,type1,arg1,type2,arg2) \
 type name(type1 arg1,type2 arg2) \
 { \
 long __res; \
 __asm__ volatile (__syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)) : __syscall_clobber ); \
-__syscall_return(rtype,__res); \
+__syscall_return(type,__res); \
 }
-
-#define _syscall1(type,name,type1,arg1)  __syscall1(type,type,name,type1,arg2)
-#define _syscall2(type,name,type1,arg1,type2,arg2) \
-	__syscall2(type,type,name,type1,arg1,type2,arg2)
-
 
 #define _syscall3(type,name,type1,arg1,type2,arg2,type3,arg3) \
 type name(type1 arg1,type2 arg2,type3 arg3) \
@@ -530,7 +541,7 @@ long __res; \
 __asm__ volatile (__syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)), \
-		  "d" ((long)(arg3)) : __syscall_clobber, "r9" ); \
+		  "d" ((long)(arg3)) : __syscall_clobber); \
 __syscall_return(type,__res); \
 }
 
@@ -550,11 +561,25 @@ __syscall_return(type,__res); \
 type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5) \
 { \
 long __res; \
-__asm__ volatile ("movq %5,%%r10 ; movq %6,%%r9 ; " __syscall \
+__asm__ volatile ("movq %5,%%r10 ; movq %6,%%r8 ; " __syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)), \
 	  "d" ((long)(arg3)),"g" ((long)(arg4)),"g" ((long)(arg5)) : \
-	__syscall_clobber,"r8","r9","r10" ); \
+	__syscall_clobber,"r8","r10" ); \
+__syscall_return(type,__res); \
+}
+
+#define _syscall6(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
+	  type5,arg5,type6,arg6) \
+type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5,type6 arg6) \
+{ \
+long __res; \
+__asm__ volatile ("movq %5,%%r10 ; movq %6,%%r8 ; movq %7,%%r9" __syscall \
+	: "=a" (__res) \
+	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)), \
+	  "d" ((long)(arg3)),"g" ((long)(arg4)),"g" ((long)(arg5), \
+	  "g" ((long)(arg6),) : \
+	__syscall_clobber,"r8","r10","r9" ); \
 __syscall_return(type,__res); \
 }
 

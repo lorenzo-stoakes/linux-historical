@@ -30,6 +30,9 @@
 #include <asm/proto.h>
 #include <asm/kdebug.h>
 
+spinlock_t pcrash_lock; 
+int crashing_cpu;
+
 extern spinlock_t console_lock, timerlist_lock;
 
 void bust_spinlocks(int yes)
@@ -109,11 +112,12 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	/* get the address */
 	__asm__("movq %%cr2,%0":"=r" (address));
 
-	if (page_fault_trace) 
-		printk("pagefault rip:%lx rsp:%lx cs:%lu ss:%lu address %lx error %lx\n",
-		       regs->rip,regs->rsp,regs->cs,regs->ss,address,error_code); 
-
 #ifdef CONFIG_CHECKING
+	if (page_fault_trace) 
+		printk("pfault %d rip:%lx rsp:%lx cs:%lu ss:%lu addr %lx error %lx\n",
+		       stack_smp_processor_id(), regs->rip,regs->rsp,regs->cs,
+			   regs->ss,address,error_code); 
+
 	{ 
 		unsigned long gs; 
 		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
@@ -125,8 +129,6 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	}
 #endif
 			
-
-
 	tsk = current;
 	mm = tsk->mm;
 	info.si_code = SEGV_MAPERR;
@@ -144,8 +146,9 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	if (in_interrupt() || !mm)
 		goto no_context;
 
-	down_read(&mm->mmap_sem);
 again:
+	down_read(&mm->mmap_sem);
+
 	vma = find_vma(mm, address);
 	if (!vma)
 		goto bad_area;
@@ -214,11 +217,14 @@ bad_area_nosemaphore:
 
 	/* User mode accesses just cause a SIGSEGV */
 	if (error_code & 4) {
-		if (exception_trace) 
+		if (exception_trace) {
+#if 1
+			dump_pagetable(address);
+#endif	
 			printk("%s[%d]: segfault at %016lx rip %016lx rsp %016lx error %lx\n",
 					current->comm, current->pid, address, regs->rip,
 					regs->rsp, error_code);
-	
+		}
 		tsk->thread.cr2 = address;
 		tsk->thread.error_code = error_code;
 		tsk->thread.trap_no = 14;
@@ -250,6 +256,14 @@ no_context:
 	console_verbose();
 	bust_spinlocks(1); 
 
+	if (!in_interrupt()) { 
+		if (!spin_trylock(&pcrash_lock)) { 
+			if (crashing_cpu != smp_processor_id()) 
+				spin_lock(&pcrash_lock);  		    
+		} 
+		crashing_cpu = smp_processor_id();
+	} 
+
 	if (address < PAGE_SIZE)
 		printk(KERN_ALERT "Unable to handle kernel NULL pointer dereference");
 	else
@@ -258,7 +272,14 @@ no_context:
 	printk(" printing rip:\n");
 	printk("%016lx\n", regs->rip);
 	dump_pagetable(address);
+
 	die("Oops", regs, error_code);
+
+	if (!in_interrupt()) { 
+		crashing_cpu = -1;  /* small harmless window */ 
+		spin_unlock(&pcrash_lock);
+	}
+
 	bust_spinlocks(0); 
 	do_exit(SIGKILL);
 
@@ -267,11 +288,12 @@ no_context:
  * us unable to handle the page fault gracefully.
  */
 out_of_memory:
+	up_read(&mm->mmap_sem);
 	if (current->pid == 1) { 
-		yield();
+		tsk->policy |= SCHED_YIELD;
+		schedule();
 		goto again;
 	}
-	up_read(&mm->mmap_sem);
 	printk("VM: killing process %s\n", tsk->comm);
 	if (error_code & 4)
 		do_exit(SIGKILL);

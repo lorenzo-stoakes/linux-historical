@@ -223,7 +223,9 @@ static inline zone_t *next_zone(zone_t *zone)
 #include <asm/mmzone.h>
 
 /* page->zone is currently 8 bits ... */
+#ifndef MAX_NR_NODES
 #define MAX_NR_NODES		(255 / MAX_NR_ZONES)
+#endif
 
 #endif /* !CONFIG_DISCONTIGMEM */
 

@@ -80,7 +80,7 @@ static int jfs_statfs(struct super_block *sb, struct statfs *buf)
 {
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
 	s64 maxinodes;
-	imap_t *imap = JFS_IP(sbi->ipimap)->i_imap;
+	struct inomap *imap = JFS_IP(sbi->ipimap)->i_imap;
 
 	jFYI(1, ("In jfs_statfs\n"));
 	buf->f_type = JFS_SUPER_MAGIC;
@@ -318,7 +318,7 @@ out_kfree:
 static void jfs_write_super_lockfs(struct super_block *sb)
 {
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
-	log_t *log = sbi->log;
+	struct jfs_log *log = sbi->log;
 
 	if (!(sb->s_flags & MS_RDONLY)) {
 		txQuiesce(sb);
@@ -329,7 +329,7 @@ static void jfs_write_super_lockfs(struct super_block *sb)
 static void jfs_unlockfs(struct super_block *sb)
 {
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
-	log_t *log = sbi->log;
+	struct jfs_log *log = sbi->log;
 	int rc = 0;
 
 	if (!(sb->s_flags & MS_RDONLY)) {
@@ -378,6 +378,7 @@ static void init_once(void *foo, kmem_cache_t * cachep, unsigned long flags)
 		init_rwsem(&jfs_ip->rdwrlock);
 		init_MUTEX(&jfs_ip->commit_sem);
 		jfs_ip->atlhead = 0;
+		jfs_ip->active_ag = -1;
 	}
 }
 

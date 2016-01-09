@@ -8,6 +8,8 @@
 #include <linux/pci.h>
 #include <asm/io.h>
 
+dma_addr_t bad_dma_address = -1UL; 
+
 /* Map a set of buffers described by scatterlist in streaming
  * mode for DMA.  This is the scather-gather version of the
  * above pci_map_single interface.  Here the scatter gather list
@@ -37,14 +39,22 @@ int pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg,
 		struct scatterlist *s = &sg[i];
  		if (s->address) {
 			BUG_ON(s->page || s->offset); 
- 			s->dma_address = pci_map_single(hwdev, s->address, s->length, 0); 
+ 			s->dma_address = pci_map_single(hwdev, s->address, s->length, 
+							direction); 
  		} else if (s->page) { 
 			s->dma_address = pci_map_page(hwdev, s->page, s->offset,
-											s->length,0); 
+						      s->length, direction); 
 		} else
 			BUG(); 
+
+		if (unlikely(s->dma_address == bad_dma_address))
+			goto error; 
  	}
 	return nents;
+
+ error: 
+	pci_unmap_sg(hwdev, sg, i, direction); 
+	return 0; 
 }
 
 /* Unmap a set of streaming mode DMA translations.

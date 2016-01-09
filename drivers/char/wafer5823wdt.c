@@ -54,6 +54,7 @@ static spinlock_t wafwdt_lock;
 #define WDT_STOP 0x843
 
 #define WD_TIMO 60		/* 1 minute */
+static int wd_margin = WD_TIMO;
 
 static void wafwdt_ping(void)
 {
@@ -67,7 +68,7 @@ static void wafwdt_ping(void)
 static void wafwdt_start(void)
 {
 	/* start up watchdog */
-	outb_p(WD_TIMO, WDT_START);
+	outb_p(wd_margin, WDT_START);
 	inb_p(WDT_START);
 }
 
@@ -94,8 +95,10 @@ static ssize_t wafwdt_write(struct file *file, const char *buf, size_t count, lo
 static int wafwdt_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	     unsigned long arg)
 {
+	int new_margin;
 	static struct watchdog_info ident = {
-		WDIOF_KEEPALIVEPING, 1, "Wafer 5823 WDT"
+		WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT,
+		1, "Wafer 5823 WDT"
 	};
 	int one=1;
 
@@ -114,6 +117,18 @@ static int wafwdt_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	case WDIOC_KEEPALIVE:
 		wafwdt_ping();
 		break;
+
+	case WDIOC_SETTIMEOUT:
+		if (get_user(new_margin, (int *)arg))
+			return -EFAULT;
+		if ((new_margin < 1) || (new_margin > 255))
+			return -EINVAL;
+		wd_margin = new_margin;
+		wafwdt_stop();
+		wafwdt_start();
+		/* Fall */
+	case WDIOC_GETTIMEOUT:
+		return put_user(wd_margin, (int *)arg);
 
 	default:
 		return -ENOTTY;

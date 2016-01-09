@@ -78,8 +78,8 @@ extern char _text, _etext, _edata, _end;
 
 static int disable_x86_fxsr __initdata = 0;
 
-static char command_line[COMMAND_LINE_SIZE];
-       char saved_command_line[COMMAND_LINE_SIZE];
+char command_line[COMMAND_LINE_SIZE];
+char saved_command_line[COMMAND_LINE_SIZE];
 
 struct resource standard_io_resources[] = {
 	{ "dma1", 0x00, 0x1f, IORESOURCE_BUSY },
@@ -94,9 +94,10 @@ struct resource standard_io_resources[] = {
 
 #define STANDARD_IO_RESOURCES (sizeof(standard_io_resources)/sizeof(struct resource))
 
-static struct resource code_resource = { "Kernel code", 0x100000, 0 };
-static struct resource data_resource = { "Kernel data", 0, 0 };
-static struct resource vram_resource = { "Video RAM area", 0xa0000, 0xbffff, IORESOURCE_BUSY };
+struct resource code_resource = { "Kernel code", 0x100000, 0 };
+struct resource data_resource = { "Kernel data", 0, 0 };
+struct resource vram_resource = { "Video RAM area", 0xa0000, 0xbffff, IORESOURCE_BUSY };
+
 
 /* System ROM resources */
 #define MAXROMS 6
@@ -170,379 +171,27 @@ static void __init probe_roms(void)
 	}
 }
 
-void __init add_memory_region(unsigned long long start,
-                                  unsigned long long size, int type)
-{
-	int x = e820.nr_map;
-
-	if (x == E820MAX) {
-	    printk(KERN_ERR "Ooops! Too many entries in the memory map!\n");
-	    return;
-	}
-
-	e820.map[x].addr = start;
-	e820.map[x].size = size;
-	e820.map[x].type = type;
-	e820.nr_map++;
-} /* add_memory_region */
-
-#define E820_DEBUG	1
-
-static void __init print_memory_map(char *who)
-{
-	int i;
-
-	for (i = 0; i < e820.nr_map; i++) {
-		printk(" %s: %016Lx - %016Lx ", who,
-			(unsigned long long) e820.map[i].addr,
-			(unsigned long long) (e820.map[i].addr + e820.map[i].size));
-		switch (e820.map[i].type) {
-		case E820_RAM:	printk("(usable)\n");
-				break;
-		case E820_RESERVED:
-				printk("(reserved)\n");
-				break;
-		case E820_ACPI:
-				printk("(ACPI data)\n");
-				break;
-		case E820_NVS:
-				printk("(ACPI NVS)\n");
-				break;
-		default:	printk("type %u\n", e820.map[i].type);
-				break;
-		}
-	}
-}
-
-/*
- * Sanitize the BIOS e820 map.
- *
- * Some e820 responses include overlapping entries.  The following 
- * replaces the original e820 map with a new one, removing overlaps.
- *
- */
-static int __init sanitize_e820_map(struct e820entry * biosmap, char * pnr_map)
-{
-	struct change_member {
-		struct e820entry *pbios; /* pointer to original bios entry */
-		unsigned long long addr; /* address for this change point */
-	};
-	struct change_member change_point_list[2*E820MAX];
-	struct change_member *change_point[2*E820MAX];
-	struct e820entry *overlap_list[E820MAX];
-	struct e820entry new_bios[E820MAX];
-	struct change_member *change_tmp;
-	unsigned long current_type, last_type;
-	unsigned long long last_addr;
-	int chgidx, still_changing;
-	int overlap_entries;
-	int new_bios_entry;
-	int old_nr, new_nr;
-	int i;
-
-	/*
-		Visually we're performing the following (1,2,3,4 = memory types)...
-
-		Sample memory map (w/overlaps):
-		   ____22__________________
-		   ______________________4_
-		   ____1111________________
-		   _44_____________________
-		   11111111________________
-		   ____________________33__
-		   ___________44___________
-		   __________33333_________
-		   ______________22________
-		   ___________________2222_
-		   _________111111111______
-		   _____________________11_
-		   _________________4______
-
-		Sanitized equivalent (no overlap):
-		   1_______________________
-		   _44_____________________
-		   ___1____________________
-		   ____22__________________
-		   ______11________________
-		   _________1______________
-		   __________3_____________
-		   ___________44___________
-		   _____________33_________
-		   _______________2________
-		   ________________1_______
-		   _________________4______
-		   ___________________2____
-		   ____________________33__
-		   ______________________4_
-	*/
-
-	/* if there's only one memory region, don't bother */
-	if (*pnr_map < 2)
-		return -1;
-
-	old_nr = *pnr_map;
-
-	/* bail out if we find any unreasonable addresses in bios map */
-	for (i=0; i<old_nr; i++)
-		if (biosmap[i].addr + biosmap[i].size < biosmap[i].addr)
-			return -1;
-
-	/* create pointers for initial change-point information (for sorting) */
-	for (i=0; i < 2*old_nr; i++)
-		change_point[i] = &change_point_list[i];
-
-	/* record all known change-points (starting and ending addresses) */
-	chgidx = 0;
-	for (i=0; i < old_nr; i++)	{
-		change_point[chgidx]->addr = biosmap[i].addr;
-		change_point[chgidx++]->pbios = &biosmap[i];
-		change_point[chgidx]->addr = biosmap[i].addr + biosmap[i].size;
-		change_point[chgidx++]->pbios = &biosmap[i];
-	}
-
-	/* sort change-point list by memory addresses (low -> high) */
-	still_changing = 1;
-	while (still_changing)	{
-		still_changing = 0;
-		for (i=1; i < 2*old_nr; i++)  {
-			/* if <current_addr> > <last_addr>, swap */
-			/* or, if current=<start_addr> & last=<end_addr>, swap */
-			if ((change_point[i]->addr < change_point[i-1]->addr) ||
-				((change_point[i]->addr == change_point[i-1]->addr) &&
-				 (change_point[i]->addr == change_point[i]->pbios->addr) &&
-				 (change_point[i-1]->addr != change_point[i-1]->pbios->addr))
-			   )
-			{
-				change_tmp = change_point[i];
-				change_point[i] = change_point[i-1];
-				change_point[i-1] = change_tmp;
-				still_changing=1;
-			}
-		}
-	}
-
-	/* create a new bios memory map, removing overlaps */
-	overlap_entries=0;	 /* number of entries in the overlap table */
-	new_bios_entry=0;	 /* index for creating new bios map entries */
-	last_type = 0;		 /* start with undefined memory type */
-	last_addr = 0;		 /* start with 0 as last starting address */
-	/* loop through change-points, determining affect on the new bios map */
-	for (chgidx=0; chgidx < 2*old_nr; chgidx++)
-	{
-		/* keep track of all overlapping bios entries */
-		if (change_point[chgidx]->addr == change_point[chgidx]->pbios->addr)
-		{
-			/* add map entry to overlap list (> 1 entry implies an overlap) */
-			overlap_list[overlap_entries++]=change_point[chgidx]->pbios;
-		}
-		else
-		{
-			/* remove entry from list (order independent, so swap with last) */
-			for (i=0; i<overlap_entries; i++)
-			{
-				if (overlap_list[i] == change_point[chgidx]->pbios)
-					overlap_list[i] = overlap_list[overlap_entries-1];
-			}
-			overlap_entries--;
-		}
-		/* if there are overlapping entries, decide which "type" to use */
-		/* (larger value takes precedence -- 1=usable, 2,3,4,4+=unusable) */
-		current_type = 0;
-		for (i=0; i<overlap_entries; i++)
-			if (overlap_list[i]->type > current_type)
-				current_type = overlap_list[i]->type;
-		/* continue building up new bios map based on this information */
-		if (current_type != last_type)	{
-			if (last_type != 0)	 {
-				new_bios[new_bios_entry].size =
-					change_point[chgidx]->addr - last_addr;
-				/* move forward only if the new size was non-zero */
-				if (new_bios[new_bios_entry].size != 0)
-					if (++new_bios_entry >= E820MAX)
-						break; 	/* no more space left for new bios entries */
-			}
-			if (current_type != 0)	{
-				new_bios[new_bios_entry].addr = change_point[chgidx]->addr;
-				new_bios[new_bios_entry].type = current_type;
-				last_addr=change_point[chgidx]->addr;
-			}
-			last_type = current_type;
-		}
-	}
-	new_nr = new_bios_entry;   /* retain count for new bios entries */
-
-	/* copy new bios mapping into original location */
-	memcpy(biosmap, new_bios, new_nr*sizeof(struct e820entry));
-	*pnr_map = new_nr;
-
-	return 0;
-}
-
-/*
- * Copy the BIOS e820 map into a safe place.
- *
- * Sanity-check it while we're at it..
- *
- * If we're lucky and live on a modern system, the setup code
- * will have given us a memory map that we can use to properly
- * set up memory.  If we aren't, we'll fake a memory map.
- *
- * We check to see that the memory map contains at least 2 elements
- * before we'll use it, because the detection code in setup.S may
- * not be perfect and most every PC known to man has two memory
- * regions: one from 0 to 640k, and one from 1mb up.  (The IBM
- * thinkpad 560x, for example, does not cooperate with the memory
- * detection code.)
- */
-static int __init copy_e820_map(struct e820entry * biosmap, int nr_map)
-{
-	/* Only one memory region (or negative)? Ignore it */
-	if (nr_map < 2)
-		return -1;
-
-	do {
-		unsigned long long start = biosmap->addr;
-		unsigned long long size = biosmap->size;
-		unsigned long long end = start + size;
-		unsigned long type = biosmap->type;
-
-		/* Overflow in 64 bits? Ignore the memory map. */
-		if (start > end)
-			return -1;
-
-		/*
-		 * Some BIOSes claim RAM in the 640k - 1M region.
-		 * Not right. Fix it up.
-		 */
-		if (type == E820_RAM) {
-			if (start < 0x100000ULL && end > 0xA0000ULL) {
-				if (start < 0xA0000ULL)
-					add_memory_region(start, 0xA0000ULL-start, type);
-				if (end <= 0x100000ULL)
-					continue;
-				start = 0x100000ULL;
-				size = end - start;
-			}
-		}
-		add_memory_region(start, size, type);
-	} while (biosmap++,--nr_map);
-	return 0;
-}
-
-/*
- * Do NOT EVER look at the BIOS memory size location.
- * It does not work on many machines.
- */
-#define LOWMEMSIZE()	(0x9f000)
-
-void __init setup_memory_region(void)
-{
-	char *who = "BIOS-e820";
-
-	/*
-	 * Try to copy the BIOS-supplied E820-map.
-	 *
-	 * Otherwise fake a memory map; one section from 0k->640k,
-	 * the next section from 1mb->appropriate_mem_k
-	 */
-	sanitize_e820_map(E820_MAP, &E820_MAP_NR);
-	if (copy_e820_map(E820_MAP, E820_MAP_NR) < 0) {
-		unsigned long mem_size;
-
-		/* compare results from other methods and take the greater */
-		if (ALT_MEM_K < EXT_MEM_K) {
-			mem_size = EXT_MEM_K;
-			who = "BIOS-88";
-		} else {
-			mem_size = ALT_MEM_K;
-			who = "BIOS-e801";
-		}
-
-		e820.nr_map = 0;
-		add_memory_region(0, LOWMEMSIZE(), E820_RAM);
-		add_memory_region(HIGH_MEMORY, mem_size << 10, E820_RAM);
-  	}
-	printk(KERN_INFO "BIOS-provided physical RAM map:\n");
-	print_memory_map(who);
-} /* setup_memory_region */
-
-
-static inline void parse_mem_cmdline (char ** cmdline_p)
-{
-	char c = ' ', *to = command_line, *from = COMMAND_LINE;
-	int len = 0;
-	int usermem = 0;
-
-	/* Save unparsed command line copy for /proc/cmdline */
-	memcpy(saved_command_line, COMMAND_LINE, COMMAND_LINE_SIZE);
-	saved_command_line[COMMAND_LINE_SIZE-1] = '\0';
-
-	for (;;) {
-		/*
-		 * "mem=nopentium" disables the 4MB page tables.
-		 * "mem=XXX[kKmM]" defines a memory region from HIGH_MEM
-		 * to <mem>, overriding the bios size.
-		 * "mem=XXX[KkmM]@XXX[KkmM]" defines a memory region from
-		 * <start> to <start>+<mem>, overriding the bios size.
-		 */
-		if (c == ' ' && !memcmp(from, "mem=", 4)) {
-			if (to != command_line)
-				to--;
-			if (!memcmp(from+4, "nopentium", 9)) {
-				from += 9+4;
-				clear_bit(X86_FEATURE_PSE, &boot_cpu_data.x86_capability);
-			} else if (!memcmp(from+4, "exactmap", 8)) {
-				from += 8+4;
-				e820.nr_map = 0;
-				usermem = 1;
-			} else {
-				/* If the user specifies memory size, we
-				 * blow away any automatically generated
-				 * size
-				 */
-				unsigned long long start_at, mem_size;
- 
-				if (usermem == 0) {
-					/* first time in: zap the whitelist
-					 * and reinitialize it with the
-					 * standard low-memory region.
-					 */
-					e820.nr_map = 0;
-					usermem = 1;
-					add_memory_region(0, LOWMEMSIZE(), E820_RAM);
-				}
-				mem_size = memparse(from+4, &from);
-				if (*from == '@')
-					start_at = memparse(from+1, &from);
-				else {
-					start_at = HIGH_MEMORY;
-					mem_size -= HIGH_MEMORY;
-					usermem=0;
-				}
-				add_memory_region(start_at, mem_size, E820_RAM);
-			}
-		}
-		c = *(from++);
-		if (!c)
-			break;
-		if (COMMAND_LINE_SIZE <= ++len)
-			break;
-		*(to++) = c;
-	}
-	*to = '\0';
-	*cmdline_p = command_line;
-	if (usermem) {
-		printk(KERN_INFO "user-defined physical RAM map:\n");
-		print_memory_map("user");
-	}
-}
-
 unsigned long start_pfn, end_pfn; 
+extern unsigned long table_start, table_end;
+
+#ifndef CONFIG_DISCONTIGMEM
+static void __init contig_initmem_init(void)
+{
+	unsigned long bootmap_size, bootmap; 
+	bootmap_size = bootmem_bootmap_pages(end_pfn)<<PAGE_SHIFT;
+	bootmap = find_e820_area(0, end_pfn<<PAGE_SHIFT, bootmap_size);
+	if (bootmap == -1L) 
+		panic("Cannot find bootmem map of size %ld\n",bootmap_size);
+	bootmap_size = init_bootmem(bootmap >> PAGE_SHIFT, end_pfn);
+	e820_bootmem_free(&contig_page_data, 0, end_pfn << PAGE_SHIFT); 
+	reserve_bootmem(bootmap, bootmap_size);
+}
+#endif
 
 void __init setup_arch(char **cmdline_p)
 {
-	unsigned long bootmap_size, low_mem_size;
 	int i;
+	unsigned long kernel_end; 
 
  	ROOT_DEV = to_kdev_t(ORIG_ROOT_DEV);
  	drive_info = DRIVE_INFO;
@@ -570,96 +219,44 @@ void __init setup_arch(char **cmdline_p)
 
 	parse_mem_cmdline(cmdline_p);
 
-#define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
-#define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
-#define PFN_PHYS(x)	((x) << PAGE_SHIFT)
-
-#define MAXMEM		(120UL * 1024 * 1024 * 1024 * 1024)  /* 120TB */ 
-#define MAXMEM_PFN	PFN_DOWN(MAXMEM)
-#define MAX_NONPAE_PFN	(1 << 20)
-
-	/*
-	 * partially used pages are not usable - thus
-	 * we are rounding upwards:
-	 */
-	start_pfn = PFN_UP(__pa_symbol(&_end));
-
-	/*
-	 * Find the highest page frame number we have available
-	 */
-	end_pfn = 0;
-	for (i = 0; i < e820.nr_map; i++) {
-		unsigned long start, end;
-		/* RAM? */
-		if (e820.map[i].type != E820_RAM)
-			continue;
-		start = PFN_UP(e820.map[i].addr);
-		end = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
-		if (start >= end)
-			continue;
-		if (end > end_pfn)
-			end_pfn = end;
-	}
-
-	if (end_pfn > MAXMEM_PFN) {
-		end_pfn = MAXMEM_PFN;
-	}
+	e820_end_of_ram();
 
 	init_memory_mapping(); 
 
-	/*
-	 * Initialize the boot-time allocator (with low memory only):
-	 */
-	bootmap_size = init_bootmem(start_pfn, end_pfn);
-
-	/*
-	 * Register fully available low RAM pages with the bootmem allocator.
-	 */
-	for (i = 0; i < e820.nr_map; i++) {
-		unsigned long curr_pfn, last_pfn, size;
- 		/*
-		 * Reserve usable low memory
-		 */
-		if (e820.map[i].type != E820_RAM)
-			continue;
-		/*
-		 * We are rounding up the start address of usable memory:
-		 */
-		curr_pfn = PFN_UP(e820.map[i].addr);
-		if (curr_pfn >= end_pfn)
-			continue;
-		/*
-		 * ... and at the end of the usable range downwards:
-		 */
-		last_pfn = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
-
-		if (last_pfn > end_pfn)
-			last_pfn = end_pfn;
-
-		/*
-		 * .. finally, did all the rounding and playing
-		 * around just make the area go away?
-		 */
-		if (last_pfn <= curr_pfn)
-			continue;
-
-		size = last_pfn - curr_pfn;
-		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
+#ifdef CONFIG_BLK_DEV_INITRD
+	if (LOADER_TYPE && INITRD_START) {
+		if (INITRD_START + INITRD_SIZE <= (end_pfn << PAGE_SHIFT)) {
+			initrd_start =
+				INITRD_START ? INITRD_START + PAGE_OFFSET : 0;
+			initrd_end = initrd_start+INITRD_SIZE;
 	}
-	/*
-	 * Reserve the bootmem bitmap itself as well. We do this in two
-	 * steps (first step was init_bootmem()) because this catches
-	 * the (very unlikely) case of us accidentally initializing the
-	 * bootmem allocator with an invalid RAM area.
-	 */
-	reserve_bootmem(HIGH_MEMORY, (PFN_PHYS(start_pfn) +
-			 bootmap_size + PAGE_SIZE-1) - (HIGH_MEMORY));
+		else {
+			printk(KERN_ERR "initrd extends beyond end of memory "
+			    "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
+			    (unsigned long)INITRD_START + INITRD_SIZE,
+			    (unsigned long)(end_pfn << PAGE_SHIFT));
+			initrd_start = 0;
+	}
+	}
+#endif
 
-	/*
-	 * reserve physical page 0 - it's a special BIOS page on many boxes,
-	 * enabling clean reboots, SMP operation, laptop functions.
-	 */
-	reserve_bootmem(0, PAGE_SIZE);
+#ifdef CONFIG_DISCONTIGMEM
+	numa_initmem_init(0, end_pfn); 	
+#else
+	contig_initmem_init(); 
+#endif	
+
+	/* Reserve direct mapping */
+	reserve_bootmem_generic(table_start << PAGE_SHIFT, 
+				(table_end - table_start) << PAGE_SHIFT);
+
+#ifdef CONFIG_BLK_DEV_INITRD
+	if (initrd_start) 
+		reserve_bootmem_generic(INITRD_START, INITRD_SIZE);
+#endif
+
+	/* Reserve BIOS data page. Some things still need it */
+	reserve_bootmem_generic(0, PAGE_SIZE);
 
 #ifdef CONFIG_SMP
 	/*
@@ -667,8 +264,14 @@ void __init setup_arch(char **cmdline_p)
 	 * FIXME: Don't need the extra page at 4K, but need to fix
 	 * trampoline before removing it. (see the GDT stuff)
 	 */
-	reserve_bootmem(PAGE_SIZE, PAGE_SIZE);
+	reserve_bootmem_generic(PAGE_SIZE, PAGE_SIZE); 
+
+	/* Reserve SMP trampoline */
+	reserve_bootmem_generic(0x6000, PAGE_SIZE);
 #endif
+	/* Reserve Kernel */
+	kernel_end = round_up(__pa_symbol(&_end), PAGE_SIZE);
+	reserve_bootmem_generic(HIGH_MEMORY, kernel_end - HIGH_MEMORY);
 
 #ifdef CONFIG_X86_LOCAL_APIC
 	/*
@@ -676,32 +279,12 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	find_smp_config();
 #endif
-#ifdef CONFIG_BLK_DEV_INITRD
-	if (LOADER_TYPE && INITRD_START) {
-		if (INITRD_START + INITRD_SIZE <= (max_low_pfn << PAGE_SHIFT)) {
-			reserve_bootmem(INITRD_START, INITRD_SIZE);
-			initrd_start =
-				INITRD_START ? INITRD_START + PAGE_OFFSET : 0;
-			initrd_end = initrd_start+INITRD_SIZE;
-		}
-		else {
-			printk(KERN_ERR "initrd extends beyond end of memory "
-			    "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
-			    (unsigned long)INITRD_START + INITRD_SIZE,
-			    (unsigned long)(max_low_pfn << PAGE_SHIFT));
-			initrd_start = 0;
-		}
-	}
-#endif
-
-	/*
-	 * NOTE: before this point _nobody_ is allowed to allocate
-	 * any memory using the bootmem allocator.
-	 */
 
 #ifdef CONFIG_SMP
-	smp_alloc_memory(); /* AP processor realmode stacks in low memory*/
+	/* AP processor realmode stacks in low memory*/
+	smp_alloc_memory();
 #endif
+
 	paging_init();
 #ifdef CONFIG_X86_LOCAL_APIC
 	/*
@@ -717,42 +300,22 @@ void __init setup_arch(char **cmdline_p)
 	 * and also for regions reported as reserved by the e820.
 	 */
 	probe_roms();
-	for (i = 0; i < e820.nr_map; i++) {
-		struct resource *res;
-		if (e820.map[i].addr + e820.map[i].size > 0x100000000ULL)
-			continue;
-		res = alloc_bootmem_low(sizeof(struct resource));
-		switch (e820.map[i].type) {
-		case E820_RAM:	res->name = "System RAM"; break;
-		case E820_ACPI:	res->name = "ACPI Tables"; break;
-		case E820_NVS:	res->name = "ACPI Non-volatile Storage"; break;
-		default:	res->name = "reserved";
-		}
-		res->start = e820.map[i].addr;
-		res->end = res->start + e820.map[i].size - 1;
-		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
-		request_resource(&iomem_resource, res);
-		if (e820.map[i].type == E820_RAM) {
-			/*
-			 *  We dont't know which RAM region contains kernel data,
-			 *  so we try it repeatedly and let the resource manager
-			 *  test it.
-			 */
-			request_resource(res, &code_resource);
-			request_resource(res, &data_resource);
-		}
-	}
+	e820_reserve_resources(); 
 	request_resource(&iomem_resource, &vram_resource);
 
 	/* request I/O space for devices used on all i[345]86 PCs */
 	for (i = 0; i < STANDARD_IO_RESOURCES; i++)
 		request_resource(&ioport_resource, standard_io_resources+i);
 
+	/* We put PCI memory up to make sure VALID_PAGE with DISCONTIGMEM
+	   never returns true for it */ 
+
 	/* Tell the PCI layer not to allocate too close to the RAM area.. */
-	/* ??? move this up on x86-64 */
-	low_mem_size = ((max_low_pfn << PAGE_SHIFT) + 0xfffff) & ~0xfffff;
-	if (low_mem_size > pci_mem_start)
-		pci_mem_start = low_mem_size;
+	pci_mem_start = IOMAP_START;
+
+#ifdef CONFIG_GART_IOMMU
+	iommu_hole_init();
+#endif
 
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
@@ -762,7 +325,7 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 
-	num_mappedpages = max_low_pfn; 
+	num_mappedpages = end_pfn;
 }
 
 #ifndef CONFIG_X86_TSC

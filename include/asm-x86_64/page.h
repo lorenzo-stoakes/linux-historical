@@ -10,8 +10,8 @@
 #endif
 #define PAGE_MASK	(~(PAGE_SIZE-1))
 
-#define __PHYSICAL_MASK		0x0000ffffffffffff
-#define PHYSICAL_PAGE_MASK	(PAGE_MASK & __PHYSICAL_MASK)
+#define __PHYSICAL_MASK		0x0000ffffffffffffUL
+#define PHYSICAL_PAGE_MASK	0x0000fffffffff000UL
 
 #define LARGE_PAGE_MASK (~(LARGE_PAGE_SIZE-1))
 #define LARGE_PAGE_SIZE (1UL << PMD_SHIFT)
@@ -73,6 +73,10 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #ifndef __ASSEMBLY__
 
+#include <linux/config.h>
+#include <linux/stringify.h>
+
+
 /*
  * Tell the user there is some problem.  The exception handler decodes this frame.
  */
@@ -83,6 +87,8 @@ struct bug_frame {
 } __attribute__((packed)); 
 #define BUG() asm volatile("ud2 ; .quad %c1 ; .short %c0" :: "i"(__LINE__), \
 		"i" (__stringify(KBUILD_BASENAME)))
+#define HEADER_BUG() asm volatile("ud2 ; .quad %c1 ; .short %c0" :: "i"(__LINE__), \
+		"i" (__stringify(__FILE__)))
 #define PAGE_BUG(page) BUG()
 
 /* Pure 2^n version of get_order */
@@ -118,12 +124,15 @@ extern __inline__ int get_order(unsigned long size)
 	  __pa(v); })
 
 #define __va(x)			((void *)((unsigned long)(x)+PAGE_OFFSET))
+#ifndef CONFIG_DISCONTIGMEM
 #define virt_to_page(kaddr)	(mem_map + (__pa(kaddr) >> PAGE_SHIFT))
 #define pfn_to_page(pfn)	(mem_map + (pfn)) 
 #define page_to_pfn(page)   ((page) - mem_map)
-#define phys_to_pfn(phys)	((phys) >> PAGE_SHIFT)
 #define page_to_phys(page)	(((page) - mem_map) << PAGE_SHIFT)
 #define VALID_PAGE(page)	(((page) - mem_map) < max_mapnr)
+#endif
+
+#define phys_to_pfn(phys)	((phys) >> PAGE_SHIFT)
 
 
 #define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \

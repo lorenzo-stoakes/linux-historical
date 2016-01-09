@@ -3140,6 +3140,9 @@ static int chandev_write_proc(struct file *file, const char *buffer,
 	int         rc;
 	char        *buff;
 	
+	if(count > 65536)
+		count = 65536;
+		
 	buff=vmalloc(count+1);
 	if(buff)
 	{

@@ -23,6 +23,7 @@
 static __inline void apic_write(unsigned long reg, unsigned int v)
 {
 	*((volatile unsigned int *)(APIC_BASE+reg)) = v;
+	barrier();
 }
 
 static __inline void apic_write_atomic(unsigned long reg, unsigned int v)
@@ -87,6 +88,7 @@ extern void apic_pm_unregister (struct pm_dev*);
 
 extern unsigned int apic_timer_irqs [NR_CPUS];
 extern int check_nmi_watchdog (void);
+extern void enable_NMI_through_LVT0 (void * dummy);
 
 extern unsigned int nmi_watchdog;
 #define NMI_NONE	0

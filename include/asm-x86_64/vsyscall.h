@@ -1,6 +1,8 @@
 #ifndef _ASM_X86_64_VSYSCALL_H_
 #define _ASM_X86_64_VSYSCALL_H_
 
+#include <linux/time.h>
+
 enum vsyscall_num {
 	__NR_vgettimeofday,
 	__NR_vtime,
@@ -22,9 +24,12 @@ enum vsyscall_num {
 
 struct hpet_data {
 	long address;		/* base address */
-	unsigned long quotient;	/* 2^32 * usec / clock */
 	unsigned long hz;	/* HPET clocks / sec */
 	int trigger;		/* value at last interrupt */
+	int last;
+	int offset;
+	unsigned long last_tsc;
+	long ticks;
 };
 
 #define hpet_readl(a)           readl(fix_to_virt(FIX_HPET_BASE) + a)

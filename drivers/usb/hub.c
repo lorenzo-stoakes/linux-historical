@@ -1055,8 +1055,8 @@ int usb_reset_device(struct usb_device *dev)
 	if (!descriptor) {
 		return -ENOMEM;
 	}
-	ret = usb_get_descriptor(dev, USB_DT_DEVICE, 0, &descriptor,
-			sizeof(descriptor));
+	ret = usb_get_descriptor(dev, USB_DT_DEVICE, 0, descriptor,
+			sizeof(*descriptor));
 	if (ret < 0)
 		return ret;
 
@@ -1065,7 +1065,7 @@ int usb_reset_device(struct usb_device *dev)
 	le16_to_cpus(&descriptor->idProduct);
 	le16_to_cpus(&descriptor->bcdDevice);
 
-	if (memcmp(&dev->descriptor, descriptor, sizeof(descriptor))) {
+	if (memcmp(&dev->descriptor, descriptor, sizeof(*descriptor))) {
 		kfree(descriptor);
 		usb_destroy_configuration(dev);
 

@@ -8,7 +8,7 @@
  * See Documentation/DMA-mapping.txt for the interface specification.
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: pci-gart.c,v 1.8 2002/07/16 15:30:04 ak Exp $
+ * $Id: pci-gart.c,v 1.12 2002/09/19 19:25:32 ak Exp $
  */
 
 /* 
@@ -24,6 +24,7 @@ possible future tuning:
  could use exact fit in the gart in alloc_consistent, not order of two.
 */ 
 
+#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/ctype.h>
 #include <linux/agp_backend.h>
@@ -37,9 +38,8 @@ possible future tuning:
 #include <asm/mtrr.h>
 #include <asm/bitops.h>
 #include <asm/pgtable.h>
+#include <asm/proto.h>
 #include "pci-x86_64.h"
-
-extern unsigned long start_pfn, end_pfn; 
 
 unsigned long iommu_bus_base;	/* GART remapping area (physical) */
 static unsigned long iommu_size; 	/* size of remapping area bytes */
@@ -47,17 +47,16 @@ static unsigned long iommu_pages;	/* .. and in pages */
 
 u32 *iommu_gatt_base; 		/* Remapping table */
 
-static int no_iommu; 
+int no_iommu; 
 static int no_agp; 
-static int force_mmu = 1;
+int force_mmu = 1;
+
+extern int fallback_aper_order;
+extern int fallback_aper_force;
 
 /* Allocation bitmap for the remapping area */ 
 static spinlock_t iommu_bitmap_lock = SPIN_LOCK_UNLOCKED;
 static unsigned long *iommu_gart_bitmap; /* guarded by iommu_bitmap_lock */
-
-/* y must be power of two */
-#define round_up(x,y) (((x) + (y) - 1) & ~((y)-1))
-#define round_down(x,y) ((x) & ~((y)-1))
 
 #define GPTE_MASK 0xfffffff000
 #define GPTE_VALID    1
@@ -72,13 +71,16 @@ static unsigned long *iommu_gart_bitmap; /* guarded by iommu_bitmap_lock */
 
 #define EMERGENCY_PAGES 32 /* = 128KB */ 
 
-/* backdoor interface to AGP driver */
-extern void amd_x86_64_tlbflush(void *); 
+#ifdef CONFIG_AGP
 extern int agp_init(void);
-extern u64 amd_x86_64_configure (struct pci_dev *hammer, u64);
+#define AGPEXTERN extern
+#else
+#define AGPEXTERN
+#endif
 
-extern int agp_memory_reserved;
-extern __u32 *agp_gatt_table;
+/* backdoor interface to AGP driver */
+AGPEXTERN int agp_memory_reserved;
+AGPEXTERN __u32 *agp_gatt_table;
 
 static unsigned long next_bit;  /* protected by iommu_bitmap_lock */
 
@@ -112,7 +114,14 @@ static void free_iommu(unsigned long offset, int size)
 
 static inline void flush_gart(void) 
 { 
-	amd_x86_64_tlbflush(NULL); 	
+	struct pci_dev *nb; 
+	for_all_nb(nb) { 
+		u32 flag; 
+		pci_read_config_dword(nb, 0x9c, &flag); /* could cache this */ 
+		/* could complain for PTE walk errors here (bit 1 of flag) */ 
+		flag |= 1; 
+		pci_write_config_dword(nb, 0x9c, flag); 
+	} 
 } 
 
 void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
@@ -202,6 +211,26 @@ void pci_free_consistent(struct pci_dev *hwdev, size_t size,
 	free_iommu(iommu_page, 1<<order);
 }
 
+#ifdef CONFIG_IOMMU_LEAK
+/* Debugging aid for drivers that don't free their IOMMU tables */
+static void **iommu_leak_tab; 
+static int leak_trace;
+int iommu_leak_dumppages = 20; 
+void dump_leak(void)
+{
+	int i;
+	static int dump; 
+	if (dump || !iommu_leak_tab) return;
+	dump = 1;
+	show_stack(NULL);
+	printk("Dumping %d pages from end of IOMMU:\n", iommu_leak_dumppages); 
+	for (i = 0; i < iommu_leak_dumppages; i++) 
+		printk("[%lu: %lx] ",
+		       iommu_pages-i,(unsigned long) iommu_leak_tab[iommu_pages-i]); 
+	printk("\n");
+}
+#endif
+
 static void iommu_full(struct pci_dev *dev, void *addr, size_t size, int dir)
 {
 	/* 
@@ -220,10 +249,14 @@ static void iommu_full(struct pci_dev *dev, void *addr, size_t size, int dir)
 
 	if (size > PAGE_SIZE*EMERGENCY_PAGES) {
 		if (dir == PCI_DMA_FROMDEVICE || dir == PCI_DMA_BIDIRECTIONAL)
-			printk(KERN_ERR "PCI-DMA: Memory will be corrupted\n");
+			panic("PCI-DMA: Memory will be corrupted\n");
 		if (dir == PCI_DMA_TODEVICE || dir == PCI_DMA_BIDIRECTIONAL) 
-			printk(KERN_ERR "PCI-DMA: Random memory will be DMAed\n"); 
+			panic("PCI-DMA: Random memory will be DMAed\n"); 
 	} 
+
+#ifdef CONFIG_IOMMU_LEAK
+	dump_leak(); 
+#endif
 } 
 
 static inline int need_iommu(struct pci_dev *dev, unsigned long addr, size_t size)
@@ -270,6 +303,12 @@ dma_addr_t pci_map_single(struct pci_dev *dev, void *addr, size_t size,int dir)
 		 * the caches on mapping.
 		 */
 		iommu_gatt_base[iommu_page + i] = GPTE_ENCODE(phys_mem, GPTE_COHERENT);
+
+#ifdef CONFIG_IOMMU_LEAK
+		/* XXX need eventually caller of pci_map_sg */
+		if (iommu_leak_tab) 
+			iommu_leak_tab[iommu_page + i] = __builtin_return_address(0); 
+#endif
 	}
 	flush_gart(); 
 
@@ -292,6 +331,10 @@ void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 	npages = round_up(size, PAGE_SIZE) >> PAGE_SHIFT;
 	for (i = 0; i < npages; i++) { 
 		iommu_gatt_base[iommu_page + i] = 0; 
+#ifdef CONFIG_IOMMU_LEAK
+		if (iommu_leak_tab)
+			iommu_leak_tab[iommu_page + i] = 0; 
+#endif
 	}
 	flush_gart(); 
 	free_iommu(iommu_page, npages);
@@ -300,9 +343,7 @@ void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 EXPORT_SYMBOL(pci_map_single);
 EXPORT_SYMBOL(pci_unmap_single);
 
-static inline unsigned long check_iommu_size(unsigned long aper,
-					     unsigned long aper_size, 
-					     unsigned long iommu_size)
+static __init unsigned long check_iommu_size(unsigned long aper, u64 aper_size)
 { 
 	unsigned long a; 
 	if (!iommu_size) { 
@@ -314,42 +355,64 @@ static inline unsigned long check_iommu_size(unsigned long aper,
 	a = aper + iommu_size; 
 	iommu_size -= round_up(a, LARGE_PAGE_SIZE) - a;
 
-	if (iommu_size < 128*1024*1024) 
+	if (iommu_size < 64*1024*1024) 
 		printk(KERN_WARNING
   "PCI-DMA: Warning: Small IOMMU %luMB. Consider increasing the AGP aperture in BIOS\n",iommu_size>>20); 
 	
 	return iommu_size;
 } 
 
+static __init unsigned read_aperture(struct pci_dev *dev, u32 *size) 
+{ 
+	unsigned aper_size = 0, aper_base_32;
+	u64 aper_base;
+	unsigned aper_order;
+
+	pci_read_config_dword(dev, 0x94, &aper_base_32); 
+	pci_read_config_dword(dev, 0x90, &aper_order);
+	aper_order = (aper_order >> 1) & 7;	
+
+	aper_base = aper_base_32 & 0x7fff; 
+	aper_base <<= 25;
+
+	aper_size = (32 * 1024 * 1024) << aper_order; 
+	if (aper_base + aper_size >= 0xffffffff || !aper_size)
+		aper_base = 0;
+
+	*size = aper_size;
+	return aper_base;
+} 
+
 /* 
- * Private Northbridge GATT initialization in case we cannot use the AGP driver for 
- * some reason. 
+ * Private Northbridge GATT initialization in case we cannot use the
+ * AGP driver for some reason.  
  */
 static __init int init_k8_gatt(agp_kern_info *info)
 { 
 	struct pci_dev *dev;
 	void *gatt;
-	u32 aper_size;
-	u32 gatt_size;
+	unsigned aper_base, new_aper_base;
+	unsigned aper_size, gatt_size, new_aper_size;
 
-#if 1 /* BIOS bug workaround for now */
-	goto nommu; 
-#endif
-
-	aper_size = 0;
+	aper_size = aper_base = info->aper_size = 0;
 	for_all_nb(dev) { 
-		pci_read_config_dword(dev, 0x90, &aper_size);
-		aper_size = 32 << ((aper_size>>1) & 7);
-		break;
-	}
+		new_aper_base = read_aperture(dev, &new_aper_size); 
+		if (!new_aper_base) 
+	goto nommu; 
 
-	info->aper_size = aper_size; 
-	if (!aper_size) { 
-		printk("PCI-DMA: Cannot fetch aperture size\n"); 
+		if (!aper_base) { 
+			aper_size = new_aper_size;
+			aper_base = new_aper_base;
+	}
+		if (aper_size != new_aper_size || aper_base != new_aper_base) 
 		goto nommu;
 	} 
+	if (!aper_base)
+		goto nommu; 
+	info->aper_base = aper_base;
+	info->aper_size = aper_size>>20; 
 
-	gatt_size = ((aper_size * 1024 * 1024) / PAGE_SIZE) * sizeof(u32); 
+	gatt_size = (aper_size >> PAGE_SHIFT) * sizeof(u32); 
 	gatt = (void *)__get_free_pages(GFP_KERNEL, get_order(gatt_size)); 
 	if (!gatt) 
 		panic("Cannot allocate GATT table"); 
@@ -358,16 +421,29 @@ static __init int init_k8_gatt(agp_kern_info *info)
 	agp_gatt_table = gatt;
 
 	for_all_nb(dev) { 
-		info->aper_base = amd_x86_64_configure(dev, virt_to_bus(gatt));
+		u32 ctl; 
+		u32 gatt_reg; 
+
+		gatt_reg = ((u64)gatt) >> 12; 
+		gatt_reg <<= 4; 
+		pci_write_config_dword(dev, 0x98, gatt_reg);
+		pci_read_config_dword(dev, 0x90, &ctl); 
+
+		ctl |= 1;
+		ctl &= ~((1<<4) | (1<<5));
+
+		pci_write_config_dword(dev, 0x90, ctl); 
 	}
-	if (info->aper_base)
+	flush_gart(); 
+	
+		
+	printk("PCI-DMA: aperture base @ %x size %u KB\n", aper_base, aper_size>>10); 
 		return 0;
-	printk("Cannot find an K8\n"); 
 
  nommu:
-	if (end_pfn >= 0xffffffff>>PAGE_SHIFT)
+	/* XXX: reject 0xffffffff mask now in pci mapping functions */
 		printk(KERN_ERR "PCI-DMA: More than 4GB of RAM and no IOMMU\n"
-		       KERN_ERR "32bit PCI IO may malfunction."); 
+	       KERN_ERR "PCI-DMA: 32bit PCI IO may malfunction."); 
 	return -1; 
 } 
 
@@ -377,10 +453,25 @@ void __init pci_iommu_init(void)
 	unsigned long aper_size;
 	unsigned long iommu_start;
 
-	if (no_agp || (agp_init() < 0) || (agp_copy_info(&info) < 0)) { 
+#ifndef CONFIG_AGP
+	no_agp = 1; 
+#else
+	no_agp = no_agp || (agp_init() < 0) || (agp_copy_info(&info) < 0); 
+#endif	
+
+	if (no_iommu || (!force_mmu && end_pfn < 0xffffffff>>PAGE_SHIFT)) { 
+		printk(KERN_INFO "PCI-DMA: Disabling IOMMU.\n"); 
+		no_iommu = 1;
+		return;
+	}
+
+	if (no_agp) { 
+		int err = -1;
 		printk(KERN_INFO "PCI-DMA: Disabling AGP.\n");
 		no_agp = 1;
-		if (init_k8_gatt(&info) < 0) { 
+		if (force_mmu || end_pfn >= 0xffffffff>>PAGE_SHIFT)
+			err = init_k8_gatt(&info);
+		if (err < 0) { 
 			printk(KERN_INFO "PCI-DMA: Disabling IOMMU.\n"); 
 			no_iommu = 1;
 			return; 
@@ -388,7 +479,7 @@ void __init pci_iommu_init(void)
 	} 
 	
 	aper_size = info.aper_size * 1024 * 1024;
-	iommu_size = check_iommu_size(info.aper_base, aper_size, iommu_size); 
+	iommu_size = check_iommu_size(info.aper_base, aper_size); 
 	iommu_pages = iommu_size >> PAGE_SHIFT; 
 
 	iommu_gart_bitmap = (void*)__get_free_pages(GFP_KERNEL, 
@@ -396,6 +487,17 @@ void __init pci_iommu_init(void)
 	if (!iommu_gart_bitmap) 
 		panic("Cannot allocate iommu bitmap\n"); 
 	memset(iommu_gart_bitmap, 0, iommu_pages/8);
+
+#ifdef CONFIG_IOMMU_LEAK
+	if (leak_trace) { 
+		iommu_leak_tab = (void *)__get_free_pages(GFP_KERNEL, 
+				  get_order(iommu_pages*sizeof(void *)));
+		if (iommu_leak_tab) 
+			memset(iommu_leak_tab, 0, iommu_pages * 8); 
+		else
+			printk("PCI-DMA: Cannot allocate leak trace area\n"); 
+	} 
+#endif
 
 	/* 
 	 * Out of IOMMU space handling.
@@ -410,31 +512,49 @@ void __init pci_iommu_init(void)
 	iommu_start = aper_size - iommu_size;	
 	iommu_bus_base = info.aper_base + iommu_start; 
 	iommu_gatt_base = agp_gatt_table + (iommu_start>>PAGE_SHIFT);
+	bad_dma_address = iommu_bus_base;
 
 	asm volatile("wbinvd" ::: "memory");
 } 
 
-/* iommu=[size][,noagp][,off][,force][,noforce] 
+/* iommu=[size][,noagp][,off][,force][,noforce][,leak][,memaper[=order]]
+   size  set size of iommu (in bytes) 
    noagp don't initialize the AGP driver and use full aperture.
    off   don't use the IOMMU
+   leak  turn on simple iommu leak tracing (only when CONFIG_IOMMU_LEAK is on)
+   memaper[=order] allocate an own aperture over RAM with size 32MB^order.
 */
-static __init int iommu_setup(char *opt) 
+__init int iommu_setup(char *opt) 
 { 
     int arg;
-    char *p;
-    while ((p = strsep(&opt, ",")) != NULL) { 
-	    if (strcmp(p,"noagp"))
+    char *p = opt;
+    
+    for (;;) { 
+	    if (!memcmp(p,"noagp", 5))
 		    no_agp = 1; 
-	    if (strcmp(p,"off"))
+	    if (!memcmp(p,"off", 3))
 		    no_iommu = 1;
-	    if (strcmp(p,"force"))
+	    if (!memcmp(p,"force", 5))
 		    force_mmu = 1;
-	    if (strcmp(p,"noforce"))
+	    if (!memcmp(p,"noforce", 7))
 		    force_mmu = 0;
+	    if (!memcmp(p, "memaper", 7)) { 
+		    fallback_aper_force = 1; 
+		    p += 7; 
+		    if (*p == '=' && get_option(&p, &arg))
+			    fallback_aper_order = arg;
+	    } 
+#ifdef CONFIG_IOMMU_LEAK
+	    if (!memcmp(p,"leak", 4))
+		    leak_trace = 1;
+#endif
 	    if (isdigit(*p) && get_option(&p, &arg)) 
 		    iommu_size = arg;
+	    do {
+		    if (*p == ' ' || *p == 0) 
+			    return 0; 
+	    } while (*p++ != ','); 
     }	
     return 1;
 } 
 
-__setup("iommu=", iommu_setup); 

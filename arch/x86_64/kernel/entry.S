@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.79 2002/07/01 07:55:17 ak Exp $		
+ *  $Id: entry.S,v 1.81 2002/09/12 12:55:25 ak Exp $		
  */
 
 /*
@@ -333,7 +333,18 @@ retint_restore_args_swapgs:
 	swapgs
 retint_restore_args:				
 	RESTORE_ARGS 0,8						
+iret_label:	
 	iretq
+	.section __ex_table,"a"
+	.align 8
+	.quad iret_label,bad_iret
+	.previous
+	.section .fixup,"ax"
+	/* force a signal here? this matches i386 behaviour */
+bad_iret:
+	movq $-9999,%rdi	/* better code? */
+	jmp do_exit			
+	.previous	
 
 retint_signal:	
 	sti
@@ -417,8 +428,8 @@ error_test:
 error_restore_swapgs:					
 	swapgs
 error_restore:	
-	RESTORE_ALL 8
-	iretq
+	RESTORE_REST
+	jmp retint_restore_args
 	
 error_reschedule:
 	sti
@@ -441,6 +452,10 @@ error_signal_test:
 	
 error_kernelspace:	
 	xorl %r15d,%r15d
+	cmpq $iret_label,RIP(%rsp)
+	jne  error_action
+	movl $1,%r15d
+	swapgs
 	jmp error_action
 
 /*
@@ -564,7 +579,9 @@ ENTRY(nmi)
 	pushq $-1
 	SAVE_ALL
 	/* NMI could happen inside the critical section of a swapgs,
-	   so it is needed to use this expensive way to check. */
+	   so it is needed to use this expensive way to check.
+	   Rely on arch_prctl forbiding user space from setting a negative
+	   GS. Only the kernel value is negative. */
 	movl  $MSR_GS_BASE,%ecx
 	rdmsr
 	xorl  %ebx,%ebx

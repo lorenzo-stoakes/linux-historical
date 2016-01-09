@@ -205,7 +205,7 @@ static void mcheck_timer_dist(void *data)
 static void mcheck_timer_trampoline(unsigned long data)
 { 
 	static struct tq_struct mcheck_task = { 
-		routine: mcheck_timer_handler
+		routine: mcheck_timer_dist
 	}; 
 	schedule_task(&mcheck_task); 
 } 

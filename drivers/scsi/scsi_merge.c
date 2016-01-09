@@ -64,6 +64,12 @@
 #include <scsi/scsi_ioctl.h>
 
 /*
+ * scsi_malloc() can only dish out items of PAGE_SIZE or less, so we cannot
+ * build a request that requires an sg table allocation of more than that.
+ */
+static const int scsi_max_sg = PAGE_SIZE / sizeof(struct scatterlist);
+
+/*
  * This means that bounce buffers cannot be allocated in chunks > PAGE_SIZE.
  * Ultimately we should get away from using a dedicated DMA bounce buffer
  * pool, and we should instead try and use kmalloc() instead.  If we can
@@ -397,11 +403,11 @@ __inline static int __scsi_back_merge_fn(request_queue_t * q,
 {
 	unsigned int count;
 	unsigned int segment_size = 0;
-	Scsi_Device *SDpnt;
-	struct Scsi_Host *SHpnt;
+	Scsi_Device *SDpnt = q->queuedata;
+	struct Scsi_Host *SHpnt = SDpnt->host;
 
-	SDpnt = (Scsi_Device *) q->queuedata;
-	SHpnt = SDpnt->host;
+	if (max_segments > scsi_max_sg)
+		max_segments = scsi_max_sg;
 
 #ifdef DMA_CHUNK_SIZE
 	if (max_segments > 64)
@@ -456,11 +462,11 @@ __inline static int __scsi_front_merge_fn(request_queue_t * q,
 {
 	unsigned int count;
 	unsigned int segment_size = 0;
-	Scsi_Device *SDpnt;
-	struct Scsi_Host *SHpnt;
+	Scsi_Device *SDpnt = q->queuedata;
+	struct Scsi_Host *SHpnt = SDpnt->host;
 
-	SDpnt = (Scsi_Device *) q->queuedata;
-	SHpnt = SDpnt->host;
+	if (max_segments > scsi_max_sg)
+		max_segments = scsi_max_sg;
 
 #ifdef DMA_CHUNK_SIZE
 	if (max_segments > 64)
@@ -592,8 +598,8 @@ __inline static int __scsi_merge_requests_fn(request_queue_t * q,
 					     int use_clustering,
 					     int dma_host)
 {
-	Scsi_Device *SDpnt;
-	struct Scsi_Host *SHpnt;
+	Scsi_Device *SDpnt = q->queuedata;
+	struct Scsi_Host *SHpnt = SDpnt->host;
 
 	/*
 	 * First check if the either of the requests are re-queued
@@ -602,8 +608,8 @@ __inline static int __scsi_merge_requests_fn(request_queue_t * q,
 	if (req->special || next->special)
 		return 0;
 
-	SDpnt = (Scsi_Device *) q->queuedata;
-	SHpnt = SDpnt->host;
+	if (max_segments > scsi_max_sg)
+		max_segments = scsi_max_sg;
 
 #ifdef DMA_CHUNK_SIZE
 	if (max_segments > 64)

@@ -44,48 +44,36 @@
 #include <asm/fixmap.h>
 #include <asm/errno.h>
 #include <asm/io.h>
+#include <asm/msr.h>
 
 #define __vsyscall(nr) __attribute__ ((unused,__section__(".vsyscall_" #nr)))
 
 long __vxtime_sequence[2] __section_vxtime_sequence;
 
-#define USE_VSYSCALL
+#undef USE_VSYSCALL
 
 #ifdef USE_VSYSCALL
 
-static inline void timeval_normalize(struct timeval * tv)
-{
-	time_t __sec;
-
-	__sec = tv->tv_usec / 1000000;
-
-	if (__sec) {
-		tv->tv_usec %= 1000000;
-		tv->tv_sec += __sec;
-	}
-}
-
 static inline void do_vgettimeofday(struct timeval * tv)
 {
-	long sequence;
-	unsigned long usec, sec;
+	long sequence, t;
+	unsigned long sec, usec;
 
 	do {
 		sequence = __vxtime_sequence[1];
 		rmb();
 
+		rdtscll(t);
 		sec = __xtime.tv_sec;
-		usec = __xtime.tv_usec;
-		usec +=	(__jiffies - __wall_jiffies) * (1000000 / HZ);
-		if (__hpet.address)
-			usec += ((readl(fix_to_virt(VSYSCALL_HPET) + 0xf0) - __hpet.trigger) * __hpet.quotient) >> 32;
+		usec = __xtime.tv_usec +
+			(__jiffies - __wall_jiffies) * (1000000 / HZ) +
+			(t  - __hpet.last_tsc) * (1000000 / HZ) / __hpet.ticks + __hpet.offset;
 
 		rmb();
 	} while (sequence != __vxtime_sequence[0]);
 
-	tv->tv_sec = sec;
-	tv->tv_usec = usec;
-	timeval_normalize(tv);
+	tv->tv_sec = sec + usec / 1000000;
+	tv->tv_usec = usec % 1000000;
 }
 
 static inline void do_get_tz(struct timezone * tz)

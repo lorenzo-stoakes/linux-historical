@@ -15,7 +15,7 @@
  * environment. In 2.5 most of this should be moved to a generic directory. 
  *
  * This file assumes that there is a hole at the end of user address space.
- * $Id: sys_ia32.c,v 1.38 2002/07/18 09:46:54 ak Exp $
+ * $Id: sys_ia32.c,v 1.42 2002/09/17 15:23:41 ak Exp $
  */
 
 #include <linux/config.h>
@@ -1259,6 +1259,8 @@ static inline int put_flock(struct flock *kfl, struct flock32 *ufl)
 }
 
 extern asmlinkage long sys_fcntl(unsigned int fd, unsigned int cmd, unsigned long arg);
+asmlinkage long sys32_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg);
+
 
 asmlinkage long sys32_fcntl(unsigned int fd, unsigned int cmd, unsigned long arg)
 {
@@ -1281,6 +1283,11 @@ asmlinkage long sys32_fcntl(unsigned int fd, unsigned int cmd, unsigned long arg
 				return -EFAULT;
 			return 0;
 		}
+	case F_GETLK64: 
+	case F_SETLK64: 
+	case F_SETLKW64: 
+		return sys32_fcntl64(fd,cmd,arg); 
+
 	default:
 		return sys_fcntl(fd, cmd, (unsigned long)arg);
 	}
@@ -1317,21 +1324,33 @@ asmlinkage long sys32_fcntl64(unsigned int fd, unsigned int cmd, unsigned long a
 	struct flock fl64;  
 	mm_segment_t oldfs = get_fs(); 
 	int ret = 0; 
+	int oldcmd = cmd;
+	unsigned long oldarg = arg;
 
 	switch (cmd) {
 	case F_GETLK64: 
+		cmd = F_GETLK; 
+		goto cnv;
 	case F_SETLK64: 
+		cmd = F_SETLK; 
+		goto cnv; 
 	case F_SETLKW64:
+		cmd = F_SETLKW; 
+	cnv:
 		ret = get_flock64((struct ia32_flock64 *)arg, &fl64); 
 		arg = (unsigned long)&fl64; 
 		set_fs(KERNEL_DS); 
 		break; 
+	case F_GETLK:
+	case F_SETLK:
+	case F_SETLKW:
+		return sys32_fcntl(fd,cmd,arg); 
 	}
 	if (!ret)
-		ret = sys32_fcntl(fd, cmd, arg);
+		ret = sys_fcntl(fd, cmd, arg);
 	set_fs(oldfs); 
-	if (cmd == F_GETLK64 && !ret)
-		ret = put_flock64((struct ia32_flock64 *)arg, &fl64); 
+	if (oldcmd == F_GETLK64 && !ret)
+		ret = put_flock64((struct ia32_flock64 *)oldarg, &fl64); 
 	return ret; 
 }
 
@@ -1682,136 +1701,6 @@ sys32_rt_sigqueueinfo(int pid, int sig, siginfo_t32 *uinfo)
 	return ret;
 }
 
-extern asmlinkage long sys_setreuid(uid_t ruid, uid_t euid);
-
-asmlinkage long sys32_setreuid(__kernel_uid_t32 ruid, __kernel_uid_t32 euid)
-{
-	uid_t sruid, seuid;
-
-	sruid = (ruid == (__kernel_uid_t32)-1) ? ((uid_t)-1) : ((uid_t)ruid);
-	seuid = (euid == (__kernel_uid_t32)-1) ? ((uid_t)-1) : ((uid_t)euid);
-	return sys_setreuid(sruid, seuid);
-}
-
-extern asmlinkage long sys_setresuid(uid_t ruid, uid_t euid, uid_t suid);
-
-asmlinkage long
-sys32_setresuid(__kernel_uid_t32 ruid, __kernel_uid_t32 euid,
-		__kernel_uid_t32 suid)
-{
-	uid_t sruid, seuid, ssuid;
-
-	sruid = (ruid == (__kernel_uid_t32)-1) ? ((uid_t)-1) : ((uid_t)ruid);
-	seuid = (euid == (__kernel_uid_t32)-1) ? ((uid_t)-1) : ((uid_t)euid);
-	ssuid = (suid == (__kernel_uid_t32)-1) ? ((uid_t)-1) : ((uid_t)suid);
-	return sys_setresuid(sruid, seuid, ssuid);
-}
-
-extern asmlinkage long sys_getresuid(uid_t *ruid, uid_t *euid, uid_t *suid);
-
-asmlinkage long
-sys32_getresuid(__kernel_uid_t32 *ruid, __kernel_uid_t32 *euid,
-		__kernel_uid_t32 *suid)
-{
-	uid_t a, b, c;
-	int ret;
-	mm_segment_t old_fs = get_fs();
-		
-	set_fs (KERNEL_DS);
-	ret = sys_getresuid(&a, &b, &c);
-	set_fs (old_fs);
-	if (put_user (a, ruid) || put_user (b, euid) || put_user (c, suid))
-		return -EFAULT;
-	return ret;
-}
-
-extern asmlinkage long sys_setregid(gid_t rgid, gid_t egid);
-
-asmlinkage long
-sys32_setregid(__kernel_gid_t32 rgid, __kernel_gid_t32 egid)
-{
-	gid_t srgid, segid;
-
-	srgid = (rgid == (__kernel_gid_t32)-1) ? ((gid_t)-1) : ((gid_t)rgid);
-	segid = (egid == (__kernel_gid_t32)-1) ? ((gid_t)-1) : ((gid_t)egid);
-	return sys_setregid(srgid, segid);
-}
-
-extern asmlinkage long sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid);
-
-asmlinkage long
-sys32_setresgid(__kernel_gid_t32 rgid, __kernel_gid_t32 egid,
-		__kernel_gid_t32 sgid)
-{
-	gid_t srgid, segid, ssgid;
-
-	srgid = (rgid == (__kernel_gid_t32)-1) ? ((gid_t)-1) : ((gid_t)rgid);
-	segid = (egid == (__kernel_gid_t32)-1) ? ((gid_t)-1) : ((gid_t)egid);
-	ssgid = (sgid == (__kernel_gid_t32)-1) ? ((gid_t)-1) : ((gid_t)sgid);
-	return sys_setresgid(srgid, segid, ssgid);
-}
-
-extern asmlinkage long sys_getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid);
-
-asmlinkage long
-sys32_getresgid(__kernel_gid_t32 *rgid, __kernel_gid_t32 *egid,
-		__kernel_gid_t32 *sgid) 
-{
-	gid_t a, b, c;
-	int ret;
-	mm_segment_t old_fs = get_fs();
-		
-	set_fs (KERNEL_DS);
-	ret = sys_getresgid(&a, &b, &c);
-	set_fs (old_fs);
-	if (!ret) {
-		ret = put_user (a, rgid);
-		ret |= put_user (b, egid);
-		ret |= put_user (c, sgid);
-	}
-	return ret;
-}
-
-extern asmlinkage long sys_getgroups(int gidsetsize, gid_t *grouplist);
-
-asmlinkage long
-sys32_getgroups(int gidsetsize, __kernel_gid_t32 *grouplist)
-{
-	gid_t gl[NGROUPS];
-	int ret, i;
-	mm_segment_t old_fs = get_fs ();
-	
-	set_fs (KERNEL_DS);
-	ret = sys_getgroups(gidsetsize, gl);
-	set_fs (old_fs);
-	if (gidsetsize && ret > 0 && ret <= NGROUPS)
-		for (i = 0; i < ret; i++, grouplist++)
-			if (put_user (gl[i], grouplist))
-				return -EFAULT;
-	return ret;
-}
-
-extern asmlinkage long sys_setgroups(int gidsetsize, gid_t *grouplist);
-
-asmlinkage long
-sys32_setgroups(int gidsetsize, __kernel_gid_t32 *grouplist)
-{
-	gid_t gl[NGROUPS];
-	int ret, i;
-	mm_segment_t old_fs = get_fs ();
-	
-	if ((unsigned) gidsetsize > NGROUPS)
-		return -EINVAL;
-	for (i = 0; i < gidsetsize; i++, grouplist++)
-		if (get_user (gl[i], grouplist))
-			return -EFAULT;
-        set_fs (KERNEL_DS);
-	ret = sys_setgroups(gidsetsize, gl);
-	set_fs (old_fs);
-	return ret;
-}
-
-
 extern void check_pending(int signum);
 
 asmlinkage long sys_utimes(char *, struct timeval *);
@@ -2110,7 +1999,7 @@ asmlinkage long sys32_olduname(struct oldold_utsname * name)
 	 __put_user(0,name->version+__OLD_UTS_LEN);
 	 { 
 		 char *arch = (personality(current->personality) == PER_LINUX32)
-			 ? "i386" : "x86_64"; 
+			 ? "i686" : "x86_64"; 
 		 
 		 __copy_to_user(&name->machine,arch,strlen(arch)+1);
 	 }
@@ -2129,7 +2018,7 @@ asmlinkage long sys32_uname(struct old_utsname * name)
 	err=copy_to_user(name, &system_utsname, sizeof (*name));
 	up_read(&uts_sem);
 	if (personality(current->personality) == PER_LINUX32)
-		err = copy_to_user(name->machine, "i386", 5);
+		err = copy_to_user(name->machine, "i686", 5);
 	return err?-EFAULT:0;
 }
 
@@ -2628,7 +2517,7 @@ struct exec_domain ia32_exec_domain = {
 
 static int __init ia32_init (void)
 {
-	printk("IA32 emulation $Id: sys_ia32.c,v 1.38 2002/07/18 09:46:54 ak Exp $\n");  
+	printk("IA32 emulation $Id: sys_ia32.c,v 1.42 2002/09/17 15:23:41 ak Exp $\n");  
 	ia32_exec_domain.signal_map = default_exec_domain.signal_map;
 	ia32_exec_domain.signal_invmap = default_exec_domain.signal_invmap;
 	register_exec_domain(&ia32_exec_domain);

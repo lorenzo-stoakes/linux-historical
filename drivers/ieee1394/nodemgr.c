@@ -133,16 +133,24 @@ static int raw1394_read_proc(char *page, char **start, off_t off,
 		/* Now the unit directories */
 		list_for_each (l, &ne->unit_directories) {
 			struct unit_directory *ud = list_entry (l, struct unit_directory, node_list);
+			int printed = 0; // small hack
+
 			PUTF("  Unit Directory %d:\n", ud_count++);
-			if (ud->flags & UNIT_DIRECTORY_VENDOR_ID)
+			if (ud->flags & UNIT_DIRECTORY_VENDOR_ID) {
 				PUTF("    Vendor/Model ID: %s [%06x]",
 				     ud->vendor_name ?: "Unknown", ud->vendor_id);
-			else if (ud->flags & UNIT_DIRECTORY_MODEL_ID) /* Have to put something */
-				PUTF("    Vendor/Model ID: %s [%06x]",
-				      ne->vendor_name ?: "Unknown", ne->vendor_id);
-			if (ud->flags & UNIT_DIRECTORY_MODEL_ID)
+				printed = 1;
+			}
+			if (ud->flags & UNIT_DIRECTORY_MODEL_ID) {
+				if (!printed)
+					PUTF("    Vendor/Model ID: %s [%06x]",
+					     ne->vendor_name ?: "Unknown", ne->vendor_id);
 				PUTF(" / %s [%06x]", ud->model_name ?: "Unknown", ud->model_id);
-			PUTF("\n");
+				printed = 1;
+			}
+			if (printed)
+				PUTF("\n");
+
 			if (ud->flags & UNIT_DIRECTORY_SPECIFIER_ID)
 				PUTF("    Software Specifier ID: %06x\n", ud->specifier_id);
 			if (ud->flags & UNIT_DIRECTORY_VERSION)
@@ -1299,14 +1307,12 @@ static void nodemgr_host_reset(struct hpsb_host *host)
 		}
 	}
 
-	if (hi != NULL)
-	{
+	if (hi != NULL) {
 #ifdef CONFIG_IEEE1394_VERBOSEDEBUG
 		HPSB_DEBUG ("NodeMgr: Processing host reset for %s", host->driver->name);
 #endif
 		up(&hi->reset_sem);
-	}
-	else
+	} else
 		HPSB_ERR ("NodeMgr: could not process reset of non-existent host");
 
 	spin_unlock_irqrestore (&host_info_lock, flags);

@@ -41,6 +41,13 @@ void jfs_clear_inode(struct inode *inode)
 
 	jFYI(1, ("jfs_clear_inode called ip = 0x%p\n", inode));
 
+	if (ji->active_ag != -1) {
+		printk(KERN_ERR "jfs_clear_inode, active_ag = %d\n",
+		       ji->active_ag);
+		printk(KERN_ERR "i_ino = %ld, i_mode = %o\n",
+		       inode->i_ino, inode->i_mode);
+	}
+
 	ASSERT(list_empty(&ji->mp_list));
 	ASSERT(list_empty(&ji->anon_inode_list));
 

@@ -114,7 +114,10 @@ advwdt_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 		adv_expect_close = 0;
 
 		for (i = 0; i != count; i++) {
-			if (buf[i] == 'V')
+			char c;
+			if(get_user(c, buf+i))
+				return -EFAULT;
+			if (c == 'V')
 				adv_expect_close = 42;
 		}
 #endif

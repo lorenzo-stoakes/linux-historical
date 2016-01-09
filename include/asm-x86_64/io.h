@@ -1,6 +1,8 @@
 #ifndef _ASM_IO_H
 #define _ASM_IO_H
 
+#include <linux/config.h>
+
 /*
  * This file contains the definitions for the x86 IO instructions
  * inb/inw/inl/outb/outw/outl and the "string versions" of the same
@@ -138,7 +140,11 @@ extern inline void * phys_to_virt(unsigned long address)
 /*
  * Change "struct page" to physical address.
  */
+#ifdef CONFIG_DISCONTIGMEM
+#include <asm/mmzone.h>
+#else
 #define page_to_phys(page)	(((page) - mem_map) << PAGE_SHIFT)
+#endif
 
 extern void * __ioremap(unsigned long offset, unsigned long size, unsigned long flags);
 
@@ -214,7 +220,7 @@ void *memcpy_toio(void*,const void*,unsigned);
 
 
 /*
- * Again, i386 does not require mem IO specific function.
+ * Again, x86-64 does not require mem IO specific function.
  */
 
 #define eth_io_copy_and_sum(a,b,c,d)		eth_copy_and_sum((a),__io_virt(b),(c),(d))

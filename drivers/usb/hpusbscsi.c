@@ -396,6 +396,12 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 	);
 	hpusbscsi->scallback = callback;
 	hpusbscsi->srb = srb;
+	
+	if (hpusbscsi->dev == NULL) {
+		srb->result = DID_ERROR;
+		callback(srb);
+		goto out;
+	}
 
 	res = usb_submit_urb(&hpusbscsi->dataurb);
 	if (res) {

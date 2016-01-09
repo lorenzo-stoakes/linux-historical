@@ -32,6 +32,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/smp_lock.h>
+#include <linux/init.h>
 #include "ibmphp.h"
 
 static int to_debug = FALSE;
@@ -106,8 +107,8 @@ static struct semaphore sem_exit;	// make sure polling thread goes away
 //----------------------------------------------------------------------------
 // local function prototypes
 //----------------------------------------------------------------------------
-static u8 ctrl_read (struct controller *, void *, u8);
-static u8 ctrl_write (struct controller *, void *, u8, u8);
+static u8 i2c_ctrl_read (struct controller *, void *, u8);
+static u8 i2c_ctrl_write (struct controller *, void *, u8, u8);
 static u8 hpc_writecmdtoindex (u8, u8);
 static u8 hpc_readcmdtoindex (u8, u8);
 static void get_hpc_access (void);
@@ -126,7 +127,7 @@ static int hpc_wait_ctlr_notworking (int, struct controller *, void *, u8 *);
 *
 * Action:  initialize semaphores and variables
 *---------------------------------------------------------------------*/
-void ibmphp_hpc_initvars (void)
+void __init ibmphp_hpc_initvars (void)
 {
 	debug ("%s - Entry\n", __FUNCTION__);
 
@@ -141,12 +142,12 @@ void ibmphp_hpc_initvars (void)
 }
 
 /*----------------------------------------------------------------------
-* Name:    ctrl_read
+* Name:    i2c_ctrl_read
 *
 * Action:  read from HPC over I2C
 *
 *---------------------------------------------------------------------*/
-static u8 ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
+static u8 i2c_ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 {
 	u8 status;
 	int i;
@@ -248,13 +249,13 @@ static u8 ctrl_read (struct controller *ctlr_ptr, void *WPGBbar, u8 index)
 }
 
 /*----------------------------------------------------------------------
-* Name:    ctrl_write
+* Name:    i2c_ctrl_write
 *
 * Action:  write to HPC over I2C
 *
 * Return   0 or error codes
 *---------------------------------------------------------------------*/
-static u8 ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, u8 cmd)
+static u8 i2c_ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, u8 cmd)
 {
 	u8 rc;
 	void *wpg_addr;		// base addr + offset
@@ -350,6 +351,93 @@ static u8 ctrl_write (struct controller *ctlr_ptr, void *WPGBbar, u8 index, u8 c
 	return (rc);
 }
 
+//------------------------------------------------------------
+//  Read from ISA type HPC 
+//------------------------------------------------------------
+static u8 isa_ctrl_read (struct controller *ctlr_ptr, u8 offset)
+{
+	u16 start_address;
+	u16 end_address;
+	u8 data;
+
+	start_address = ctlr_ptr->u.isa_ctlr.io_start;
+	end_address = ctlr_ptr->u.isa_ctlr.io_end;
+	data = inb (start_address + offset);
+	return data;
+}
+
+//--------------------------------------------------------------
+// Write to ISA type HPC
+//--------------------------------------------------------------
+static void isa_ctrl_write (struct controller *ctlr_ptr, u8 offset, u8 data)
+{
+	u16 start_address;
+	u16 port_address;
+	
+	start_address = ctlr_ptr->u.isa_ctlr.io_start;
+	port_address = start_address + (u16) offset;
+	outb (data, port_address);
+}
+
+static u8 pci_ctrl_read (struct controller *ctrl, u8 offset)
+{
+	u8 data = 0x00;
+	debug ("inside pci_ctrl_read\n");
+	if (ctrl->ctrl_dev)
+		pci_read_config_byte (ctrl->ctrl_dev, HPC_PCI_OFFSET + offset, &data);
+	return data;
+}
+
+static u8 pci_ctrl_write (struct controller *ctrl, u8 offset, u8 data)
+{
+	u8 rc = -ENODEV;
+	debug ("inside pci_ctrl_write\n");
+	if (ctrl->ctrl_dev) {
+		pci_write_config_byte (ctrl->ctrl_dev, HPC_PCI_OFFSET + offset, data);
+		rc = 0;
+	}
+	return rc;
+}
+
+static u8 ctrl_read (struct controller *ctlr, void *base, u8 offset)
+{
+	u8 rc;
+	switch (ctlr->ctlr_type) {
+	case 0:
+		rc = isa_ctrl_read (ctlr, offset);
+		break;
+	case 1:
+		rc = pci_ctrl_read (ctlr, offset);
+		break;
+	case 2:
+	case 4:
+		rc = i2c_ctrl_read (ctlr, base, offset);
+		break;
+	default:
+		return -ENODEV;
+	}
+	return rc;
+}
+
+static u8 ctrl_write (struct controller *ctlr, void *base, u8 offset, u8 data)
+{
+	u8 rc = 0;
+	switch (ctlr->ctlr_type) {
+	case 0:
+		isa_ctrl_write(ctlr, offset, data);
+		break;
+	case 1:
+		rc = pci_ctrl_write (ctlr, offset, data);
+		break;
+	case 2:
+	case 4:
+		rc = i2c_ctrl_write(ctlr, base, offset, data);
+		break;
+	default:
+		return -ENODEV;
+	}
+	return rc;
+}
 /*----------------------------------------------------------------------
 * Name:    hpc_writecmdtoindex()
 *
@@ -448,7 +536,7 @@ static u8 hpc_readcmdtoindex (u8 cmd, u8 index)
 *---------------------------------------------------------------------*/
 int ibmphp_hpc_readslot (struct slot * pslot, u8 cmd, u8 * pstatus)
 {
-	void *wpg_bbar;
+	void *wpg_bbar = NULL;
 	struct controller *ctlr_ptr;
 	struct list_head *pslotlist;
 	u8 index, status;
@@ -490,7 +578,8 @@ int ibmphp_hpc_readslot (struct slot * pslot, u8 cmd, u8 * pstatus)
 	//--------------------------------------------------------------------
 	// map physical address to logical address
 	//--------------------------------------------------------------------
-	wpg_bbar = ioremap (ctlr_ptr->u.wpeg_ctlr.wpegbbar, WPG_I2C_IOREMAP_SIZE);
+	if ((ctlr_ptr->ctlr_type == 2) || (ctlr_ptr->ctlr_type == 4))
+		wpg_bbar = ioremap (ctlr_ptr->u.wpeg_ctlr.wpegbbar, WPG_I2C_IOREMAP_SIZE);
 
 	//--------------------------------------------------------------------
 	// check controller status before reading
@@ -568,7 +657,11 @@ int ibmphp_hpc_readslot (struct slot * pslot, u8 cmd, u8 * pstatus)
 	//--------------------------------------------------------------------
 	// cleanup
 	//--------------------------------------------------------------------
-	iounmap (wpg_bbar);	// remove physical to logical address mapping
+	
+	// remove physical to logical address mapping
+	if ((ctlr_ptr->ctlr_type == 2) || (ctlr_ptr->ctlr_type == 4))
+		iounmap (wpg_bbar);	
+	
 	free_hpc_access ();
 
 	debug_polling ("%s - Exit rc[%d]\n", __FUNCTION__, rc);
@@ -582,7 +675,7 @@ int ibmphp_hpc_readslot (struct slot * pslot, u8 cmd, u8 * pstatus)
 *---------------------------------------------------------------------*/
 int ibmphp_hpc_writeslot (struct slot * pslot, u8 cmd)
 {
-	void *wpg_bbar;
+	void *wpg_bbar = NULL;
 	struct controller *ctlr_ptr;
 	u8 index, status;
 	int busindex;
@@ -625,12 +718,13 @@ int ibmphp_hpc_writeslot (struct slot * pslot, u8 cmd)
 	//--------------------------------------------------------------------
 	// map physical address to logical address
 	//--------------------------------------------------------------------
-	wpg_bbar = ioremap (ctlr_ptr->u.wpeg_ctlr.wpegbbar, WPG_I2C_IOREMAP_SIZE);
+	if ((ctlr_ptr->ctlr_type == 2) || (ctlr_ptr->ctlr_type == 4)) {
+		wpg_bbar = ioremap (ctlr_ptr->u.wpeg_ctlr.wpegbbar, WPG_I2C_IOREMAP_SIZE);
 
-	debug ("%s - ctlr id[%x] physical[%lx] logical[%lx] i2c[%x]\n", __FUNCTION__,
+		debug ("%s - ctlr id[%x] physical[%lx] logical[%lx] i2c[%x]\n", __FUNCTION__,
 		ctlr_ptr->ctlr_id, (ulong) (ctlr_ptr->u.wpeg_ctlr.wpegbbar), (ulong) wpg_bbar,
 		ctlr_ptr->u.wpeg_ctlr.i2c_addr);
-
+	}
 	//--------------------------------------------------------------------
 	// check controller status before writing
 	//--------------------------------------------------------------------
@@ -667,7 +761,10 @@ int ibmphp_hpc_writeslot (struct slot * pslot, u8 cmd)
 		ctlr_ptr->status = status;
 	}
 	// cleanup
-	iounmap (wpg_bbar);	// remove physical to logical address mapping
+
+	// remove physical to logical address mapping
+	if ((ctlr_ptr->ctlr_type == 2) || (ctlr_ptr->ctlr_type == 4))
+		iounmap (wpg_bbar);	
 	free_hpc_access ();
 
 	debug_polling ("%s - Exit rc[%d]\n", __FUNCTION__, rc);
@@ -700,6 +797,7 @@ void free_hpc_access (void)
 void ibmphp_lock_operations (void)
 {
 	down (&semOperations);
+	to_debug = TRUE;
 }
 
 /*----------------------------------------------------------------------
@@ -709,6 +807,7 @@ void ibmphp_unlock_operations (void)
 {
 	debug ("%s - Entry\n", __FUNCTION__);
 	up (&semOperations);
+	to_debug = FALSE;
 	debug ("%s - Exit\n", __FUNCTION__);
 }
 
@@ -733,82 +832,86 @@ static void poll_hpc (void)
 	debug ("%s - Entry\n", __FUNCTION__);
 
 	while (!ibmphp_shutdown) {
+		if (ibmphp_shutdown) 
+			break;
+		
 		/* try to get the lock to do some kind of harware access */
 		down (&semOperations);
 
 		switch (poll_state) {
-			case POLL_LATCH_REGISTER:
-				oldlatchlow = curlatchlow;
-				ctrl_count = 0x00;
-				list_for_each (pslotlist, &ibmphp_slot_head) {
-					if (ctrl_count >= ibmphp_get_total_controllers())
-						break;
-					pslot = list_entry (pslotlist, struct slot, ibm_slot_list);
-					if (pslot->ctrl->ctlr_relative_id == ctrl_count) {
-						ctrl_count++;
-						if (READ_SLOT_LATCH (pslot->ctrl)) {
-							rc = ibmphp_hpc_readslot (pslot,
-										  READ_SLOTLATCHLOWREG,
-										  &curlatchlow);
-							if (oldlatchlow != curlatchlow)
-								process_changeinlatch (oldlatchlow,
-										       curlatchlow,
-										       pslot->ctrl);
-						}
+		case POLL_LATCH_REGISTER: 
+			oldlatchlow = curlatchlow;
+			ctrl_count = 0x00;
+			list_for_each (pslotlist, &ibmphp_slot_head) {
+				if (ctrl_count >= ibmphp_get_total_controllers())
+					break;
+				pslot = list_entry (pslotlist, struct slot, ibm_slot_list);
+				if (pslot->ctrl->ctlr_relative_id == ctrl_count) {
+					ctrl_count++;
+					if (READ_SLOT_LATCH (pslot->ctrl)) {
+						rc = ibmphp_hpc_readslot (pslot,
+									  READ_SLOTLATCHLOWREG,
+									  &curlatchlow);
+						if (oldlatchlow != curlatchlow)
+							process_changeinlatch (oldlatchlow,
+									       curlatchlow,
+									       pslot->ctrl);
 					}
 				}
+			}
+			++poll_count;
+			poll_state = POLL_SLEEP;
+			break;
+		case POLL_SLOTS:
+			list_for_each (pslotlist, &ibmphp_slot_head) {
+				pslot = list_entry (pslotlist, struct slot, ibm_slot_list);
+				// make a copy of the old status
+				memcpy ((void *) &myslot, (void *) pslot,
+					sizeof (struct slot));
+				rc = ibmphp_hpc_readslot (pslot, READ_ALLSTAT, NULL);
+				if ((myslot.status != pslot->status)
+				    || (myslot.ext_status != pslot->ext_status))
+					process_changeinstatus (pslot, &myslot);
+			}
+			ctrl_count = 0x00;
+			list_for_each (pslotlist, &ibmphp_slot_head) {
+				if (ctrl_count >= ibmphp_get_total_controllers())
+					break;
+				pslot = list_entry (pslotlist, struct slot, ibm_slot_list);
+				if (pslot->ctrl->ctlr_relative_id == ctrl_count) {
+					ctrl_count++;
+					if (READ_SLOT_LATCH (pslot->ctrl))
+						rc = ibmphp_hpc_readslot (pslot,
+									  READ_SLOTLATCHLOWREG,
+									  &curlatchlow);
+				}
+			}
+			++poll_count;
+			poll_state = POLL_SLEEP;
+			break;
+		case POLL_SLEEP:
+			/* don't sleep with a lock on the hardware */
+			up (&semOperations);
+			long_delay (POLL_INTERVAL_SEC * HZ);
+
+			if (ibmphp_shutdown) 
+				break;
+			
+			down (&semOperations);
+			
+			if (poll_count >= POLL_LATCH_CNT) {
+				poll_count = 0;
 				poll_state = POLL_SLOTS;
-				break;
-
-			case POLL_SLOTS:
-				list_for_each (pslotlist, &ibmphp_slot_head) {
-					pslot = list_entry (pslotlist, struct slot, ibm_slot_list);
-					// make a copy of the old status
-					memcpy ((void *) &myslot, (void *) pslot,
-						sizeof (struct slot));
-					rc = ibmphp_hpc_readslot (pslot, READ_ALLSTAT, NULL);
-					if ((myslot.status != pslot->status)
-					    || (myslot.ext_status != pslot->ext_status))
-						process_changeinstatus (pslot, &myslot);
-				}
-
-				ctrl_count = 0x00;
-				list_for_each (pslotlist, &ibmphp_slot_head) {
-					if (ctrl_count >= ibmphp_get_total_controllers())
-						break;
-					pslot = list_entry (pslotlist, struct slot, ibm_slot_list);
-					if (pslot->ctrl->ctlr_relative_id == ctrl_count) {
-						ctrl_count++;
-						if (READ_SLOT_LATCH (pslot->ctrl))
-							rc = ibmphp_hpc_readslot (pslot,
-										  READ_SLOTLATCHLOWREG,
-										  &curlatchlow);
-					}
-				}
-				++poll_count;
-				if (poll_count >= POLL_LATCH_CNT) {
-					poll_count = 0;
-					poll_state = POLL_SLEEP;
-				}
-				break;
-
-			case POLL_SLEEP:
-				/* don't sleep with a lock on the hardware */
-				up (&semOperations);
-				long_delay (POLL_INTERVAL_SEC * HZ);
-				down (&semOperations);
+			} else
 				poll_state = POLL_LATCH_REGISTER;
-				break;
-		}
-
+			break;
+		}	
 		/* give up the harware semaphore */
 		up (&semOperations);
-
 		/* sleep for a short time just for good measure */
 		set_current_state (TASK_INTERRUPTIBLE);
 		schedule_timeout (HZ/10);
 	}
-
 	up (&sem_exit);
 	debug ("%s - Exit\n", __FUNCTION__);
 }
@@ -1044,19 +1147,19 @@ static int hpc_poll_thread (void *data)
 *
 * Action:  start polling thread
 *---------------------------------------------------------------------*/
-int ibmphp_hpc_start_poll_thread (void)
+int __init ibmphp_hpc_start_poll_thread (void)
 {
 	int rc = 0;
 
-	debug ("ibmphp_hpc_start_poll_thread - Entry\n");
+	debug ("%s - Entry\n", __FUNCTION__);
 
 	tid_poll = kernel_thread (hpc_poll_thread, 0, 0);
 	if (tid_poll < 0) {
-		err ("ibmphp_hpc_start_poll_thread - Error, thread not started\n");
+		err ("%s - Error, thread not started\n", __FUNCTION__);
 		rc = -1;
 	}
 
-	debug ("ibmphp_hpc_start_poll_thread - Exit tid_poll[%d] rc[%d]\n", tid_poll, rc);
+	debug ("%s - Exit tid_poll[%d] rc[%d]\n", __FUNCTION__, tid_poll, rc);
 	return rc;
 }
 
@@ -1065,22 +1168,30 @@ int ibmphp_hpc_start_poll_thread (void)
 *
 * Action:  stop polling thread and cleanup
 *---------------------------------------------------------------------*/
-void ibmphp_hpc_stop_poll_thread (void)
+void __exit ibmphp_hpc_stop_poll_thread (void)
 {
-	debug ("ibmphp_hpc_stop_poll_thread - Entry\n");
+	debug ("%s - Entry\n", __FUNCTION__);
 
 	ibmphp_shutdown = TRUE;
+	debug ("before locking operations \n");
 	ibmphp_lock_operations ();
-
+	debug ("after locking operations \n");
+	
 	// wait for poll thread to exit
+	debug ("before sem_exit down \n");
 	down (&sem_exit);
+	debug ("after sem_exit down \n");
 
 	// cleanup
+	debug ("before free_hpc_access \n");
 	free_hpc_access ();
+	debug ("after free_hpc_access \n");
 	ibmphp_unlock_operations ();
+	debug ("after unlock operations \n");
 	up (&sem_exit);
+	debug ("after sem exit up\n");
 
-	debug ("ibmphp_hpc_stop_poll_thread - Exit\n");
+	debug ("%s - Exit\n", __FUNCTION__);
 }
 
 /*----------------------------------------------------------------------

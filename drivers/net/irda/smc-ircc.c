@@ -1204,7 +1204,7 @@ static int __exit ircc_close(struct ircc_cb *self)
 }
 #endif /* MODULE */
 
-int __init smc_init(void)
+static int __init smc_init(void)
 {
 	return ircc_init();
 }

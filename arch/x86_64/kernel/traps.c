@@ -7,7 +7,7 @@
  *  Pentium III FXSR, SSE support
  *	Gareth Hughes <gareth@valinux.com>, May 2000
  *
- *  $Id: traps.c,v 1.48 2002/08/03 19:09:41 ak Exp $
+ *  $Id: traps.c,v 1.51 2002/09/12 12:57:46 ak Exp $
  */
 
 /*
@@ -75,7 +75,7 @@ extern char iret_address[];
 
 struct notifier_block *die_chain;
 
-int kstack_depth_to_print = 80;
+int kstack_depth_to_print = 40;
 
 #ifdef CONFIG_KALLSYMS
 #include <linux/kallsyms.h> 
@@ -271,6 +271,11 @@ void show_stack(unsigned long * rsp)
 	show_trace((unsigned long *)rsp);
 }
 
+void dump_stack(void)
+{
+	show_stack(0);
+} 
+
 void show_registers(struct pt_regs *regs)
 {
 	int i;
@@ -386,10 +391,10 @@ static inline unsigned long get_cr2(void)
 static void do_trap(int trapnr, int signr, char *str, 
 		    struct pt_regs * regs, long error_code, siginfo_t *info)
 {
-#ifdef CONFIG_CHECKING
+#if defined(CONFIG_CHECKING) && defined(CONFIG_LOCAL_APIC)
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + hard_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
@@ -547,8 +552,8 @@ asmlinkage void do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = inb(0x61);
 
-
 	++nmi_count(smp_processor_id());
+	
 	if (!(reason & 0xc0)) {
 #if CONFIG_X86_LOCAL_APIC
 		/*
@@ -560,6 +565,8 @@ asmlinkage void do_nmi(struct pt_regs * regs)
 			return;
 		}
 #endif
+		if (notify_die(DIE_NMI, "nmi", regs, reason) == NOTIFY_BAD)
+			return;
 		unknown_nmi_error(reason, regs);
 		return;
 	}
@@ -569,6 +576,7 @@ asmlinkage void do_nmi(struct pt_regs * regs)
 		mem_parity_error(reason, regs);
 	if (reason & 0x40)
 		io_check_error(reason, regs);
+
 	/*
 	 * Reassert NMI in case it became active meanwhile
 	 * as it's edge-triggered.
@@ -601,6 +609,11 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 
 	if (notify_die(DIE_DEBUG, "debug", regs, error_code) == NOTIFY_BAD)
 		return; 
+
+	/* If the user set TF, it's simplest to clear it right away. */
+	/* AK: dubious check, likely wrong */
+	if ((regs->cs & 3) == 0 && (regs->eflags & TF_MASK))
+		goto clear_TF;
 
 	/* Mask out spurious debug traps due to lazy DR7 setting */
 	if (condition & (DR_TRAP0|DR_TRAP1|DR_TRAP2|DR_TRAP3)) {

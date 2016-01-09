@@ -237,7 +237,10 @@ static ssize_t sh_wdt_write(struct file *file, const char *buf,
 		shwdt_expect_close = 0;
 
 		for (i = 0; i != count; i++) {
-			if (buf[i] == 'V')
+			char c;
+			if (get_user(c, buf + i))
+				return -EFAULT;
+			if (c == 'V')
 				shwdt_expect_close = 42;
 		}
 		next_heartbeat = jiffies + (sh_heartbeat * HZ);

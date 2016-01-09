@@ -1261,9 +1261,12 @@ int __devinit HiSax_inithardware(int *busy_flag)
 			foundcards++;
 			i++;
 		} else {
-			printk(KERN_WARNING
-			       "HiSax: Card %s not installed !\n",
-			       CardType[cards[i].typ]);
+			/* make sure we don't oops the module */
+			if (cards[i].typ > 0 && cards[i].typ <= ISDN_CTYPE_COUNT) {
+				printk(KERN_WARNING
+			       		"HiSax: Card %s not installed !\n",
+			       		CardType[cards[i].typ]);
+			}
 			HiSax_shiftcards(i);
 			nrcards--;
 		}

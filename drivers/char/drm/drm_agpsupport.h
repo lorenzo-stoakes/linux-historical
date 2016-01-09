@@ -285,6 +285,7 @@ drm_agp_head_t *DRM(agp_init)(void)
 		case SIS_GENERIC:	head->chipset = "SiS";           break;
 		case AMD_GENERIC:	head->chipset = "AMD";           break;
 		case AMD_IRONGATE:	head->chipset = "AMD Irongate";  break;
+		case AMD_8151:		head->chipset = "AMD 8151";      break;
 		case ALI_GENERIC:	head->chipset = "ALi";           break;
 		case ALI_M1541: 	head->chipset = "ALi M1541";     break;
 

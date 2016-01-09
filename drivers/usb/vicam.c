@@ -475,7 +475,9 @@ static long vicam_v4l_read(struct video_device *vdev, char *user_buf, unsigned l
 
 	if (!vdev || !buf)
 		return -EFAULT;
-
+	
+	if(buflen > 0x1e480)
+		buflen = 0x1e480;
 	if (copy_to_user(user_buf, buf2, buflen))
 		return -EFAULT;
 	return buflen;

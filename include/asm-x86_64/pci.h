@@ -6,6 +6,8 @@
 
 #ifdef __KERNEL__
 
+extern dma_addr_t bad_dma_address;
+
 /* Can be used to override the logic in pci_scan_bus for skipping
    already-configured bus numbers - to be used for buggy BIOSes
    or architectures with incomplete PCI setup by the loader */
@@ -31,6 +33,7 @@ int pcibios_set_irq_routing(struct pci_dev *dev, int pin, int irq);
 #include <linux/string.h>
 #include <asm/io.h>
 #include <asm/page.h>
+#include <asm/mmzone.h>
 
 struct pci_dev;
 

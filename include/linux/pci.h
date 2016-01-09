@@ -439,6 +439,7 @@ struct pci_bus {
 extern struct list_head pci_root_buses;	/* list of all known PCI buses */
 extern struct list_head pci_devices;	/* list of all devices */
 
+extern struct proc_dir_entry *proc_bus_pci_dir;
 /*
  * Error values that may be returned by PCI functions.
  */
@@ -463,9 +464,9 @@ struct pci_ops {
 
 struct pbus_set_ranges_data
 {
-	int found_vga;
 	unsigned long io_start, io_end;
 	unsigned long mem_start, mem_end;
+	unsigned long prefetch_start, prefetch_end;
 };
 
 struct pci_device_id {
@@ -500,7 +501,8 @@ int pcibios_enable_device(struct pci_dev *, int mask);
 char *pcibios_setup (char *str);
 
 /* Used only when drivers/pci/setup.c is used */
-void pcibios_align_resource(void *, struct resource *, unsigned long);
+void pcibios_align_resource(void *, struct resource *,
+			    unsigned long, unsigned long);
 void pcibios_update_resource(struct pci_dev *, struct resource *,
 			     struct resource *, int);
 void pcibios_update_irq(struct pci_dev *, int irq);
@@ -584,7 +586,7 @@ int pci_enable_wake(struct pci_dev *dev, u32 state, int enable);
 int pci_claim_resource(struct pci_dev *, int);
 void pci_assign_unassigned_resources(void);
 void pdev_enable_device(struct pci_dev *);
-void pdev_sort_resources(struct pci_dev *, struct resource_list *, u32);
+void pdev_sort_resources(struct pci_dev *, struct resource_list *);
 unsigned long pci_bridge_check_io(struct pci_dev *);
 void pci_fixup_irqs(u8 (*)(struct pci_dev *, u8 *),
 		    int (*)(struct pci_dev *, u8, u8));

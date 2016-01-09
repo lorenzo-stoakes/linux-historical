@@ -775,7 +775,8 @@ void __init print_IO_APIC(void)
 		(reg_01.entries != 0x1f) && /* dual Xeon boards */
 		(reg_01.entries != 0x22) && /* bigger Xeon boards */
 		(reg_01.entries != 0x2E) &&
-		(reg_01.entries != 0x3F)
+		(reg_01.entries != 0x3F) &&
+		(reg_01.entries != 0x03)    /* Golem */
 	)
 		UNEXPECTED_IO_APIC();
 
@@ -784,7 +785,7 @@ void __init print_IO_APIC(void)
 	if (	(reg_01.version != 0x01) && /* 82489DX IO-APICs */
 		(reg_01.version != 0x02) && /* 82801BA IO-APICs (ICH2) */
 		(reg_01.version != 0x10) && /* oldest IO-APICs */
-		(reg_01.version != 0x11) && /* Pentium/Pro IO-APICs */
+		(reg_01.version != 0x11) && /* Pentium/Pro IO-APICs / GOLEM */
 		(reg_01.version != 0x13) && /* Xeon IO-APICs */
 		(reg_01.version != 0x20)    /* Intel P64H (82806 AA) */
 	)
@@ -1405,9 +1406,11 @@ static struct hw_interrupt_type lapic_irq_type = {
 	end_lapic_irq
 };
 
-static void enable_NMI_through_LVT0 (void * dummy)
+void enable_NMI_through_LVT0 (void * dummy)
 {
 	unsigned int v, ver;
+
+	printk("enable NMI through LVT0 on cpu %d\n", smp_processor_id());
 
 	ver = apic_read(APIC_LVR);
 	ver = GET_APIC_VERSION(ver);

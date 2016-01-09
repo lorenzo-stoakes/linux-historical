@@ -12,6 +12,8 @@
  *
  */
 
+#define HPET_BIOS_SUPPORT_WORKING
+
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -47,9 +49,14 @@ struct timezone __sys_tz __section_sys_tz;
  * together by xtime_lock.
  */
 
+static spinlock_t time_offset_lock = SPIN_LOCK_UNLOCKED;
+static unsigned long timeoffset = 0;
+
 inline unsigned int do_gettimeoffset(void)
 {
-	return hpet.address ? (((hpet_readl(HPET_COUNTER) - hpet.trigger) * hpet.quotient) >> 32) : 0;
+	unsigned long t;
+	rdtscll(t);	
+	return (t  - hpet.last_tsc) * (1000000L / HZ) / hpet.ticks + hpet.offset;
 }
 
 /*
@@ -60,15 +67,20 @@ inline unsigned int do_gettimeoffset(void)
 
 void do_gettimeofday(struct timeval *tv)
 {
-	unsigned long flags;
-	unsigned int usec, sec;
+	unsigned long flags, t;
+ 	unsigned int sec, usec;
 
 	read_lock_irqsave(&xtime_lock, flags);
+	spin_lock(&time_offset_lock);
 
 	sec = xtime.tv_sec;
-	usec = xtime.tv_usec + do_gettimeoffset() +
-		(jiffies - wall_jiffies) * tick;
+	usec = xtime.tv_usec;
 
+	t = (jiffies - wall_jiffies) * (1000000L / HZ) + do_gettimeoffset();
+	if (t > timeoffset) timeoffset = t;
+	usec += timeoffset;
+
+	spin_unlock(&time_offset_lock);
 	read_unlock_irqrestore(&xtime_lock, flags);
 
 	tv->tv_sec = sec + usec / 1000000;
@@ -154,8 +166,8 @@ static void set_rtc_mmss(unsigned long nowtime)
 	if (abs(real_minutes - cmos_minutes) < 30) {
 		BIN_TO_BCD(real_seconds);
 		BIN_TO_BCD(real_minutes);
-		CMOS_WRITE(real_seconds,RTC_SECONDS);
-		CMOS_WRITE(real_minutes,RTC_MINUTES);
+		CMOS_WRITE(real_seconds, RTC_SECONDS);
+		CMOS_WRITE(real_minutes, RTC_MINUTES);
 	} else
 		printk(KERN_WARNING "time.c: can't update CMOS clock from %d to %d\n",
 			cmos_minutes, real_minutes);
@@ -188,23 +200,16 @@ static void timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	write_lock(&xtime_lock);
 	vxtime_lock();
 
-/*
- * register, that'd get us the current time - but we want to know the exact
- * moment the interrupt was triggered by the hardware. HPET_T0_CMP always
- * contains the value when the next tick will happen - by subtracting the tick
- * size, we know the exact time when this interrupt was triggered.
- */
+	{
+		unsigned long t;
 
-	if (hpet.address) {
-		int t = hpet_readl(HPET_T0_CMP) - hpet_tick;
-
-		if (t - hpet.trigger > hpet_tick) {
-			if (hpet_report_lost_ticks)
-				printk(KERN_WARNING "time.c: Lost timer tick(s)! (rip %016lx)\n", regs->rip);
-			jiffies += (t - hpet.trigger) / hpet_tick - 1;
-		}
-
-		hpet.trigger = t;
+		rdtscll(t);
+		hpet.offset = (t  - hpet.last_tsc) * (1000000L / HZ) / hpet.ticks + hpet.offset - 1000000L / HZ;
+		if (hpet.offset >= 1000000L / HZ)
+			hpet.offset = 0;
+		hpet.ticks = min_t(long, max_t(long, (t  - hpet.last_tsc) * (1000000L / HZ) / (1000000L / HZ - hpet.offset),
+				cpu_khz * 1000/HZ * 15 / 16), cpu_khz * 1000/HZ * 16 / 15); 
+		hpet.last_tsc = t;
 	}
 
 /*
@@ -374,7 +379,6 @@ static int hpet_init(void)
 		return -1;
 
 	hpet_tick = (1000000000L * tick + hpet_period / 2) / hpet_period;
-	hpet.quotient = (hpet_period << 32) / 1000000000L;
 
 /*
  * Stop the timers and reset the main counter.
@@ -424,41 +428,9 @@ extern void __init config_acpi_tables(void);
 
 void __init time_init(void)
 {
-
-	config_acpi_tables();
-
-#ifndef HPET_BIOS_SUPPORT_WORKING
-/*
- * Enable HPET in PCI config space of the LPC bridge - cannot use PCI
- * functions, because PCI isn't initialized yet, do it manually.
- */
-
-	if (!hpet.address) {
-		outl(0x800038a0, 0xcf8);
-		outl(0xff000001, 0xcfc);
-		outl(0x800038a0, 0xcf8);
-		hpet.address = inl(0xcfc) & 0xfffffffe;
-		printk(KERN_INFO "time.c: Enabled HPET base manually at %#lx.\n", hpet.address);
-	}
-
-#endif
-
-#ifndef CONFIG_HPET_TIMER
-	hpet.address = 0;
-#endif
-
 	xtime.tv_sec = get_cmos_time();
 	xtime.tv_usec = 0;
 
-	if (!hpet_init()) {
-		setup_irq(0, &irq0);
-		hpet.hz = (1000000000000000L + hpet_period / 2) / hpet_period;
-		printk(KERN_INFO "time.c: Using %ld.%06ld MHz HPET timer.\n",
-			hpet.hz / 1000000, hpet.hz % 1000000);
-		cpu_khz = hpet_calibrate_tsc();
-		printk(KERN_INFO "time.c: Detected %d.%03d MHz processor.\n",
-			cpu_khz / 1000, cpu_khz % 1000);
-	} else {
 		printk(KERN_WARNING "time.c: HPET timer not found, precise timing unavailable.\n");
 		pit_init();
 		printk(KERN_INFO "time.c: Using 1.1931816 MHz PIT timer.\n");
@@ -466,7 +438,8 @@ void __init time_init(void)
 		cpu_khz = pit_calibrate_tsc();
 		printk(KERN_INFO "time.c: Detected %d.%03d MHz processor.\n",
 			cpu_khz / 1000, cpu_khz % 1000);
-	}
+	hpet.ticks = cpu_khz * (1000 / HZ);
+	rdtscll(hpet.last_tsc);
 }
 
 __setup("report_lost_ticks", time_setup);

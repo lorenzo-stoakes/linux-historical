@@ -50,7 +50,7 @@ struct jfs_inode_info {
 	long	cflag;		/* commit flags		*/
 	u16	bxflag;		/* xflag of pseudo buffer?	*/
 	unchar	agno;		/* ag number			*/
-	unchar	pad;		/* pad			*/
+	signed char active_ag;	/* ag currently allocating from	*/
 	lid_t	blid;		/* lid of pseudo buffer?	*/
 	lid_t	atlhead;	/* anonymous tlock list head	*/
 	lid_t	atltail;	/* anonymous tlock list tail	*/
@@ -76,7 +76,7 @@ struct jfs_inode_info {
 			struct inomap *_imap;	/* 4: inode map header	*/
 		} file;
 		struct {
-			dir_table_slot_t _table[12]; /* 96: directory index */
+			struct dir_table_slot _table[12]; /* 96: dir index */
 			dtroot_t _dtroot;	/* 288: dtree root */
 		} dir;
 		struct {

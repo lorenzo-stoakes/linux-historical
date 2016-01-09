@@ -77,7 +77,7 @@
 	printk(KERN_ERR fmt, ## args)
 
 static char version[] __devinitdata =
-	"eth1394.c:v0.50 15/Jul/01 Ben Collins <bcollins@debian.org>";
+	"$Rev: 546 $ Ben Collins <bcollins@debian.org>";
 
 /* Our ieee1394 highlevel driver */
 #define ETHER1394_DRIVER_NAME "ether1394"
@@ -99,6 +99,7 @@ static int hdr_type_len[] = {
 
 MODULE_AUTHOR("Ben Collins (bcollins@debian.org)");
 MODULE_DESCRIPTION("IEEE 1394 IPv4 Driver (IPv4-over-1394 as per RFC 2734)");
+MODULE_LICENSE("GPL");
 
 /* Find our host_info struct for a given host pointer. Must be called
  * under spinlock.  */

@@ -586,7 +586,7 @@ err_out:
 		i + 1, /* PCI BAR # */
 		pci_resource_len(pdev, i), pci_resource_start(pdev, i),
 		pdev->slot_name);
-	while(--i <= 0)
+	while(--i >= 0)
 		pci_release_region(pdev, i);
 		
 	return -EBUSY;
@@ -1159,7 +1159,6 @@ void __devinit pci_read_bridge_bases(struct pci_bus *child)
 		res->flags = (io_base_lo & PCI_IO_RANGE_TYPE_MASK) | IORESOURCE_IO;
 		res->start = base;
 		res->end = limit + 0xfff;
-		res->name = child->name;
 	}
 
 	res = child->resource[1];
@@ -1171,7 +1170,6 @@ void __devinit pci_read_bridge_bases(struct pci_bus *child)
 		res->flags = (mem_base_lo & PCI_MEMORY_RANGE_TYPE_MASK) | IORESOURCE_MEM;
 		res->start = base;
 		res->end = limit + 0xfffff;
-		res->name = child->name;
 	}
 
 	res = child->resource[2];
@@ -1198,7 +1196,6 @@ void __devinit pci_read_bridge_bases(struct pci_bus *child)
 		res->flags = (mem_base_lo & PCI_MEMORY_RANGE_TYPE_MASK) | IORESOURCE_MEM | IORESOURCE_PREFETCH;
 		res->start = base;
 		res->end = limit + 0xfffff;
-		res->name = child->name;
 	}
 }
 
@@ -1240,9 +1237,11 @@ struct pci_bus * __devinit pci_add_new_bus(struct pci_bus *parent, struct pci_de
 	child->primary = parent->secondary;
 	child->subordinate = 0xff;
 
-	/* Set up default resource pointers.. */
-	for (i = 0; i < 4; i++)
+	/* Set up default resource pointers and names.. */
+	for (i = 0; i < 4; i++) {
 		child->resource[i] = &dev->resource[PCI_BRIDGE_RESOURCES+i];
+		child->resource[i]->name = child->name;
+	}
 
 	return child;
 }
@@ -2153,11 +2152,13 @@ EXPORT_SYMBOL(pci_announce_device_to_drivers);
 EXPORT_SYMBOL(pci_add_new_bus);
 EXPORT_SYMBOL(pci_do_scan_bus);
 EXPORT_SYMBOL(pci_scan_slot);
+EXPORT_SYMBOL(pci_scan_bus);
 #ifdef CONFIG_PROC_FS
 EXPORT_SYMBOL(pci_proc_attach_device);
 EXPORT_SYMBOL(pci_proc_detach_device);
 EXPORT_SYMBOL(pci_proc_attach_bus);
 EXPORT_SYMBOL(pci_proc_detach_bus);
+EXPORT_SYMBOL(proc_bus_pci_dir);
 #endif
 #endif
 

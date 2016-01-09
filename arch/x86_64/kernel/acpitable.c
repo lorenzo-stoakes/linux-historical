@@ -28,6 +28,14 @@
 
 static acpi_table_handler acpi_boot_ops[ACPI_TABLE_COUNT];
 
+extern unsigned long end_pfn;
+static inline int bad_ptr(void *p) 
+{ 
+	if ((unsigned long)p  >> PAGE_SHIFT >= end_pfn) 
+		return 1; 
+	return 0; 	
+} 
+
 /*
  * Checksum an ACPI table.
  */
@@ -145,6 +153,8 @@ static int __init acpi_tables_init(void)
 	if (!acpi_checksum(rsdp, RSDP2_CHECKSUM_LENGTH)
 		&& rsdp->length >= RSDP2_CHECKSUM_LENGTH) {	/* ACPI 2.0 might be present */
 		xsdt = __va(rsdp->xsdt_address);
+		if (bad_ptr(xsdt))
+			return -1; 
 		if (!strncmp(xsdt->header.signature, "XSDT", 4)) {
 			acpi_print_table_header(&xsdt->header);
 			for (i = 0; i < (xsdt->header.length - sizeof(struct acpi_table_header)) / sizeof(u64); i++)
@@ -155,6 +165,8 @@ static int __init acpi_tables_init(void)
 	}
 
 	rsdt = __va(rsdp->rsdt_address);
+	if (bad_ptr(rsdt))
+		return -1;
 	if (!strncmp(rsdt->header.signature, "RSDT", 4)) {
 		acpi_print_table_header(&rsdt->header);
 		for (i = 0; i < (rsdt->header.length - sizeof(struct acpi_table_header)) / sizeof(u32); i++)

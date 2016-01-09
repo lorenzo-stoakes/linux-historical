@@ -19,10 +19,7 @@
 
 extern __inline__ pmd_t *get_pmd_slow(void)
 {
-	pmd_t *ret = (pmd_t *)__get_free_page(GFP_KERNEL);
-	if (ret)
-		clear_page(ret);
-	return ret;
+	return (pmd_t *)get_zeroed_page(GFP_KERNEL);
 }
 
 extern __inline__ pmd_t *get_pmd_fast(void)
@@ -56,7 +53,7 @@ static inline pmd_t *pmd_alloc_one_fast (struct mm_struct *mm, unsigned long add
 {
 	unsigned long *ret = (unsigned long *)read_pda(pmd_quick);
 
-	if (__builtin_expect(ret != NULL, 1)) {
+	if (ret != NULL) {
 		write_pda(pmd_quick, (unsigned long *)(*ret));
 		ret[0] = 0;
 		dec_pgcache_size();
@@ -66,24 +63,18 @@ static inline pmd_t *pmd_alloc_one_fast (struct mm_struct *mm, unsigned long add
 
 static inline pmd_t *pmd_alloc_one (struct mm_struct *mm, unsigned long addr)
 {
-	pmd_t *pmd = (pmd_t *) __get_free_page(GFP_KERNEL);
-
-	if (__builtin_expect(pmd != NULL, 1))
-		clear_page(pmd);
-	return pmd;
+	return (pmd_t *)get_zeroed_page(GFP_KERNEL); 
 }
-
 
 static inline pgd_t *pgd_alloc_one_fast (void)
 {
 	unsigned long *ret = read_pda(pgd_quick);
 
-	if (__builtin_expect(ret != NULL, 1)) {
+	if (ret) {
 		write_pda(pgd_quick,(unsigned long *)(*ret));
 		ret[0] = 0;
 		dec_pgcache_size();
-	} else
-		ret = NULL;
+	}
 	return (pgd_t *) ret;
 }
 
@@ -92,11 +83,8 @@ static inline pgd_t *pgd_alloc (struct mm_struct *mm)
 	/* the VM system never calls pgd_alloc_one_fast(), so we do it here. */
 	pgd_t *pgd = pgd_alloc_one_fast();
 
-	if (__builtin_expect(pgd == NULL, 0)) {
-		pgd = (pgd_t *)__get_free_page(GFP_KERNEL);
-		if (__builtin_expect(pgd != NULL, 1))
-			clear_page(pgd);
-	}
+	if (pgd == NULL)
+		pgd = (pgd_t *)get_zeroed_page(GFP_KERNEL); 
 	return pgd;
 }
 
@@ -118,19 +106,14 @@ static inline void pgd_free_slow (pgd_t *pgd)
 
 static inline pte_t *pte_alloc_one(struct mm_struct *mm, unsigned long address)
 {
-	pte_t *pte;
-
-	pte = (pte_t *) __get_free_page(GFP_KERNEL);
-	if (pte)
-		clear_page(pte);
-	return pte;
+	return (pte_t *)get_zeroed_page(GFP_KERNEL); 
 }
 
 extern __inline__ pte_t *pte_alloc_one_fast(struct mm_struct *mm, unsigned long address)
 {
 	unsigned long *ret;
 
-	if(__builtin_expect((ret = read_pda(pte_quick)) != NULL, !0)) {  
+	if ((ret = read_pda(pte_quick)) != NULL) {  
 		write_pda(pte_quick, (unsigned long *)(*ret));
 		ret[0] = ret[1];
 		dec_pgcache_size();

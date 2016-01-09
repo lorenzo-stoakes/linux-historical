@@ -58,6 +58,11 @@
 #define TG3PCI_MAX_LAT			0x0000003f
 #define TG3PCI_X_CAPS			0x00000040
 #define  PCIX_CAPS_RELAXED_ORDERING	 0x00020000
+#define  PCIX_CAPS_SPLIT_MASK		 0x00700000
+#define  PCIX_CAPS_SPLIT_SHIFT		 20
+#define  PCIX_CAPS_BURST_MASK		 0x000c0000
+#define  PCIX_CAPS_BURST_SHIFT		 18
+#define  PCIX_CAPS_MAX_BURST_5704	 2
 #define TG3PCI_PM_CAP_PTR		0x00000041
 #define TG3PCI_X_COMMAND		0x00000042
 #define TG3PCI_X_STATUS			0x00000044
@@ -109,10 +114,13 @@
 #define  CHIPREV_ID_5703_A0		 0x1000
 #define  CHIPREV_ID_5703_A1		 0x1001
 #define  CHIPREV_ID_5703_A2		 0x1002
+#define  CHIPREV_ID_5703_A3		 0x1003
+#define  CHIPREV_ID_5704_A0		 0x2000
 #define  GET_ASIC_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 12)
 #define   ASIC_REV_5700			 0x07
 #define   ASIC_REV_5701			 0x00
 #define   ASIC_REV_5703			 0x01
+#define   ASIC_REV_5704			 0x02
 #define  GET_CHIP_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 8)
 #define   CHIPREV_5700_AX		 0x70
 #define   CHIPREV_5700_BX		 0x71
@@ -165,6 +173,7 @@
 #define  PCISTATE_ROM_ENABLE		 0x00000020
 #define  PCISTATE_ROM_RETRY_ENABLE	 0x00000040
 #define  PCISTATE_FLAT_VIEW		 0x00000100
+#define  PCISTATE_RETRY_SAME_DMA	 0x00002000
 #define TG3PCI_CLOCK_CTRL		0x00000074
 #define  CLOCK_CTRL_CORECLK_DISABLE	 0x00000200
 #define  CLOCK_CTRL_RXCLK_DISABLE	 0x00000400
@@ -843,6 +852,8 @@
 #define  RDMAC_MODE_FIFOURUN_ENAB	 0x00000080
 #define  RDMAC_MODE_FIFOOREAD_ENAB	 0x00000100
 #define  RDMAC_MODE_LNGREAD_ENAB	 0x00000200
+#define  RDMAC_MODE_SPLIT_ENABLE	 0x00000800
+#define  RDMAC_MODE_SPLIT_RESET		 0x00001000
 #define RDMAC_STATUS			0x00004804
 #define  RDMAC_STATUS_TGTABORT		 0x00000004
 #define  RDMAC_STATUS_MSTABORT		 0x00000008
@@ -1126,6 +1137,8 @@
 #define  GRC_MISC_CFG_BOARD_ID_5702FE	0x00004000
 #define  GRC_MISC_CFG_BOARD_ID_5703	0x00000000
 #define  GRC_MISC_CFG_BOARD_ID_5703S	0x00002000
+#define  GRC_MISC_CFG_BOARD_ID_5704	0x00000000
+#define  GRC_MISC_CFG_BOARD_ID_5704CIOBE 0x00004000
 #define  GRC_MISC_CFG_BOARD_ID_AC91002A1 0x00018000
 #define GRC_LOCAL_CTRL			0x00006808
 #define  GRC_LCLCTRL_INT_ACTIVE		0x00000001
@@ -1261,6 +1274,7 @@
 #define  NIC_SRAM_DATA_CFG_WOL_ENABLE		 0x00000040
 #define  NIC_SRAM_DATA_CFG_ASF_ENABLE		 0x00000080
 #define  NIC_SRAM_DATA_CFG_EEPROM_WP		 0x00000100
+#define  NIC_SRAM_DATA_CFG_FIBER_WOL		 0x00004000
 
 #define NIC_SRAM_DATA_PHY_ID		0x00000b74
 #define  NIC_SRAM_DATA_PHY_ID1_MASK	 0xffff0000
@@ -1297,7 +1311,8 @@
 #define NIC_SRAM_RX_BUFFER_DESC		0x00006000 /* 256 entries */
 #define NIC_SRAM_RX_JUMBO_BUFFER_DESC	0x00007000 /* 256 entries */
 #define NIC_SRAM_MBUF_POOL_BASE		0x00008000
-#define  NIC_SRAM_MBUF_POOL_SIZE	 0x00018000
+#define  NIC_SRAM_MBUF_POOL_SIZE96	 0x00018000
+#define  NIC_SRAM_MBUF_POOL_SIZE64	 0x00010000
 
 /* Currently this is fixed. */
 #define PHY_ADDR		0x01
@@ -1666,6 +1681,12 @@ struct ring_info {
 	DECLARE_PCI_UNMAP_ADDR(mapping)
 };
 
+struct tx_ring_info {
+	struct sk_buff			*skb;
+	DECLARE_PCI_UNMAP_ADDR(mapping)
+	u32				prev_vlan_tag;
+};
+
 struct tg3_config_info {
 	u32				flags;
 };
@@ -1743,6 +1764,7 @@ struct tg3 {
 #define TG3_FLAG_RX_CHECKSUMS		0x00000004
 #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
 #define TG3_FLAG_USE_MI_INTERRUPT	0x00000010
+#define TG3_FLAG_ENABLE_ASF		0x00000020
 #define TG3_FLAG_POLL_SERDES		0x00000080
 #define TG3_FLAG_MBOX_WRITE_REORDER	0x00000100
 #define TG3_FLAG_PCIX_TARGET_HWBUG	0x00000200
@@ -1758,7 +1780,7 @@ struct tg3 {
 #define TG3_FLAG_PCI_32BIT		0x00080000
 #define TG3_FLAG_NO_TX_PSEUDO_CSUM	0x00100000
 #define TG3_FLAG_NO_RX_PSEUDO_CSUM	0x00200000
-#define TG3_FLAG_AUTONEG_DISABLE	0x00400000
+#define TG3_FLAG_SERDES_WOL_CAP		0x00400000
 #define TG3_FLAG_JUMBO_ENABLE		0x00800000
 #define TG3_FLAG_10_100_ONLY		0x01000000
 #define TG3_FLAG_PAUSE_AUTONEG		0x02000000
@@ -1766,14 +1788,20 @@ struct tg3 {
 #define TG3_FLAG_PAUSE_TX		0x08000000
 #define TG3_FLAG_BROKEN_CHECKSUMS	0x10000000
 #define TG3_FLAG_GOT_SERDES_FLOWCTL	0x20000000
+#define TG3_FLAG_SPLIT_MODE		0x40000000
 #define TG3_FLAG_INIT_COMPLETE		0x80000000
 
 	u32				msg_enable;
+
+	u32				split_mode_max_reqs;
+#define SPLIT_MODE_5704_MAX_REQ		3
 
 	struct timer_list		timer;
 	u16				timer_counter;
 	u16				timer_multiplier;
 	u32				timer_offset;
+	u16				asf_counter;
+	u16				asf_multiplier;
 
 	struct tg3_link_config		link_config;
 	struct tg3_bufmgr_config	bufmgr_config;
@@ -1814,6 +1842,7 @@ struct tg3 {
 #define PHY_ID_BCM5411			0x60008070
 #define PHY_ID_BCM5701			0x60008110
 #define PHY_ID_BCM5703			0x60008160
+#define PHY_ID_BCM5704			0x60008190
 #define PHY_ID_BCM8002			0x60010140
 #define PHY_ID_SERDES			0xfeedbee0
 #define PHY_ID_INVALID			0xffffffff
@@ -1833,7 +1862,7 @@ struct tg3 {
 #define KNOWN_PHY_ID(X)		\
 	((X) == PHY_ID_BCM5400 || (X) == PHY_ID_BCM5401 || \
 	 (X) == PHY_ID_BCM5411 || (X) == PHY_ID_BCM5701 || \
-	 (X) == PHY_ID_BCM5703 ||			   \
+	 (X) == PHY_ID_BCM5703 || (X) == PHY_ID_BCM5704 || \
 	 (X) == PHY_ID_BCM8002 || (X) == PHY_ID_SERDES)
 
 	unsigned long			regs;
@@ -1860,7 +1889,7 @@ struct tg3 {
 
 	/* TX descs are only used if TG3_FLAG_HOST_TXDS is set. */
 	struct tg3_tx_buffer_desc	*tx_ring;
-	struct ring_info		*tx_buffers;
+	struct tx_ring_info		*tx_buffers;
 	dma_addr_t			tx_desc_mapping;
 
 	struct tg3_hw_status		*hw_status;

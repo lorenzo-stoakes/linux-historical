@@ -47,6 +47,7 @@
 #include <linux/in6.h>
 #include <linux/completion.h>
 #include <linux/seq_file.h>
+#include <linux/dnotify.h>
 #include <asm/checksum.h>
 
 #if defined(CONFIG_PROC_FS)
@@ -531,6 +532,7 @@ EXPORT_SYMBOL(make_bad_inode);
 EXPORT_SYMBOL(is_bad_inode);
 EXPORT_SYMBOL(event);
 EXPORT_SYMBOL(brw_page);
+EXPORT_SYMBOL(__inode_dir_notify);
 
 #ifdef CONFIG_UID16
 EXPORT_SYMBOL(overflowuid);

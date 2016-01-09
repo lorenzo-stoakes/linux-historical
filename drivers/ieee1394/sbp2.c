@@ -351,7 +351,7 @@
 #include "sbp2.h"
 
 static char version[] __devinitdata =
-	"$Rev: 530 $ James Goodwin <jamesg@filanet.com>";
+	"$Rev: 545 $ James Goodwin <jamesg@filanet.com>";
 
 /*
  * Module load parameter definitions
@@ -3135,7 +3135,11 @@ static int sbp2scsi_reset (Scsi_Cmnd *SCpnt)
 /*
  * Called by scsi stack to get bios parameters (used by fdisk, and at boot).
  */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,28)
 static int sbp2scsi_biosparam (Scsi_Disk *disk, kdev_t dev, int geom[]) 
+#else
+static int sbp2scsi_biosparam (Scsi_Disk *disk, struct block_device *dev, int geom[]) 
+#endif
 {
 	int heads, sectors, cylinders;
 

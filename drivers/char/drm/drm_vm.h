@@ -141,7 +141,9 @@ struct page *DRM(vm_shm_nopage)(struct vm_area_struct *vma,
 		return NOPAGE_OOM;
 	get_page(page);
 
+#if 0	/* XXX page_to_bus is not a portable interface available on all platforms. */
 	DRM_DEBUG("0x%08lx => 0x%08llx\n", address, (u64)page_to_bus(page));
+#endif
 	return page;
 }
 
@@ -243,8 +245,10 @@ struct page *DRM(vm_dma_nopage)(struct vm_area_struct *vma,
 
 	get_page(page);
 
+#if 0	/* XXX page_to_bus is not a portable interface available on all platforms. */
 	DRM_DEBUG("0x%08lx (page %lu) => 0x%08llx\n", address, page_nr, 
 		  (u64)page_to_bus(page));
+#endif
 	return page;
 }
 

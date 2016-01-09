@@ -51,11 +51,10 @@
 #include <asm/timex.h>
 #include <asm/proto.h>
 
-/* Set if we find a B stepping CPU			*/
-static int smp_b_stepping;
-
 /* Setup configured maximum number of CPUs to activate */
 static int max_cpus = -1;
+
+static int cpu_mask = -1; 
 
 /* Total count of live CPUs */
 int smp_num_cpus = 1;
@@ -104,6 +103,15 @@ static int __init maxcpus(char *str)
 
 __setup("maxcpus=", maxcpus);
 
+
+static int __init cpumask(char *str)
+{
+	get_option(&str, &cpu_mask);
+	return 1;
+}
+
+__setup("cpumask=", cpumask); 
+
 /*
  * Trampoline 80x86 program as an array.
  */
@@ -132,13 +140,7 @@ static unsigned long __init setup_trampoline(void)
  */
 void __init smp_alloc_memory(void)
 {
-	trampoline_base = (void *) alloc_bootmem_low_pages(PAGE_SIZE);
-	/*
-	 * Has to be in very low memory so we can execute
-	 * real-mode AP code.
-	 */
-	if (__pa(trampoline_base) >= 0x9F000)
-		BUG();
+	trampoline_base = __va(0x6000); /* reserved in setup.c */
 }
 
 /*
@@ -152,17 +154,6 @@ void __init smp_store_cpu_info(int id)
 
 	*c = boot_cpu_data;
 	identify_cpu(c);
-	/*
-	 * Mask B, Pentium, but not Pentium MMX
-	 */
-	if (c->x86_vendor == X86_VENDOR_INTEL &&
-	    c->x86 == 5 &&
-	    c->x86_mask >= 1 && c->x86_mask <= 4 &&
-	    c->x86_model <= 3)
-		/*
-		 * Remember we have B step Pentia with bugs
-		 */
-		smp_b_stepping = 1;
 }
 
 /*
@@ -387,6 +378,12 @@ void __init smp_callin(void)
 	Dprintk("CALLIN, before setup_local_APIC().\n");
 	setup_local_APIC();
 
+	if (nmi_watchdog == NMI_IO_APIC) {
+		disable_8259A_irq(0);
+		enable_NMI_through_LVT0(NULL);
+		enable_8259A_irq(0);
+	}
+
 	sti();
 
 #ifdef CONFIG_MTRR
@@ -519,17 +516,15 @@ static inline void inquire_remote_apic(int apicid)
 }
 #endif
 
-static void __init do_boot_cpu (int apicid)
+static int __init do_boot_cpu (int apicid)
 {
 	struct task_struct *idle;
 	unsigned long send_status, accept_status, boot_status, maxlvt;
 	int timeout, num_starts, j, cpu;
 	unsigned long start_eip;
 
- 
-	printk("do_boot_cpu cpucount = %d\n", cpucount); 
-
 	cpu = ++cpucount;
+
 	/*
 	 * We can't use kernel_thread since we must avoid to
 	 * reschedule the child.
@@ -549,6 +544,7 @@ static void __init do_boot_cpu (int apicid)
 	x86_cpu_to_apicid[cpu] = apicid;
 	x86_apicid_to_cpu[apicid] = cpu;
 	idle->cpus_runnable = 1<<cpu; 
+	idle->cpus_allowed = 1<<cpu;
 	idle->thread.rip = (unsigned long)start_secondary;
 	idle->thread.rsp = (unsigned long)idle + THREAD_SIZE - 8;
 
@@ -560,8 +556,8 @@ static void __init do_boot_cpu (int apicid)
 	start_eip = setup_trampoline();
 
 	/* So we see what's up   */
-	printk("Booting processor %d/%d rip %lx\n", cpu, apicid, start_eip);
-	init_rsp = (void *) (THREAD_SIZE + (char *)idle - 8);
+	printk("Booting processor %d/%d rip %lx page %p\n", cpu, apicid, start_eip, idle);
+	init_rsp = (void *) (THREAD_SIZE + (char *)idle - 16);
 	initial_code = initialize_secondary; 
 
 	/*
@@ -673,12 +669,17 @@ static void __init do_boot_cpu (int apicid)
 		 */
 
 		/* Target chip */
+		Dprintk("target apic %x\n", SET_APIC_DEST_FIELD(apicid));
 		apic_write_around(APIC_ICR2, SET_APIC_DEST_FIELD(apicid));
+
+		Dprintk("after target chip\n"); 
 
 		/* Boot on the stack */
 		/* Kick the second */
 		apic_write_around(APIC_ICR, APIC_DM_STARTUP
 					| (start_eip >> 12));
+
+		Dprintk("after eip write\n"); 
 
 		/*
 		 * Give the other CPU some time to accept the IPI.
@@ -761,12 +762,14 @@ static void __init do_boot_cpu (int apicid)
 	}
 
 	/* mark "stuck" area as not stuck */
-	*((volatile unsigned long *)phys_to_virt(8192)) = 0;
+	*((volatile unsigned int *)phys_to_virt(8192)) = 0;
+	
+	return cpu; 
 }
 
 cycles_t cacheflush_time;
 
-static void smp_tune_scheduling (void)
+static __init void smp_tune_scheduling (void)
 {
 	unsigned long cachesize;       /* kB   */
 	unsigned long bandwidth = 350; /* MB/s */
@@ -813,7 +816,7 @@ extern int prof_counter[NR_CPUS];
 
 void __init smp_boot_cpus(void)
 {
-	int apicid, cpu;
+	int apicid, cpu, maxcpu;
 
 #ifdef CONFIG_MTRR
 	/*  Must be done before other processors booted  */
@@ -882,9 +885,7 @@ void __init smp_boot_cpus(void)
 		printk(KERN_ERR "BIOS bug, local APIC #%d not detected!...\n",
 			boot_cpu_id);
 		printk(KERN_ERR "... forcing use of dummy APIC emulation. (tell your hw vendor)\n");
-#ifndef CONFIG_VISWS
 		io_apic_irqs = 0;
-#endif
 		cpu_online_map = phys_cpu_present_map = 1;
 		smp_num_cpus = 1;
 		goto smp_done;
@@ -898,9 +899,7 @@ void __init smp_boot_cpus(void)
 	if (!max_cpus) {
 		smp_found_config = 0;
 		printk(KERN_INFO "SMP mode deactivated, forcing use of dummy APIC emulation.\n");
-#ifndef CONFIG_VISWS
 		io_apic_irqs = 0;
-#endif
 		cpu_online_map = phys_cpu_present_map = 1;
 		smp_num_cpus = 1;
 		goto smp_done;
@@ -917,6 +916,7 @@ void __init smp_boot_cpus(void)
 	 */
 	Dprintk("CPU present map: %lx\n", phys_cpu_present_map);
 
+	maxcpu = 0;
 	for (apicid = 0; apicid < NR_CPUS; apicid++) {
 		/*
 		 * Don't even attempt to start the boot CPU!
@@ -926,10 +926,12 @@ void __init smp_boot_cpus(void)
 
 		if (!(phys_cpu_present_map & (1 << apicid)))
 			continue;
+		if (((1<<apicid) & cpu_mask) == 0) 
+			continue;
 		if ((max_cpus >= 0) && (max_cpus <= cpucount+1))
 			continue;
 
-		do_boot_cpu(apicid);
+		cpu = do_boot_cpu(apicid);
 
 		/*
 		 * Make sure we unmap all failed CPUs
@@ -937,12 +939,13 @@ void __init smp_boot_cpus(void)
 		if ((x86_apicid_to_cpu[apicid] == -1) &&
 				(phys_cpu_present_map & (1 << apicid)))
 			printk("phys CPU #%d not responding - cannot use it.\n",apicid);
+		else if (cpu > maxcpu) 
+			maxcpu = cpu; 
 	}
 
 	/*
 	 * Cleanup possible dangling ends...
 	 */
-#ifndef CONFIG_VISWS
 	{
 		/*
 		 * Install writable page 0 entry to set BIOS data area.
@@ -955,9 +958,8 @@ void __init smp_boot_cpus(void)
 		 */
 		CMOS_WRITE(0, 0xf);
 
-		*((volatile long *) phys_to_virt(0x467)) = 0;
+		*((volatile int *) phys_to_virt(0x467)) = 0;
 	}
-#endif
 
 	/*
 	 * Allow the user to impress friends.
@@ -965,7 +967,7 @@ void __init smp_boot_cpus(void)
 
 	Dprintk("Before bogomips.\n");
 	if (!cpucount) {
-		printk(KERN_ERR "Error: only one processor found.\n");
+		printk(KERN_ERR "Only one processor found.\n");
 	} else {
 		unsigned long bogosum = 0;
 		for (cpu = 0; cpu < NR_CPUS; cpu++)
@@ -977,20 +979,16 @@ void __init smp_boot_cpus(void)
 			(bogosum/(5000/HZ))%100);
 		Dprintk("Before bogocount - setting activated=1.\n");
 	}
-	smp_num_cpus = cpucount + 1;
+	smp_num_cpus = maxcpu + 1;
 
-	if (smp_b_stepping)
-		printk(KERN_WARNING "WARNING: SMP operation may be unreliable with B stepping processors.\n");
 	Dprintk("Boot done.\n");
 
-#ifndef CONFIG_VISWS
 	/*
 	 * Here we can be sure that there is an IO-APIC in the system. Let's
 	 * go and set it up:
 	 */
 	if (!skip_ioapic_setup && nr_ioapics)
 		setup_IO_APIC();
-#endif
 
 	/*
 	 * Set up all local APIC timers in the system:
