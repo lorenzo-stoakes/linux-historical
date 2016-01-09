@@ -714,9 +714,8 @@ static void visor_shutdown (struct usb_serial *serial)
 
 	/* stop reads and writes on all ports */
 	for (i=0; i < serial->num_ports; ++i) {
-		while (serial->port[i].open_count > 0) {
-			visor_close (&serial->port[i], NULL);
-		}
+		serial->port[i].active = 0;
+		serial->port[i].open_count = 0;
 	}
 }
 

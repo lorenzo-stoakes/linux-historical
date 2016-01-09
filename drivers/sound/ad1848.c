@@ -134,7 +134,7 @@ static int timer_installed = -1;
 
 static int loaded;
 
-static int ad_format_mask[10 /*devc->model */ ] =
+static int ad_format_mask[13 /*devc->model */ ] =
 {
 	0,
 	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW,
@@ -145,7 +145,10 @@ static int ad_format_mask[10 /*devc->model */ ] =
 	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW | AFMT_S16_BE | AFMT_IMA_ADPCM,
 	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW | AFMT_S16_BE | AFMT_IMA_ADPCM,
 	AFMT_U8 | AFMT_S16_LE /* CS4235 */,
-	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW	/* Ensoniq Soundscape*/
+	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW	/* Ensoniq Soundscape*/,
+	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW | AFMT_S16_BE | AFMT_IMA_ADPCM,
+	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW | AFMT_S16_BE | AFMT_IMA_ADPCM,
+	AFMT_U8 | AFMT_S16_LE | AFMT_MU_LAW | AFMT_A_LAW | AFMT_S16_BE | AFMT_IMA_ADPCM	
 };
 
 static ad1848_info adev_info[MAX_AUDIO_DEV];

@@ -1805,3 +1805,13 @@ Changes for patch v199
 
 - Do not send CREATE, CHANGE, ASYNC_OPEN or DELETE events from devfsd
   or children
+===============================================================================
+Changes for patch v199.1
+
+- Fixed bug in <devfsd_read>: was dereferencing freed pointer
+===============================================================================
+Changes for patch v199.2
+
+- Fixed bug in <devfsd_close>: was dereferencing freed pointer
+
+- Added process group check for devfsd privileges

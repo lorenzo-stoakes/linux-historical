@@ -569,6 +569,13 @@
 	       Do not send CREATE, CHANGE, ASYNC_OPEN or DELETE events from
 	       devfsd or children.
   v1.2
+    20011202   Richard Gooch <rgooch@atnf.csiro.au>
+	       Fixed bug in <devfsd_read>: was dereferencing freed pointer.
+  v1.3
+    20011203   Richard Gooch <rgooch@atnf.csiro.au>
+	       Fixed bug in <devfsd_close>: was dereferencing freed pointer.
+	       Added process group check for devfsd privileges.
+  v1.4
 */
 #include <linux/types.h>
 #include <linux/errno.h>
@@ -601,7 +608,7 @@
 #include <asm/bitops.h>
 #include <asm/atomic.h>
 
-#define DEVFS_VERSION            "1.2 (20011127)"
+#define DEVFS_VERSION            "1.4 (20011203)"
 
 #define DEVFS_NAME "devfs"
 
@@ -747,6 +754,7 @@ struct fs_info                  /*  This structure is for the mounted devfs  */
     struct devfsd_buf_entry *devfsd_last_event;
     volatile int devfsd_sleeping;
     volatile struct task_struct *devfsd_task;
+    volatile pid_t devfsd_pgrp;
     volatile struct file *devfsd_file;
     struct devfsd_notify_struct *devfsd_info;
     volatile unsigned long devfsd_event_mask;
@@ -1322,10 +1330,14 @@ static int is_devfsd_or_child (struct fs_info *fs_info)
 {
     struct task_struct *p;
 
-    for (p = current; p != &init_task; p = p->p_opptr)
+    if (current == fs_info->devfsd_task) return (TRUE);
+    if (current->pgrp == fs_info->devfsd_pgrp) return (TRUE);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,1)
+    for (p = current->p_opptr; p != &init_task; p = p->p_opptr)
     {
 	if (p == fs_info->devfsd_task) return (TRUE);
     }
+#endif
     return (FALSE);
 }   /*  End Function is_devfsd_or_child  */
 
@@ -3243,11 +3255,17 @@ static ssize_t devfsd_read (struct file *file, char *buf, size_t len,
     tlen = rpos - *ppos;
     if (done)
     {
+	devfs_handle_t parent;
+
 	spin_lock (&fs_info->devfsd_buffer_lock);
 	fs_info->devfsd_first_event = entry->next;
 	if (entry->next == NULL) fs_info->devfsd_last_event = NULL;
 	spin_unlock (&fs_info->devfsd_buffer_lock);
-	for (; de != NULL; de = de->parent) devfs_put (de);
+	for (; de != NULL; de = parent)
+	{
+	    parent = de->parent;
+	    devfs_put (de);
+	}
 	kmem_cache_free (devfsd_buf_cache, entry);
 	if (ival > 0) atomic_sub (ival, &fs_info->devfsd_overrun_count);
 	*ppos = 0;
@@ -3284,6 +3302,8 @@ static int devfsd_ioctl (struct inode *inode, struct file *file,
 	    }
 	    fs_info->devfsd_task = current;
 	    spin_unlock (&lock);
+	    fs_info->devfsd_pgrp = (current->pgrp == current->pid) ?
+		current->pgrp : 0;
 	    fs_info->devfsd_file = file;
 	    fs_info->devfsd_info = kmalloc (sizeof *fs_info->devfsd_info,
 					    GFP_KERNEL);
@@ -3314,7 +3334,7 @@ static int devfsd_ioctl (struct inode *inode, struct file *file,
 
 static int devfsd_close (struct inode *inode, struct file *file)
 {
-    struct devfsd_buf_entry *entry;
+    struct devfsd_buf_entry *entry, *next;
     struct fs_info *fs_info = inode->i_sb->u.generic_sbp;
 
     if (fs_info->devfsd_file != file) return 0;
@@ -3330,10 +3350,14 @@ static int devfsd_close (struct inode *inode, struct file *file)
 	fs_info->devfsd_info = NULL;
     }
     spin_unlock (&fs_info->devfsd_buffer_lock);
+    fs_info->devfsd_pgrp = 0;
     fs_info->devfsd_task = NULL;
     wake_up (&fs_info->revalidate_wait_queue);
-    for (; entry; entry = entry->next)
+    for (; entry; entry = next)
+    {
+	next = entry->next;
 	kmem_cache_free (devfsd_buf_cache, entry);
+    }
     return 0;
 }   /*  End Function devfsd_close  */
 

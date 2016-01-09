@@ -1022,16 +1022,10 @@ out_unlock:
 
 do_expand:
 	limit = current->rlim[RLIMIT_FSIZE].rlim_cur;
-	if (limit != RLIM_INFINITY) {
-		if (inode->i_size >= limit) {
-			send_sig(SIGXFSZ, current, 0);
-			goto out;
-		}
-		if (offset > limit) {
-			send_sig(SIGXFSZ, current, 0);
-			offset = limit;
-		}
-	}
+	if (limit != RLIM_INFINITY && offset > limit)
+		goto out_sig;
+	if (offset > inode->i_sb->s_maxbytes)
+		goto out;
 	inode->i_size = offset;
 
 out_truncate:
@@ -1040,8 +1034,11 @@ out_truncate:
 		inode->i_op->truncate(inode);
 		unlock_kernel();
 	}
-out:
 	return 0;
+out_sig:
+	send_sig(SIGXFSZ, current, 0);
+out:
+	return -EFBIG;
 }
 
 /* 

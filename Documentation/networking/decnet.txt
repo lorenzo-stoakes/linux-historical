@@ -31,8 +31,6 @@ if you want to try out router support (not properly debugged yet)
 you'll need the following options as well...
 
     CONFIG_DECNET_ROUTER (to be able to add/delete routes)
-    CONFIG_NETLINK (to allow rtnetlink)
-    CONFIG_RTNETLINK (for communication with the kernel routing layer)
     CONFIG_NETFILTER (will be required for the DECnet routing daemon)
 
 3) Command line options

@@ -557,11 +557,13 @@ static inline int expand_stack(struct vm_area_struct * vma, unsigned long addres
 	 * before relocating the vma range ourself.
 	 */
 	address &= PAGE_MASK;
+ 	spin_lock(&vma->vm_mm->page_table_lock);
 	grow = (vma->vm_start - address) >> PAGE_SHIFT;
 	if (vma->vm_end - address > current->rlim[RLIMIT_STACK].rlim_cur ||
-	    ((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) > current->rlim[RLIMIT_AS].rlim_cur)
+	    ((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) > current->rlim[RLIMIT_AS].rlim_cur) {
+		spin_unlock(&vma->vm_mm->page_table_lock);
 		return -ENOMEM;
-	spin_lock(&vma->vm_mm->page_table_lock);
+	}
 	vma->vm_start = address;
 	vma->vm_pgoff -= grow;
 	vma->vm_mm->total_vm += grow;
