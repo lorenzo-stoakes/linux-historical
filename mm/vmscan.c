@@ -401,6 +401,8 @@ static int shrink_cache(int nr_pages, zone_t * classzone, unsigned int gfp_mask,
 		if (!memclass(page_zone(page), classzone))
 			continue;
 
+		max_scan--;
+
 		/* Racy check to avoid trylocking when not worthwhile */
 		if (!page->buffers && (page_count(page) != 1 || !page->mapping))
 			goto page_mapped;

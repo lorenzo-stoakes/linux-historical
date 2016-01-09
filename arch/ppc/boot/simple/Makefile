@@ -31,6 +31,7 @@ endif
 ifeq ($(CONFIG_IBM_OPENBIOS),y)
 ZIMAGE				:= zImage-TREE
 ZIMAGEINITRD			:= zImage.initrd-TREE
+END				:= treeboot
 ZNETBOOT			:= zImage.treeboot
 ZNETBOOTRD			:= zImage.initrd.treeboot
 TFTPIMAGE			:= /tftpboot/zImage.embedded

@@ -683,6 +683,24 @@ static inline void __init construct_default_ISA_mptable(int mpc_default_type)
 	struct mpc_config_lintsrc lintsrc;
 	int linttypes[2] = { mp_ExtINT, mp_NMI };
 	int i;
+	struct {
+		int mp_bus_id_to_type[MAX_MP_BUSSES];
+		int mp_bus_id_to_node[MAX_MP_BUSSES];
+		int mp_bus_id_to_local[MAX_MP_BUSSES];
+		int mp_bus_id_to_pci_bus[MAX_MP_BUSSES];
+		struct mpc_config_intsrc mp_irqs[MAX_IRQ_SOURCES];
+	} *bus_data;
+
+	bus_data = alloc_bootmem(sizeof(*bus_data));
+	if (!bus_data)
+		panic("SMP mptable: out of memory!\n");
+	mp_bus_id_to_type = bus_data->mp_bus_id_to_type;
+	mp_bus_id_to_node = bus_data->mp_bus_id_to_node;
+	mp_bus_id_to_local = bus_data->mp_bus_id_to_local;
+	mp_bus_id_to_pci_bus = bus_data->mp_bus_id_to_pci_bus;
+	mp_irqs = bus_data->mp_irqs;
+	for (i = 0; i < MAX_MP_BUSSES; ++i)
+		mp_bus_id_to_pci_bus[i] = -1;
 
 	/*
 	 * local APIC has default address
@@ -1021,7 +1039,7 @@ static int __init mp_find_ioapic (
 			return i;
 	}
 
-	printk(KERN_ERR "ERROR: Unable to locate IOAPIC for IRQ %d/n", irq);
+	printk(KERN_ERR "ERROR: Unable to locate IOAPIC for IRQ %d\n", irq);
 
 	return -1;
 }
@@ -1206,8 +1224,6 @@ void __init mp_config_acpi_legacy_irqs (void)
 	}
 }
 
-/* Ensure the ACPI SCI interrupt level is active low, edge-triggered */
-
 extern FADT_DESCRIPTOR acpi_fadt;
 
 void __init mp_config_ioapic_for_sci(int irq)
@@ -1216,6 +1232,7 @@ void __init mp_config_ioapic_for_sci(int irq)
 	int ioapic_pin;
 	struct acpi_table_madt* madt;
 	struct acpi_table_int_src_ovr *entry = NULL;
+	acpi_interrupt_flags flags;
 	void *madt_end;
 	acpi_status status;
 
@@ -1234,30 +1251,36 @@ void __init mp_config_ioapic_for_sci(int irq)
 
 		while ((void *) entry < madt_end) {
                 	if (entry->header.type == ACPI_MADT_INT_SRC_OVR &&
-			    acpi_fadt.sci_int == entry->bus_irq) {
-				/*
-				 * See the note at the end of ACPI 2.0b section
-				 * 5.2.10.8 for what this is about.
-				 */
-				if (entry->bus_irq != entry->global_irq) {
-					acpi_fadt.sci_int = entry->global_irq;
-					irq = entry->global_irq;
-					break;
-				}
-				else
-                			return;
-			}
-
+			    acpi_fadt.sci_int == entry->bus_irq)
+				goto found;
+			
                 	entry = (struct acpi_table_int_src_ovr *)
                 	        ((unsigned long) entry + entry->header.length);
         	}
 	}
+	/*
+	 * Although the ACPI spec says that the SCI should be level/low
+	 * don't reprogram it unless there is an explicit MADT OVR entry
+	 * instructing us to do so -- otherwise we break Tyan boards which
+	 * have the SCI wired edge/high but no MADT OVR.
+	 */
+	return;
 
+found:
+	/*
+	 * See the note at the end of ACPI 2.0b section
+	 * 5.2.10.8 for what this is about.
+	 */
+	flags = entry->flags;
+	acpi_fadt.sci_int = entry->global_irq;
+	irq = entry->global_irq;
+	
 	ioapic = mp_find_ioapic(irq);
 
 	ioapic_pin = irq - mp_ioapic_routing[ioapic].irq_start;
 
-	io_apic_set_pci_routing(ioapic, ioapic_pin, irq, 1, 1); // Active low, level triggered
+	io_apic_set_pci_routing(ioapic, ioapic_pin, irq, 
+				(flags.trigger >> 1) , (flags.polarity >> 1));
 }
 
 
@@ -1295,8 +1318,10 @@ void __init mp_parse_prt (void)
 		}
 
 		/* Don't set up the ACPI SCI because it's already set up */
-		if (acpi_fadt.sci_int == irq)
+                if (acpi_fadt.sci_int == irq) {
+                        entry->irq = irq; /*we still need to set entry's irq*/
 			continue;
+                }
 	
 		ioapic = mp_find_ioapic(irq);
 		if (ioapic < 0)

@@ -256,6 +256,9 @@ struct agp_bridge_data {
 #ifndef PCI_DEVICE_ID_INTEL_82443GX_1
 #define PCI_DEVICE_ID_INTEL_82443GX_1   0x71a1
 #endif
+#ifndef PCI_DEVICE_ID_INTEL_460GX
+#define PCI_DEVICE_ID_INTEL_460GX       0x84ea
+#endif
 #ifndef PCI_DEVICE_ID_AMD_IRONGATE_0
 #define PCI_DEVICE_ID_AMD_IRONGATE_0    0x7006
 #endif
@@ -331,6 +334,14 @@ struct agp_bridge_data {
 #define INTEL_NBXCFG    0x50
 #define INTEL_ERRSTS    0x91
 
+/* Intel 460GX Registers */
+#define INTEL_I460_APBASE		0x10
+#define INTEL_I460_BAPBASE		0x98
+#define INTEL_I460_GXBCTL		0xa0
+#define INTEL_I460_AGPSIZ		0xa2
+#define INTEL_I460_ATTBASE		0xfe200000
+#define INTEL_I460_GATT_VALID		(1UL << 24)
+#define INTEL_I460_GATT_COHERENT	(1UL << 25)
 /* Intel 855GM/852GM registers */
 #define I855_GMCH_CTRL             0x52
 #define I855_GMCH_ENABLED          0x4
@@ -500,14 +511,16 @@ struct agp_bridge_data {
 #define NVIDIA_3_APBASE     0x50
 #define NVIDIA_3_APLIMIT    0x54
 
-/* HP ZX1 SBA registers */
-#define HP_ZX1_CTRL		0x200
+/* HP ZX1 IOC registers */
 #define HP_ZX1_IBASE		0x300
 #define HP_ZX1_IMASK		0x308
 #define HP_ZX1_PCOM		0x310
 #define HP_ZX1_TCNFG		0x318
 #define HP_ZX1_PDIR_BASE	0x320
-#define HP_ZX1_CACHE_FLUSH	0x428
+
+/* HP ZX1 LBA registers */
+#define HP_ZX1_AGP_STATUS	0x64
+#define HP_ZX1_AGP_COMMAND	0x68
 
 /* ATI register */
 #define ATI_APBASE                  0x10

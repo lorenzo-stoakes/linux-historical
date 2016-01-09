@@ -8,6 +8,9 @@ if [ "$CONFIG_X86" = "y" ]; then
   comment 'ACPI Support'
   bool         'ACPI Support' CONFIG_ACPI
   if [ "$CONFIG_ACPI" = "y" ]; then
+
+    define_bool CONFIG_ACPI_BOOT		y
+
     if [ "$CONFIG_SMP" = "y" ]; then
       bool         'CPU Enumeration Only' CONFIG_ACPI_HT_ONLY
     else
@@ -15,7 +18,6 @@ if [ "$CONFIG_X86" = "y" ]; then
     fi
 
     if [ "$CONFIG_ACPI_HT_ONLY" = "n" ]; then
-      define_bool CONFIG_ACPI_BOOT		y
       define_bool CONFIG_ACPI_BUS		y
       define_bool CONFIG_ACPI_INTERPRETER	y
       define_bool CONFIG_ACPI_EC		y

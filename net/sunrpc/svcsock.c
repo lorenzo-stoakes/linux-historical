@@ -317,9 +317,9 @@ svc_sendto(struct svc_rqst *rqstp, struct iovec *iov, int nr)
 	struct svc_sock	*svsk = rqstp->rq_sock;
 	struct socket	*sock = svsk->sk_sock;
 	struct msghdr	msg;
-	struct { struct cmsghdr cmh;
-		struct in_pktinfo pki;
-	} cm;
+	char 		buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
+	struct cmsghdr *cmh = (struct cmsghdr *)buffer;
+	struct in_pktinfo *pki = (struct in_pktinfo *)CMSG_DATA(cmh);
 	int		i, buflen, len;
 
 	for (i = buflen = 0; i < nr; i++)
@@ -330,13 +330,13 @@ svc_sendto(struct svc_rqst *rqstp, struct iovec *iov, int nr)
 	msg.msg_iov     = iov;
 	msg.msg_iovlen  = nr;
 	if (rqstp->rq_prot == IPPROTO_UDP) {
-		msg.msg_control = &cm;
-		msg.msg_controllen = sizeof(cm);
-		cm.cmh.cmsg_len = sizeof(cm);
-		cm.cmh.cmsg_level = SOL_IP;
-		cm.cmh.cmsg_type = IP_PKTINFO;
-		cm.pki.ipi_ifindex = 0;
-		cm.pki.ipi_spec_dst.s_addr = rqstp->rq_daddr;
+		msg.msg_control = cmh;
+		msg.msg_controllen = sizeof(buffer);
+		cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
+		cmh->cmsg_level = SOL_IP;
+		cmh->cmsg_type = IP_PKTINFO;
+		pki->ipi_ifindex = 0;
+		pki->ipi_spec_dst.s_addr = rqstp->rq_daddr;
 	} else {
 		msg.msg_control = NULL;
 		msg.msg_controllen = 0;

@@ -164,7 +164,7 @@ if [ "$CONFIG_PARPORT" != "n" ]; then
    dep_tristate 'Texas Instruments parallel link cable support' CONFIG_TIPAR $CONFIG_PARPORT
 fi
 
-if [ "$CONFIG_PPC64" ] ; then 
+if [ "$CONFIG_PPC64" = "y" ] ; then 
    bool 'pSeries Hypervisor Virtual Console support' CONFIG_HVC_CONSOLE
 fi
 if [ "$CONFIG_ALL_PPC" = "y" ]; then
@@ -327,6 +327,7 @@ if [ "$CONFIG_AGP" != "n" ]; then
       bool '  NVIDIA chipset support' CONFIG_AGP_NVIDIA
    fi
    if [ "$CONFIG_IA64" = "y" ]; then
+      bool '  Intel 460GX support' CONFIG_AGP_I460
       bool '  HP ZX1 AGP support' CONFIG_AGP_HP_ZX1
    fi
    bool '  ATI IGP chipset support' CONFIG_AGP_ATI

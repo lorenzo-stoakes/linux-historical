@@ -113,7 +113,7 @@ startup_32:
 	popfl
 	jmp checkCPUtype
 1:
-#endif CONFIG_SMP
+#endif /* CONFIG_SMP */
 
 /*
  * Clear BSS first so that there are no surprises...

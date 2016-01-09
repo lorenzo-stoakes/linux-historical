@@ -106,12 +106,6 @@
         :"0"(n_hi), "1"(n_lo))
 
 
-#ifdef CONFIG_ACPI_HT_ONLY
-extern int acpi_lapic;
-#define acpi_ioapic 0
-
-#else /* CONFIG_ACPI_HT_ONLY */
-
 #ifdef CONFIG_ACPI_BOOT 
 extern int acpi_lapic;
 extern int acpi_ioapic;
@@ -144,7 +138,6 @@ static inline void disable_ioapic_setup(void)
 #  define acpi_ioapic 0
 
 #endif
-#endif /* !CONFIG_ACPI_HT_ONLY */
 
 #ifdef CONFIG_ACPI_SLEEP
 

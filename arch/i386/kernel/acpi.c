@@ -355,7 +355,6 @@ acpi_boot_init (void)
 
 	result = acpi_table_parse(ACPI_APIC, acpi_parse_madt);
 	if (!result) {
-		printk(KERN_WARNING PREFIX "MADT not present\n");
 		return 0;
 	}
 	else if (result < 0) {

@@ -313,7 +313,7 @@ static struct {
     int pll, mclk, xclk;
     u32 features;
 } aty_chips[] __initdata = {
-    /* Note to kernel maintainers: Please resfuse any patch to change a clock rate,
+    /* Note to kernel maintainers: Please REFUSE any patch to change a clock rate,
        unless someone proves that a value is incorrect for him with a dump of
        the driver information table in the BIOS. Patches accepted in the past have
        caused chips to be overclocked by as much as 50%!
@@ -498,10 +498,12 @@ static void aty_set_crtc(const struct fb_info_aty *info,
      * off. It is a Rage Mobility M1, but doesn't happen on these chips
      * in general. (Daniel Mantione, 26 june 2003)
      */
-      aty_st_lcd(aty_ld_lcd(LCD_GEN_CTRL, info) | SHADOW_RW_EN, info);
+      aty_st_lcd(LCD_GEN_CTRL, aty_ld_lcd(LCD_GEN_CTRL, info) | SHADOW_RW_EN,
+		 info);
       aty_st_le32(CRTC_H_TOTAL_DISP, crtc->h_tot_disp, info);
       aty_st_le32(CRTC_H_SYNC_STRT_WID, crtc->h_sync_strt_wid, info);
-      aty_st_lcd(aty_ld_lcd(LCD_GEN_CTRL, info) & ~SHADOW_RW_EN, info);
+      aty_st_lcd(LCD_GEN_CTRL, aty_ld_lcd(LCD_GEN_CTRL, info) & ~SHADOW_RW_EN,
+		 info);
     /* End hack */
 #endif
 
@@ -2479,6 +2481,8 @@ int __init atyfb_init(void)
             info->frame_buffer = (unsigned long) addr + 0x800000UL;
             info->frame_buffer_phys = addr + 0x800000UL;
 
+            aty_init_register_array(info);
+
             /*
              * Figure mmap addresses from PCI config space.
              * Split Framebuffer in big- and little-endian halfs.
@@ -2669,6 +2673,7 @@ int __init atyfb_init(void)
 
                 default_var.pixclock = 1000000000 / T;
             }
+
 #else /* __sparc__ */
 
             aux_app = 0;

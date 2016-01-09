@@ -48,7 +48,7 @@
 #include <asm/bootsetup.h>
 #include <asm/proto.h>
 
-int acpi_disabled __initdata = 0;
+int acpi_disabled = 0;
 
 /*
  * Machine setup..

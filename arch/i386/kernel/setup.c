@@ -176,9 +176,9 @@ static int disable_x86_serial_nr __initdata = 1;
 static u32 disabled_x86_caps[NCAPINTS] __initdata = { 0 };
 
 #ifdef	CONFIG_ACPI_INTERPRETER
-	int acpi_disabled __initdata = 0;
+	int acpi_disabled = 0;
 #else
-	int acpi_disabled __initdata = 1;
+	int acpi_disabled = 1;
 #endif
 EXPORT_SYMBOL(acpi_disabled);
 

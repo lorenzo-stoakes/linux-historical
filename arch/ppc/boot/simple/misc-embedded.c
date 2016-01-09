@@ -16,6 +16,7 @@
 #include <linux/types.h>
 #include <linux/elf.h>
 #include <asm/bootinfo.h>
+#include <asm/ibm4xx.h>
 #include <asm/mmu.h>
 #include <asm/mpc8xx.h>
 #include <asm/mpc8260.h>

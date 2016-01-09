@@ -1700,9 +1700,8 @@ ppc970_setup_hid:
 	mtspr	0x3f6,r0
 	isync
 	mfspr	r0,SPRN_HID0
-	li	r11,0x40		/* clear NAP bit */
-	sldi	r11,r11,48
-	andc	r0,r0,r11
+	li	r11,5			/* clear DOZE and SLEEP */
+	rldimi	r0,r11,52,8		/* and set NAP and DPM */
 	mtspr	SPRN_HID0,r0
 	mfspr	r0,SPRN_HID0
 	mfspr	r0,SPRN_HID0

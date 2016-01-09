@@ -879,7 +879,7 @@ void probe_hwif (ide_hwif_t *hwif)
 	 *  
 	 *  BenH.
 	 */
-	if (wait_hwif_ready(hwif))
+	if (ide_wait_hwif_ready(hwif))
 		printk(KERN_WARNING "%s: Wait for ready failed before probe !\n", hwif->name);
 #endif /* CONFIG_PPC */
 

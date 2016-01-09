@@ -4055,6 +4055,13 @@ CONFIG_AGP_HP_ZX1
   This option gives you AGP GART support for the HP ZX1 chipset
   for IA64 processors.
 
+CONFIG_AGP_ATI
+  This option gives you AGP support for the GLX component of
+  XFree86 4.x on the ATI RadeonIGP family of chipsets.
+
+  You should say Y here if you use XFree86 3.3.6 or 4.x and want to
+  use GLX or DRI.  If unsure, say N.
+
 Support for ISA-bus hardware
 CONFIG_ISA
   Find out whether you have ISA slots on your motherboard.  ISA is the
@@ -10004,6 +10011,17 @@ CONFIG_PLX_HERMES
   PCI <-> PCMCIA bridge.  Several vendors sell such adaptors so that
   802.11b PCMCIA cards can be used in desktop machines.  The Netgear
   MA301 is such an adaptor.
+
+  Support for these adaptors is so far still incomplete and buggy.
+  You have been warned.
+
+Hermes 802.11b in TMD7160/NCP130 based PCI adaptor support
+CONFIG_TMD_HERMES
+  Enable support for PCMCIA cards supported by the "Hermes" (aka
+  orinoco) driver when used in TMD7160 based PCI adaptors.  These
+  adaptors are not a full PCMCIA controller but act as a more limited
+  PCI <-> PCMCIA bridge.  Several vendors sell such adaptors so that
+  802.11b PCMCIA cards can be used in desktop machines.
 
   Support for these adaptors is so far still incomplete and buggy.
   You have been warned.
@@ -16076,21 +16094,15 @@ CONFIG_REISERFS_FS
   architectural foundations.
 
   In general, ReiserFS is as fast as ext2, but is very efficient with
-  large directories and small files.  Additional patches are needed
-  for NFS and quotas, please see <http://www.reiserfs.org/> for links.
+  large directories and small files.  It is much faster for writes,
+  and slightly slower for reads than ext2.  It is much faster than
+  ext3.  It will be obsoleted by Reiser4 in not too long, so keep
+  an eye on our website for when Reiser4 ships.
 
-  It is more easily extended to have features currently found in
-  database and keyword search systems than block allocation based file
-  systems are.  The next version will be so extended, and will support
-  plugins consistent with our motto ``It takes more than a license to
-  make source code open.''
+  Mount with the notail option if performance matters more to you than
+  saving space (the design flaw underlying this is fixed in reiser4).
 
-  Read <http://www.reiserfs.org/> to learn more about reiserfs.
-
-  Sponsored by Threshold Networks, Emusic.com, and Bigstorage.com.
-
-  If you like it, you can pay us to add new features to it that you
-  need, buy a support contract, or pay us to port it to another OS.
+  Read <http://www.namesys.com> to learn more about reiserfs.
 
 Enable extra Reiserfs consistency checks
 CONFIG_REISERFS_CHECK
@@ -27000,11 +27012,13 @@ CONFIG_WATCHDOG_CP1XXX
 # Choice: ia64type
 Itanium
 CONFIG_ITANIUM
-  Select your IA64 processor type.  The default is Intel Itanium.
+  Select your IA-64 processor type.  The default is Intel Itanium.
+  This choice is safe for all IA-64 systems, but may not perform
+  optimally on systems with, say, Itanium 2 or newer processors.
 
-McKinley
+Itanium 2
 CONFIG_MCKINLEY
-  Select this to configure for a McKinley processor.
+  Select this to configure for an Itanium 2 (McKinley) processor.
 
 # Choice: ia64system
 IA-64 system type
@@ -27060,6 +27074,14 @@ Enable IA-64 Machine Check Abort
 CONFIG_IA64_MCA
   Say Y here to enable machine check support for IA-64.  If you're
   unsure, answer Y.
+
+Use PAL_HALT_LIGHT in idle loop
+CONFIG_IA64_PAL_IDLE
+  Say Y here to enable use of PAL_HALT_LIGHT in the cpu_idle loop.
+  This allows the CPU to enter a low power state when idle.  You
+  can enable CONFIG_IA64_PALINFO and check /proc/pal/cpu0/power_info
+  to see the power consumption and latency for this state.  If you're
+  unsure your firmware supports it, answer N.
 
 Disable IA-64 Virtual Hash Page Table
 CONFIG_DISABLE_VHPT
@@ -28304,6 +28326,28 @@ CONFIG_CRYPTO_DEFLATE
 
 CONFIG_CRYPTO_TEST
   Quick & dirty crypto test module.
+  
+CONFIG_SOUND_WM97XX
+  Say Y here to support the Wolfson WM9705 and WM9712 touchscreen
+  controllers. These controllers are mainly found in PDA's 
+  i.e. Dell Axim and Toshiba e740
+
+  This is experimental code.
+  Please see Documentation/wolfson-touchscreen.txt for
+  a complete list of parameters.
+  
+  In order to use this driver, a char device called wm97xx with a major
+  number of 10 and minor number 16 will have to be created under 
+  /dev/touchscreen.
+  
+  e.g.
+  mknod /dev/touchscreen/wm97xx c 10 16
+
+  If you want to compile this as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here.  The module will be called ac97_plugin_wm97xx.o.
+  
+  If unsure, say N.
 
 #
 # A couple of things I keep forgetting:

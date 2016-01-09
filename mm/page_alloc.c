@@ -258,8 +258,6 @@ static struct page * balance_classzone(zone_t * classzone, unsigned int gfp_mask
 	struct page * page = NULL;
 	int __freed;
 
-	if (!(gfp_mask & __GFP_WAIT))
-		goto out;
 	if (in_interrupt())
 		BUG();
 
@@ -512,14 +510,12 @@ unsigned int nr_free_buffer_pages (void)
 		class_idx = zone_idx(zone);
 
 		sum += zone->nr_cache_pages;
-		do {
-			unsigned int free = zone->free_pages - zone->watermarks[class_idx].high;
-			zonep++;
-			zone = *zonep;
+		for (zone = pgdat->node_zones; zone < pgdat->node_zones + MAX_NR_ZONES; zone++) {
+			int free = zone->free_pages - zone->watermarks[class_idx].high;
 			if (free <= 0)
 				continue;
 			sum += free;
-		} while (zone);
+		}
 	}
 
 	return sum;

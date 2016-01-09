@@ -86,7 +86,7 @@ static u8 postdividers[] = {1,2,4,8,3};
 
 u8 stdcall aty_ld_pll(int offset, const struct fb_info_aty *info)
 {
-    u32 addr;
+    unsigned long addr;
 
     addr = info->ati_regbase + CLOCK_CNTL + 1;
     /* write addr byte */
@@ -98,7 +98,7 @@ u8 stdcall aty_ld_pll(int offset, const struct fb_info_aty *info)
 
 static void stdcall aty_st_pll(int offset, u8 val, const struct fb_info_aty *info)
 {
-    u32 addr;
+    unsigned long addr;
     addr = info->ati_regbase + CLOCK_CNTL + 1;
     /* write addr byte */
     writeb((offset << 2) | PLL_WR_EN,addr);

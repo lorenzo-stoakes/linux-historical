@@ -19,10 +19,12 @@
 
 extern struct bi_record *decompress_kernel(unsigned long load_addr,
 	int num_words, unsigned long cksum);
+extern unsigned long timebase_period_ns;
 
 struct bi_record *
 load_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 {
+	timebase_period_ns = 3;
 	mtdcr(DCRN_MALCR(DCRN_MAL_BASE), MALCR_MMSR);		  /* reset MAL */
 	while (mfdcr(DCRN_MALCR(DCRN_MAL_BASE)) & MALCR_MMSR) {}; /* wait for reset */
 	*(volatile unsigned long *)PPC44x_EMAC0_MR0 = 0x20000000; /* reset EMAC */
