@@ -4257,7 +4257,6 @@ static int __init cs_ac97_init(struct cs_card *card)
 	for (num_ac97 = 0; num_ac97 < NR_AC97; num_ac97++) {
 		if ((codec = ac97_alloc_codec()) == NULL)
 			return -ENOMEM;
-		memset(codec, 0, sizeof(struct ac97_codec));
 
 		/* initialize some basic codec information, other fields will be filled
 		   in ac97_probe_codec */

@@ -2221,6 +2221,7 @@ done:
  */
 
 static __initdata ide_driver_call ide_scan[NUM_DRIVER];
+static int drivers_run = 0;
 
 void __init ide_register_driver(ide_driver_call scan)
 {
@@ -2228,6 +2229,11 @@ void __init ide_register_driver(ide_driver_call scan)
 	if(ide_scans == NUM_DRIVER)
 		panic("Too many IDE drivers");
 	ide_scan[ide_scans++]=scan;
+	if(drivers_run)
+	{
+		printk(KERN_ERR "ide: late registration of driver.\n");
+		scan();
+	}
 }
 
 EXPORT_SYMBOL(ide_register_driver);
@@ -2240,6 +2246,7 @@ static void __init ide_scan_drivers(void)
 		(ide_scan[i])();
 		i++;
 	}
+	drivers_run = 1;
 }
 
 /*

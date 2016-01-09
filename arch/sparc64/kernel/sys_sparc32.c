@@ -507,7 +507,7 @@ out:
 
 static int do_sys32_msgsnd (int first, int second, int third, void *uptr)
 {
-	struct msgbuf *p = kmalloc (second + sizeof (struct msgbuf) + 4, GFP_USER);
+	struct msgbuf *p = kmalloc (second + sizeof (struct msgbuf), GFP_USER);
 	struct msgbuf32 *up = (struct msgbuf32 *)uptr;
 	mm_segment_t old_fs;
 	int err;
@@ -549,12 +549,12 @@ static int do_sys32_msgrcv (int first, int second, int msgtyp, int third,
 		msgtyp = ipck.msgtyp;
 	}
 	err = -ENOMEM;
-	p = kmalloc (second + sizeof (struct msgbuf) + 4, GFP_USER);
+	p = kmalloc (second + sizeof (struct msgbuf), GFP_USER);
 	if (!p)
 		goto out;
 	old_fs = get_fs ();
 	set_fs (KERNEL_DS);
-	err = sys_msgrcv (first, p, second + 4, msgtyp, third);
+	err = sys_msgrcv (first, p, second, msgtyp, third);
 	set_fs (old_fs);
 	if (err < 0)
 		goto free_then_out;
@@ -2156,13 +2156,6 @@ sys32_rt_sigtimedwait(sigset_t32 *uthese, siginfo_t32 *uinfo,
 	spin_lock_irq(&current->sigmask_lock);
 	sig = dequeue_signal(&these, &info);
 	if (!sig) {
-		/* None ready -- temporarily unblock those we're interested
-		   in so that we'll be awakened when they arrive.  */
-		sigset_t oldblocked = current->blocked;
-		sigandsets(&current->blocked, &current->blocked, &these);
-		recalc_sigpending(current);
-		spin_unlock_irq(&current->sigmask_lock);
-
 		timeout = MAX_SCHEDULE_TIMEOUT;
 		if (uts)
 			timeout = (timespec_to_jiffies(&ts)
@@ -2171,10 +2164,23 @@ sys32_rt_sigtimedwait(sigset_t32 *uthese, siginfo_t32 *uinfo,
 		current->state = TASK_INTERRUPTIBLE;
 		timeout = schedule_timeout(timeout);
 
-		spin_lock_irq(&current->sigmask_lock);
-		sig = dequeue_signal(&these, &info);
-		current->blocked = oldblocked;
-		recalc_sigpending(current);
+		if (timeout) {
+			/* None ready -- temporarily unblock those we're
+			 * interested while we are sleeping in so that we'll
+			 * be awakened when they arrive.  */
+			sigset_t oldblocked = current->blocked;
+			sigandsets(&current->blocked, &current->blocked, &these);
+			recalc_sigpending(current);
+			spin_unlock_irq(&current->sigmask_lock);
+
+			current->state = TASK_INTERRUPTIBLE;
+			timeout = schedule_timeout(timeout);
+
+			spin_lock_irq(&current->sigmask_lock);
+			sig = dequeue_signal(&these, &info);
+			current->blocked = oldblocked;
+			recalc_sigpending(current);
+		}
 	}
 	spin_unlock_irq(&current->sigmask_lock);
 
@@ -2965,33 +2971,6 @@ static int do_set_attach_filter(int fd, int level, int optname,
 	return ret;
 }
 
-static int do_set_icmpv6_filter(int fd, int level, int optname,
-				char *optval, int optlen)
-{
-	struct icmp6_filter kfilter;
-	mm_segment_t old_fs;
-	int ret, i;
-
-	if (copy_from_user(&kfilter, optval, sizeof(kfilter)))
-		return -EFAULT;
-
-
-	for (i = 0; i < 8; i += 2) {
-		u32 tmp = kfilter.data[i];
-
-		kfilter.data[i] = kfilter.data[i + 1];
-		kfilter.data[i + 1] = tmp;
-	}
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-	ret = sys_setsockopt(fd, level, optname,
-			     (char *) &kfilter, sizeof(kfilter));
-	set_fs(old_fs);
-
-	return ret;
-}
-
 static int do_set_sock_timeout(int fd, int level, int optname, char *optval, int optlen)
 {
 	struct timeval32 *up = (struct timeval32 *) optval;
@@ -3023,9 +3002,6 @@ asmlinkage int sys32_setsockopt(int fd, int level, int optname,
 					    optval, optlen);
 	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
 		return do_set_sock_timeout(fd, level, optname, optval, optlen);
-	if (level == SOL_ICMPV6 && optname == ICMPV6_FILTER)
-		return do_set_icmpv6_filter(fd, level, optname,
-					    optval, optlen);
 
 	return sys_setsockopt(fd, level, optname, optval, optlen);
 }

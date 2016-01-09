@@ -46,6 +46,7 @@ static int v1_read_dqblk(struct dquot *dquot)
 	if (filp == (struct file *)NULL)
 		return -EINVAL;
 
+	memset(&dqblk, 0, sizeof(dqblk));	/* Initialize buffer in case file is too short */
 	/* Now we are sure filp is valid */
 	offset = v1_dqoff(dquot->dq_id);
 	fs = get_fs();

@@ -395,7 +395,7 @@ restart:
 		if (dquot->dq_flags & DQ_LOCKED)
 			wait_on_dquot(dquot);
 		if (dquot_dirty(dquot))
-			commit_dqblk(dquot);
+			sb->dq_op->sync_dquot(dquot);
 		dqput(dquot);
 		goto restart;
 	}
@@ -1201,10 +1201,10 @@ warn_put_all:
 	flush_warnings(transfer_to, warntype);
 	for (cnt = 0; cnt < MAXQUOTAS; cnt++) {
 		/* First we must put duplicate - otherwise we might deadlock */
-		if (transfer_to[cnt] != NODQUOT)
-			dqputduplicate(transfer_to[cnt]);
 		if (transfer_from[cnt] != NODQUOT)
-			dqput(transfer_from[cnt]);
+			dqputduplicate(transfer_from[cnt]);
+		if (transfer_to[cnt] != NODQUOT)
+			dqput(transfer_to[cnt]);
 	}
 	return ret;
 }
@@ -1219,8 +1219,15 @@ struct dquot_operations dquot_operations = {
 	alloc_inode:	dquot_alloc_inode,
 	free_space:	dquot_free_space,
 	free_inode:	dquot_free_inode,
-	transfer:	dquot_transfer
+	transfer:	dquot_transfer,
+	sync_dquot:	commit_dqblk
 };
+
+/* Function used by filesystems for initializing the dquot_operations structure */
+void init_dquot_operations(struct dquot_operations *fsdqops)
+{
+	memcpy(fsdqops, &dquot_operations, sizeof(dquot_operations));
+}
 
 static inline void set_enable_flags(struct quota_info *dqopt, int type)
 {
@@ -1517,3 +1524,4 @@ __initcall(dquot_init);
 EXPORT_SYMBOL(register_quota_format);
 EXPORT_SYMBOL(unregister_quota_format);
 EXPORT_SYMBOL(dqstats);
+EXPORT_SYMBOL(init_dquot_operations);

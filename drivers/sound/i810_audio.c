@@ -2875,7 +2875,6 @@ static int __init i810_ac97_init(struct i810_card *card)
 		
 		if ((codec = ac97_alloc_codec()) == NULL)
 			return -ENOMEM;
-		memset(codec, 0, sizeof(struct ac97_codec));
 
 		/* initialize some basic codec information, other fields will be filled
 		   in ac97_probe_codec */

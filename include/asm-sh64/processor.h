@@ -76,9 +76,9 @@ extern struct sh_cpuinfo boot_cpu_data;
 #endif
 
 /*
- * User space process size: 2GB - 64MB.
+ * User space process size: 2GB - 4k.
  */
-#define TASK_SIZE	0x7c000000UL
+#define TASK_SIZE	0x7ffff000UL
 
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
@@ -230,8 +230,14 @@ extern __inline__ void grab_fpu(void)
 			     : "r" (~SR_FD));
 }
 
-/* Double presision, NANS as NANS, rounding to nearest, no exceptions */
+/* Round to nearest, no exceptions on inexact, overflow, underflow,
+   zero-divide, invalid.  Configure option for whether to flush denorms to
+   zero, or except if a denorm is encountered.  */
+#if defined(CONFIG_SH64_FPU_DENORM_FLUSH)
+#define FPSCR_INIT  0x00040000
+#else
 #define FPSCR_INIT  0x00000000
+#endif
 
 /* Save the current FP regs */
 void fpsave(struct sh_fpu_hard_struct *fpregs);

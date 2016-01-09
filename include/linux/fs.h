@@ -396,6 +396,8 @@ struct address_space_operations {
 	int (*releasepage) (struct page *, int);
 #define KERNEL_HAS_O_DIRECT /* this is for modules out of the kernel */
 	int (*direct_IO)(int, struct inode *, struct kiobuf *, unsigned long, int);
+#define KERNEL_HAS_DIRECT_FILEIO /* Unfortunate kludge due to lack of foresight */
+	int (*direct_fileIO)(int, struct file *, struct kiobuf *, unsigned long, int);
 	void (*removepage)(struct page *); /* called when page gets removed from the inode */
 };
 

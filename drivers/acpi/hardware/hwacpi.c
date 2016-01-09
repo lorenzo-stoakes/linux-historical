@@ -208,6 +208,10 @@ acpi_hw_get_mode (void)
 
 	ACPI_FUNCTION_TRACE ("hw_get_mode");
 
+	/* If there's no smi_cmd port, then it's ACPI only hw */
+	if (!acpi_gbl_FADT->smi_cmd)
+		return_VALUE (ACPI_SYS_MODE_ACPI);
+
 	status = acpi_get_register (ACPI_BITREG_SCI_ENABLE, &value, ACPI_MTX_LOCK);
 	if (ACPI_FAILURE (status)) {
 		return_VALUE (ACPI_SYS_MODE_LEGACY);

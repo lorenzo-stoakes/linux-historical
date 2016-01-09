@@ -10,6 +10,8 @@
  *
  * History 
  *
+ *	2003-06-28 - Dave Hollis <dhollis@davehollis.com>  1.0.2
+ *		* Added support for Intellinet
  *	2003-06-12 - Dave Hollis <dhollis@davehollis.com>  1.0.1
  *		* use usb_make_path for ethtool info
  *		* Use crc32.h for crc functions
@@ -174,6 +176,8 @@ const struct usb_device_id ax8817x_id_table[] __devinitdata = {
       {USB_DEVICE(0x0846, 0x1040), driver_info:0x00130103},
 	/* D-Link DUB-E100 */
       {USB_DEVICE(0x2001, 0x1a00), driver_info:0x009f9d9f},
+	/* Intellinet USB Ethernet*/
+      {USB_DEVICE(0x0b95, 0x1720), driver_info:0x00130103},
 
 	{}
 };

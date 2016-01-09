@@ -141,13 +141,13 @@ static int handle_tlbmiss(struct mm_struct *mm, unsigned long long protection_fl
 	   page table tree stored for the top half of the address space since
 	   virtual pages in that region should never be mapped in user mode.
 	   (In kernel mode, the only things in that region are the 512Mb super
-	   page (locked in) and I/O device pages (handled by
-	   handle_vmalloc_fault), so no PGD for the upper half is required by
-	   kernel mode either).
-	   
+	   page (locked in), and vmalloc (modules) +  I/O device pages (handled
+	   by handle_vmalloc_fault), so no PGD for the upper half is required
+	   by kernel mode either).
+
 	   See how mm->pgd is allocated and initialised in pgd_alloc to see why
 	   the next test is necessary.  - RPC */
-	if (address & 0x80000000UL) {
+	if (address >= (unsigned long) TASK_SIZE) {
 		/* upper half - never has page table entries. */
 		return 0;
 	}

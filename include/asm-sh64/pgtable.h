@@ -10,6 +10,7 @@
  *
  * Copyright (C) 2000, 2001  Paolo Alberelli
  * Copyright (C) 2003  Paul Mundt
+ * Copyright (C) 2003  Richard Curnow
  *
  * This file contains the functions and defines necessary to modify and use
  * the SuperH page table tree.
@@ -18,11 +19,9 @@
 #ifndef __ASSEMBLY__
 #include <asm/processor.h>
 #include <asm/page.h>
-#include <asm/pgtable-3level.h>
 #include <linux/threads.h>
 #include <linux/config.h>
 
-extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 extern void paging_init(void);
 
 extern void flush_cache_all(void);
@@ -85,12 +84,188 @@ extern unsigned char empty_zero_page[PAGE_SIZE];
 
 #endif /* !__ASSEMBLY__ */
 
-#include <asm/pgtable-3level.h>
+/*
+ * NEFF and NPHYS related defines.
+ * FIXME : These need to be model-dependent.  For now this is OK, SH5-101 and SH5-103
+ * implement 32 bits effective and 32 bits physical.  But future implementations may
+ * extend beyond this.
+ */
+#define NEFF		32
+#define	NEFF_SIGN	(1LL << (NEFF - 1))
+#define	NEFF_MASK	(-1LL << NEFF)
+
+#define NPHYS		32
+#define	NPHYS_SIGN	(1LL << (NPHYS - 1))
+#define	NPHYS_MASK	(-1LL << NPHYS)
+
+/* Typically 2-level is sufficient up to 32 bits of virtual address space, beyond
+   that 3-level would be appropriate. */
+#if defined(CONFIG_SH64_PGTABLE_2_LEVEL)
+/* For 4k pages, this contains 512 entries, i.e. 9 bits worth of address. */
+#define PTRS_PER_PTE	((1<<PAGE_SHIFT)/sizeof(unsigned long long))
+#define PTE_MAGNITUDE	3	      /* sizeof(unsigned long long) magnit. */
+#define PTE_SHIFT	PAGE_SHIFT
+#define PTE_BITS	(PAGE_SHIFT - PTE_MAGNITUDE)
+
+/* top level: PMD. */
+#define PGDIR_SHIFT	(PTE_SHIFT + PTE_BITS)
+#define PGD_BITS	(NEFF - PGDIR_SHIFT)
+#define PTRS_PER_PGD	(1<<PGD_BITS)
+
+/* middle level: PMD. This doesn't do anything for the 2-level case. */
+#define PTRS_PER_PMD	(1)
+
+#define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
+#define PGDIR_MASK	(~(PGDIR_SIZE-1))
+#define PMD_SHIFT	PGDIR_SHIFT
+#define PMD_SIZE	PGDIR_SIZE
+#define PMD_MASK	PGDIR_MASK
+
+#elif defined(CONFIG_SH64_PGTABLE_3_LEVEL)
+/*
+ * three-level asymmetric paging structure: PGD is top level.
+ * The asymmetry comes from 32-bit pointers and 64-bit PTEs.
+ */
+/* bottom level: PTE. It's 9 bits = 512 pointers */
+#define PTRS_PER_PTE	((1<<PAGE_SHIFT)/sizeof(unsigned long long))
+#define PTE_MAGNITUDE	3	      /* sizeof(unsigned long long) magnit. */
+#define PTE_SHIFT	PAGE_SHIFT
+#define PTE_BITS	(PAGE_SHIFT - PTE_MAGNITUDE)
+
+/* middle level: PMD. It's 10 bits = 1024 pointers */
+#define PTRS_PER_PMD	((1<<PAGE_SHIFT)/sizeof(unsigned long long *))
+#define PMD_MAGNITUDE	2	      /* sizeof(unsigned long long *) magnit. */
+#define PMD_SHIFT	(PTE_SHIFT + PTE_BITS)
+#define PMD_BITS	(PAGE_SHIFT - PMD_MAGNITUDE)
+
+/* top level: PMD. It's 1 bit = 2 pointers */
+#define PGDIR_SHIFT	(PMD_SHIFT + PMD_BITS)
+#define PGD_BITS	(NEFF - PGDIR_SHIFT)
+#define PTRS_PER_PGD	(1<<PGD_BITS)
 
 #define PMD_SIZE	(1UL << PMD_SHIFT)
 #define PMD_MASK	(~(PMD_SIZE-1))
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
 #define PGDIR_MASK	(~(PGDIR_SIZE-1))
+
+#else
+#error "No defined number of page table levels"
+#endif
+
+/*
+ * Error outputs.
+ */
+#define pte_ERROR(e) \
+	printk("%s:%d: bad pte %016Lx.\n", __FILE__, __LINE__, pte_val(e))
+#define pmd_ERROR(e) \
+	printk("%s:%d: bad pmd %08lx.\n", __FILE__, __LINE__, pmd_val(e))
+#define pgd_ERROR(e) \
+	printk("%s:%d: bad pgd %08lx.\n", __FILE__, __LINE__, pgd_val(e))
+
+/*
+ * Table setting routines. Used within arch/mm only.
+ */
+#define set_pgd(pgdptr, pgdval) (*(pgdptr) = pgdval)
+#define set_pmd(pmdptr, pmdval) (*(pmdptr) = pmdval)
+
+static __inline__ void set_pte(pte_t *pteptr, pte_t pteval)
+{
+	unsigned long long x = ((unsigned long long) pteval.pte);
+	unsigned long long *xp = (unsigned long long *) pteptr;
+	/*
+	 * Sign-extend based on NPHYS.
+	 */
+	*(xp) = (x & NPHYS_SIGN) ? (x | NPHYS_MASK) : x;
+}
+
+static __inline__ void pmd_set(pmd_t *pmdp,pte_t *ptep)
+{
+	pmd_val(*pmdp) = (unsigned long) ptep; 
+}
+
+/*
+ * PGD defines. Top level.
+ */
+
+/* To find an entry in a generic PGD. */
+#define pgd_index(address) (((address) >> PGDIR_SHIFT) & (PTRS_PER_PGD-1))
+#define __pgd_offset(address) pgd_index(address)
+#define pgd_offset(mm, address) ((mm)->pgd+pgd_index(address))
+
+/* To find an entry in a kernel PGD. */
+#define pgd_offset_k(address) pgd_offset(&init_mm, address)
+
+/*
+ * PGD level access routines.
+ *
+ * Note1:
+ * There's no need to use physical addresses since the tree walk is all
+ * in performed in software, until the PTE translation.
+ *
+ * Note 2:
+ * A PGD entry can be uninitialized (_PGD_UNUSED), generically bad,
+ * clear (_PGD_EMPTY), present. When present, lower 3 nibbles contain
+ * _KERNPG_TABLE. Being a kernel virtual pointer also bit 31 must
+ * be 1. Assuming an arbitrary clear value of bit 31 set to 0 and
+ * lower 3 nibbles set to 0xFFF (_PGD_EMPTY) any other value is a
+ * bad pgd that must be notified via printk().
+ *
+ */
+#define _PGD_EMPTY		0x0
+
+#if defined(CONFIG_SH64_PGTABLE_2_LEVEL)
+static inline int pgd_none(pgd_t pgd)		{ return 0; }
+static inline int pgd_bad(pgd_t pgd)		{ return 0; }
+static inline int pgd_present(pgd_t pgd)	{ return 1; }
+#define pgd_clear(xx)				do { } while(0)
+
+#elif defined(CONFIG_SH64_PGTABLE_3_LEVEL)
+#define pgd_present(pgd_entry)	(1)
+#define pgd_none(pgd_entry)	(pgd_val((pgd_entry)) == _PGD_EMPTY)
+/* TODO: Think later about what a useful definition of 'bad' would be now. */
+#define pgd_bad(pgd_entry)	(0)
+#define pgd_clear(pgd_entry_p)	(set_pgd((pgd_entry_p), __pgd(_PGD_EMPTY)))
+
+#endif
+
+
+#define pgd_page(pgd_entry)	((unsigned long) (pgd_val(pgd_entry) & PAGE_MASK))
+
+/*
+ * PMD defines. Middle level.
+ */
+
+/* PGD to PMD dereferencing */
+#if defined(CONFIG_SH64_PGTABLE_2_LEVEL)
+static inline pmd_t * pmd_offset(pgd_t * dir, unsigned long address)
+{
+	return (pmd_t *) dir;
+}
+#elif defined(CONFIG_SH64_PGTABLE_3_LEVEL)
+#define __pmd_offset(address) \
+		(((address) >> PMD_SHIFT) & (PTRS_PER_PMD-1))
+#define pmd_offset(dir, addr) \
+		((pmd_t *) ((pgd_val(*(dir))) & PAGE_MASK) + __pmd_offset((addr)))
+#endif
+
+/*
+ * PMD level access routines. Same notes as above.
+ */
+#define _PMD_EMPTY		0x0
+/* Either the PMD is empty or present, it's not paged out */
+#define pmd_present(pmd_entry)	(1)
+#define pmd_clear(pmd_entry_p)	(set_pmd((pmd_entry_p), __pmd(_PMD_EMPTY)))
+#define pmd_none(pmd_entry)	(pmd_val((pmd_entry)) == _PMD_EMPTY)
+/* TODO: Think later about what a useful definition of 'bad' would be now. */
+#define pmd_bad(pmd_entry)	(0)
+#define pmd_page(pmd_entry)	((unsigned long) (pmd_val(pmd_entry) & PAGE_MASK))
+
+/* PMD to PTE dereferencing */
+#define __pte_offset(address) \
+		((address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
+
+#define pte_offset(dir, addr) \
+		((pte_t *) ((pmd_val(*(dir))) & PAGE_MASK) + __pte_offset((addr)))
 
 /* Round it up ! */
 #define USER_PTRS_PER_PGD	((TASK_SIZE+PGDIR_SIZE-1)/PGDIR_SIZE)
@@ -120,7 +295,8 @@ extern unsigned char empty_zero_page[PAGE_SIZE];
    scheme doesn't map to SH-5 because bit [0] controls cacheability.  So bit
    [2] is used for _PAGE_PRESENT and the type field of swp_entry_t is split
    into 2 pieces.  That is handled by SWP_ENTRY and SWP_TYPE below. */
-#define _PAGE_WT	0x001  /* CB0: uncachable/device or write-back/write-thru */
+#define _PAGE_WT	0x001  /* CB0: if cacheable, 1->write-thru, 0->write-back */
+#define _PAGE_DEVICE	0x001  /* CB0: if uncacheable, 1->device (i.e. no write-combining or reordering at bus level) */
 #define _PAGE_CACHABLE	0x002  /* CB1: uncachable/cachable */
 #define _PAGE_PRESENT	0x004  /* software: if allocated */
 #define _PAGE_SIZE0	0x008  /* SZ0-bit : size of page */
@@ -194,6 +370,10 @@ extern unsigned char empty_zero_page[PAGE_SIZE];
 #define __S101	__pgprot(__MMAP_COMMON | _PAGE_SHARED | _PAGE_EXECUTE | _PAGE_READ)
 #define __S110	__pgprot(__MMAP_COMMON | _PAGE_SHARED | _PAGE_EXECUTE | _PAGE_WRITE)
 #define __S111	__pgprot(__MMAP_COMMON | _PAGE_SHARED | _PAGE_EXECUTE | _PAGE_READ | _PAGE_WRITE)
+
+/* Make it a device mapping for maximum safety (e.g. for mapping device
+   registers into user-space via /dev/map).  */
+#define pgprot_noncached(x) __pgprot(((x).pgprot & ~(_PAGE_CACHABLE)) | _PAGE_DEVICE)
 
 /*
  * Handling allocation failures during page table setup.
@@ -302,6 +482,10 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 
 extern void update_mmu_cache(struct vm_area_struct * vma,
 			     unsigned long address, pte_t pte);
+
+
+/* Swap-related things */
+extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 
 /* Encode and de-code a swap entry */
 #define SWP_TYPE(x)			(((x).val & 3) + (((x).val >> 1) & 0x3c))

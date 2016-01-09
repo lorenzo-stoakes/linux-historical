@@ -37,13 +37,18 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include <linux/config.h>
 #include "usb.h"
-
-#define UCR61S2B_INIT "\xec\x0a\x06\x00$PCCHIPS"
 
 /* This places the Shuttle/SCM USB<->SCSI bridge devices in multi-target
  * mode */
 int usb_stor_euscsi_init(struct us_data *us);
+
+#ifdef CONFIG_USB_STORAGE_SDDR09
+int sddr09_init(struct us_data *us);
+#endif
+
+#define UCR61S2B_INIT "\xec\x0a\x06\x00$PCCHIPS"
 
 /* This function is required to activate all four slots on the UCR-61S2B
  * flash reader */

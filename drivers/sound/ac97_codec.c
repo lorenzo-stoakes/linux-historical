@@ -740,7 +740,6 @@ struct ac97_codec *ac97_alloc_codec(void)
 	memset(codec, 0, sizeof(*codec));
 	spin_lock_init(&codec->lock);
 	INIT_LIST_HEAD(&codec->list);
-	list_add(&codec->list, &codecs);
 	return codec;
 }
 
@@ -869,6 +868,7 @@ int ac97_probe_codec(struct ac97_codec *codec)
 	 */
 	 
 	down(&codec_sem);
+	list_add(&codec->list, &codecs);
 
 	list_for_each(l, &codec_drivers) {
 		d = list_entry(l, struct ac97_driver, list);

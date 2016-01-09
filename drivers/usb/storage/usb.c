@@ -401,18 +401,6 @@ static int usb_stor_control_thread(void * __us)
 				break;
 			}
 
-			/* handle those devices which can't do a START_STOP */
-			if ((us->srb->cmnd[0] == START_STOP) &&
-			    (us->flags & US_FL_START_STOP)) {
-				US_DEBUGP("Skipping START_STOP command\n");
-				us->srb->result = GOOD << 1;
-
-				set_current_state(TASK_INTERRUPTIBLE);
-				us->srb->scsi_done(us->srb);
-				us->srb = NULL;
-				break;
-			}
-
 			/* lock the device pointers */
 			down(&(us->dev_semaphore));
 

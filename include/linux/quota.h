@@ -251,6 +251,7 @@ struct dquot_operations {
 	void (*free_space) (struct inode *, qsize_t);
 	void (*free_inode) (const struct inode *, unsigned long);
 	int (*transfer) (struct inode *, struct iattr *);
+	int (*sync_dquot) (struct dquot *);
 };
 
 /* Operations handling requests from userspace */
@@ -312,6 +313,7 @@ static inline int is_enabled(struct quota_info *dqopt, int type)
 
 int register_quota_format(struct quota_format_type *fmt);
 void unregister_quota_format(struct quota_format_type *fmt);
+void init_dquot_operations(struct dquot_operations *fsdqops);
 
 #else
 

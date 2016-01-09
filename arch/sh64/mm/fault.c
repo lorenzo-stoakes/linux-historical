@@ -147,19 +147,6 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long writeaccess,
 	 * have just faulted on is not going to work.
 	 */
 
-	//		printk("fault, address is 0x%08x textaccess %d writeaccess %d\n",
-	//			       address,textaccess,writeaccess);
-
-	/* Temporary plumbing - this will go into entry.S soon.  If the fast
-	   path can service the fault, get out quick. */
-#if 0
-	/* Now on fast path */
-	if (do_fast_page_fault(regs, writeaccess, textaccess, address) == 1) return;
-#endif
-
-	/* Otherwise, there is work to be done to put something into the PTE for the
-	   faulting address */
-
 	tsk = current;
 	mm = tsk->mm;
 
@@ -308,26 +295,6 @@ no_context:
 		printk(KERN_ALERT "Unable to handle kernel paging request");
 	printk(" at virtual address %08lx\n", address);
 	printk(KERN_ALERT "pc = %08Lx%08Lx\n", regs->pc >> 32, regs->pc & 0xffffffff);
-	if (0 == mmu_pdtp_cache) {
-		printk("mmu_pdtp_cache==0!\n");
-	} else {
-		page = pgd_val(*mmu_pdtp_cache);
-		if (page && (page & _PAGE_PRESENT)) {
-			page = (((unsigned long *) page)[address >> PGDIR_SHIFT] & PAGE_MASK);
-			printk(KERN_ALERT "*pmd = %08lx\n", page);
-			if (page && (page & _PAGE_PRESENT)) {
-				page = (((unsigned long *) page)[(address >> PMD_SHIFT) & PMD_MASK] & \
-					 PAGE_MASK);
-				printk(KERN_ALERT "*pte = %08lx\n", page);
-				if (page & (page & _PAGE_PRESENT)) {
-					lpage = ((unsigned long long *) (page)) \
-						 [(address >> PAGE_SHIFT) & PAGE_MASK];
-					printk(KERN_ALERT "pte = %08Lx%08Lx\n",
-							   lpage >> 32, lpage & 0xffffffff);
-				}
-			}
-		}
-	}
 	die("Oops", regs, writeaccess);
 	do_exit(SIGKILL);
 
@@ -584,7 +551,6 @@ static inline int is_present(unsigned long x)
 	unsigned long y;
 
 	y = x & mask;
-	/* Copy logic from pgtable-3level.h */
 	if (y) return 1;
 	else   return 0;
 }

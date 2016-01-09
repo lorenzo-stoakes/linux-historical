@@ -1,5 +1,5 @@
-#ifndef __ASM_SH_PGALLOC_H
-#define __ASM_SH_PGALLOC_H
+#ifndef __ASM_SH64_PGALLOC_H
+#define __ASM_SH64_PGALLOC_H
 
 #include <asm/processor.h>
 #include <linux/threads.h>
@@ -18,10 +18,6 @@
 
 /*
  * Allocate and free page tables.
- */
-
-/* NB this is a pretty crap implementation, should use the quick functions
- * but speed is not a concern at the moment.
  */
 
 static inline pgd_t *pgd_alloc(struct mm_struct *mm)
@@ -68,27 +64,43 @@ static inline void pte_free_slow(pte_t *pte)
 static inline pmd_t*
 pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
 {
+#if defined(CONFIG_SH64_PGTABLE_2_LEVEL)
+	BUG();
+#endif
 	return 0;
 }
  
 static inline pmd_t*
 pmd_alloc_one (struct mm_struct *mm, unsigned long addr)
 {
-        pmd_t *pmd = (pmd_t *) __get_free_page(GFP_KERNEL);
+        pmd_t *pmd = NULL;
+	
+#if defined(CONFIG_SH64_PGTABLE_2_LEVEL)
+	BUG();
+#elif defined(CONFIG_SH64_PGTABLE_3_LEVEL)
+	pmd = (pmd_t *) __get_free_page(GFP_KERNEL);
  
         if (pmd != NULL )
                 clear_page(pmd);
+#endif
         return pmd;
 }
  
+#if defined(CONFIG_SH64_PGTABLE_2_LEVEL)
 static inline void
 pmd_free (pmd_t *pmd)
 {
-
+	return;
+}
+#elif defined(CONFIG_SH64_PGTABLE_3_LEVEL)
+static inline void
+pmd_free (pmd_t *pmd)
+{
  free_page((unsigned long)pmd);      
 }
+#endif
 
- 
+
 static inline void
 pmd_populate (struct mm_struct *mm, pmd_t *pmd, pte_t *pte)
 {
@@ -169,5 +181,5 @@ static inline void ptep_mkdirty(pte_t *ptep)
 	pte_t old_pte = *ptep;
 	set_pte(ptep, pte_mkdirty(old_pte));
 }
-#endif /* __ASM_SH_PGALLOC_H */
+#endif /* __ASM_SH64_PGALLOC_H */
 

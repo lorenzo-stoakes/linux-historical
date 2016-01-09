@@ -763,8 +763,8 @@ vicam_open(struct video_device *dev, int flags)
 static void
 vicam_close(struct video_device *dev)
 {
-	DBG("close\n");
 	struct vicam_camera *cam = (struct vicam_camera *) dev->priv;
+	DBG("close\n");
 
 
 	if (cam->is_removed) {

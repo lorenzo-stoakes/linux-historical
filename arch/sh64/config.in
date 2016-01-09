@@ -49,6 +49,11 @@ choice 'Endianness' \
        "Little-Endian		CONFIG_LITTLE_ENDIAN		\
 	Big-Endian		CONFIG_BIG_ENDIAN" Little-Endian
 
+bool 'Flush floating point denorms to zero' CONFIG_SH64_FPU_DENORM_FLUSH
+choice 'Page table levels' \
+	"2			CONFIG_SH64_PGTABLE_2_LEVEL \
+	 3			CONFIG_SH64_PGTABLE_3_LEVEL" 2
+
 # Use 32-bit addressing for now.
 # EMI based.
 # P2 (UNCACHED) required to use identity mapping
@@ -78,6 +83,7 @@ if [ "$CONFIG_SH_SIMULATOR" != "y" -a \
 fi
 
 bool 'ICache Disabling' CONFIG_ICACHE_DISABLED
+
 
 #
 # CPU Subtype specific options (errata and such)

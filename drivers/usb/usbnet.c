@@ -162,7 +162,7 @@
 #define	CONFIG_USB_GENESYS
 #define	CONFIG_USB_NET1080
 #define	CONFIG_USB_PL2301
-#define	CONFIG_USB_SA1100
+#define	CONFIG_USB_ARMLINUX
 #define	CONFIG_USB_ZAURUS
 
 
@@ -218,6 +218,11 @@ struct usbnet {
 	struct list_head	dev_list;
 	wait_queue_head_t	*wait;
 
+	// i/o info: pipes etc
+	unsigned		in, out;
+	unsigned		maxpacket;
+	//struct timer_list	delay;
+
 	// protocol/interface state
 	struct net_device	net;
 	struct net_device_stats	stats;
@@ -266,13 +271,11 @@ struct driver_info {
 	// FIXME -- also an interrupt mechanism
 	// useful for at least PL2301/2302 and GL620USB-A
 
-	/* framework currently "knows" bulk EPs talk packets */
+	/* for new devices, use the descriptor-reading code instead */
 	int		in;		/* rx endpoint */
 	int		out;		/* tx endpoint */
 	int		epsize;
 };
-
-#define EP_SIZE(usbnet)	((usbnet)->driver_info->epsize)
 
 // we record the state for each of our queued skbs
 enum skb_state {
@@ -305,6 +308,61 @@ MODULE_PARM_DESC (msg_level, "Initial message level (default = 1)");
 /* mostly for PDA style devices, which are always present */
 static int always_connected (struct usbnet *dev)
 {
+	return 0;
+}
+
+/*-------------------------------------------------------------------------*/
+
+/* handles CDC Ethernet and many other network "bulk data" interfaces */
+static int
+get_endpoints (struct usbnet *dev, struct usb_interface *intf)
+{
+	int				tmp;
+	struct usb_interface_descriptor	*alt;
+	struct usb_endpoint_descriptor	*in, *out;
+
+	for (tmp = 0; tmp < intf->max_altsetting; tmp++) {
+		unsigned	ep;
+
+		in = out = 0;
+		alt = intf->altsetting + tmp;
+
+		/* take the first altsetting with in-bulk + out-bulk;
+		 * ignore other endpoints and altsetttings.
+		 */
+		for (ep = 0; ep < alt->bNumEndpoints; ep++) {
+			struct usb_endpoint_descriptor	*e;
+
+			e = alt->endpoint + ep;
+			if (e->bmAttributes != USB_ENDPOINT_XFER_BULK)
+				continue;
+			if (e->bEndpointAddress & USB_DIR_IN) {
+				if (!in)
+					in = e;
+			} else {
+				if (!out)
+					out = e;
+			}
+			if (in && out)
+				goto found;
+		}
+	}
+	return -EINVAL;
+
+found:
+	if (alt->bAlternateSetting != 0
+			|| !(dev->driver_info->flags & FLAG_NO_SETINT)) {
+		tmp = usb_set_interface (dev->udev, alt->bInterfaceNumber,
+				alt->bAlternateSetting);
+		if (tmp < 0)
+			return tmp;
+	}
+	
+	dev->in = usb_rcvbulkpipe (dev->udev,
+			in->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+	dev->out = usb_sndbulkpipe (dev->udev,
+			out->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
 	return 0;
 }
 
@@ -361,9 +419,6 @@ static const struct driver_info	an2720_info = {
 
 static const struct driver_info	belkin_info = {
 	.description =	"Belkin, eTEK, or compatible",
-
-	.in = 1, .out = 1,		// direction distinguishes these
-	.epsize =64,
 };
 
 #endif	/* CONFIG_USB_BELKIN */
@@ -708,7 +763,7 @@ genelink_tx_fixup (struct usbnet *dev, struct sk_buff *skb, int flags)
 	*packet_len = length;
 
 	// add padding byte
-	if ((skb->len % EP_SIZE (dev)) == 0)
+	if ((skb->len % dev->maxpacket) == 0)
 		skb_put (skb, 1);
 
 	return skb;
@@ -1174,9 +1229,6 @@ static const struct driver_info	net1080_info = {
 	.check_connect =net1080_check_connect,
 	.rx_fixup =	net1080_rx_fixup,
 	.tx_fixup =	net1080_tx_fixup,
-
-	.in = 1, .out = 1,		// direction distinguishes these
-	.epsize =64,
 };
 
 #endif /* CONFIG_USB_NET1080 */
@@ -1241,67 +1293,45 @@ static const struct driver_info	prolific_info = {
 	.flags =	FLAG_NO_SETINT,
 		/* some PL-2302 versions seem to fail usb_set_interface() */
 	.reset =	pl_reset,
-
-	.in = 3, .out = 2,
-	.epsize =64,
 };
 
 #endif /* CONFIG_USB_PL2301 */
 
 
 
-#ifdef	CONFIG_USB_PXA
+#ifdef	CONFIG_USB_ARMLINUX
 
 /*-------------------------------------------------------------------------
  *
- * PXA250 and PXA210 use XScale cores (ARM v5TE) with better USB support,
- * and different USB endpoint numbering than the SA1100 devices.
+ * Standard ARM kernels include a "usb-eth" driver, or a newer
+ * "ethernet gadget" driver for basic USB connectivity.  The vendor
+ * and product code may also be used for other non-CDC Linux devices,
+ * if they all maintain protocol compatibility.
  *
- *-------------------------------------------------------------------------*/
-
-static const struct driver_info	pxa_info = {
-	.description =	"PXA-250 Linux Device",
-	.check_connect = always_connected,
-
-	.in = 1, .out = 2,
-	.epsize = 64,
-};
-
-#endif	/* CONFIG_USB_PXA */
-
-
-
-#ifdef	CONFIG_USB_SA1100
-
-/*-------------------------------------------------------------------------
+ * That means lots of hardware could match here, possibly using
+ * different endpoint numbers (and bcdVersion ids).  so we rely on
+ * endpoint descriptors to sort that out for us.
  *
- * Intel's SA-1100 chip integrates basic USB support, and is used
- * in PDAs like some iPAQs, the Yopy, some Zaurus models, and more.
- * When they run Linux, arch/arm/mach-sa1100/usb-eth.c may be used to
- * network using minimal USB framing data.
- *
- * This describes the driver currently in standard ARM Linux kernels.
- * The Zaurus uses a different driver (see later).
+ * (Current Zaurus models need a different driver; see later.)
  *
  *-------------------------------------------------------------------------*/
 
 static const struct driver_info	linuxdev_info = {
-	.description =	"SA-1100 Linux Device",
+	.description =	"Linux Device",
 	.check_connect = always_connected,
-
-	.in = 2, .out = 1,
-	.epsize = 64,
 };
 
 static const struct driver_info	yopy_info = {
 	.description =	"Yopy",
 	.check_connect = always_connected,
-
-	.in = 2, .out = 1,
-	.epsize = 64,
 };
 
-#endif	/* CONFIG_USB_SA1100 */
+static const struct driver_info	blob_info = {
+	.description =	"Boot Loader OBject",
+	.check_connect = always_connected,
+};
+
+#endif	/* CONFIG_USB_ARMLINUX */
 
 
 #ifdef CONFIG_USB_ZAURUS
@@ -1310,8 +1340,8 @@ static const struct driver_info	yopy_info = {
 
 /*-------------------------------------------------------------------------
  *
- * Zaurus is also a SA-1110 based PDA, but one using a different driver
- * (and framing) for its USB slave/gadget controller than the case above.
+ * Zaurus PDAs are also ARM based, but currently use different drivers
+ * (and framing) for USB slave/gadget controllers than the case above.
  *
  * For the current version of that driver, the main way that framing is
  * nonstandard (also from perspective of the CDC ethernet model!) is a
@@ -1349,6 +1379,7 @@ done:
 	return skb;
 }
 
+/* SA-1100 based */
 static const struct driver_info	zaurus_sl5x00_info = {
 	.description =	"Sharp Zaurus SL-5x00",
 	.flags =	FLAG_FRAMING_Z,
@@ -1358,6 +1389,8 @@ static const struct driver_info	zaurus_sl5x00_info = {
 	.in = 2, .out = 1,
 	.epsize = 64,
 };
+
+/* PXA-2xx based */
 static const struct driver_info	zaurus_sla300_info = {
 	.description =	"Sharp Zaurus SL-A300",
 	.flags =	FLAG_FRAMING_Z,
@@ -1387,9 +1420,6 @@ static const struct driver_info	zaurus_slc700_info = {
 	.epsize = 64,
 };
 
-// SL-5600 and C-700 are PXA based; should resemble A300
-// but C-700 had a different idProduct so i had an entry :)
-
 #endif
 
 
@@ -1417,7 +1447,7 @@ static int usbnet_change_mtu (struct net_device *net, int new_mtu)
 		return -EINVAL;
 #endif
 	// no second zero-length packet read wanted after mtu-sized packets
-	if (((new_mtu + sizeof (struct ethhdr)) % EP_SIZE (dev)) == 0)
+	if (((new_mtu + sizeof (struct ethhdr)) % dev->maxpacket) == 0)
 		return -EDOM;
 	net->mtu = new_mtu;
 	return 0;
@@ -1506,8 +1536,7 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, int flags)
 	entry->state = rx_start;
 	entry->length = 0;
 
-	usb_fill_bulk_urb (urb, dev->udev,
-		usb_rcvbulkpipe (dev->udev, dev->driver_info->in),
+	usb_fill_bulk_urb (urb, dev->udev, dev->in,
 		skb->data, size, rx_complete, skb);
 	urb->transfer_flags |= USB_ASYNC_UNLINK;
 
@@ -1856,8 +1885,7 @@ kevent (void *data)
 	/* usb_clear_halt() needs a thread context */
 	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
 		unlink_urbs (&dev->txq);
-		status = usb_clear_halt (dev->udev,
-			usb_sndbulkpipe (dev->udev, dev->driver_info->out));
+		status = usb_clear_halt (dev->udev, dev->out);
 		if (status < 0)
 			err ("%s: can't clear tx halt, status %d",
 				dev->net.name, status);
@@ -1868,8 +1896,7 @@ kevent (void *data)
 	}
 	if (test_bit (EVENT_RX_HALT, &dev->flags)) {
 		unlink_urbs (&dev->rxq);
-		status = usb_clear_halt (dev->udev,
-			usb_rcvbulkpipe (dev->udev, dev->driver_info->in));
+		status = usb_clear_halt (dev->udev, dev->in);
 		if (status < 0)
 			err ("%s: can't clear rx halt, status %d",
 				dev->net.name, status);
@@ -1980,11 +2007,10 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 #endif	/* CONFIG_USB_NET1080 */
 
 	/* don't assume the hardware handles USB_ZERO_PACKET */
-	if ((length % EP_SIZE (dev)) == 0)
+	if ((length % dev->maxpacket) == 0)
 		skb->len++;
 
-	usb_fill_bulk_urb (urb, dev->udev,
-			usb_sndbulkpipe (dev->udev, info->out),
+	usb_fill_bulk_urb (urb, dev->udev, dev->out,
 			skb->data, skb->len, tx_complete, skb);
 	urb->transfer_flags |= USB_ASYNC_UNLINK;
 
@@ -2021,7 +2047,7 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 	if (retval) {
 		devdbg (dev, "drop, code %d", retval);
 drop:
-		retval = NET_XMIT_DROP;
+		retval = NET_XMIT_SUCCESS;
 		dev->stats.tx_dropped++;
 		if (skb)
 			dev_kfree_skb_any (skb);
@@ -2215,6 +2241,21 @@ usbnet_probe (struct usb_device *udev, unsigned ifnum,
 	net->tx_timeout = usbnet_tx_timeout;
 	net->do_ioctl = usbnet_ioctl;
 
+	// get rx/tx params from descriptors; avoid compiled-in details
+	if (!info->in || !info->out) {
+		int status = get_endpoints (dev,
+					udev->actconfig->interface + ifnum);
+		if (status < 0) {
+			err ("get_endpoints failed, %d", status);
+			kfree (dev);
+			return 0;
+		}
+	} else {
+		dev->in = usb_rcvbulkpipe (udev, info->in);
+		dev->out = usb_sndbulkpipe (udev, info->out);
+		dev->maxpacket = info->epsize;
+	}
+
 	register_netdev (&dev->net);
 	devinfo (dev, "register usbnet usb-%s-%s, %s",
 		udev->bus->bus_name, udev->devpath,
@@ -2302,32 +2343,30 @@ static const struct usb_device_id	products [] = {
 },
 #endif
 
-#ifdef	CONFIG_USB_PXA
-/*
- * PXA250 or PXA210 ...  these use a "usb-eth" driver much like
- * the sa1100 one.
- */
-{
-	// Compaq "Itsy" vendor/product id, version "2.0"
-	USB_DEVICE_VER (0x049F, 0x505A, 0x0200, 0x0200),
-	.driver_info =	(unsigned long) &pxa_info,
-}, 
-#endif
-
-#ifdef	CONFIG_USB_SA1100
+#ifdef	CONFIG_USB_ARMLINUX
 /*
  * SA-1100 using standard ARM Linux kernels, or compatible.
  * Often used when talking to Linux PDAs (iPaq, Yopy, etc).
  * The sa-1100 "usb-eth" driver handles the basic framing.
+ * ARMv4.
+ *
+ * PXA2xx using usb "gadget" driver, or older "usb-eth" much like
+ * the sa1100 one. (But PXA hardware uses different endpoints.)
+ * ARMv5TE.
  */
 {
 	// 1183 = 0x049F, both used as hex values?
-	// Compaq "Itsy" vendor/product id, version "0.0"
-	USB_DEVICE_VER (0x049F, 0x505A, 0, 0),
+	// Compaq "Itsy" vendor/product id
+	// version numbers vary, along with endpoint usage
+	// but otherwise they're protocol-compatible
+	USB_DEVICE (0x049F, 0x505A),
 	.driver_info =	(unsigned long) &linuxdev_info,
 }, {
 	USB_DEVICE (0x0E7E, 0x1001),	// G.Mate "Yopy"
 	.driver_info =	(unsigned long) &yopy_info,
+}, {
+	USB_DEVICE (0x8086, 0x07d3),	// "blob" bootloader
+	.driver_info =	(unsigned long) &blob_info,
 }, 
 #endif
 

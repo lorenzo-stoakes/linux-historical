@@ -1557,6 +1557,21 @@ no_cached_page:
 	UPDATE_ATIME(inode);
 }
 
+static inline int have_mapping_directIO(struct address_space * mapping)
+{
+	return mapping->a_ops->direct_IO || mapping->a_ops->direct_fileIO;
+}
+
+/* Switch between old and new directIO formats */
+static inline int do_call_directIO(int rw, struct file *filp, struct kiobuf *iobuf, unsigned long offset, int blocksize)
+{
+	struct address_space * mapping = filp->f_dentry->d_inode->i_mapping;
+
+	if (mapping->a_ops->direct_fileIO)
+		return mapping->a_ops->direct_fileIO(rw, filp, iobuf, offset, blocksize);
+	return mapping->a_ops->direct_IO(rw, mapping->host, iobuf, offset, blocksize);
+}
+
 /*
  * i_sem and i_alloc_sem should be held already.  i_sem may be dropped
  * later once we've mapped the new IO.  i_alloc_sem is kept until the IO
@@ -1593,7 +1608,7 @@ static ssize_t generic_file_direct_IO(int rw, struct file * filp, char * buf, si
 	retval = -EINVAL;
 	if ((offset & blocksize_mask) || (count & blocksize_mask) || ((unsigned long) buf & blocksize_mask))
 		goto out_free;
-	if (!mapping->a_ops->direct_IO)
+	if (!have_mapping_directIO(mapping))
 		goto out_free;
 
 	if ((rw == READ) && (offset + count > size))
@@ -1621,7 +1636,7 @@ static ssize_t generic_file_direct_IO(int rw, struct file * filp, char * buf, si
 		if (retval)
 			break;
 
-		retval = mapping->a_ops->direct_IO(rw, inode, iobuf, (offset+progress) >> blocksize_bits, blocksize);
+		retval = do_call_directIO(rw, filp, iobuf, (offset+progress) >> blocksize_bits, blocksize);
 
 		if (rw == READ && retval > 0)
 			mark_dirty_kiobuf(iobuf, retval);

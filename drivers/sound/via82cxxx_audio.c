@@ -3226,7 +3226,7 @@ static int via_dsp_ioctl (struct inode *inode, struct file *file,
 	/* inform device of an upcoming pause in input (or output). */
 	case SNDCTL_DSP_POST:
 		DPRINTK ("DSP_POST\n");
-		if (0 && wr) {
+		if (wr) {
 			if (card->ch_out.slop_len > 0)
 				via_chan_flush_frag (&card->ch_out);
 			via_chan_maybe_start (&card->ch_out);
