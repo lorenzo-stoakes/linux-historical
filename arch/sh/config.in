@@ -387,4 +387,5 @@ if [ "$CONFIG_SH_STANDARD_BIOS" = "y" ]; then
 fi
 endmenu
 
+source crypto/Config.in
 source lib/Config.in

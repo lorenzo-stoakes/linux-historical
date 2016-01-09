@@ -123,15 +123,6 @@ static inline void io_apic_write(unsigned int apic, unsigned int reg, unsigned i
 }
 
 /*
- * Re-write a value: to be used for read-modify-write
- * cycles where the read already set up the index register.
- */
-static inline void io_apic_modify(unsigned int apic, unsigned int value)
-{
-	*(IO_APIC_BASE(apic)+4) = value;
-}
-
-/*
  * Synchronize the IO-APIC and the CPU by doing
  * a dummy read from the IO-APIC
  */

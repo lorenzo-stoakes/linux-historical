@@ -525,10 +525,13 @@ static int get_modem_info (struct usb_serial_port *port, unsigned int *value)
 {
 	struct pl2303_private *priv = port->private;
 	unsigned int mcr = priv->line_control;
+	unsigned int status = priv->line_status;
 	unsigned int result;
 
 	result = ((mcr & CONTROL_DTR)		? TIOCM_DTR : 0)
-		  | ((mcr & CONTROL_RTS)	? TIOCM_RTS : 0);
+		  | ((mcr & CONTROL_RTS)	? TIOCM_RTS : 0)
+		  | ((status & UART_CTS)	? TIOCM_CTS : 0)
+		  | ((status & UART_DSR)	? TIOCM_DSR : 0);
 
 	dbg("%s - result = %x", __FUNCTION__, result);
 

@@ -23,9 +23,9 @@
 
 #include "ieee1394_types.h"
 #include "ieee1394.h"
+#include "nodemgr.h"
 #include "hosts.h"
 #include "ieee1394_transactions.h"
-#include "ieee1394_hotplug.h"
 #include "highlevel.h"
 #include "csr.h"
 #include "nodemgr.h"
@@ -92,15 +92,26 @@ static struct hpsb_highlevel nodemgr_highlevel;
 
 #ifdef CONFIG_PROC_FS
 
-#define PUTF(fmt, args...) out += sprintf(out, fmt, ## args)
+#define PUTF(fmt, args...)				\
+do {							\
+	len += sprintf(page + len, fmt, ## args);	\
+	pos = begin + len;				\
+	if (pos < off) {				\
+		len = 0;				\
+		begin = pos;				\
+	}						\
+	if (pos > off + count)				\
+		goto done_proc;				\
+} while (0)
+
 
 static int raw1394_read_proc(char *page, char **start, off_t off,
 			     int count, int *eof, void *data)
 {
 	struct list_head *lh;
 	struct node_entry *ne;
-	int len;
-	char *out = page;
+	off_t begin = 0, pos = 0;
+	int len = 0;
 
 	if (down_interruptible(&nodemgr_serialize))
 		return -EINTR;
@@ -180,18 +191,18 @@ static int raw1394_read_proc(char *page, char **start, off_t off,
 
 	}
 
+done_proc:
 	up(&nodemgr_serialize);
 
-	len = out - page;
-	len -= off;
-	if (len < count) {
+	*start = page + (off - begin);
+	len -= (off - begin);
+	if (len > count)
+		len = count;
+	else {
 		*eof = 1;
 		if (len <= 0)
 			return 0;
-	} else
-		len = count;
-
-        *start = page + off;
+	}
 
 	return len;
 }
@@ -1231,12 +1242,12 @@ static void nodemgr_do_irm_duties(struct hpsb_host *host)
 	/* If there is no bus manager then we should set the root node's
 	 * force_root bit to promote bus stability per the 1394
 	 * spec. (8.4.2.6) */
-	if (host->busmgr_id == 0x3f && host->node_count > 1)
+	if (host->busmgr_id == 0xffff && host->node_count > 1)
 	{
 		u16 root_node = host->node_count - 1;
-		struct node_entry *ne = hpsb_nodeid_get_entry(host, root_node);
+		struct node_entry *ne = find_entry_by_nodeid(host, root_node | LOCAL_BUS);
 
-		if (ne->busopt.cmc)
+		if (ne && ne->busopt.cmc)
 			hpsb_send_phy_config(host, root_node, -1);
 		else {
 			HPSB_DEBUG("The root node is not cycle master capable; "

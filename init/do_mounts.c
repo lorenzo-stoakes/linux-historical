@@ -15,6 +15,7 @@
 #include <linux/minix_fs.h>
 #include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
+#include <linux/cramfs_fs.h>
 
 #define BUILD_CRAMDISK
 
@@ -474,6 +475,7 @@ static int __init crd_load(int in_fd, int out_fd);
  * 	minix
  * 	ext2
  *	romfs
+ *	cramfs
  * 	gzip
  */
 static int __init 
@@ -483,6 +485,7 @@ identify_ramdisk_image(int fd, int start_block)
 	struct minix_super_block *minixsb;
 	struct ext2_super_block *ext2sb;
 	struct romfs_super_block *romfsb;
+	struct cramfs_super *cramfsb;
 	int nblocks = -1;
 	unsigned char *buf;
 
@@ -493,6 +496,7 @@ identify_ramdisk_image(int fd, int start_block)
 	minixsb = (struct minix_super_block *) buf;
 	ext2sb = (struct ext2_super_block *) buf;
 	romfsb = (struct romfs_super_block *) buf;
+	cramfsb = (struct cramfs_super *) buf;
 	memset(buf, 0xe5, size);
 
 	/*
@@ -519,6 +523,14 @@ identify_ramdisk_image(int fd, int start_block)
 		       "RAMDISK: romfs filesystem found at block %d\n",
 		       start_block);
 		nblocks = (ntohl(romfsb->size)+BLOCK_SIZE-1)>>BLOCK_SIZE_BITS;
+		goto done;
+	}
+
+	if (cramfsb->magic == CRAMFS_MAGIC) {
+		printk(KERN_NOTICE
+		       "RAMDISK: cramfs filesystem found at block %d\n",
+		       start_block);
+		nblocks = (cramfsb->size + BLOCK_SIZE - 1) >> BLOCK_SIZE_BITS;
 		goto done;
 	}
 
@@ -908,6 +920,8 @@ out:
 	mount_devfs_fs ();
 }
 
+#ifdef CONFIG_BLK_DEV_RAM
+
 #if defined(BUILD_CRAMDISK) && defined(CONFIG_BLK_DEV_RAM)
 
 /*
@@ -1054,3 +1068,4 @@ static int __init crd_load(int in_fd, int out_fd)
 }
 
 #endif  /* BUILD_CRAMDISK && CONFIG_BLK_DEV_RAM */
+#endif  /* CONFIG_BLK_DEV_RAM */

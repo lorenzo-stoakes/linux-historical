@@ -75,6 +75,8 @@ extern int msg_ctlmni;
 extern int sem_ctls[];
 #endif
 
+extern int exception_trace;
+
 #ifdef __sparc__
 extern char reboot_command [];
 extern int stop_a_enabled;
@@ -263,6 +265,10 @@ static ctl_table kern_table[] = {
 	{KERN_S390_USER_DEBUG_LOGGING,"userprocess_debug",
 	 &sysctl_userprocess_debug,sizeof(int),0644,NULL,&proc_dointvec},
 #endif
+#ifdef __x86_64__
+	{KERN_EXCEPTION_TRACE,"exception-trace",
+	 &exception_trace,sizeof(int),0644,NULL,&proc_dointvec},
+#endif	
 	{0}
 };
 

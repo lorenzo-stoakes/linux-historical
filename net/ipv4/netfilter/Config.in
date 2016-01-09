@@ -114,6 +114,9 @@ tristate 'ARP tables support' CONFIG_IP_NF_ARPTABLES
 if [ "$CONFIG_IP_NF_ARPTABLES" != "n" ]; then
   dep_tristate '  ARP packet filtering' CONFIG_IP_NF_ARPFILTER $CONFIG_IP_NF_ARPTABLES 
 fi
+if [ "$CONFIG_IP_NF_ARPTABLES" != "n" ]; then
+  dep_tristate '  ARP payload mangling' CONFIG_IP_NF_ARP_MANGLE $CONFIG_IP_NF_ARPTABLES
+fi
 
 # Backwards compatibility modules: only if you don't build in the others.
 if [ "$CONFIG_IP_NF_CONNTRACK" != "y" ]; then

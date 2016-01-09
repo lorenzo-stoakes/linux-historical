@@ -286,6 +286,8 @@ void put_dirty_page(struct task_struct * tsk, struct page *page, unsigned long a
 	pgd_t * pgd;
 	pmd_t * pmd;
 	pte_t * pte;
+	struct vm_area_struct *vma; 
+	pgprot_t prot = PAGE_COPY; 
 
 	if (page_count(page) != 1)
 		printk(KERN_ERR "mem_map disagrees with %p at %08lx\n", page, address);
@@ -303,7 +305,11 @@ void put_dirty_page(struct task_struct * tsk, struct page *page, unsigned long a
 	lru_cache_add(page);
 	flush_dcache_page(page);
 	flush_page_to_ram(page);
-	set_pte(pte, pte_mkdirty(pte_mkwrite(mk_pte(page, PAGE_COPY))));
+	/* lookup is cheap because there is only a single entry in the list */
+	vma = find_vma(tsk->mm, address); 
+	if (vma) 
+		prot = vma->vm_page_prot;
+	set_pte(pte, pte_mkdirty(pte_mkwrite(mk_pte(page, prot))));
 	tsk->mm->rss++;
 	spin_unlock(&tsk->mm->page_table_lock);
 
@@ -338,8 +344,8 @@ int setup_arg_pages(struct linux_binprm *bprm)
 		mpnt->vm_mm = current->mm;
 		mpnt->vm_start = PAGE_MASK & (unsigned long) bprm->p;
 		mpnt->vm_end = STACK_TOP;
-		mpnt->vm_page_prot = PAGE_COPY;
 		mpnt->vm_flags = VM_STACK_FLAGS;
+		mpnt->vm_page_prot = protection_map[VM_STACK_FLAGS & 0x7];
 		mpnt->vm_ops = NULL;
 		mpnt->vm_pgoff = 0;
 		mpnt->vm_file = NULL;

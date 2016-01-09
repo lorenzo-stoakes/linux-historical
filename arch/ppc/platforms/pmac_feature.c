@@ -1157,9 +1157,6 @@ core99_usb_enable(struct device_node* node, int param, int value)
 	    macio->type != macio_intrepid)
 		return -ENODEV;
 
-	/* XXX Fix handling of 3rd USB controller in Intrepid, move the
-	 * port connect stuff (KL4_*) to the sleep code eventually
-	 */
 	prop = (char *)get_property(node, "AAPL,clock-id", NULL);
 	if (!prop)
 		return -ENODEV;
@@ -1167,6 +1164,8 @@ core99_usb_enable(struct device_node* node, int param, int value)
 		number = 0;
 	else if (strncmp(prop, "usb1u148", 8) == 0)
 		number = 2;
+	else if (strncmp(prop, "usb2u248", 8) == 0)
+		number = 4;
 	else
 		return -ENODEV;
 
@@ -1183,44 +1182,79 @@ core99_usb_enable(struct device_node* node, int param, int value)
 			mdelay(1);
 			LOCK(flags);
 			MACIO_BIS(KEYLARGO_FCR0, KL0_USB0_CELL_ENABLE);
-		} else {
+		} else if (number == 2) {
 			MACIO_BIC(KEYLARGO_FCR0, (KL0_USB1_PAD_SUSPEND0 | KL0_USB1_PAD_SUSPEND1));
 			UNLOCK(flags);
 			(void)MACIO_IN32(KEYLARGO_FCR0);
 			mdelay(1);
 			LOCK(flags);
 			MACIO_BIS(KEYLARGO_FCR0, KL0_USB1_CELL_ENABLE);
+		} else if (number == 4) {
+			MACIO_BIC(KEYLARGO_FCR1, (KL1_USB2_PAD_SUSPEND0 | KL1_USB2_PAD_SUSPEND1));
+			UNLOCK(flags);
+			(void)MACIO_IN32(KEYLARGO_FCR1);
+			mdelay(1);
+			LOCK(flags);
+			MACIO_BIS(KEYLARGO_FCR0, KL1_USB2_CELL_ENABLE);
 		}
-		reg = MACIO_IN32(KEYLARGO_FCR4);
-		reg &=	~(KL4_PORT_WAKEUP_ENABLE(number) | KL4_PORT_RESUME_WAKE_EN(number) |
-			KL4_PORT_CONNECT_WAKE_EN(number) | KL4_PORT_DISCONNECT_WAKE_EN(number));
-		reg &=	~(KL4_PORT_WAKEUP_ENABLE(number+1) | KL4_PORT_RESUME_WAKE_EN(number+1) |
-			KL4_PORT_CONNECT_WAKE_EN(number+1) | KL4_PORT_DISCONNECT_WAKE_EN(number+1));
-		MACIO_OUT32(KEYLARGO_FCR4, reg);
-		(void)MACIO_IN32(KEYLARGO_FCR4);
-		udelay(10);
+		if (number < 4) {
+			reg = MACIO_IN32(KEYLARGO_FCR4);
+			reg &=	~(KL4_PORT_WAKEUP_ENABLE(number) | KL4_PORT_RESUME_WAKE_EN(number) |
+				KL4_PORT_CONNECT_WAKE_EN(number) | KL4_PORT_DISCONNECT_WAKE_EN(number));
+			reg &=	~(KL4_PORT_WAKEUP_ENABLE(number+1) | KL4_PORT_RESUME_WAKE_EN(number+1) |
+				KL4_PORT_CONNECT_WAKE_EN(number+1) | KL4_PORT_DISCONNECT_WAKE_EN(number+1));
+			MACIO_OUT32(KEYLARGO_FCR4, reg);
+			(void)MACIO_IN32(KEYLARGO_FCR4);
+			udelay(10);
+		} else {
+			reg = MACIO_IN32(KEYLARGO_FCR3);
+			reg &=	~(KL3_IT_PORT_WAKEUP_ENABLE(0) | KL3_IT_PORT_RESUME_WAKE_EN(0) |
+				KL3_IT_PORT_CONNECT_WAKE_EN(0) | KL3_IT_PORT_DISCONNECT_WAKE_EN(0));
+			reg &=	~(KL3_IT_PORT_WAKEUP_ENABLE(1) | KL3_IT_PORT_RESUME_WAKE_EN(1) |
+				KL3_IT_PORT_CONNECT_WAKE_EN(1) | KL3_IT_PORT_DISCONNECT_WAKE_EN(1));
+			MACIO_OUT32(KEYLARGO_FCR3, reg);
+			(void)MACIO_IN32(KEYLARGO_FCR3);
+			udelay(10);
+		}
 	} else {
 		/* Turn OFF */
-		reg = MACIO_IN32(KEYLARGO_FCR4);
-		reg |=	KL4_PORT_WAKEUP_ENABLE(number) | KL4_PORT_RESUME_WAKE_EN(number) |
-			KL4_PORT_CONNECT_WAKE_EN(number) | KL4_PORT_DISCONNECT_WAKE_EN(number);
-		reg |=	KL4_PORT_WAKEUP_ENABLE(number+1) | KL4_PORT_RESUME_WAKE_EN(number+1) |
-			KL4_PORT_CONNECT_WAKE_EN(number+1) | KL4_PORT_DISCONNECT_WAKE_EN(number+1);
-		MACIO_OUT32(KEYLARGO_FCR4, reg);
-		(void)MACIO_IN32(KEYLARGO_FCR4);
-		udelay(1);
+		if (number < 4) {
+			reg = MACIO_IN32(KEYLARGO_FCR4);
+			reg |=	KL4_PORT_WAKEUP_ENABLE(number) | KL4_PORT_RESUME_WAKE_EN(number) |
+				KL4_PORT_CONNECT_WAKE_EN(number) | KL4_PORT_DISCONNECT_WAKE_EN(number);
+			reg |=	KL4_PORT_WAKEUP_ENABLE(number+1) | KL4_PORT_RESUME_WAKE_EN(number+1) |
+				KL4_PORT_CONNECT_WAKE_EN(number+1) | KL4_PORT_DISCONNECT_WAKE_EN(number+1);
+			MACIO_OUT32(KEYLARGO_FCR4, reg);
+			(void)MACIO_IN32(KEYLARGO_FCR4);
+			udelay(1);
+		} else {
+			reg = MACIO_IN32(KEYLARGO_FCR3);
+			reg |=	KL3_IT_PORT_WAKEUP_ENABLE(0) | KL3_IT_PORT_RESUME_WAKE_EN(0) |
+				KL3_IT_PORT_CONNECT_WAKE_EN(0) | KL3_IT_PORT_DISCONNECT_WAKE_EN(0);
+			reg |=	KL3_IT_PORT_WAKEUP_ENABLE(1) | KL3_IT_PORT_RESUME_WAKE_EN(1) |
+				KL3_IT_PORT_CONNECT_WAKE_EN(1) | KL3_IT_PORT_DISCONNECT_WAKE_EN(1);
+			MACIO_OUT32(KEYLARGO_FCR3, reg);
+			(void)MACIO_IN32(KEYLARGO_FCR3);
+			udelay(1);
+		}
 		if (number == 0) {
 			MACIO_BIC(KEYLARGO_FCR0, KL0_USB0_CELL_ENABLE);
 			(void)MACIO_IN32(KEYLARGO_FCR0);
 			udelay(1);
 			MACIO_BIS(KEYLARGO_FCR0, (KL0_USB0_PAD_SUSPEND0 | KL0_USB0_PAD_SUSPEND1));
 			(void)MACIO_IN32(KEYLARGO_FCR0);
-		} else {
+		} else if (number == 2) {
 			MACIO_BIC(KEYLARGO_FCR0, KL0_USB1_CELL_ENABLE);
 			(void)MACIO_IN32(KEYLARGO_FCR0);
 			udelay(1);
 			MACIO_BIS(KEYLARGO_FCR0, (KL0_USB1_PAD_SUSPEND0 | KL0_USB1_PAD_SUSPEND1));
 			(void)MACIO_IN32(KEYLARGO_FCR0);
+		} else if (number == 4) {
+			MACIO_BIC(KEYLARGO_FCR1, KL1_USB2_CELL_ENABLE);
+			(void)MACIO_IN32(KEYLARGO_FCR1);
+			udelay(1);
+			MACIO_BIS(KEYLARGO_FCR1, (KL1_USB2_PAD_SUSPEND0 | KL1_USB2_PAD_SUSPEND1));
+			(void)MACIO_IN32(KEYLARGO_FCR1);
 		}
 		udelay(1);
 	}
@@ -1928,9 +1962,21 @@ static struct pmac_mb_def pmac_mb_defs[] __pmacdata = {
 		PMAC_TYPE_RACKMAC,		rackmac_features,
 		0,
 	},
+	{	"RackMac1,2",			"XServe rev. 2",
+		PMAC_TYPE_RACKMAC,		rackmac_features,
+		0,
+	},
 	{	"PowerMac3,6",			"PowerMac G4 Windtunnel",
 		PMAC_TYPE_WINDTUNNEL,		rackmac_features,
 		0,
+	},
+	{	"PowerBook5,1",			"PowerBook G4 17\"",
+		PMAC_TYPE_UNKNOWN_INTREPID,	intrepid_features,
+		PMAC_MB_HAS_FW_POWER | PMAC_MB_MOBILE,
+	},
+	{	"PowerBook6,1",			"PowerBook G4 12\"",
+		PMAC_TYPE_UNKNOWN_INTREPID,	intrepid_features,
+		PMAC_MB_HAS_FW_POWER | PMAC_MB_MOBILE,
 	},
 };
 
@@ -2028,8 +2074,8 @@ probe_motherboard(void)
 	    	pmac_mb.features = pangea_features;
 		break;
 	    case macio_intrepid:
-		pmac_mb.model_id = PMAC_TYPE_UNKNOWN_PANGEA;
-		pmac_mb.model_name = "Unknown Pangea-based";
+		pmac_mb.model_id = PMAC_TYPE_UNKNOWN_INTREPID;
+		pmac_mb.model_name = "Unknown Intrepid-based";
 	    	pmac_mb.features = intrepid_features;
 	    	break;
 	    default:

@@ -19,6 +19,15 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
+#ifndef BITS_TO_LONGS	/* < 2.4.21-pre6 */
+#define BITS_TO_LONGS(bits) \
+	(((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
+#define DECLARE_BITMAP(name,bits) \
+	unsigned long name[BITS_TO_LONGS(bits)]
+#define CLEAR_BITMAP(name,bits) \
+	memset(name, 0, BITS_TO_LONGS(bits)*sizeof(unsigned long))
+#endif
+
 
 /* Transaction Label handling */
 struct hpsb_tlabel_pool {
@@ -36,7 +45,7 @@ do {						\
 	(_tp)->next = 0;			\
 	(_tp)->allocations = 0;			\
 	sema_init(&(_tp)->count, 63);		\
-} while(0)
+} while (0)
 
 
 typedef u32 quadlet_t;

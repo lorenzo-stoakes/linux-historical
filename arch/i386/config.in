@@ -478,4 +478,5 @@ fi
 
 endmenu
 
+source crypto/Config.in
 source lib/Config.in

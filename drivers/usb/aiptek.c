@@ -969,16 +969,9 @@ aiptek_procfs_read(char *page, char **start, off_t offset, int count,
 	char *out = page;
 	struct aiptek *aiptek = data;
 
-	int inchX = aiptek->features->x_max / 375 * 100;
-	int inchY = aiptek->features->y_max / 375 * 100;
-	int mmX = (int) ((double) aiptek->features->x_max / 14.8);
-	int mmY = (int) ((double) aiptek->features->y_max / 14.8);
-
 	out +=
-	    sprintf(out, "Aiptek Tablet (%dx%d, %d.%02dx%d.%02d\", %dx%dmm)\n",
-		    aiptek->features->x_max, aiptek->features->y_max,
-		    inchX / 100, inchX % 100, inchY / 100, inchY % 100, mmX,
-		    mmY);
+	    sprintf(out, "Aiptek Tablet (%dx%d)\n",
+		    aiptek->features->x_max, aiptek->features->y_max);
 
 	out +=
 	    sprintf(out,

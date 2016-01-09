@@ -385,6 +385,9 @@
  *	- In conjunction with fix for ifenslave -c, in
  *	  bond_change_active(), changing to the already active slave
  *	  is no longer an error (it successfully does nothing).
+ *
+ * 2003/06/30 - Amir Noam <amir.noam at intel dot com>
+ * 	- Fixed bond_change_active() for ALB/TLB modes.
  */
 
 #include <linux/config.h>
@@ -429,8 +432,8 @@
 #include "bond_3ad.h"
 #include "bond_alb.h"
 
-#define DRV_VERSION		"2.2.11"
-#define DRV_RELDATE		"May 29, 2003"
+#define DRV_VERSION		"2.2.14"
+#define DRV_RELDATE		"June 30, 2003"
 #define DRV_NAME		"bonding"
 #define DRV_DESCRIPTION		"Ethernet Channel Bonding Driver"
 
@@ -1761,8 +1764,11 @@ static int bond_change_active(struct net_device *master_dev, struct net_device *
 	    (oldactive != NULL)&&
 	    (newactive->link == BOND_LINK_UP)&&
 	    IS_UP(newactive->dev)) {
-		bond_set_slave_inactive_flags(oldactive);
-		bond_set_slave_active_flags(newactive);
+		if (bond_mode == BOND_MODE_ACTIVEBACKUP) {
+			bond_set_slave_inactive_flags(oldactive);
+			bond_set_slave_active_flags(newactive);
+		}
+
 		bond_mc_update(bond, newactive, oldactive);
 		bond_assign_current_slave(bond, newactive);
 		printk("%s : activate %s(old : %s)\n",

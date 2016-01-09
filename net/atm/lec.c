@@ -341,7 +341,6 @@ lec_send_packet(struct sk_buff *skb, struct net_device *dev)
                         lec_h->h_dest[0], lec_h->h_dest[1], lec_h->h_dest[2],
                         lec_h->h_dest[3], lec_h->h_dest[4], lec_h->h_dest[5]);
                 ATM_SKB(skb2)->vcc = send_vcc;
-                ATM_SKB(skb2)->iovcnt = 0;
                 ATM_SKB(skb2)->atm_options = send_vcc->atm_options;
                 DPRINTK("%s:sending to vpi:%d vci:%d\n", dev->name,
                         send_vcc->vpi, send_vcc->vci);       
@@ -357,7 +356,6 @@ lec_send_packet(struct sk_buff *skb, struct net_device *dev)
         }
 
         ATM_SKB(skb)->vcc = send_vcc;
-        ATM_SKB(skb)->iovcnt = 0;
         ATM_SKB(skb)->atm_options = send_vcc->atm_options;
         if (atm_may_send(send_vcc, skb->len)) {
                 atomic_add(skb->truesize, &send_vcc->sk->wmem_alloc);
@@ -404,7 +402,7 @@ lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
         int i;
         char *tmp; /* FIXME */
 
-	atomic_sub(skb->truesize+ATM_PDU_OVHD, &vcc->sk->wmem_alloc);
+	atomic_sub(skb->truesize, &vcc->sk->wmem_alloc);
         mesg = (struct atmlec_msg *)skb->data;
         tmp = skb->data;
         tmp += sizeof(struct atmlec_msg);
@@ -726,6 +724,7 @@ lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
                 skb->protocol = eth_type_trans(skb, dev);
                 priv->stats.rx_packets++;
                 priv->stats.rx_bytes += skb->len;
+                memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
                 netif_rx(skb);
         }
 }

@@ -125,7 +125,7 @@ static void __init replace_pin_at_irq(unsigned int irq,
 			break;						\
 		reg = io_apic_read(entry->apic, 0x10 + R + pin*2);	\
 		reg ACTION;						\
-		io_apic_modify(entry->apic, reg);			\
+		io_apic_write(entry->apic, 0x10 + R + pin*2, reg);	\
 		if (!entry->next)					\
 			break;						\
 		entry = irq_2_pin + entry->next;			\

@@ -19,7 +19,6 @@ usbcore-objs		:= usb.o usb-debug.o hub.o
 hid-objs		:= hid-core.o
 pwc-objs		:= pwc-if.o pwc-misc.o pwc-ctrl.o pwc-uncompress.o
 auerswald-objs		:= auerbuf.o auerchain.o auerchar.o auermain.o
-speedtch-objs		:= speedcrc.o speedtouch.o
 
 # Optional parts of multipart objects.
 
@@ -150,6 +149,3 @@ pwc.o: $(pwc-objs)
 
 auerswald.o: $(auerswald-objs)
 	$(LD) -r -o $@ $(auerswald-objs)
-
-speedtch.o: $(speedtch-objs)
-	$(LD) -r -o $@ $(speedtch-objs)

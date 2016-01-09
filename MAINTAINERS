@@ -445,6 +445,15 @@ L:	dev-etrax@axis.com
 W:	http://developer.axis.com
 S:	Maintained
 
+CRYPTO API
+P:	James Morris
+M:	jmorris@intercode.com.au
+P:	David S. Miller
+M:	davem@redhat.com
+W	http://samba.org/~jamesm/crypto/
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+
 CYBERPRO FB DRIVER
 P:	Russell King
 M:	rmk@arm.linux.org.uk
@@ -840,7 +849,7 @@ S:	Maintained
 
 IMS TWINTURBO FRAMEBUFFER DRIVER
 P:	Paul Mundt
-M:	lethal@chaoticdreams.org
+M:	lethal@linux-sh.org
 L:	linux-fbdev-devel@lists.sourceforge.net
 S:	Maintained
 
@@ -1381,9 +1390,9 @@ POWERVR2 FRAMEBUFFER DRIVER
 P:	M. R. Brown
 M:	mrbrown@0xd6.org
 P:	Paul Mundt
-M:	lethal@0xd6.org
+M:	lethal@linux-sh.org
 L:	linux-fbdev-devel@lists.sourceforge.net
-W:	http://www.linuxdc.org
+L:	linuxsh-dev@lists.sourceforge.net
 S:	Maintained
 
 PPP PROTOCOL DRIVERS AND COMPRESSORS
@@ -1648,19 +1657,35 @@ W:	http://mpeg.openprojects.net/
 W:	http://www.stradis.com/
 S:	Maintained
 
-SUPERH
+SUPERH (sh)
+P:	Paul Mundt
+M:	lethal@linux-sh.org
 P:	Niibe Yutaka
 M:	gniibe@m17n.org
 P:	Kazumoto Kojima
 M:	kkojima@rr.iij4u.or.jp
+L:	linuxsh-dev@lists.sourceforge.net
 L:	linux-sh@m17n.org
+W:	http://www.linux-sh.org
 W:	http://www.m17n.org/linux-sh/
 W:	http://www.rr.iij4u.or.jp/~kkojima/linux-sh4.html
 S:	Maintained
 
+SUPERH64 (sh64)
+P:	Paul Mundt
+M:	lethal@linux-sh.org
+P:	Richard Curnow
+M:	richard.curnow@superh.com
+P:	Benedict Gaster
+M:	benedict.gaster@superh.com
+L:	linuxsh-shmedia-dev@lists.sourceforge.net
+W:	http://www.linux-sh.org
+W:	http://linux-shmedia.bkbits.net
+S:	Maintained
+
 SUPERH WATCHDOG
 P:	Paul Mundt
-M:	lethal@0xd6.org
+M:	lethal@linux-sh.org
 L:	linuxsh-dev@lists.sourceforge.net
 W:	http://www.linuxsh.org
 S:	Maintained

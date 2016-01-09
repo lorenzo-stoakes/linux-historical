@@ -1186,7 +1186,6 @@ static int rx_pkt(struct atm_dev *dev)
 	skb_put(skb,len);  
         // pwang_test
         ATM_SKB(skb)->vcc = vcc;
-        ATM_SKB(skb)->iovcnt = 0;
         ATM_DESC(skb) = desc;        
 	skb_queue_tail(&iadev->rx_dma_q, skb);  
 
@@ -2972,7 +2971,7 @@ static int ia_pkt_tx (struct atm_vcc *vcc, struct sk_buff *skb) {
 	                 dev_kfree_skb_any(skb);
 	           return 0;
 	   }
-	   kfree(skb);
+	   dev_kfree_skb_any(skb);
 	   skb = newskb;
         }       
 	/* Get a descriptor number from our free descriptor queue  

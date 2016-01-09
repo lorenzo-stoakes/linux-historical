@@ -8,7 +8,7 @@
  * See Documentation/DMA-mapping.txt for the interface specification.
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: pci-gart.c,v 1.20 2003/03/12 08:23:29 ak Exp $
+ * $Id: pci-gart.c,v 1.24 2003/06/09 05:17:52 ak Exp $
  */
 
 /* 
@@ -90,20 +90,24 @@ AGPEXTERN __u32 *agp_gatt_table;
 
 static unsigned long next_bit;  /* protected by iommu_bitmap_lock */
 
-static unsigned long alloc_iommu(int size) 
+static unsigned long alloc_iommu(int size, int *flush) 
 { 	
 	unsigned long offset, flags;
 
 	spin_lock_irqsave(&iommu_bitmap_lock, flags);	
 
 	offset = find_next_zero_string(iommu_gart_bitmap,next_bit,iommu_pages,size);
-	if (offset == -1) 
+	if (offset == -1) {
+		*flush = 1;
 	       	offset = find_next_zero_string(iommu_gart_bitmap,0,next_bit,size);
+	}
 	if (offset != -1) { 
 		set_bit_string(iommu_gart_bitmap, offset, size); 
 		next_bit = offset+size; 
-		if (next_bit >= iommu_pages) 
+		if (next_bit >= iommu_pages) { 
+			*flush = 1;
 			next_bit = 0;
+	} 
 	} 
 	spin_unlock_irqrestore(&iommu_bitmap_lock, flags);      
 	return offset;
@@ -114,7 +118,6 @@ static void free_iommu(unsigned long offset, int size)
 	unsigned long flags;
 	spin_lock_irqsave(&iommu_bitmap_lock, flags);
 	clear_bit_string(iommu_gart_bitmap, offset, size);
-	next_bit = offset;
 	spin_unlock_irqrestore(&iommu_bitmap_lock, flags);
 } 
 
@@ -133,6 +136,7 @@ static inline void flush_gart(void)
 void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 			   dma_addr_t *dma_handle)
 {
+	int flush = 0;
 	void *memory;
 	int gfp = GFP_ATOMIC;
 	int i;
@@ -150,9 +154,10 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 	if (memory == NULL) {
 		return NULL; 
 	} else {
-		int high = (unsigned long)virt_to_bus(memory) + size
-			>= 0xffffffff;
-		int mmu = high;
+		int high = 0, mmu;
+		if (((unsigned long)virt_to_bus(memory) + size) > 0xffffffffUL)
+			high = 1;
+		mmu = high;
 		if (force_mmu && !(gfp & GFP_DMA)) 
 			mmu = 1;
 		if (no_iommu) { 
@@ -168,7 +173,7 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 
 	size >>= PAGE_SHIFT;
 
-	iommu_page = alloc_iommu(size);
+	iommu_page = alloc_iommu(size, &flush);
 	if (iommu_page == -1)
 		goto error; 
 
@@ -183,6 +188,7 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 		iommu_gatt_base[iommu_page + i] = GPTE_ENCODE(phys_mem); 
 	} 
 
+	if (flush)
 	flush_gart();
 	*dma_handle = iommu_bus_base + (iommu_page << PAGE_SHIFT);
 	return memory; 
@@ -199,25 +205,22 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 void pci_free_consistent(struct pci_dev *hwdev, size_t size,
 			 void *vaddr, dma_addr_t bus)
 {
-	u64 pte;
 	unsigned long iommu_page;
-	int i;
 
 	size = round_up(size, PAGE_SIZE); 
-	if (bus < iommu_bus_base || bus > iommu_bus_base + iommu_size) { 
-		free_pages((unsigned long)vaddr, get_order(size)); 		
-		return;
-	} 
-	size >>= PAGE_SHIFT;
-	iommu_page = (bus - iommu_bus_base) / PAGE_SIZE;
-	for (i = 0; i < size; i++) {
-		pte = iommu_gatt_base[iommu_page + i];
+	if (bus >= iommu_bus_base && bus <= iommu_bus_base + iommu_size) { 
+		unsigned pages = size >> PAGE_SHIFT;
+		iommu_page = (bus - iommu_bus_base) >> PAGE_SHIFT;
+		vaddr = __va(GPTE_DECODE(iommu_gatt_base[iommu_page]));
+		int i;
+		for (i = 0; i < pages; i++) {
+			u64 pte = iommu_gatt_base[iommu_page + i];
 		BUG_ON((pte & GPTE_VALID) == 0); 
 		iommu_gatt_base[iommu_page + i] = 0; 		
-		free_page((unsigned long) __va(GPTE_DECODE(pte)));
 	} 
-	flush_gart(); 
-	free_iommu(iommu_page, size);
+		free_iommu(iommu_page, pages);
+	}
+	free_pages((unsigned long)vaddr, get_order(size)); 		
 }
 
 #ifdef CONFIG_IOMMU_LEAK
@@ -251,8 +254,7 @@ static void iommu_full(struct pci_dev *dev, void *addr, size_t size, int dir)
 	 * Unfortunately the drivers cannot handle this operation properly.
 	 * Return some non mapped prereserved space in the aperture and 
 	 * let the Northbridge deal with it. This will result in garbage
-	 * in the IO operation. When the size exceeds the prereserved space
-	 * memory corruption will occur or random memory will be DMAed 
+	 * in the IO operation. When the size exceeds the prereserved spa	 * memory corruption will occur or random memory will be DMAed 
 	 * out. Hopefully no network devices use single mappings that big.
 	 */ 
 	
@@ -287,9 +289,10 @@ static inline int need_iommu(struct pci_dev *dev, unsigned long addr, size_t siz
 	return mmu; 
 }
 
-dma_addr_t __pci_map_single(struct pci_dev *dev, void *addr, size_t size,
-			    int dir, int flush)
+dma_addr_t pci_map_single(struct pci_dev *dev, void *addr, size_t size,
+			    int dir)
 { 
+	int flush = 0;
 	unsigned long iommu_page;
 	unsigned long phys_mem, bus;
 	int i, npages;
@@ -302,7 +305,7 @@ dma_addr_t __pci_map_single(struct pci_dev *dev, void *addr, size_t size,
 
 	npages = round_up(size + ((u64)addr & ~PAGE_MASK), PAGE_SIZE) >> PAGE_SHIFT;
 
-	iommu_page = alloc_iommu(npages); 
+	iommu_page = alloc_iommu(npages, &flush); 
 	if (iommu_page == -1) {
 		iommu_full(dev, addr, size, dir); 
 		return iommu_bus_base; 
@@ -317,11 +320,6 @@ dma_addr_t __pci_map_single(struct pci_dev *dev, void *addr, size_t size,
 		 * the caches on mapping.
 		 */
 		iommu_gatt_base[iommu_page + i] = GPTE_ENCODE(phys_mem);
-
-#ifdef CONFIG_IOMMU_DEBUG
-		/* paranoia check */
-		BUG_ON(GPTE_DECODE(iommu_gatt_base[iommu_page+i]) != phys_mem); 
-#endif
 
 #ifdef CONFIG_IOMMU_LEAK
 		/* XXX need eventually caller of pci_map_sg */
@@ -343,12 +341,13 @@ void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 		      size_t size, int direction)
 {
 	unsigned long iommu_page; 
-	int i, npages;
+	int npages;
 	if (dma_addr < iommu_bus_base + EMERGENCY_PAGES*PAGE_SIZE || 
 	    dma_addr > iommu_bus_base + iommu_size)
 		return;
 	iommu_page = (dma_addr - iommu_bus_base)>>PAGE_SHIFT;	
 	npages = round_up(size + (dma_addr & ~PAGE_MASK), PAGE_SIZE) >> PAGE_SHIFT;
+	int i;
 	for (i = 0; i < npages; i++) { 
 		iommu_gatt_base[iommu_page + i] = 0; 
 #ifdef CONFIG_IOMMU_LEAK
@@ -356,11 +355,10 @@ void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 			iommu_leak_tab[iommu_page + i] = 0; 
 #endif
 	}
-	flush_gart(); 
 	free_iommu(iommu_page, npages);
 }
 
-EXPORT_SYMBOL(__pci_map_single);
+EXPORT_SYMBOL(pci_map_single);
 EXPORT_SYMBOL(pci_unmap_single);
 
 static __init unsigned long check_iommu_size(unsigned long aper, u64 aper_size)
@@ -444,7 +442,7 @@ static __init int init_k8_gatt(agp_kern_info *info)
 		u32 ctl; 
 		u32 gatt_reg; 
 
-		gatt_reg = ((u64)gatt) >> 12; 
+		gatt_reg = __pa(gatt) >> 12; 
 		gatt_reg <<= 4; 
 		pci_write_config_dword(dev, 0x98, gatt_reg);
 		pci_read_config_dword(dev, 0x90, &ctl); 
@@ -534,7 +532,19 @@ void __init pci_iommu_init(void)
 	iommu_gatt_base = agp_gatt_table + (iommu_start>>PAGE_SHIFT);
 	bad_dma_address = iommu_bus_base;
 
+	/* 
+         * Unmap the IOMMU part of the GART. The alias of the page is always mapped
+	 * with cache enabled and there is no full cache coherency across the GART
+	 * remapping. The unmapping avoids automatic prefetches from the CPU 
+	 * allocating cache lines in there. All CPU accesses are done via the 
+	 * direct mapping to the backing memory. The GART address is only used by PCI 
+	 * devices. 
+	 */
+	clear_kernel_mapping((unsigned long)__va(iommu_bus_base), iommu_size);
+
 	asm volatile("wbinvd" ::: "memory");
+
+	flush_gart();
 } 
 
 /* iommu=[size][,noagp][,off][,force][,noforce][,leak][,memaper[=order]]

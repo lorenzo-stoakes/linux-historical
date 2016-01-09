@@ -42,6 +42,7 @@ subdir-$(CONFIG_BFS_FS)		+= bfs
 subdir-$(CONFIG_ISO9660_FS)	+= isofs
 subdir-$(CONFIG_DEVFS_FS)	+= devfs
 subdir-$(CONFIG_HFS_FS)		+= hfs
+subdir-$(CONFIG_HFSPLUS_FS)	+= hfsplus
 subdir-$(CONFIG_VXFS_FS)	+= freevxfs
 subdir-$(CONFIG_NFS_FS)		+= nfs
 subdir-$(CONFIG_NFSD)		+= nfsd

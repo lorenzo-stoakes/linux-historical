@@ -16,10 +16,10 @@ mpoa-objs	:= mpc.o mpoa_caches.o mpoa_proc.o
 
 obj-$(CONFIG_ATM) := addr.o pvc.o signaling.o svc.o common.o atm_misc.o raw.o resources.o
 
-ifeq ($(CONFIG_ATM_CLIP),y)
-obj-y += clip.o
-NEED_IPCOM = ipcommon.o
+ifneq ($(CONFIG_ATM_CLIP),n)
+  NEED_IPCOM = ipcommon.o
 endif
+obj-$(CONFIG_ATM_CLIP) += clip.o
 
 ifeq ($(CONFIG_ATM_BR2684),y)
   NEED_IPCOM = ipcommon.o

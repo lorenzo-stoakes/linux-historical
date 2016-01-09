@@ -26,6 +26,7 @@
 #define SH3_IRDA_IRQS { 52,  53,  55,  54 }
 #define SH4_SCIF_IRQS { 40,  41,  43,  42 }
 #define STB1_SCIF1_IRQS {23, 24,  26,  25 }
+#define SH5_SCIF_IRQS  { 39,  40,  42 }
 
 #if defined(CONFIG_CPU_SUBTYPE_SH7708)
 # define SCI_NPORTS 1
@@ -70,6 +71,25 @@
 # define SCIF_ORER 0x0001   /* overrun error bit */
 # define SCSCR_INIT(port)          0x38 /* TIE=0,RIE=0,TE=1,RE=1,REIE=1 */
 # define SCIF_ONLY
+
+#elif defined(CONFIG_CPU_SUBTYPE_SH5_101) || defined(CONFIG_CPU_SUBTYPE_SH5_103)
+# include <asm/hardware.h>
+# define SCIF_BASE_ADDR    0x01030000 
+# define SCIF_ADDR_SH5     PHYS_PERIPHERAL_BLOCK+SCIF_BASE_ADDR
+# define SCIF_PTR2_OFFS    0x0000020
+# define SCIF_LSR2_OFFS    0x0000024
+# define SCI_NPORTS 1
+# define SCI_INIT { \
+  { {}, PORT_SCIF, 0, \
+     SH5_SCIF_IRQS, sci_init_pins_scif }  \
+}
+# define SCSPTR2           (SCIF_ADDR_SH5+SCIF_PTR2_OFFS) /* 16 bit SCIF */
+# define SCLSR2            (SCIF_ADDR_SH5+SCIF_LSR2_OFFS) /* 16 bit SCIF */
+# define SCSCR_INIT(port)  0x38                           /* TIE=0,RIE=0,
+							     TE=1,RE=1,REIE=1 */
+# define SCIF_ONLY
+
+
 #else
 # error CPU subtype not defined
 #endif
@@ -271,7 +291,8 @@ SCIx_FNS(SCxSR,  0x08,  8, 0x10,  8, 0x08, 16, 0x10, 16)
 SCIx_FNS(SCxRDR, 0x0a,  8, 0x14,  8, 0x0A,  8, 0x14,  8)
 SCIF_FNS(SCFCR,                      0x0c,  8, 0x18, 16)
 SCIF_FNS(SCFDR,                      0x0e, 16, 0x1C, 16)
-SCIF_FNS(SCLSR,                         0,  0, 0x24, 16)
+SCIF_FNS(SCSPTR,                     und, und, 0x20, 16)
+SCIF_FNS(SCLSR,                      und, und, 0x24, 16)
 
 #define sci_in(port, reg) sci_##reg##_in(port)
 #define sci_out(port, reg, value) sci_##reg##_out(port, value)
@@ -316,6 +337,12 @@ static inline int sci_rxd_in(struct sci_port *port)
 		return ctrl_inw(SCSPTR2)&0x0001 ? 1 : 0; /* SCIF */
 
 }
+#elif defined(CONFIG_CPU_SUBTYPE_SH5_101) || defined(CONFIG_CPU_SUBTYPE_SH5_103)
+static inline int sci_rxd_in(struct sci_port *port)
+{
+         return sci_in(port, SCSPTR)&0x0001 ? 1 : 0; /* SCIF */
+}
+
 #endif
 
 /*

@@ -71,7 +71,7 @@
 
 
 int ip6_rt_max_size = 4096;
-int ip6_rt_gc_min_interval = 5*HZ;
+int ip6_rt_gc_min_interval = HZ / 2;
 int ip6_rt_gc_timeout = 60*HZ;
 int ip6_rt_gc_interval = 30*HZ;
 int ip6_rt_gc_elasticity = 9;

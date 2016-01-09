@@ -800,4 +800,5 @@ if [ "$CONFIG_SMP" != "y" ]; then
 fi
 endmenu
 
+source crypto/Config.in
 source lib/Config.in

@@ -45,7 +45,8 @@ obj-y 	 += core_apecs.o core_cia.o core_irongate.o core_lca.o core_mcpcia.o \
 	    sys_sable.o sys_sio.o sys_sx164.o sys_takara.o sys_rx164.o \
 	    sys_wildfire.o sys_marvel.o \
 	    err_titan.o err_marvel.o \
-	    irq_pyxis.o srmcons.o gct.o
+	    irq_pyxis.o srmcons.o gct.o \
+	    es1888.o smc37c669.o smc37c93x.o ns87312.o
 
 else
 

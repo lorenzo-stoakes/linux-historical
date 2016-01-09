@@ -810,6 +810,20 @@ static inline wait_queue_head_t *page_waitqueue(struct page *page)
 	return &wait[hash];
 }
 
+/*
+ * This must be called after every submit_bh with end_io
+ * callbacks that would result into the blkdev layer waking
+ * up the page after a queue unplug.
+ */
+void wakeup_page_waiters(struct page * page)
+{
+	wait_queue_head_t * head;
+
+	head = page_waitqueue(page);
+	if (waitqueue_active(head))
+		wake_up(head);
+}
+
 /* 
  * Wait for a page to get unlocked.
  *
@@ -2491,14 +2505,17 @@ static long madvise_willneed(struct vm_area_struct * vma,
 {
 	long error = -EBADF;
 	struct file * file;
+	struct inode * inode;
 	unsigned long size, rlim_rss;
 
 	/* Doesn't work if there's no mapped file. */
 	if (!vma->vm_file)
 		return error;
 	file = vma->vm_file;
-	size = (file->f_dentry->d_inode->i_size + PAGE_CACHE_SIZE - 1) >>
-							PAGE_CACHE_SHIFT;
+	inode = file->f_dentry->d_inode;
+	if (!inode->i_mapping->a_ops->readpage)
+		return error;
+	size = (inode->i_size + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
 
 	start = ((start - vma->vm_start) >> PAGE_SHIFT) + vma->vm_pgoff;
 	if (end > vma->vm_end)
@@ -2957,8 +2974,8 @@ inline void remove_suid(struct inode *inode)
  * on it.  Contains the common precheck code for both buffered and direct
  * IO.
  */
-static int precheck_file_write(struct file *file, struct inode *inode,
-			       size_t *count, loff_t *ppos)
+int precheck_file_write(struct file *file, struct inode *inode,
+			size_t *count, loff_t *ppos)
 {
 	ssize_t		err;
 	unsigned long	limit = current->rlim[RLIMIT_FSIZE].rlim_cur;
@@ -3048,13 +3065,6 @@ static int precheck_file_write(struct file *file, struct inode *inode,
 	}
 
 	err = 0;
-	if (*count == 0)
-		goto out;
-
-	remove_suid(inode);
-	inode->i_ctime = inode->i_mtime = CURRENT_TIME;
-	mark_inode_dirty_sync(inode);
-	
 out:
 	return err;
 }
@@ -3089,11 +3099,15 @@ do_generic_file_write(struct file *file,const char *buf,size_t count, loff_t *pp
 	cached_page = NULL;
 	pos = *ppos;
 	written = 0;
-	
+
 	err = precheck_file_write(file, inode, &count, &pos);
 	if (err != 0 || count == 0)
 		goto out;
-	
+
+	remove_suid(inode);
+	inode->i_ctime = inode->i_mtime = CURRENT_TIME;
+	mark_inode_dirty_sync(inode);
+
 	do {
 		unsigned long index, offset;
 		long page_fault;
@@ -3204,13 +3218,17 @@ do_generic_direct_write(struct file *file,const char *buf,size_t count, loff_t *
 
 	pos = *ppos;
 	written = 0;
-	
+
 	err = precheck_file_write(file, inode, &count, &pos);
 	if (err != 0 || count == 0)
 		goto out;
-	
+
 	if (!file->f_flags & O_DIRECT)
 		BUG();
+
+	remove_suid(inode);
+	inode->i_ctime = inode->i_mtime = CURRENT_TIME;
+	mark_inode_dirty_sync(inode);
 
 	written = generic_file_direct_IO(WRITE, file, (char *) buf, count, pos);
 	if (written > 0) {

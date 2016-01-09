@@ -161,6 +161,9 @@ fi
 if [ "$CONFIG_PPC64" ] ; then 
    bool 'pSeries Hypervisor Virtual Console support' CONFIG_HVC_CONSOLE
 fi
+if [ "$CONFIG_ALL_PPC" = "y" ]; then
+   tristate 'Total Impact briQ front panel driver' CONFIG_BRIQ_PANEL
+fi
 
 source drivers/i2c/Config.in
 

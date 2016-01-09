@@ -314,6 +314,51 @@ init_p2pbridge(void)
 	early_write_config_word(hose, bus, devfn, PCI_BRIDGE_CONTROL, val);
 }
 
+/*
+ * Some Apple desktop machines have a NEC PD720100A USB2 controller
+ * on the motherboard. Open Firmware, on these, will disable the
+ * EHCI part of it so it behaves like a pair of OHCI's. This fixup
+ * code re-enables it ;)
+ */
+static void __init
+fixup_nec_usb2(void)
+{
+	struct device_node *nec;
+
+	for (nec = find_devices("usb"); nec != NULL; nec = nec->next) {
+		struct pci_controller *hose;
+		u32 data, *prop;
+		u8 bus, devfn;
+		
+		prop = (u32 *)get_property(nec, "vendor-id", NULL);
+		if (prop == NULL)
+			continue;
+		if (0x1033 != *prop)
+			continue;
+		prop = (u32 *)get_property(nec, "device-id", NULL);
+		if (prop == NULL)
+			continue;
+		if (0x0035 != *prop)
+			continue;
+		prop = (u32 *)get_property(nec, "reg", 0);
+		if (prop == NULL)
+			continue;
+		devfn = (prop[0] >> 8) & 0xff;
+		bus = (prop[0] >> 16) & 0xff;
+		if (PCI_FUNC(devfn) != 0)
+			continue;
+		hose = pci_find_hose_for_OF_device(nec);
+		if (!hose)
+			continue;
+		printk("Found NEC PD720100A USB2 chip, enabling EHCI...\n");
+		early_read_config_dword(hose, bus, devfn, 0xe4, &data);
+		data &= ~1UL;
+		early_write_config_dword(hose, bus, devfn, 0xe4, data);
+		early_write_config_byte(hose, bus, devfn | 2, PCI_INTERRUPT_LINE,
+			nec->intrs[0].line);
+	}
+}
+
 void __init
 pmac_find_bridges(void)
 {
@@ -321,6 +366,7 @@ pmac_find_bridges(void)
 	add_bridges(find_devices("chaos"));
 	add_bridges(find_devices("pci"));
 	init_p2pbridge();
+	fixup_nec_usb2();
 }
 
 #define GRACKLE_CFA(b, d, o)	(0x80 | ((b) << 8) | ((d) << 16) \

@@ -236,6 +236,8 @@ fi
 
 source lib/Config.in
 
+source crypto/Config.in
+
 mainmenu_option next_comment
 comment 'Kernel hacking'
 

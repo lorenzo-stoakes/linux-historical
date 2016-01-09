@@ -58,6 +58,36 @@ EXPORT_SYMBOL(atm_tcp_ops);
 #endif
 #endif
 
+#if defined(CONFIG_ATM_CLIP) || defined(CONFIG_ATM_CLIP_MODULE)
+#include <net/atmclip.h>
+struct atm_clip_ops *atm_clip_ops;
+static DECLARE_MUTEX(atm_clip_ops_mutex);
+
+void atm_clip_ops_set(struct atm_clip_ops *hook)
+{
+	down(&atm_clip_ops_mutex);
+	atm_clip_ops = hook;
+	up(&atm_clip_ops_mutex);
+}
+
+int try_atm_clip_ops(void)
+{
+	down(&atm_clip_ops_mutex);
+	if (atm_clip_ops && try_inc_mod_count(atm_clip_ops->owner)) {
+		up(&atm_clip_ops_mutex);
+		return 1;
+	}
+	up(&atm_clip_ops_mutex);
+	return 0;
+}
+
+#ifdef CONFIG_ATM_CLIP_MODULE
+EXPORT_SYMBOL(atm_clip_ops);
+EXPORT_SYMBOL(atm_clip_ops_mutex);
+EXPORT_SYMBOL(atm_clip_ops_set);
+#endif
+#endif
+
 #if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
 int (*pppoatm_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
 EXPORT_SYMBOL(pppoatm_ioctl_hook);
@@ -99,7 +129,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc,unsigned int size)
 	}
 	while (!(skb = alloc_skb(size,GFP_KERNEL))) schedule();
 	DPRINTK("AlTx %d += %d\n",atomic_read(&vcc->sk->wmem_alloc),skb->truesize);
-	atomic_add(skb->truesize+ATM_PDU_OVHD,&vcc->sk->wmem_alloc);
+	atomic_add(skb->truesize, &vcc->sk->wmem_alloc);
 	return skb;
 }
 
@@ -115,7 +145,6 @@ int atm_create(struct socket *sock,int protocol,int family)
 	vcc = sk->protinfo.af_atm;
 	memset(&vcc->flags,0,sizeof(vcc->flags));
 	vcc->dev = NULL;
-	vcc->alloc_tx = alloc_tx;
 	vcc->callback = NULL;
 	memset(&vcc->local,0,sizeof(struct sockaddr_atmsvc));
 	memset(&vcc->remote,0,sizeof(struct sockaddr_atmsvc));
@@ -147,9 +176,7 @@ void atm_release_vcc_sk(struct sock *sk,int free_sk)
 		if (vcc->push) vcc->push(vcc,NULL); /* atmarpd has no push */
 		while ((skb = skb_dequeue(&vcc->sk->receive_queue))) {
 			atm_return(vcc,skb->truesize);
-			if (vcc->dev->ops->free_rx_skb)
-				vcc->dev->ops->free_rx_skb(vcc,skb);
-			else kfree_skb(skb);
+			kfree_skb(skb);
 		}
 		spin_lock (&atm_dev_lock);	
 		fops_put (vcc->dev->ops);
@@ -397,31 +424,8 @@ int atm_recvmsg(struct socket *sock,struct msghdr *m,int total_len,
 		    (unsigned long) buff,eff_len);
 	DPRINTK("RcvM %d -= %d\n",atomic_read(&vcc->sk->rmem_alloc),skb->truesize);
 	atm_return(vcc,skb->truesize);
-	if (ATM_SKB(skb)->iovcnt) { /* @@@ hack */
-		/* iovcnt set, use scatter-gather for receive */
-		int el, cnt;
-		struct iovec *iov = (struct iovec *)skb->data;
-		unsigned char *p = (unsigned char *)buff;
-
-		el = eff_len;
-		error = 0;
-		for (cnt = 0; (cnt < ATM_SKB(skb)->iovcnt) && el; cnt++) {
-/*printk("s-g???: %p -> %p (%d)\n",iov->iov_base,p,iov->iov_len);*/
-			error = copy_to_user(p,iov->iov_base,
-			    (iov->iov_len > el) ? el : iov->iov_len) ?
-			    -EFAULT : 0;
-			if (error) break;
-			p += iov->iov_len;
-			el -= (iov->iov_len > el)?el:iov->iov_len;
-			iov++;
-		}
-		if (!vcc->dev->ops->free_rx_skb) kfree_skb(skb);
-		else vcc->dev->ops->free_rx_skb(vcc, skb);
-		return error ? error : eff_len;
-	}
 	error = copy_to_user(buff,skb->data,eff_len) ? -EFAULT : 0;
-	if (!vcc->dev->ops->free_rx_skb) kfree_skb(skb);
-	else vcc->dev->ops->free_rx_skb(vcc, skb);
+	kfree_skb(skb);
 	return error ? error : eff_len;
 }
 
@@ -453,7 +457,7 @@ int atm_sendmsg(struct socket *sock,struct msghdr *m,int total_len,
 	add_wait_queue(&vcc->sleep,&wait);
 	set_current_state(TASK_INTERRUPTIBLE);
 	error = 0;
-	while (!(skb = vcc->alloc_tx(vcc,eff))) {
+	while (!(skb = alloc_tx(vcc,eff))) {
 		if (m->msg_flags & MSG_DONTWAIT) {
 			error = -EAGAIN;
 			break;
@@ -478,7 +482,6 @@ int atm_sendmsg(struct socket *sock,struct msghdr *m,int total_len,
 	remove_wait_queue(&vcc->sleep,&wait);
 	if (error) return error;
 	skb->dev = NULL; /* for paths shared with net_device interfaces */
-	ATM_SKB(skb)->iovcnt = 0;
 	ATM_SKB(skb)->atm_options = vcc->atm_options;
 	if (copy_from_user(skb_put(skb,size),buff,size)) {
 		kfree_skb(skb);
@@ -505,8 +508,7 @@ unsigned int atm_poll(struct file *file,struct socket *sock,poll_table *wait)
 		mask |= POLLHUP;
 	if (sock->state != SS_CONNECTING) {
 		if (vcc->qos.txtp.traffic_class != ATM_NONE &&
-		    vcc->qos.txtp.max_sdu+atomic_read(&vcc->sk->wmem_alloc)+
-		    ATM_PDU_OVHD <= vcc->sk->sndbuf)
+		    vcc->qos.txtp.max_sdu+atomic_read(&vcc->sk->wmem_alloc) <= vcc->sk->sndbuf)
 			mask |= POLLOUT | POLLWRNORM;
 	}
 	else if (vcc->reply != WAITING) {
@@ -573,7 +575,7 @@ int atm_ioctl(struct socket *sock,unsigned int cmd,unsigned long arg)
 				goto done;
 			}
 			ret_val =  put_user(vcc->sk->sndbuf-
-			    atomic_read(&vcc->sk->wmem_alloc)-ATM_PDU_OVHD,
+			    atomic_read(&vcc->sk->wmem_alloc),
 			    (int *) arg) ? -EFAULT : 0;
 			goto done;
 		case SIOCINQ:
@@ -654,39 +656,68 @@ int atm_ioctl(struct socket *sock,unsigned int cmd,unsigned long arg)
 			if (!error) sock->state = SS_CONNECTED;
 			ret_val = error;
 			goto done;
-#ifdef CONFIG_ATM_CLIP
+#if defined(CONFIG_ATM_CLIP) || defined(CONFIG_ATM_CLIP_MODULE)
 		case SIOCMKCLIP:
-			if (!capable(CAP_NET_ADMIN))
+			if (!capable(CAP_NET_ADMIN)) {
 				ret_val = -EPERM;
-			else 
-				ret_val = clip_create(arg);
+				goto done;
+			}
+			if (try_atm_clip_ops()) {
+				ret_val = atm_clip_ops->clip_create(arg);
+				__MOD_DEC_USE_COUNT(atm_clip_ops->owner);
+			} else
+				ret_val = -ENOSYS;
 			goto done;
 		case ATMARPD_CTRL:
 			if (!capable(CAP_NET_ADMIN)) {
 				ret_val = -EPERM;
 				goto done;
 			}
-			error = atm_init_atmarp(vcc);
-			if (!error) sock->state = SS_CONNECTED;
-			ret_val = error;
+#if defined(CONFIG_ATM_CLIP_MODULE)
+			if (!atm_clip_ops)
+				request_module("clip");
+#endif
+			if (try_atm_clip_ops()) {
+				error = atm_clip_ops->atm_init_atmarp(vcc);
+				__MOD_DEC_USE_COUNT(atm_clip_ops->owner);
+				if (!error)
+					sock->state = SS_CONNECTED;
+				ret_val = error;
+			} else
+				ret_val = -ENOSYS;
 			goto done;
 		case ATMARP_MKIP:
-			if (!capable(CAP_NET_ADMIN)) 
+			if (!capable(CAP_NET_ADMIN)) {
 				ret_val = -EPERM;
-			else 
-				ret_val = clip_mkip(vcc,arg);
+				goto done;
+			}
+			if (try_atm_clip_ops()) {
+				ret_val = atm_clip_ops->clip_mkip(vcc, arg);
+				__MOD_DEC_USE_COUNT(atm_clip_ops->owner);
+			} else
+				ret_val = -ENOSYS;
 			goto done;
 		case ATMARP_SETENTRY:
-			if (!capable(CAP_NET_ADMIN)) 
+			if (!capable(CAP_NET_ADMIN)) {
 				ret_val = -EPERM;
-			else
-				ret_val = clip_setentry(vcc,arg);
+				goto done;
+			}
+			if (try_atm_clip_ops()) {
+				ret_val = atm_clip_ops->clip_setentry(vcc, arg);
+				__MOD_DEC_USE_COUNT(atm_clip_ops->owner);
+			} else
+				ret_val = -ENOSYS;
 			goto done;
 		case ATMARP_ENCAP:
-			if (!capable(CAP_NET_ADMIN)) 
+			if (!capable(CAP_NET_ADMIN)) {
 				ret_val = -EPERM;
-			else
-				ret_val = clip_encap(vcc,arg);
+				goto done;
+			}
+			if (try_atm_clip_ops()) {
+				ret_val = atm_clip_ops->clip_encap(vcc, arg);
+				__MOD_DEC_USE_COUNT(atm_clip_ops->owner);
+			} else
+				ret_val = -ENOSYS;
 			goto done;
 #endif
 #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)

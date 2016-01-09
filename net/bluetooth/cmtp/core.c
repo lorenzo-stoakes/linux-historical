@@ -35,6 +35,7 @@
 #include <linux/socket.h>
 #include <linux/ioctl.h>
 #include <linux/file.h>
+#include <linux/init.h>
 #include <net/sock.h>
 
 #include <net/bluetooth/bluetooth.h>

@@ -1414,6 +1414,8 @@ void ide_add_generic_settings (ide_drive_t *drive)
 #endif		
 }
 
+EXPORT_SYMBOL_GPL(ide_add_generic_settings);
+
 /*
  * Delay for *at least* 50ms.  As we don't know how much time is left
  * until the next tick occurs, we wait an extra tick to be safe.
@@ -2110,8 +2112,8 @@ int __init ide_setup (char *s)
 #ifdef CONFIG_BLK_DEV_CMD640
 			case -14: /* "cmd640_vlb" */
 			{
-				extern int cmd640_vlb; /* flag for cmd640.c */
-				cmd640_vlb = 1;
+				extern void init_cmd640_vlb (void);
+				init_cmd640_vlb();
 				goto done;
 			}
 #endif /* CONFIG_BLK_DEV_CMD640 */
@@ -2210,6 +2212,37 @@ done:
 }
 
 /*
+ *	Legacy interface registration
+ */
+#define NUM_DRIVER		32
+
+/*
+ *	Yes this is moronically simple, but why not - it works!
+ */
+
+static __initdata ide_driver_call ide_scan[NUM_DRIVER];
+
+void __init ide_register_driver(ide_driver_call scan)
+{
+	static int ide_scans = 0;
+	if(ide_scans == NUM_DRIVER)
+		panic("Too many IDE drivers");
+	ide_scan[ide_scans++]=scan;
+}
+
+EXPORT_SYMBOL(ide_register_driver);
+
+static void __init ide_scan_drivers(void)
+{
+	int i = 0;
+	while(ide_scan[i])
+	{
+		(ide_scan[i])();
+		i++;
+	}
+}
+
+/*
  * probe_for_hwifs() finds/initializes "known" IDE interfaces
  */
 static void __init probe_for_hwifs (void)
@@ -2220,25 +2253,17 @@ static void __init probe_for_hwifs (void)
 		ide_scan_pcibus(ide_scan_direction);
 	}
 #endif /* CONFIG_BLK_DEV_IDEPCI */
+	ide_scan_drivers();
 
+	/*
+	 *	Unconverted drivers
+	 */	
 #ifdef CONFIG_ETRAX_IDE
 	{
 		extern void init_e100_ide(void);
 		init_e100_ide();
 	}
 #endif /* CONFIG_ETRAX_IDE */
-#ifdef CONFIG_BLK_DEV_CMD640
-	{
-		extern void ide_probe_for_cmd640x(void);
-		ide_probe_for_cmd640x();
-	}
-#endif /* CONFIG_BLK_DEV_CMD640 */
-#ifdef CONFIG_BLK_DEV_PDC4030
-	{
-		extern int ide_probe_for_pdc4030(void);
-		(void) ide_probe_for_pdc4030();
-	}
-#endif /* CONFIG_BLK_DEV_PDC4030 */
 #ifdef CONFIG_BLK_DEV_IDE_PMAC
 	{
 		extern void pmac_ide_probe(void);
@@ -2293,12 +2318,6 @@ static void __init probe_for_hwifs (void)
 		buddha_init();
 	}
 #endif /* CONFIG_BLK_DEV_BUDDHA */
-#if defined(CONFIG_BLK_DEV_ISAPNP) && defined(CONFIG_ISAPNP)
-	{
-		extern void pnpide_init(int enable);
-		pnpide_init(1);
-	}
-#endif /* CONFIG_BLK_DEV_ISAPNP */
 }
 
 void __init ide_init_builtin_subdrivers (void)
@@ -2354,6 +2373,10 @@ void ide_attach_devices (void)
 
 void __init ide_init_builtin_drivers (void)
 {
+	/*
+	 * Attach null driver
+	 */
+	idedefault_init();
 	/*
 	 * Probe for special PCI and other "known" interface chipsets
 	 */
@@ -2604,9 +2627,6 @@ int ide_unregister_subdriver (ide_drive_t *drive)
 		up(&ide_setting_sem);
 		return 1;
 	}
-#if defined(CONFIG_BLK_DEV_ISAPNP) && defined(CONFIG_ISAPNP) && defined(MODULE)
-	pnpide_init(0);
-#endif /* CONFIG_BLK_DEV_ISAPNP */
 #ifdef CONFIG_PROC_FS
 	ide_remove_proc_entries(drive->proc, DRIVER(drive)->proc);
 	ide_remove_proc_entries(drive->proc, generic_subdriver_entries);

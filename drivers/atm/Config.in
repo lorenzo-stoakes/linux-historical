@@ -94,7 +94,7 @@ if [ "$CONFIG_PCI" = "y" -o "$CONFIG_SBUS" = "y" ]; then
 fi
 if [ "$CONFIG_PCI" = "y" ]; then
   tristate 'ForeRunner HE Series' CONFIG_ATM_HE
-  if [ "$CONFIG_ATM_HE" = "y" ]; then
+  if [ "$CONFIG_ATM_HE" != "n" ]; then
     bool 'Use S/UNI PHY driver' CONFIG_ATM_HE_USE_SUNI
   fi
 fi
