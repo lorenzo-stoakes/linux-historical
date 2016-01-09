@@ -181,10 +181,6 @@ void __init smp_callin(void)
 extern int cpu_idle(void);
 extern void init_IRQ(void);
 
-void initialize_secondary(void)
-{
-}
-
 int start_secondary(void *unused)
 {
 	trap_init();

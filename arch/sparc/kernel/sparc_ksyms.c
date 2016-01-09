@@ -122,6 +122,7 @@ EXPORT_SYMBOL(__down_trylock);
 EXPORT_SYMBOL(__down_interruptible);
 
 EXPORT_SYMBOL(sparc_valid_addr_bitmap);
+EXPORT_SYMBOL(phys_base);
 
 /* Atomic operations. */
 EXPORT_SYMBOL_PRIVATE(_atomic_add);
@@ -155,7 +156,8 @@ EXPORT_SYMBOL(ndelay);
 EXPORT_SYMBOL(mostek_lock);
 EXPORT_SYMBOL(mstk48t02_regs);
 #if CONFIG_SUN_AUXIO
-EXPORT_SYMBOL(auxio_register);
+EXPORT_SYMBOL(set_auxio);
+EXPORT_SYMBOL(get_auxio);
 #endif
 EXPORT_SYMBOL(request_fast_irq);
 EXPORT_SYMBOL(io_remap_page_range);

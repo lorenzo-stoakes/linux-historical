@@ -27,6 +27,7 @@ extern int sysctl_icmp_ignore_bogus_error_responses;
 extern int sysctl_ipfrag_low_thresh;
 extern int sysctl_ipfrag_high_thresh; 
 extern int sysctl_ipfrag_time;
+extern int sysctl_ipfrag_secret_interval;
 
 /* From ip_output.c */
 extern int sysctl_ip_dynaddr;
@@ -225,6 +226,9 @@ ctl_table ipv4_table[] = {
 	 &sysctl_tcp_frto, sizeof(int), 0644, NULL, &proc_dointvec},
 	{NET_TCP_LOW_LATENCY, "tcp_low_latency",
 	 &sysctl_tcp_low_latency, sizeof(int), 0644, NULL, &proc_dointvec},
+	{NET_IPV4_IPFRAG_SECRET_INTERVAL, "ipfrag_secret_interval",
+	 &sysctl_ipfrag_secret_interval, sizeof(int), 0644, NULL, &proc_dointvec_jiffies, 
+	 &sysctl_jiffies},
 	{0}
 };
 

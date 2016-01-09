@@ -109,15 +109,14 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	 * - Anton
 	 */
 #define switch_to(prev, next, last) do {						\
-	__label__ here;									\
-	register unsigned long task_pc asm("o7");					\
 	extern struct task_struct *current_set[NR_CPUS];				\
 	SWITCH_ENTER									\
 	SWITCH_DO_LAZY_FPU								\
 	next->active_mm->cpu_vm_mask |= (1 << smp_processor_id());			\
-	task_pc = ((unsigned long) &&here) - 0x8;					\
 	__asm__ __volatile__(								\
+	"sethi	%%hi(here - 0x8), %%o7\n\t"						\
 	"mov	%%g6, %%g3\n\t"								\
+	"or	%%o7, %%lo(here - 0x8), %%o7\n\t"					\
 	"rd	%%psr, %%g4\n\t"							\
 	"std	%%sp, [%%g6 + %4]\n\t"							\
 	"rd	%%wim, %%g5\n\t"							\
@@ -141,16 +140,16 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	"nop\n\t"									\
 	"nop\n\t"									\
 	"jmpl	%%o7 + 0x8, %%g0\n\t"							\
-	" mov	%%g3, %0\n\t"								\
+	" mov	%%g3, %0\n"								\
+	"here:\n"									\
         : "=&r" (last)									\
         : "r" (&(current_set[hard_smp_processor_id()])), "r" (next),			\
 	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.kpsr)),		\
-	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.ksp)),		\
-	  "r" (task_pc)									\
+	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.ksp))		\
 	: "g1", "g2", "g3", "g4", "g5", "g7", "l0", "l1", "l3",				\
 	"l4", "l5", "l6", "l7", "i0", "i1", "i2", "i3", "i4", "i5", "o0", "o1", "o2",	\
-	"o3");										\
-here:;  } while(0)
+	"o3", "o7");									\
+	} while(0)
 
 /*
  * Changing the IRQ level on the Sparc.

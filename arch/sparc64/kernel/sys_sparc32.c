@@ -782,7 +782,7 @@ asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u
 			err = do_sys32_semctl (first, second, third, (void *)AA(ptr));
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		};
 	if (call <= MSGCTL) 
@@ -801,7 +801,7 @@ asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u
 			err = do_sys32_msgctl (first, second, (void *)AA(ptr));
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 	if (call <= SHMCTL) 
@@ -820,11 +820,11 @@ asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u
 			err = do_sys32_shmctl (first, second, (void *)AA(ptr));
 			goto out;
 		default:
-			err = -EINVAL;
+			err = -ENOSYS;
 			goto out;
 		}
 
-	err = -EINVAL;
+	err = -ENOSYS;
 
 out:
 	return err;
