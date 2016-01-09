@@ -727,7 +727,7 @@ void __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 			 * is not really acceptable.]
 			 */
 			memcpy(tss->io_bitmap, next->io_bitmap,
-				 IO_BITMAP_SIZE*sizeof(unsigned long));
+				 IO_BITMAP_BYTES);
 			tss->bitmap = IO_BITMAP_OFFSET;
 		} else
 			/*

@@ -81,7 +81,7 @@ asmlinkage int sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 	if (tss->bitmap == IO_BITMAP_OFFSET) { /* already active? */
 		set_bitmap(tss->io_bitmap, from, num, !turn_on);
 	} else {
-		memcpy(tss->io_bitmap, t->io_bitmap, IO_BITMAP_SIZE);
+		memcpy(tss->io_bitmap, t->io_bitmap, IO_BITMAP_BYTES);
 		tss->bitmap = IO_BITMAP_OFFSET; /* Activate it in the TSS */
 	}
 

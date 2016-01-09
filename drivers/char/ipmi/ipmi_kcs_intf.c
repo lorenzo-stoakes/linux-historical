@@ -60,6 +60,14 @@
 /* Measure times between events in the driver. */
 #undef DEBUG_TIMING
 
+/* Timing parameters.  Call every 10 ms when not doing anything,
+   otherwise call every KCS_SHORT_TIMEOUT_USEC microseconds. */
+#define KCS_TIMEOUT_TIME_USEC	10000
+#define KCS_USEC_PER_JIFFY	(1000000/HZ)
+#define KCS_TIMEOUT_JIFFIES	(KCS_TIMEOUT_TIME_USEC/KCS_USEC_PER_JIFFY)
+#define KCS_SHORT_TIMEOUT_USEC  250 /* .25ms when the SM request a
+                                       short timeout */
+
 #ifdef CONFIG_IPMI_KCS
 /* This forces a dependency to the config file for this option. */
 #endif
@@ -130,6 +138,8 @@ struct kcs_info
 	   interupts. */
 	int                 interrupt_disabled;
 };
+
+static void kcs_restart_short_timer(struct kcs_info *kcs_info);
 
 static void deliver_recv_msg(struct kcs_info *kcs_info, struct ipmi_smi_msg *msg)
 {
@@ -308,6 +318,9 @@ static void handle_transaction_done(struct kcs_info *kcs_info)
 #endif
 	switch (kcs_info->kcs_state) {
 	case KCS_NORMAL:
+		if (!kcs_info->curr_msg)
+			break;
+			
 		kcs_info->curr_msg->rsp_size
 			= kcs_get_result(kcs_info->kcs_sm,
 					 kcs_info->curr_msg->rsp,
@@ -562,8 +575,9 @@ static void sender(void                *send_info,
 		spin_lock_irqsave(&(kcs_info->kcs_lock), flags);
 		result = kcs_event_handler(kcs_info, 0);
 		while (result != KCS_SM_IDLE) {
-			udelay(500);
-			result = kcs_event_handler(kcs_info, 500);
+			udelay(KCS_SHORT_TIMEOUT_USEC);
+			result = kcs_event_handler(kcs_info,
+						   KCS_SHORT_TIMEOUT_USEC);
 		}
 		spin_unlock_irqrestore(&(kcs_info->kcs_lock), flags);
 		return;
@@ -581,6 +595,7 @@ static void sender(void                *send_info,
 	    && (kcs_info->curr_msg == NULL))
 	{
 		start_next_msg(kcs_info);
+		kcs_restart_short_timer(kcs_info);
 	}
 	spin_unlock_irqrestore(&(kcs_info->kcs_lock), flags);
 }
@@ -597,8 +612,9 @@ static void set_run_to_completion(void *send_info, int i_run_to_completion)
 	if (i_run_to_completion) {
 		result = kcs_event_handler(kcs_info, 0);
 		while (result != KCS_SM_IDLE) {
-			udelay(500);
-			result = kcs_event_handler(kcs_info, 500);
+			udelay(KCS_SHORT_TIMEOUT_USEC);
+			result = kcs_event_handler(kcs_info,
+						   KCS_SHORT_TIMEOUT_USEC);
 		}
 	}
 
@@ -624,13 +640,39 @@ static void user_left(void *send_info)
 	MOD_DEC_USE_COUNT;
 }
 
-/* Call every 10 ms. */
-#define KCS_TIMEOUT_TIME_USEC	10000
-#define KCS_USEC_PER_JIFFY	(1000000/HZ)
-#define KCS_TIMEOUT_JIFFIES	(KCS_TIMEOUT_TIME_USEC/KCS_USEC_PER_JIFFY)
-#define KCS_SHORT_TIMEOUT_USEC  500 /* .5ms when the SM request a
-                                       short timeout */
 static int initialized = 0;
+
+/* Must be called with interrupts off and with the kcs_lock held. */
+static void kcs_restart_short_timer(struct kcs_info *kcs_info)
+{
+#ifdef CONFIG_HIGH_RES_TIMERS
+	unsigned long jiffies_now;
+
+	if (del_timer(&(kcs_info->kcs_timer))) {
+		/* If we don't delete the timer, then it will go off
+		   immediately, anyway.  So we only process if we
+		   actually delete the timer. */
+
+		/* We already have irqsave on, so no need for it
+                   here. */
+		read_lock(&xtime_lock);
+		jiffies_now = jiffies;
+		kcs_info->kcs_timer.expires = jiffies_now;
+
+		kcs_info->kcs_timer.sub_expires
+			= quick_update_jiffies_sub(jiffies_now);
+		read_unlock(&xtime_lock);
+
+		kcs_info->kcs_timer.sub_expires
+			+= usec_to_arch_cycles(KCS_SHORT_TIMEOUT_USEC);
+		while (kcs_info->kcs_timer.sub_expires >= cycles_per_jiffies) {
+			kcs_info->kcs_timer.expires++;
+			kcs_info->kcs_timer.sub_expires -= cycles_per_jiffies;
+		}
+		add_timer(&(kcs_info->kcs_timer));
+	}
+#endif
+}
 
 static void kcs_timeout(unsigned long data)
 {
@@ -654,11 +696,10 @@ static void kcs_timeout(unsigned long data)
 	printk("**Timer: %d.%9.9d\n", t.tv_sec, t.tv_usec);
 #endif
 	jiffies_now = jiffies;
+
 	time_diff = ((jiffies_now - kcs_info->last_timeout_jiffies)
 		     * KCS_USEC_PER_JIFFY);
 	kcs_result = kcs_event_handler(kcs_info, time_diff);
-
-	spin_unlock_irqrestore(&(kcs_info->kcs_lock), flags);
 
 	kcs_info->last_timeout_jiffies = jiffies_now;
 
@@ -680,6 +721,7 @@ static void kcs_timeout(unsigned long data)
 		}
 	} else {
 		kcs_info->kcs_timer.expires = jiffies + KCS_TIMEOUT_JIFFIES;
+		kcs_info->kcs_timer.sub_expires = 0;
 	}
 #else
 	/* If requested, take the shortest delay possible */
@@ -692,6 +734,7 @@ static void kcs_timeout(unsigned long data)
 
  do_add_timer:
 	add_timer(&(kcs_info->kcs_timer));
+	spin_unlock_irqrestore(&(kcs_info->kcs_lock), flags);
 }
 
 static void kcs_irq_handler(int irq, void *data, struct pt_regs *regs)
@@ -838,7 +881,7 @@ static int init_one_kcs(int kcs_port,
 	if (kcs_port && kcs_physaddr)
 		return -EINVAL;
 
-	new_kcs = kmalloc(kcs_size(), GFP_KERNEL);
+	new_kcs = kmalloc(sizeof(*new_kcs), GFP_KERNEL);
 	if (!new_kcs) {
 		printk(KERN_ERR "ipmi_kcs: out of memory\n");
 		return -ENOMEM;

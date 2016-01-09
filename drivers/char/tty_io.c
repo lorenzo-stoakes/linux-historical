@@ -751,6 +751,10 @@ static ssize_t tty_write(struct file * file, const char * buf, size_t count,
 	struct tty_struct * tty;
 	struct inode *inode = file->f_dentry->d_inode;
 
+	/* Can't seek (pwrite) on ttys.  */
+	if (ppos != &file->f_pos)
+		return -ESPIPE;
+
 	/*
 	 *      For now, we redirect writes from /dev/console as
 	 *      well as /dev/tty0.
@@ -770,15 +774,11 @@ static ssize_t tty_write(struct file * file, const char * buf, size_t count,
 		spin_unlock(&redirect_lock);
 
 		if (p) {
-			ssize_t res = p->f_op->write(p, buf, count, ppos);
+			ssize_t res = p->f_op->write(p, buf, count, &p->f_pos);
 			fput(p);
 			return res;
 		}
 	}
-
-	/* Can't seek (pwrite) on ttys.  */
-	if (ppos != &file->f_pos)
-		return -ESPIPE;
 
 	tty = (struct tty_struct *)file->private_data;
 	if (tty_paranoia_check(tty, inode->i_rdev, "tty_write"))
