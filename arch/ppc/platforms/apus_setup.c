@@ -17,56 +17,14 @@
  */
 
 #include <linux/config.h>
-#include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/kd.h>
 #include <linux/init.h>
-#include <linux/hdreg.h>
 #include <linux/blk.h>
-#include <linux/pci.h>
 #include <linux/seq_file.h>
-
-#ifdef CONFIG_APUS
-#include <asm/logging.h>
-#endif
 
 /* Needs INITSERIAL call in head.S! */
 #undef APUS_DEBUG
-
-
-#include <linux/ide.h>
-#define T_CHAR          (0x0000)        /* char:  don't touch  */
-#define T_SHORT         (0x4000)        /* short: 12 -> 21     */
-#define T_INT           (0x8000)        /* int:   1234 -> 4321 */
-#define T_TEXT          (0xc000)        /* text:  12 -> 21     */
-
-#define T_MASK_TYPE     (0xc000)
-#define T_MASK_COUNT    (0x3fff)
-
-#define D_CHAR(cnt)     (T_CHAR  | (cnt))
-#define D_SHORT(cnt)    (T_SHORT | (cnt))
-#define D_INT(cnt)      (T_INT   | (cnt))
-#define D_TEXT(cnt)     (T_TEXT  | (cnt))
-
-static u_short driveid_types[] = {
-        D_SHORT(10),    /* config - vendor2 */
-        D_TEXT(20),     /* serial_no */
-        D_SHORT(3),     /* buf_type, buf_size - ecc_bytes */
-        D_TEXT(48),     /* fw_rev - model */
-        D_CHAR(2),      /* max_multsect - vendor3 */
-        D_SHORT(1),     /* dword_io */
-        D_CHAR(2),      /* vendor4 - capability */
-        D_SHORT(1),     /* reserved50 */
-        D_CHAR(4),      /* vendor5 - tDMA */
-        D_SHORT(4),     /* field_valid - cur_sectors */
-        D_INT(1),       /* cur_capacity */
-        D_CHAR(2),      /* multsect - multsect_valid */
-        D_INT(1),       /* lba_capacity */
-        D_SHORT(194)    /* dma_1word - reservedyy */
-};
-
-#define num_driveid_types       (sizeof(driveid_types)/sizeof(*driveid_types))
 
 #include <asm/bootinfo.h>
 #include <asm/setup.h>
@@ -74,14 +32,20 @@ static u_short driveid_types[] = {
 #include <asm/amigaints.h>
 #include <asm/amigappc.h>
 #include <asm/pgtable.h>
-#include <asm/io.h>
 #include <asm/dma.h>
 #include <asm/machdep.h>
+#include <asm/keyboard.h>
+#include <asm/time.h>
 
 unsigned long m68k_machtype;
 char debug_device[6] = "";
 
 extern void amiga_init_IRQ(void);
+
+extern int amiga_kbd_translate(unsigned char keycode, unsigned char *keycodep, char raw_mode);
+extern char amiga_sysrq_xlate[128];
+
+extern void apus_setup_pci_ptrs(void);
 
 void (*mach_sched_init) (void (*handler)(int, void *, struct pt_regs *)) __initdata = NULL;
 /* machine dependent keyboard functions */
@@ -133,7 +97,7 @@ static int __bus_speed = 0;
 static int __speed_test_failed = 0;
 
 /********************************************** COMPILE PROTECTION */
-/* Provide some stubs that links to Amiga specific functions. 
+/* Provide some stubs that links to Amiga specific functions.
  * This allows CONFIG_APUS to be removed from generic PPC files while
  * preventing link errors for other PPC targets.
  */
@@ -157,46 +121,6 @@ int apus_set_rtc_time(unsigned long nowtime)
 #else
 	return 0;
 #endif
-}
-
-
-
-/* Here some functions we don't support, but which the other ports reference */
-int pckbd_setkeycode(unsigned int scancode, unsigned int keycode)
-{
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-	return 0; 
-}
-int pckbd_getkeycode(unsigned int scancode) 
-{ 
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-	return 0; 
-}
-int pckbd_translate(unsigned char scancode, unsigned char *keycode,
-		    char raw_mode) 
-{
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-	return 0; 
-}
-char pckbd_unexpected_up(unsigned char keycode)
-{
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-	return 0;
-}
-void pckbd_leds(unsigned char leds)
-{
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-}
-void pckbd_init_hw(void)
-{
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-}
-unsigned char pckbd_sysrq_xlate[128];
-
-struct pci_bus * __init pci_scan_peer_bridge(int bus)
-{
-	printk("Bogus call to " __FILE__ ":" __FUNCTION__ "\n");
-	return NULL;
 }
 
 /*********************************************************** SETUP */
@@ -593,68 +517,6 @@ apus_halt(void)
    apus_restart(NULL);
 }
 
-/****************************************************** from setup.c/IDE */
-#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-/*
- * IDE stuff.
- */
-
-#if 0	/* no longer used  -- paulus */
-void
-apus_ide_fix_driveid(struct hd_driveid *id)
-{
-   u_char *p = (u_char *)id;
-   int i, j, cnt;
-   u_char t;
-
-   if (!MACH_IS_AMIGA && !MACH_IS_MAC)
-   	return;
-   for (i = 0; i < num_driveid_types; i++) {
-      cnt = driveid_types[i] & T_MASK_COUNT;
-      switch (driveid_types[i] & T_MASK_TYPE) {
-         case T_CHAR:
-            p += cnt;
-            break;
-         case T_SHORT:
-            for (j = 0; j < cnt; j++) {
-               t = p[0];
-               p[0] = p[1];
-               p[1] = t;
-               p += 2;
-            }
-            break;
-         case T_INT:
-            for (j = 0; j < cnt; j++) {
-               t = p[0];
-               p[0] = p[3];
-               p[3] = t;
-               t = p[1];
-               p[1] = p[2];
-               p[2] = t;
-               p += 4;
-            }
-            break;
-         case T_TEXT:
-            for (j = 0; j < cnt; j += 2) {
-               t = p[0];
-               p[0] = p[1];
-               p[1] = t;
-               p += 2;
-            }
-            break;
-      }
-   }
-}
-#endif /* 0 */
-
-__init
-void apus_ide_init_hwif_ports (hw_regs_t *hw, ide_ioreg_t data_port, 
-			       ide_ioreg_t ctrl_port, int *irq)
-{
-        if (data_port || ctrl_port)
-                printk("apus_ide_init_hwif_ports: must not be called\n");
-}
-#endif
 /****************************************************** IRQ stuff */
 
 static unsigned char last_ipl[8];
@@ -711,20 +573,9 @@ static int apus_kbd_getkeycode(unsigned int scancode)
 	return scancode > 127 ? -EINVAL : scancode;
 }
 
-static int apus_kbd_translate(unsigned char keycode, unsigned char *keycodep,
-			      char raw_mode)
-{
-	*keycodep = keycode;
-	return 1;
-}
-
 static char apus_kbd_unexpected_up(unsigned char keycode)
 {
 	return 0200;
-}
-
-static void apus_kbd_leds(unsigned char leds)
-{
 }
 
 static void apus_kbd_init_hw(void)
@@ -1000,25 +851,15 @@ void platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.find_end_of_memory = apus_find_end_of_memory;
 	ppc_md.setup_io_mappings = apus_map_io;
 
-	ppc_md.nvram_read_val = NULL;
-	ppc_md.nvram_write_val = NULL;
-
 	/* These should not be used for the APUS yet, since it uses
 	   the M68K keyboard now. */
 	ppc_md.kbd_setkeycode    = apus_kbd_setkeycode;
 	ppc_md.kbd_getkeycode    = apus_kbd_getkeycode;
-	ppc_md.kbd_translate     = apus_kbd_translate;
+	ppc_md.kbd_translate     = amiga_kbd_translate;
 	ppc_md.kbd_unexpected_up = apus_kbd_unexpected_up;
-	ppc_md.kbd_leds          = apus_kbd_leds;
 	ppc_md.kbd_init_hw       = apus_kbd_init_hw;
-
-#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
-        ppc_ide_md.ide_init_hwif = apus_ide_init_hwif_ports;
-#endif		
-}
-
-
-/*************************************************** coexistence */
-void __init adbdev_init(void)
-{
+#ifdef CONFIG_SYSRQ
+	ppc_md.ppc_kbd_sysrq_xlate = amiga_sysrq_xlate;
+	SYSRQ_KEY                = 0xff;
+#endif
 }

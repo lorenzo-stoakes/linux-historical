@@ -5,17 +5,18 @@
  *     (c) 2000 Interlan Communications
  *     (c) 2000 Stephane Alnet
  *     (C) 2001 Brad Hards
+ *     (C) 2002 Oliver Neukum
  *
  *     Original author: The Zapman <zapman@interlan.net>
- *     Inspired by, and much credit goes to Michael Rothwell 
+ *     Inspired by, and much credit goes to Michael Rothwell
  *     <rothwell@interlan.net> for the test equipment, help, and patience
  *     Based off of (and with thanks to) Petko Manolov's pegaus.c driver.
- *     Also many thanks to Joel Silverman and Ed Surprenant at Kawasaki 
+ *     Also many thanks to Joel Silverman and Ed Surprenant at Kawasaki
  *     for providing the firmware and driver resources.
  *
  *     This program is free software; you can redistribute it and/or
  *     modify it under the terms of the GNU General Public License as
- *     published by the Free Software Foundation; either version 2, or 
+ *     published by the Free Software Foundation; either version 2, or
  *     (at your option) any later version.
  *
  *     This program is distributed in the hope that it will be useful,
@@ -25,7 +26,7 @@
  *
  *     You should have received a copy of the GNU General Public License
  *     along with this program; if not, write to the Free Software Foundation,
- *     Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+ *     Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  ****************************************************************/
 
@@ -36,8 +37,8 @@
  * Fix bugs from previous two steps
  * Snoop other OSs for any tricks we're not doing
  * SMP locking
- * Reduce arbitrary timeouts 
- * Smart multicast support 
+ * Reduce arbitrary timeouts
+ * Smart multicast support
  * Temporary MAC change support
  * Tunable SOFs parameter - ioctl()?
  * Ethernet stats collection
@@ -57,6 +58,7 @@
 #include <linux/ethtool.h>
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
+#include <asm/byteorder.h>
 
 #define DEBUG
 
@@ -75,6 +77,7 @@
 #define KAWETH_MTU			1514
 #define KAWETH_BUF_SIZE			1664
 #define KAWETH_TX_TIMEOUT		(5 * HZ)
+#define KAWETH_SCRATCH_SIZE		32
 #define KAWETH_FIRMWARE_BUF_SIZE	4096
 #define KAWETH_CONTROL_TIMEOUT		(30 * HZ)
 
@@ -100,8 +103,14 @@
 
 #define KAWETH_SOFS_TO_WAIT			0x05
 
+#define INTBUFFERSIZE				4
 
-MODULE_AUTHOR("Michael Zappe <zapman@interlan.net>, Stephane Alnet <stephane@u-picardie.fr> and Brad Hards <bhards@bigpond.net.au>");
+#define STATE_OFFSET				0
+#define STATE_MASK				0x40
+#define	STATE_SHIFT				5
+
+
+MODULE_AUTHOR("Michael Zappe <zapman@interlan.net>, Stephane Alnet <stephane@u-picardie.fr>, Brad Hards <bhards@bigpond.net.au> and Oliver Neukum <oliver@neukum.org>");
 MODULE_DESCRIPTION("KL5USB101 USB Ethernet driver");
 MODULE_LICENSE("GPL");
 
@@ -112,28 +121,28 @@ static void *kaweth_probe(
 	);
 static void kaweth_disconnect(struct usb_device *dev, void *ptr);
 int kaweth_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe,
-				struct usb_ctrlrequest *cmd, void *data, int len,
-				int timeout);
+				struct usb_ctrlrequest *cmd, void *data,
+				int len, int timeout);
 
 /****************************************************************
  *     usb_device_id
  ****************************************************************/
 static struct usb_device_id usb_klsi_table[] = {
-	{ USB_DEVICE(0x03e8, 0x0008) }, /* AOX Endpoints USB Ethernet */ 
+	{ USB_DEVICE(0x03e8, 0x0008) }, /* AOX Endpoints USB Ethernet */
 	{ USB_DEVICE(0x04bb, 0x0901) }, /* I-O DATA USB-ET/T */
-	{ USB_DEVICE(0x0506, 0x03e8) }, /* 3Com 3C19250 */ 
-	{ USB_DEVICE(0x0557, 0x2002) }, /* ATEN USB Ethernet */ 
-	{ USB_DEVICE(0x0557, 0x4000) }, /* D-Link DSB-650C */ 
+	{ USB_DEVICE(0x0506, 0x03e8) }, /* 3Com 3C19250 */
+	{ USB_DEVICE(0x0557, 0x2002) }, /* ATEN USB Ethernet */
+	{ USB_DEVICE(0x0557, 0x4000) }, /* D-Link DSB-650C */
 	{ USB_DEVICE(0x0565, 0x0002) }, /* Peracom Enet */
 	{ USB_DEVICE(0x0565, 0x0003) }, /* Optus@Home UEP1045A */
-	{ USB_DEVICE(0x0565, 0x0005) }, /* Peracom Enet2 */ 
+	{ USB_DEVICE(0x0565, 0x0005) }, /* Peracom Enet2 */
 	{ USB_DEVICE(0x05e9, 0x0008) }, /* KLSI KL5KUSB101B */
 	{ USB_DEVICE(0x05e9, 0x0009) }, /* KLSI KL5KUSB101B (Board change) */
-	{ USB_DEVICE(0x066b, 0x2202) }, /* Linksys USB10T */ 
-	{ USB_DEVICE(0x06e1, 0x0008) }, /* ADS USB-10BT */ 
-	{ USB_DEVICE(0x06e1, 0x0009) }, /* ADS USB-10BT */ 
-	{ USB_DEVICE(0x0707, 0x0100) }, /* SMC 2202USB */ 
-	{ USB_DEVICE(0x07aa, 0x0001) }, /* Correga K.K. */ 
+	{ USB_DEVICE(0x066b, 0x2202) }, /* Linksys USB10T */
+	{ USB_DEVICE(0x06e1, 0x0008) }, /* ADS USB-10BT */
+	{ USB_DEVICE(0x06e1, 0x0009) }, /* ADS USB-10BT */
+	{ USB_DEVICE(0x0707, 0x0100) }, /* SMC 2202USB */
+	{ USB_DEVICE(0x07aa, 0x0001) }, /* Correga K.K. */
 	{ USB_DEVICE(0x07b8, 0x4000) }, /* D-Link DU-E10 */
 	{ USB_DEVICE(0x0846, 0x1001) }, /* NetGear EA-101 */
 	{ USB_DEVICE(0x0846, 0x1002) }, /* NetGear EA-101 */
@@ -145,10 +154,10 @@ static struct usb_device_id usb_klsi_table[] = {
 	{ USB_DEVICE(0x10bd, 0x1427) }, /* ASANTE USB To Ethernet Adapter */
 	{ USB_DEVICE(0x1342, 0x0204) }, /* Mobility USB-Ethernet Adapter */
 	{ USB_DEVICE(0x13d2, 0x0400) }, /* Shark Pocket Adapter */
-	{ USB_DEVICE(0x1485, 0x0001) }, /* Silicom USB-Ethernet Adapter */
-	{ USB_DEVICE(0x1645, 0x0005) }, /* Entrega E45 */ 
-	{ USB_DEVICE(0x1645, 0x0008) }, /* Entrega USB Ethernet Adapter */ 
-	{ USB_DEVICE(0x1645, 0x8005) }, /* PortGear Ethernet Adapter */ 
+	{ USB_DEVICE(0x1485, 0x0001) },	/* Silicom U2E */
+	{ USB_DEVICE(0x1645, 0x0005) }, /* Entrega E45 */
+	{ USB_DEVICE(0x1645, 0x0008) }, /* Entrega USB Ethernet Adapter */
+	{ USB_DEVICE(0x1645, 0x8005) }, /* PortGear Ethernet Adapter */
 	{ USB_DEVICE(0x2001, 0x4000) }, /* D-link DSB-650C */
 	{} /* Null terminator */
 };
@@ -159,10 +168,10 @@ MODULE_DEVICE_TABLE (usb, usb_klsi_table);
  *     kaweth_driver
  ****************************************************************/
 static struct usb_driver kaweth_driver = {
-	name:		"kaweth",
-	probe:		kaweth_probe,
-	disconnect:	kaweth_disconnect,
-	id_table:       usb_klsi_table,
+	.name =		"kaweth",
+	.probe =	kaweth_probe,
+	.disconnect =	kaweth_disconnect,
+	.id_table =     usb_klsi_table,
 };
 
 typedef __u8 eth_addr_t[6];
@@ -201,17 +210,25 @@ struct kaweth_device
 	spinlock_t device_lock;
 
 	__u32 status;
+	int end;
+	int removed;
+	int suspend_lowmem;
+	int linkstate;
 
 	struct usb_device *dev;
 	struct net_device *net;
-	wait_queue_head_t control_wait;
+	wait_queue_head_t term_wait;
 
 	struct urb *rx_urb;
 	struct urb *tx_urb;
+	struct urb *irq_urb;
 	
-	__u8 firmware_buf[KAWETH_FIRMWARE_BUF_SIZE];
-	__u8 tx_buf[KAWETH_BUF_SIZE];
+	struct sk_buff *tx_skb;
+
+	__u8 *firmware_buf;
+	__u8 scratch[KAWETH_SCRATCH_SIZE];
 	__u8 rx_buf[KAWETH_BUF_SIZE];
+	__u8 intbuffer[INTBUFFERSIZE];
 	__u16 packet_filter_bitmap;
 
 	struct kaweth_ethernet_configuration configuration;
@@ -224,13 +241,13 @@ struct kaweth_device
  *     kaweth_control
  ****************************************************************/
 static int kaweth_control(struct kaweth_device *kaweth,
-			  unsigned int pipe, 
-			  __u8 request, 
-			  __u8 requesttype, 
-			  __u16 value, 
+			  unsigned int pipe,
+			  __u8 request,
+			  __u8 requesttype,
+			  __u16 value,
 			  __u16 index,
-			  void *data, 
-			  __u16 size, 
+			  void *data,
+			  __u16 size,
 			  int timeout)
 {
 	struct usb_ctrlrequest *dr;
@@ -244,13 +261,12 @@ static int kaweth_control(struct kaweth_device *kaweth,
 
 	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
 
-	if(!dr)
-	{
+	if (!dr) {
 		kaweth_dbg("kmalloc() failed");
 		return -ENOMEM;
 	}
-	
-	dr->bRequestType = requesttype;
+
+	dr->bRequestType= requesttype;
 	dr->bRequest = request;
 	dr->wValue = cpu_to_le16p(&value);
 	dr->wIndex = cpu_to_le16p(&index);
@@ -301,7 +317,7 @@ static int kaweth_set_urb_size(struct kaweth_device *kaweth, __u16 urb_size)
 				USB_TYPE_VENDOR | USB_DIR_OUT | USB_RECIP_DEVICE,
 				urb_size,
 				0,
-				(void *)&kaweth->firmware_buf,
+				(void *)&kaweth->scratch,
 				0,
 				KAWETH_CONTROL_TIMEOUT);
 
@@ -323,7 +339,7 @@ static int kaweth_set_sofs_wait(struct kaweth_device *kaweth, __u16 sofs_wait)
 				USB_TYPE_VENDOR | USB_DIR_OUT | USB_RECIP_DEVICE,
 				sofs_wait,
 				0,
-				(void *)&kaweth->firmware_buf,
+				(void *)&kaweth->scratch,
 				0,
 				KAWETH_CONTROL_TIMEOUT);
 
@@ -346,7 +362,7 @@ static int kaweth_set_receive_filter(struct kaweth_device *kaweth,
 				USB_TYPE_VENDOR | USB_DIR_OUT | USB_RECIP_DEVICE,
 				receive_filter,
 				0,
-				(void *)&kaweth->firmware_buf,
+				(void *)&kaweth->scratch,
 				0,
 				KAWETH_CONTROL_TIMEOUT);
 
@@ -356,19 +372,19 @@ static int kaweth_set_receive_filter(struct kaweth_device *kaweth,
 /****************************************************************
  *     kaweth_download_firmware
  ****************************************************************/
-static int kaweth_download_firmware(struct kaweth_device *kaweth, 
-				    __u8 *data, 
+static int kaweth_download_firmware(struct kaweth_device *kaweth,
+				    __u8 *data,
 				    __u16 data_len,
 				    __u8 interrupt,
 				    __u8 type)
-{	
+{
 	if(data_len > KAWETH_FIRMWARE_BUF_SIZE)	{
 		kaweth_err("Firmware too big: %d", data_len);
 		return -ENOSPC;
 	}
-	
+
 	memcpy(kaweth->firmware_buf, data, data_len);
-	
+
 	kaweth->firmware_buf[2] = (data_len & 0xFF) - 7;
 	kaweth->firmware_buf[3] = data_len >> 8;
 	kaweth->firmware_buf[4] = type;
@@ -377,8 +393,8 @@ static int kaweth_download_firmware(struct kaweth_device *kaweth,
 	kaweth_dbg("High: %i, Low:%i", kaweth->firmware_buf[3],
 		   kaweth->firmware_buf[2]);
 
-	kaweth_dbg("Downloading firmware at %p to kaweth device at %p", 
-	    data, 
+	kaweth_dbg("Downloading firmware at %p to kaweth device at %p",
+	    data,
 	    kaweth);
 	kaweth_dbg("Firmware length: %d", data_len);
 
@@ -388,7 +404,7 @@ static int kaweth_download_firmware(struct kaweth_device *kaweth,
 			      USB_TYPE_VENDOR | USB_DIR_OUT | USB_RECIP_DEVICE,
 			      0,
 			      0,
-			      (void *)&kaweth->firmware_buf,
+			      (void *)kaweth->firmware_buf,
 			      data_len,
 			      KAWETH_CONTROL_TIMEOUT);
 }
@@ -407,7 +423,7 @@ static int kaweth_trigger_firmware(struct kaweth_device *kaweth,
 	kaweth->firmware_buf[5] = interrupt;
 	kaweth->firmware_buf[6] = 0x00;
 	kaweth->firmware_buf[7] = 0x00;
-	
+
 	kaweth_dbg("Triggering firmware");
 
 	return kaweth_control(kaweth,
@@ -416,7 +432,7 @@ static int kaweth_trigger_firmware(struct kaweth_device *kaweth,
 			      USB_TYPE_VENDOR | USB_DIR_OUT | USB_RECIP_DEVICE,
 			      0,
 			      0,
-			      (void *)&kaweth->firmware_buf,
+			      (void *)kaweth->firmware_buf,
 			      8,
 			      KAWETH_CONTROL_TIMEOUT);
 }
@@ -431,12 +447,12 @@ static int kaweth_reset(struct kaweth_device *kaweth)
 	kaweth_dbg("kaweth_reset(%p)", kaweth);
 	result = kaweth_control(kaweth,
 				usb_sndctrlpipe(kaweth->dev, 0),
-				USB_REQ_SET_CONFIGURATION, 
-				0, 
+				USB_REQ_SET_CONFIGURATION,
+				0,
 				kaweth->dev->config[0].bConfigurationValue,
-				0, 
-				NULL, 
-				0, 
+				0,
+				NULL,
+				0,
 				KAWETH_CONTROL_TIMEOUT);
 
 	udelay(10000);
@@ -447,15 +463,38 @@ static int kaweth_reset(struct kaweth_device *kaweth)
 }
 
 static void kaweth_usb_receive(struct urb *);
+static void kaweth_resubmit_rx_urb(struct kaweth_device *);
+
+/****************************************************************
+	int_callback
+*****************************************************************/
+static void int_callback(struct urb *u)
+{
+	struct kaweth_device *kaweth = u->context;
+	int act_state;
+
+	/* we abuse the interrupt urb for rebsubmitting under low memory saving a timer */
+	if (kaweth->suspend_lowmem)
+		kaweth_resubmit_rx_urb(kaweth);
+
+	/* we check the link state to report changes */
+	if (kaweth->linkstate != (act_state = ( kaweth->intbuffer[STATE_OFFSET] | STATE_MASK) >> STATE_SHIFT)) {
+		if (!act_state)
+			netif_carrier_on(kaweth->net);
+		else
+			netif_carrier_off(kaweth->net);
+
+		kaweth->linkstate = act_state;
+	}
+
+}
 
 /****************************************************************
  *     kaweth_resubmit_rx_urb
  ****************************************************************/
-static inline void kaweth_resubmit_rx_urb(struct kaweth_device *kaweth)
+static void kaweth_resubmit_rx_urb(struct kaweth_device *kaweth)
 {
 	int result;
-
-	memset(kaweth->rx_urb, 0, sizeof(*kaweth->rx_urb));
 
 	FILL_BULK_URB(kaweth->rx_urb,
 		      kaweth->dev,
@@ -466,7 +505,11 @@ static inline void kaweth_resubmit_rx_urb(struct kaweth_device *kaweth)
 		      kaweth);
 
 	if((result = usb_submit_urb(kaweth->rx_urb))) {
+		if (result == -ENOMEM)
+			kaweth->suspend_lowmem = 1;
 		kaweth_err("resubmitting rx_urb %d failed", result);
+	} else {
+		kaweth->suspend_lowmem = 0;
 	}
 }
 
@@ -479,23 +522,30 @@ static void kaweth_usb_receive(struct urb *urb)
 {
 	struct kaweth_device *kaweth = urb->context;
 	struct net_device *net = kaweth->net;
-	
+
 	int count = urb->actual_length;
 	int count2 = urb->transfer_buffer_length;
-			
+
 	__u16 pkt_len = le16_to_cpup((u16 *)kaweth->rx_buf);
 
 	struct sk_buff *skb;
 
-	if(kaweth->status & KAWETH_STATUS_CLOSING) {
+	if(urb->status == -ECONNRESET || urb->status == -ECONNABORTED)
+	/* we are killed - set a flag and wake the disconnect handler */
+	{
+		kaweth->end = 1;
+		wake_up(&kaweth->term_wait);
 		return;
 	}
-	
-	if(urb->status && urb->status != -EREMOTEIO && count != 1) { 
+
+	if (kaweth->status & KAWETH_STATUS_CLOSING)
+		return;
+
+	if(urb->status && urb->status != -EREMOTEIO && count != 1) {
 		kaweth_err("%s RX status: %d count: %d packet_len: %d",
-                           net->name, 
+                           net->name,
 			   urb->status,
-			   count, 
+			   count,
 			   (int)pkt_len);
 		kaweth_resubmit_rx_urb(kaweth);
                 return;
@@ -509,7 +559,7 @@ static void kaweth_usb_receive(struct urb *urb)
 		        kaweth_resubmit_rx_urb(kaweth);
                         return;
                 }
-		
+
 		if(!(skb = dev_alloc_skb(pkt_len+2))) {
 		        kaweth_resubmit_rx_urb(kaweth);
                         return;
@@ -518,13 +568,13 @@ static void kaweth_usb_receive(struct urb *urb)
 		skb->dev = net;
 
 		eth_copy_and_sum(skb, kaweth->rx_buf + 2, pkt_len, 0);
-		
+
 		skb_put(skb, pkt_len);
 
 		skb->protocol = eth_type_trans(skb, net);
-		
+
 		netif_rx(skb);
-		
+
 		kaweth->stats.rx_packets++;
 		kaweth->stats.rx_bytes += pkt_len;
 	}
@@ -543,11 +593,23 @@ static int kaweth_open(struct net_device *net)
 
 	kaweth_dbg("Opening network device.");
 
+	MOD_INC_USE_COUNT;
+
 	kaweth_resubmit_rx_urb(kaweth);
 
-	netif_start_queue(net);
+	FILL_INT_URB(
+		kaweth->irq_urb,
+		kaweth->dev,
+		usb_rcvintpipe(kaweth->dev, 3),
+		kaweth->intbuffer,
+		INTBUFFERSIZE,
+		int_callback,
+		kaweth,
+		HZ/4);
 
-	MOD_INC_USE_COUNT;
+	usb_submit_urb(kaweth->irq_urb);
+
+	netif_start_queue(net);
 
 	kaweth_async_set_rx_mode(kaweth);
 	return 0;
@@ -564,6 +626,7 @@ static int kaweth_close(struct net_device *net)
 
 	kaweth->status |= KAWETH_STATUS_CLOSING;
 
+	usb_unlink_urb(kaweth->irq_urb);
 	usb_unlink_urb(kaweth->rx_urb);
 
 	kaweth->status &= ~KAWETH_STATUS_CLOSING;
@@ -613,11 +676,13 @@ static int kaweth_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
 static void kaweth_usb_transmit_complete(struct urb *urb)
 {
 	struct kaweth_device *kaweth = urb->context;
+	struct sk_buff *skb = kaweth->tx_skb;
 
-	if (urb->status)
+	if (urb->status != 0)
 		kaweth_dbg("%s: TX status %d.", kaweth->net->name, urb->status);
 
 	netif_wake_queue(kaweth->net);
+	dev_kfree_skb(skb);
 }
 
 /****************************************************************
@@ -626,44 +691,65 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
 static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 {
 	struct kaweth_device *kaweth = net->priv;
-	int count = skb->len;
-	
+	char *private_header;
+
 	int res;
 
 	spin_lock(&kaweth->device_lock);
 
+	if (kaweth->removed) {
+	/* our device is undergoing disconnection - we bail out */
+		spin_unlock(&kaweth->device_lock);
+		dev_kfree_skb(skb);
+		return 0;
+	}
+
 	kaweth_async_set_rx_mode(kaweth);
 	netif_stop_queue(net);
 
-	*((__u16 *)kaweth->tx_buf) = cpu_to_le16(skb->len);
+	/* We now decide whether we can put our special header into the sk_buff */
+	if (skb_cloned(skb) || skb_headroom(skb) < 2) {
+		/* no such luck - we make our own */
+		struct sk_buff *copied_skb;
+		copied_skb = skb_copy_expand(skb, 2, 0, GFP_ATOMIC);
+		dev_kfree_skb_any(skb);
+		skb = copied_skb;
+		if (!copied_skb) {
+			kaweth->stats.tx_errors++;
+			netif_start_queue(net);
+			spin_unlock(&kaweth->device_lock);
+			return 0;
+		}
+	}
 
-	memcpy(kaweth->tx_buf + 2, skb->data, skb->len);
-
-	memset(kaweth->tx_urb, 0, sizeof(*kaweth->tx_urb));
+	private_header = __skb_push(skb, 2);
+	*private_header = cpu_to_le16(skb->len);
+	kaweth->tx_skb = skb;
 
 	FILL_BULK_URB(kaweth->tx_urb,
 		      kaweth->dev,
 		      usb_sndbulkpipe(kaweth->dev, 2),
-		      kaweth->tx_buf,
-		      count + 2,
+		      private_header,
+		      skb->len,
 		      kaweth_usb_transmit_complete,
 		      kaweth);
+	kaweth->end = 0;
+	kaweth->tx_urb->transfer_flags |= USB_ASYNC_UNLINK;
 
 	if((res = usb_submit_urb(kaweth->tx_urb)))
 	{
 		kaweth_warn("kaweth failed tx_urb %d", res);
 		kaweth->stats.tx_errors++;
-		
+
 		netif_start_queue(net);
-	} 
-	else 
+		dev_kfree_skb(skb);
+	}
+	else
 	{
 		kaweth->stats.tx_packets++;
 		kaweth->stats.tx_bytes += skb->len;
 		net->trans_start = jiffies;
 	}
-
-	dev_kfree_skb(skb);
 
 	spin_unlock(&kaweth->device_lock);
 
@@ -676,7 +762,7 @@ static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 static void kaweth_set_rx_mode(struct net_device *net)
 {
 	struct kaweth_device *kaweth = net->priv;
-	
+
 	__u16 packet_filter_bitmap = KAWETH_PACKET_FILTER_DIRECTED |
                                      KAWETH_PACKET_FILTER_BROADCAST |
 		                     KAWETH_PACKET_FILTER_MULTICAST;
@@ -687,7 +773,7 @@ static void kaweth_set_rx_mode(struct net_device *net)
 
 	if (net->flags & IFF_PROMISC) {
 		packet_filter_bitmap |= KAWETH_PACKET_FILTER_PROMISCUOUS;
-	} 
+	}
 	else if ((net->mc_count) || (net->flags & IFF_ALLMULTI)) {
 		packet_filter_bitmap |= KAWETH_PACKET_FILTER_ALL_MULTICAST;
 	}
@@ -702,7 +788,7 @@ static void kaweth_set_rx_mode(struct net_device *net)
 static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth)
 {
 	__u16 packet_filter_bitmap = kaweth->packet_filter_bitmap;
-	kaweth->packet_filter_bitmap = 0;	
+	kaweth->packet_filter_bitmap = 0;
 	if(packet_filter_bitmap == 0) return;
 
 	{
@@ -713,7 +799,7 @@ static void kaweth_async_set_rx_mode(struct kaweth_device *kaweth)
 				USB_TYPE_VENDOR | USB_DIR_OUT | USB_RECIP_DEVICE,
 				packet_filter_bitmap,
 				0,
-				(void *)&kaweth->firmware_buf,
+				(void *)&kaweth->scratch,
 				0,
 				KAWETH_CONTROL_TIMEOUT);
 
@@ -745,7 +831,6 @@ static void kaweth_tx_timeout(struct net_device *net)
 	kaweth->stats.tx_errors++;
 	net->trans_start = jiffies;
 
-	kaweth->tx_urb->transfer_flags |= USB_ASYNC_UNLINK;
 	usb_unlink_urb(kaweth->tx_urb);
 }
 
@@ -763,14 +848,14 @@ static void *kaweth_probe(
 	int result = 0;
 
 	kaweth_dbg("Kawasaki Device Probe (Device number:%d): 0x%4.4x:0x%4.4x:0x%4.4x",
-		 dev->devnum, 
-		 (int)dev->descriptor.idVendor, 
+		 dev->devnum,
+		 (int)dev->descriptor.idVendor,
 		 (int)dev->descriptor.idProduct,
 		 (int)dev->descriptor.bcdDevice);
 
 	kaweth_dbg("Device at %p", dev);
 
-	kaweth_dbg("Descriptor length: %x type: %x", 
+	kaweth_dbg("Descriptor length: %x type: %x",
 		 (int)dev->descriptor.bLength,
 		 (int)dev->descriptor.bDescriptorType);
 
@@ -782,10 +867,9 @@ static void *kaweth_probe(
 	memset(kaweth, 0, sizeof(struct kaweth_device));
 
 	kaweth->dev = dev;
-	kaweth->status = 0;
-	kaweth->net = NULL;
-	kaweth->device_lock = SPIN_LOCK_UNLOCKED;
-		
+	spin_lock_init(&kaweth->device_lock);
+	init_waitqueue_head(&kaweth->term_wait);
+
 	kaweth_dbg("Resetting.");
 
 	kaweth_reset(kaweth);
@@ -800,22 +884,25 @@ static void *kaweth_probe(
 	} else {
 		/* Download the firmware */
 		kaweth_info("Downloading firmware...");
-		if ((result = kaweth_download_firmware(kaweth, 
-						      kaweth_new_code, 
-						      len_kaweth_new_code, 
-						      100, 
+		kaweth->firmware_buf = (__u8 *)__get_free_page(GFP_KERNEL);
+		if ((result = kaweth_download_firmware(kaweth,
+						      kaweth_new_code,
+						      len_kaweth_new_code,
+						      100,
 						      2)) < 0) {
 			kaweth_err("Error downloading firmware (%d)", result);
+			free_page((unsigned long)kaweth->firmware_buf);
 			kfree(kaweth);
 			return NULL;
 		}
 
-		if ((result = kaweth_download_firmware(kaweth, 
-						      kaweth_new_code_fix, 
-						      len_kaweth_new_code_fix, 
-						      100, 
+		if ((result = kaweth_download_firmware(kaweth,
+						      kaweth_new_code_fix,
+						      len_kaweth_new_code_fix,
+						      100,
 						      3)) < 0) {
 			kaweth_err("Error downloading firmware fix (%d)", result);
+			free_page((unsigned long)kaweth->firmware_buf);
 			kfree(kaweth);
 			return NULL;
 		}
@@ -826,6 +913,7 @@ static void *kaweth_probe(
 						      126,
 						      2)) < 0) {
 			kaweth_err("Error downloading trigger code (%d)", result);
+			free_page((unsigned long)kaweth->firmware_buf);
 			kfree(kaweth);
 			return NULL;
 		}
@@ -836,6 +924,7 @@ static void *kaweth_probe(
 						      126,
 						      3)) < 0) {
 			kaweth_err("Error downloading trigger code fix (%d)", result);
+			free_page((unsigned long)kaweth->firmware_buf);
 			kfree(kaweth);
 			return NULL;
 		}
@@ -843,12 +932,14 @@ static void *kaweth_probe(
 
 		if ((result = kaweth_trigger_firmware(kaweth, 126)) < 0) {
 			kaweth_err("Error triggering firmware (%d)", result);
+			free_page((unsigned long)kaweth->firmware_buf);
 			kfree(kaweth);
 			return NULL;
 		}
 
 		/* Device will now disappear for a moment...  */
 		kaweth_info("Firmware loaded.  I'll be back...");
+		free_page((unsigned long)kaweth->firmware_buf);
 		kfree(kaweth);
 		return NULL;
 	}
@@ -873,7 +964,7 @@ static void *kaweth_probe(
 		 (int)kaweth->configuration.hw_addr[5]);
 
 	if(!memcmp(&kaweth->configuration.hw_addr,
-                   &bcast_addr, 
+                   &bcast_addr,
 		   sizeof(bcast_addr))) {
 		kaweth_err("Firmware not functioning properly, no net device created");
 		kfree(kaweth);
@@ -884,13 +975,13 @@ static void *kaweth_probe(
 		kaweth_dbg("Error setting URB size");
 		return kaweth;
 	}
-	
+
 	if(kaweth_set_sofs_wait(kaweth, KAWETH_SOFS_TO_WAIT) < 0) {
 		kaweth_err("Error setting SOFS wait");
 		return kaweth;
 	}
 
-	result = kaweth_set_receive_filter(kaweth, 
+	result = kaweth_set_receive_filter(kaweth,
                                            KAWETH_PACKET_FILTER_DIRECTED |
                                            KAWETH_PACKET_FILTER_BROADCAST |
                                            KAWETH_PACKET_FILTER_MULTICAST);
@@ -899,11 +990,18 @@ static void *kaweth_probe(
 		kaweth_err("Error setting receive filter");
 		return kaweth;
 	}
-	
+
 	kaweth_dbg("Initializing net device.");
 
 	kaweth->tx_urb = usb_alloc_urb(0);
+	if (!kaweth->tx_urb)
+		goto err_no_urb;
 	kaweth->rx_urb = usb_alloc_urb(0);
+	if (!kaweth->rx_urb)
+		goto err_only_tx;
+	kaweth->irq_urb = usb_alloc_urb(0);
+	if (!kaweth->irq_urb)
+		goto err_tx_and_rx;
 
 	kaweth->net = init_etherdev(0, 0);
 	if (!kaweth->net) {
@@ -912,17 +1010,17 @@ static void *kaweth_probe(
 	}
 
 	memcpy(kaweth->net->broadcast, &bcast_addr, sizeof(bcast_addr));
-	memcpy(kaweth->net->dev_addr, 
+	memcpy(kaweth->net->dev_addr,
                &kaweth->configuration.hw_addr,
                sizeof(kaweth->configuration.hw_addr));
-	 
+
 	kaweth->net->priv = kaweth;
 	kaweth->net->open = kaweth_open;
 	kaweth->net->stop = kaweth_close;
 
 	kaweth->net->watchdog_timeo = KAWETH_TX_TIMEOUT;
 	kaweth->net->tx_timeout = kaweth_tx_timeout;
-	
+
 	kaweth->net->do_ioctl = kaweth_ioctl;
 	kaweth->net->hard_start_xmit = kaweth_start_xmit;
 	kaweth->net->set_multicast_list = kaweth_set_rx_mode;
@@ -932,10 +1030,18 @@ static void *kaweth_probe(
 	memset(&kaweth->stats, 0, sizeof(kaweth->stats));
 
 	kaweth_info("kaweth interface created at %s", kaweth->net->name);
-								
+
 	kaweth_dbg("Kaweth probe returning.");
 
 	return kaweth;
+
+err_tx_and_rx:
+	usb_free_urb(kaweth->rx_urb);
+err_only_tx:
+	usb_free_urb(kaweth->tx_urb);
+err_no_urb:
+	kfree(kaweth);
+	return NULL;
 }
 
 /****************************************************************
@@ -952,8 +1058,18 @@ static void kaweth_disconnect(struct usb_device *dev, void *ptr)
 		return;
 	}
 
+	kaweth->removed = 1;
+	usb_unlink_urb(kaweth->irq_urb);
 	usb_unlink_urb(kaweth->rx_urb);
-	usb_unlink_urb(kaweth->tx_urb);
+
+	/* we need to wait for the urb to be cancelled, if it is active */
+	spin_lock(&kaweth->device_lock);
+	if (usb_unlink_urb(kaweth->tx_urb) == -EINPROGRESS) {
+		spin_unlock(&kaweth->device_lock);
+		wait_event(kaweth->term_wait, kaweth->end);
+	} else {
+		spin_unlock(&kaweth->device_lock);
+	}
 
 	if(kaweth->net) {
 		if(kaweth->net->flags & IFF_UP) {
@@ -972,12 +1088,19 @@ static void kaweth_disconnect(struct usb_device *dev, void *ptr)
 }
 
 
+// FIXME this completion stuff is a modified clone of
+// an OLD version of some stuff in usb.c ...
+struct kw_api_data {
+	wait_queue_head_t wqh;
+	int done;
+};
+
 /*-------------------------------------------------------------------*
  * completion handler for compatibility wrappers (sync control/bulk) *
  *-------------------------------------------------------------------*/
 static void usb_api_blocking_completion(struct urb *urb)
 {
-        struct usb_api_data *awd = (struct usb_api_data *)urb->context;
+        struct kw_api_data *awd = (struct kw_api_data *)urb->context;
 
 	awd->done=1;
 	wake_up(&awd->wqh);
@@ -991,12 +1114,12 @@ static void usb_api_blocking_completion(struct urb *urb)
 static int usb_start_wait_urb(struct urb *urb, int timeout, int* actual_length)
 {
         DECLARE_WAITQUEUE(wait, current);
-	struct usb_api_data awd;
+	struct kw_api_data awd;
         int status;
 
         init_waitqueue_head(&awd.wqh);
         awd.done = 0;
-        
+
         set_current_state(TASK_INTERRUPTIBLE);
         add_wait_queue(&awd.wqh, &wait);
         urb->context = &awd;
@@ -1036,7 +1159,8 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int* actual_length)
 /*-------------------------------------------------------------------*/
 // returns status (negative) or length (positive)
 int kaweth_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe,
-                            struct usb_ctrlrequest *cmd,  void *data, int len, int timeout)
+                            struct usb_ctrlrequest *cmd, void *data, int len,
+			    int timeout)
 {
         struct urb *urb;
         int retv;
@@ -1078,6 +1202,7 @@ void __exit kaweth_exit(void)
 
 module_init(kaweth_init);
 module_exit(kaweth_exit);
+
 
 
 

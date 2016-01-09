@@ -207,7 +207,7 @@ pmac_show_cpuinfo(struct seq_file *m)
 	/* print parsed model */
 	seq_printf(m, "detected as\t: %d (%s)\n", mbmodel, mbname);
 	seq_printf(m, "pmac flags\t: %08x\n", mbflags);
-	
+
 	/* find l2 cache info */
 	np = find_devices("l2-cache");
 	if (np == 0)
@@ -381,6 +381,8 @@ pmac_setup_arch(void)
 	else
 		ppc_md.smp_ops = &psurge_smp_ops;
 #endif /* CONFIG_SMP */
+
+	pci_create_OF_bus_map();
 }
 
 static void __init ohare_init(void)
@@ -521,7 +523,7 @@ check_bootable_part(kdev_t dev, int blk, struct mac_partition *part)
 
 	macpart_fix_string(part->processor, 16);
 	macpart_fix_string(part->name, 32);
-	macpart_fix_string(part->type, 32);					
+	macpart_fix_string(part->type, 32);
     
 	if ((be32_to_cpu(part->status) & MAC_STATUS_BOOTABLE)
 	    && strcasecmp(part->processor, "powerpc") == 0)

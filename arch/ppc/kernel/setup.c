@@ -428,6 +428,7 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 }
 #endif /* CONFIG_ALL_PPC */
 
+#ifndef CONFIG_APUS
 struct bi_record *find_bootinfo(void)
 {
 	struct bi_record *rec;
@@ -480,6 +481,7 @@ void parse_bootinfo(struct bi_record *rec)
 		rec = (struct bi_record *)((ulong)rec + rec->size);
 	}
 }
+#endif /* CONFIG_APUS */
 
 /*
  * Find out what kind of machine we're on and save any data we need
@@ -594,24 +596,6 @@ void __init setup_arch(char **cmdline_p)
 	ppc_md.setup_arch();
 	if ( ppc_md.progress ) ppc_md.progress("arch: exit", 0x3eab);
 
-#if defined(CONFIG_PCI) && defined(CONFIG_ALL_PPC)
-	/* We create the "pci-OF-bus-map" property now so it appear in the
-	 * /proc device tree
-	 */
-	if (have_of) {
-		struct property* of_prop;
-		
-		of_prop = (struct property*)alloc_bootmem(sizeof(struct property) + 256);
-		if (of_prop && find_path_device("/")) {
-			memset(of_prop, -1, sizeof(struct property) + 256);
-			of_prop->name = "pci-OF-bus-map";
-			of_prop->length = 256;
-			of_prop->value = (unsigned char *)&of_prop[1];
-			prom_add_property(find_path_device("/"), of_prop);
-		}
-	}
-#endif /* CONFIG_PCI && CONFIG_ALL_PPC */
-
 	paging_init();
 	sort_exception_table();
 
@@ -619,6 +603,7 @@ void __init setup_arch(char **cmdline_p)
 	ppc_md.ppc_machine = _machine;
 }
 
+#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
 /* Convert the shorts/longs in hd_driveid from little to big endian;
  * chars are endian independant, of course, but strings need to be flipped.
  * (Despite what it says in drivers/block/ide.h, they come up as little
@@ -713,3 +698,4 @@ void ppc_generic_ide_fix_driveid(struct hd_driveid *id)
 		id->words206_254[i] = __le16_to_cpu(id->words206_254[i]);
 	id->integrity_word  = __le16_to_cpu(id->integrity_word);
 }
+#endif

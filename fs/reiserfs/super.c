@@ -569,6 +569,7 @@ static int reiserfs_parse_options (struct super_block * s, char * options, /* st
 		{"hash", 'h', hash, FORCE_HASH_DETECT},
 		
 		{"resize", 'r', 0, -1},
+		{"attrs", 0, 0, REISERFS_ATTRS},
 		{NULL, 0, 0, 0}
     };
 	
@@ -663,7 +664,7 @@ static int reiserfs_remount (struct super_block * s, int * mount_flags, char * d
   }
 
   if (*mount_flags & MS_RDONLY) {
-    /* remount rean-only */
+    /* remount read-only */
     if (s->s_flags & MS_RDONLY)
       /* it is read-only already */
       return 0;
@@ -679,6 +680,10 @@ static int reiserfs_remount (struct super_block * s, int * mount_flags, char * d
     journal_mark_dirty(&th, s, SB_BUFFER_WITH_SB (s));
     s->s_dirt = 0;
   } else {
+    /* remount read-write */
+    if (!(s->s_flags & MS_RDONLY))
+	return 0; /* We are read-write already */
+
     s->u.reiserfs_sb.s_mount_state = sb_state(rs) ;
     s->s_flags &= ~MS_RDONLY ; /* now it is safe to call journal_begin */
     journal_begin(&th, s, 10) ;
@@ -1117,6 +1122,10 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
     s->u.reiserfs_sb.s_mount_opt = ( 1 << REISERFS_SMALLTAIL );
     /* default block allocator option: skip_busy */
     s->u.reiserfs_sb.s_alloc_options.bits = ( 1 << 5);
+    /* If file grew past 4 blocks, start preallocation blocks for it. */
+    s->u.reiserfs_sb.s_alloc_options.preallocmin = 4;
+    /* Preallocate by 8 blocks (9-1) at once */
+    s->u.reiserfs_sb.s_alloc_options.preallocsize = 9;
 
     if (reiserfs_parse_options (s, (char *) data, &(s->u.reiserfs_sb.s_mount_opt), &blocks) == 0) {
 	return NULL;
@@ -1257,6 +1266,7 @@ static struct super_block * reiserfs_read_super (struct super_block * s, void * 
     reiserfs_proc_register( s, "oidmap", reiserfs_oidmap_in_proc );
     reiserfs_proc_register( s, "journal", reiserfs_journal_in_proc );
     init_waitqueue_head (&(s->u.reiserfs_sb.s_wait));
+    s->u.reiserfs_sb.bitmap_lock = SPIN_LOCK_UNLOCKED;
 
     printk("%s\n", reiserfs_get_version_string()) ;
     return s;

@@ -15,7 +15,7 @@
 #include <linux/reiserfs_fs_sb.h>
 #include <linux/reiserfs_fs_i.h>
 
-#define PREALLOCATION_SIZE 8
+#define PREALLOCATION_SIZE 9
 
 #define INODE_INFO(inode) (&(inode)->u.reiserfs_i)
 
@@ -397,7 +397,6 @@ int reiserfs_parse_alloc_options(struct super_block * s, char * options)
 {
     char * this_char, * value;
 
-    s->u.reiserfs_sb.s_alloc_options.preallocmin = 4;
     s->u.reiserfs_sb.s_alloc_options.bits = 0; /* clear default settings */
 
     for (this_char = strtok (options, ":"); this_char != NULL; this_char = strtok (NULL, ":")) {
@@ -739,7 +738,7 @@ static inline int allocate_without_wrapping_disk (reiserfs_blocknr_hint_t * hint
     int rest = amount_needed;
     int nr_allocated;
 
-    while (rest > 0) {
+    while (rest > 0 && start <= finish) {
 	nr_allocated = scan_bitmap (hint->th, &start, finish, 1,
 				    rest + prealloc_size, !hint->formatted_node,
 				    hint->block);
@@ -885,7 +884,9 @@ void reiserfs_claim_blocks_to_be_allocated(
     if ( !blocks )
 	return;
 
+    spin_lock(&sb->u.reiserfs_sb.bitmap_lock);
     sb->u.reiserfs_sb.reserved_blocks += blocks;
+    spin_unlock(&sb->u.reiserfs_sb.bitmap_lock);
 }
 
 /* Unreserve @blocks amount of blocks in fs pointed by @sb */
@@ -902,6 +903,22 @@ void reiserfs_release_claimed_blocks(
     if ( !blocks )
 	return;
 
+    spin_lock(&sb->u.reiserfs_sb.bitmap_lock);
     sb->u.reiserfs_sb.reserved_blocks -= blocks;
     RFALSE( sb->u.reiserfs_sb.reserved_blocks < 0, "amount of blocks reserved became zero?");
+    spin_unlock(&sb->u.reiserfs_sb.bitmap_lock);
+}
+
+/* This function estimates how much pages we will be able to write to FS
+   used for reiserfs_file_write() purposes for now. */
+int reiserfs_can_fit_pages ( struct super_block *sb /* superblock of filesystem
+						       to estimate space */ )
+{
+	unsigned long space;
+
+	spin_lock(&sb->u.reiserfs_sb.bitmap_lock);
+	space = (SB_FREE_BLOCKS(sb) - sb->u.reiserfs_sb.reserved_blocks) / ( PAGE_CACHE_SIZE/sb->s_blocksize);
+	spin_unlock(&sb->u.reiserfs_sb.bitmap_lock);
+
+	return space;
 }

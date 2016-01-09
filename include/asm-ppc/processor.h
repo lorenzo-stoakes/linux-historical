@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.processor.h 1.37 05/06/02 01:37:30 benh
+ * BK Id: %F% %I% %G% %U% %#%
  */
 #ifdef __KERNEL__
 #ifndef __ASM_PPC_PROCESSOR_H
@@ -191,7 +191,7 @@
 #define	  HID0_EBD	(1<<28)		/* Enable Bus Data Parity */
 #define	  HID0_SBCLK	(1<<27)
 #define	  HID0_EICE	(1<<26)
-#define	  HID0_TBEN	(1<<26)		/* Timebase enable - 745x */
+#define	  HID0_TBEN	(1<<26)		/* Timebase enable - 74xx and 82xx */
 #define	  HID0_ECLK	(1<<25)
 #define	  HID0_PAR	(1<<24)
 #define	  HID0_STEN	(1<<24)		/* Software table search enable - 745x */

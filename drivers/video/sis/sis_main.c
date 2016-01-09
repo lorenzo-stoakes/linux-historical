@@ -2698,7 +2698,7 @@ int __init sisfb_init(void)
 	}
 
 	if (!pdev_valid)
-		return -1;
+		return -ENODEV;
 
 // Eden Chen
 	switch (ivideo.chip_id) {
@@ -2885,6 +2885,7 @@ int __init sisfb_init(void)
 
 	sishw_ext.pCR = vmalloc(sizeof(SIS_DSReg) * CR_BUFFER_SIZE);
 	if (sishw_ext.pCR == NULL) {
+		vfree(sishw_ext.pSR);
 		printk(KERN_INFO "sisfb: Fatal error: Allocating CRReg space failed.\n");
 		return -ENODEV;
 	}
@@ -2999,13 +3000,20 @@ int __init sisfb_init(void)
 	// Eden Chen
 	sishw_ext.ulVideoMemorySize = ivideo.video_size;
 	// ~Eden Chen
+	
+	printk("Video base at %08lx, for %08lx\n", ivideo.video_base, ivideo.video_size);
+	
 	if (!request_mem_region(ivideo.video_base, ivideo.video_size, "sisfb FB")) {
 		printk(KERN_ERR "sisfb: Fatal error: Unable to reserve frame buffer memory\n");
+		vfree(sishw_ext.pSR);
+		vfree(sishw_ext.pCR);
 		return -ENODEV;
 	}
 
 	if (!request_mem_region(ivideo.mmio_base, sisfb_mmio_size, "sisfb MMIO")) {
 		printk(KERN_ERR "sisfb: Fatal error: Unable to reserve MMIO region\n");
+		vfree(sishw_ext.pSR);
+		vfree(sishw_ext.pCR);
 		release_mem_region(ivideo.video_base, ivideo.video_size);
 		return -ENODEV;
 	}
@@ -3267,7 +3275,7 @@ int __init sisfb_init(void)
 	} /* TW: if mode = "none" */
 
 	if (sisfb_heap_init()) {
-		printk("sisfb: Failed to initialize offscreen memory heap\n");
+		printk(KERN_WARNING "sisfb: Failed to initialize offscreen memory heap\n");
 	}
 
         ivideo.mtrr = (unsigned int) 0;
@@ -3404,7 +3412,8 @@ int init_module(void)
 	if (queuemode)
 		sisfb_search_queuemode(queuemode);
 
-	sisfb_init();
+	if(sisfb_init()<0)
+		return -ENODEV;
 
 	return 0;
 }

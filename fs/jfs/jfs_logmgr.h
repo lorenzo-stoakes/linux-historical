@@ -502,6 +502,7 @@ typedef struct logsyncblk {
 }
 
 extern int lmLogOpen(struct super_block *sb, log_t ** log);
+extern void lmLogWait(log_t * log);
 extern int lmLogClose(struct super_block *sb, log_t * log);
 extern int lmLogSync(log_t * log, int nosyncwait);
 extern int lmLogShutdown(log_t * log);

@@ -44,7 +44,6 @@
 
 
 #include <linux/fs.h>
-#include <linux/locks.h>
 #include <linux/vmalloc.h>
 #include <linux/smp_lock.h>
 #include <linux/completion.h>
@@ -145,7 +144,6 @@ struct {
  */
 extern int lmGroupCommit(log_t * log, tblock_t * tblk);
 extern void lmSync(log_t *);
-extern int readSuper(struct super_block *sb, metapage_t ** bpp);
 extern int jfs_commit_inode(struct inode *, int);
 extern int jfs_stop_threads;
 
@@ -2799,8 +2797,7 @@ restart:
 			 * We can be running indefinately if other processors
 			 * are adding transactions to this list
 			 */
-			if (current->need_resched)
-				schedule();
+			cond_resched();
 			LAZY_LOCK(flags);
 		}
 
@@ -2905,8 +2902,7 @@ restart:
 		 * Just to be safe.  I don't know how
 		 * long we can run without blocking
 		 */
-		if (current->need_resched)
-			schedule();
+		cond_resched();
 		TXN_LOCK();
 	}
 
@@ -2995,8 +2991,7 @@ int jfs_sync(void *arg)
 				 * Just to be safe.  I don't know how
 				 * long we can run without blocking
 				 */
-				if (current->need_resched)
-					schedule();
+				cond_resched();
 				TXN_LOCK();
 			} else {
 				/* We can't get the commit semaphore.  It may

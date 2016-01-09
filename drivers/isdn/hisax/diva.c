@@ -1,4 +1,4 @@
-/* $Id: diva.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
+/* $Id: diva.c,v 1.1.4.2 2002/08/30 11:21:00 keil Exp $
  *
  * low level stuff for Eicon.Diehl Diva Family ISDN cards
  *
@@ -22,16 +22,14 @@
 #include "isac.h"
 #include "hscx.h"
 #include "ipac.h"
-//##################################
 #include "ipacx.h"
-//##################################
 #include "isdnl1.h"
 #include <linux/pci.h>
 #include <linux/isapnp.h>
 
 extern const char *CardType[];
 
-const char *Diva_revision = "$Revision: 1.1.4.1 $";
+const char *Diva_revision = "$Revision: 1.1.4.2 $";
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
@@ -53,9 +51,7 @@ const char *Diva_revision = "$Revision: 1.1.4.1 $";
 #define DIVA_PCI	2
 #define DIVA_IPAC_ISA	3
 #define DIVA_IPAC_PCI	4
-//##################################
 #define DIVA_IPACX_PCI	5
-//##################################
 
 /* CTRL (Read) */
 #define DIVA_IRQ_STAT	0x01
@@ -75,16 +71,12 @@ const char *Diva_revision = "$Revision: 1.1.4.1 $";
 #define PITA_MISC_REG		0x1c
 #ifdef __BIG_ENDIAN
 #define PITA_PARA_SOFTRESET	0x00000001
-//################################################
 #define PITA_SER_SOFTRESET	0x00000002
-//################################################
 #define PITA_PARA_MPX_MODE	0x00000004
 #define PITA_INT0_ENABLE	0x00000200
 #else
 #define PITA_PARA_SOFTRESET	0x01000000
-//################################################
 #define PITA_SER_SOFTRESET	0x02000000
-//################################################
 #define PITA_PARA_MPX_MODE	0x04000000
 #define PITA_INT0_ENABLE	0x00020000
 #endif
@@ -252,7 +244,6 @@ MemWriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 	memwritereg(cs->hw.diva.cfg_reg, offset + (hscx ? 0x40 : 0), value);
 }
 
-//######################################################################
 /* IO-Functions for IPACX type cards */
 static u_char
 MemReadISAC_IPACX(struct IsdnCardState *cs, u_char offset)
@@ -293,7 +284,6 @@ MemWriteHSCX_IPACX(struct IsdnCardState *cs, int hscx, u_char offset, u_char val
 	memwritereg(cs->hw.diva.cfg_reg, offset + 
               (hscx ? IPACX_OFF_B2 : IPACX_OFF_B1), value);
 }
-//######################################################################
 
 /*
  * fast interrupt HSCX stuff goes here
@@ -715,7 +705,6 @@ Start_IPACPCI:
 	memwritereg(cs->hw.diva.cfg_reg, IPAC_MASK, 0xC0);
 }
 
-//###########################################################
 static void
 diva_irq_ipacx_pci(int intno, void *dev_id, struct pt_regs *regs)
 {
@@ -733,18 +722,14 @@ diva_irq_ipacx_pci(int intno, void *dev_id, struct pt_regs *regs)
   interrupt_ipacx(cs);      // handler for chip
 	*cfg = PITA_INT0_STATUS;  // Reset PLX interrupt
 }
-//###########################################################
 
 void
 release_io_diva(struct IsdnCardState *cs)
 {
 	int bytecnt;
 
-//###########################################################	
-//	if (cs->subtyp == DIVA_IPAC_PCI) {
 	if ((cs->subtyp == DIVA_IPAC_PCI) || 
 	    (cs->subtyp == DIVA_IPACX_PCI)   ) {
-//###########################################################	
 		u_int *cfg = (unsigned int *)cs->hw.diva.pci_cfg;
 
 		*cfg = 0; /* disable INT0/1 */ 
@@ -791,7 +776,6 @@ reset_diva(struct IsdnCardState *cs)
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		memwritereg(cs->hw.diva.cfg_reg, IPAC_MASK, 0xc0);
-//#######################################################################		
 	} else if (cs->subtyp == DIVA_IPACX_PCI) {
 		unsigned int *ireg = (unsigned int *)(cs->hw.diva.pci_cfg +
 					PITA_MISC_REG);
@@ -801,8 +785,7 @@ reset_diva(struct IsdnCardState *cs)
 		*ireg = PITA_PARA_MPX_MODE | PITA_SER_SOFTRESET;
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
-    MemWriteISAC_IPACX(cs, IPACX_MASK, 0xff); // Interrupts off
-//#######################################################################		
+		MemWriteISAC_IPACX(cs, IPACX_MASK, 0xff); // Interrupts off
 	} else { /* DIVA 2.0 */
 		cs->hw.diva.ctrl_reg = 0;        /* Reset On */
 		byteout(cs->hw.diva.ctrl, cs->hw.diva.ctrl_reg);
@@ -831,12 +814,9 @@ diva_led_handler(struct IsdnCardState *cs)
 {
 	int blink = 0;
 
-//########################################################	
-//	if ((cs->subtyp == DIVA_IPAC_ISA) || (cs->subtyp == DIVA_IPAC_PCI))
 	if ((cs->subtyp == DIVA_IPAC_ISA) ||
 	    (cs->subtyp == DIVA_IPAC_PCI) ||
 	    (cs->subtyp == DIVA_IPACX_PCI)   )
-//########################################################	
 		return;
 	del_timer(&cs->hw.diva.tl);
 	if (cs->hw.diva.status & DIVA_ASSIGN)
@@ -879,14 +859,12 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			release_io_diva(cs);
 			return(0);
 		case CARD_INIT:
-//############################################		
 			if (cs->subtyp == DIVA_IPACX_PCI) {
 				ireg = (unsigned int *)cs->hw.diva.pci_cfg;
 				*ireg = PITA_INT0_ENABLE;
 			  init_ipacx(cs, 3); // init chip and enable interrupts
         return (0);
 			}
-//############################################		
 			if (cs->subtyp == DIVA_IPAC_PCI) {
 				ireg = (unsigned int *)cs->hw.diva.pci_cfg;
 				*ireg = PITA_INT0_ENABLE;
@@ -923,12 +901,9 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			}
 			break;
 	}
-//############################################################	
-//	if ((cs->subtyp != DIVA_IPAC_ISA) && (cs->subtyp != DIVA_IPAC_PCI))
 	if ((cs->subtyp != DIVA_IPAC_ISA) && 
 	    (cs->subtyp != DIVA_IPAC_PCI) &&
 	    (cs->subtyp != DIVA_IPACX_PCI)   )
-//############################################################	
 		diva_led_handler(cs);
 	return(0);
 }
@@ -936,6 +911,8 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 static struct pci_dev *dev_diva __initdata = NULL;
 static struct pci_dev *dev_diva_u __initdata = NULL;
 static struct pci_dev *dev_diva201 __initdata = NULL;
+static struct pci_dev *dev_diva202 __initdata = NULL;
+
 #ifdef __ISAPNP__
 static struct isapnp_device_id diva_ids[] __initdata = {
 	{ ISAPNP_VENDOR('G', 'D', 'I'), ISAPNP_FUNCTION(0x51),
@@ -1100,6 +1077,16 @@ setup_diva(struct IsdnCard *card)
 				(ulong) ioremap(pci_resource_start(dev_diva201, 0), 4096);
 			cs->hw.diva.cfg_reg =
 				(ulong) ioremap(pci_resource_start(dev_diva201, 1), 4096);
+		} else if ((dev_diva202 = pci_find_device(PCI_VENDOR_ID_EICON,
+			PCI_DEVICE_ID_EICON_DIVA202, dev_diva202))) {
+			if (pci_enable_device(dev_diva202))
+				return(0);
+			cs->subtyp = DIVA_IPACX_PCI;
+			cs->irq = dev_diva202->irq;
+			cs->hw.diva.pci_cfg =
+				(ulong) ioremap(pci_resource_start(dev_diva202, 0), 4096);
+			cs->hw.diva.cfg_reg =
+				(ulong) ioremap(pci_resource_start(dev_diva202, 1), 4096);
 		} else {
 			printk(KERN_WARNING "Diva: No PCI card found\n");
 			return(0);
@@ -1120,11 +1107,8 @@ setup_diva(struct IsdnCard *card)
 		printk(KERN_WARNING "Diva: unable to config DIVA PCI\n");
 		return (0);
 #endif /* CONFIG_PCI */
-//########################################		
-//		if (cs->subtyp == DIVA_IPAC_PCI) {
 		if ((cs->subtyp == DIVA_IPAC_PCI) ||
 		    (cs->subtyp == DIVA_IPACX_PCI)   ) {
-//########################################		
 			cs->hw.diva.ctrl = 0;
 			cs->hw.diva.isac = 0;
 			cs->hw.diva.hscx = 0;
@@ -1146,18 +1130,9 @@ ready:
 		"Diva: %s card configured at %#lx IRQ %d\n",
 		(cs->subtyp == DIVA_PCI) ? "PCI" :
 		(cs->subtyp == DIVA_ISA) ? "ISA" : 
-//###############################################################		
-//		(cs->subtyp == DIVA_IPAC_ISA) ? "IPAC ISA" : "IPAC PCI",
 		(cs->subtyp == DIVA_IPAC_ISA) ? "IPAC ISA" :
 		(cs->subtyp == DIVA_IPAC_PCI) ? "IPAC PCI" : "IPACX PCI",
-//###############################################################		
 		cs->hw.diva.cfg_reg, cs->irq);
-//###############################################################		
-//	if ((cs->subtyp == DIVA_IPAC_PCI) || (cs->subtyp == DIVA_PCI))
-//		printk(KERN_INFO "Diva: %s PCI space at %#lx\n",
-//			(cs->subtyp == DIVA_PCI) ? "PCI" : "IPAC PCI",
-//			cs->hw.diva.pci_cfg);
-//	if (cs->subtyp != DIVA_IPAC_PCI) {
 	if ((cs->subtyp == DIVA_IPAC_PCI)  || 
 	    (cs->subtyp == DIVA_IPACX_PCI) || 
 	    (cs->subtyp == DIVA_PCI)         )
@@ -1167,7 +1142,6 @@ ready:
 			cs->hw.diva.pci_cfg);
 	if ((cs->subtyp != DIVA_IPAC_PCI) &&
 	    (cs->subtyp != DIVA_IPACX_PCI)   ) {
-//###############################################################		
 		if (check_region(cs->hw.diva.cfg_reg, bytecnt)) {
 			printk(KERN_WARNING
 			       "HiSax: %s config port %lx-%lx already in use\n",
@@ -1203,7 +1177,6 @@ ready:
 		cs->irq_func = &diva_irq_ipac_pci;
 		val = memreadreg(cs->hw.diva.cfg_reg, IPAC_ID);
 		printk(KERN_INFO "Diva: IPAC version %x\n", val);
-//#####################################################	
 	} else if (cs->subtyp == DIVA_IPACX_PCI) {
 		cs->readisac  = &MemReadISAC_IPACX;
 		cs->writeisac = &MemWriteISAC_IPACX;
@@ -1215,7 +1188,6 @@ ready:
 		cs->irq_func = &diva_irq_ipacx_pci;
 		printk(KERN_INFO "Diva: IPACX Design Id: %x\n", 
             MemReadISAC_IPACX(cs, IPACX_ID) &0x3F);
-//#####################################################	
 	} else { /* DIVA 2.0 */
 		cs->hw.diva.tl.function = (void *) diva_led_handler;
 		cs->hw.diva.tl.data = (long) cs;

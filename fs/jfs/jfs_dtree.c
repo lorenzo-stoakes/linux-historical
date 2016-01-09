@@ -101,7 +101,6 @@
  */
 
 #include <linux/fs.h>
-#include <linux/locks.h>
 #include "jfs_incore.h"
 #include "jfs_superblock.h"
 #include "jfs_filsys.h"
@@ -2934,8 +2933,7 @@ int jfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 			 * parent ".."
 			 */
 			filp->f_pos = 1;
-			if (filldir
-			    (dirent, "..", 2, 1, PARENT(ip), DT_DIR))
+			if (filldir(dirent, "..", 2, 1, PARENT(ip), DT_DIR))
 				return 0;
 
 			/*

@@ -18,9 +18,9 @@
  */
 
 #include <linux/fs.h>
-#include <linux/locks.h>
 #include "jfs_incore.h"
 #include "jfs_txnmgr.h"
+#include "jfs_xattr.h"
 #include "jfs_debug.h"
 
 
@@ -98,6 +98,10 @@ static void jfs_truncate(struct inode *ip)
 
 struct inode_operations jfs_file_inode_operations = {
 	.truncate	= jfs_truncate,
+	.setxattr	= jfs_setxattr,
+	.getxattr	= jfs_getxattr,
+	.listxattr	= jfs_listxattr,
+	.removexattr	= jfs_removexattr,
 };
 
 struct file_operations jfs_file_operations = {

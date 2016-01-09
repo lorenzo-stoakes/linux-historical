@@ -338,7 +338,7 @@ ncp_get_known_namespace(struct ncp_server *server, __u8 volume)
 	}
 
 	result = NW_NS_DOS;
-	no_namespaces = ncp_reply_word(server, 0);
+	no_namespaces = le16_to_cpu(ncp_reply_word(server, 0));
 	namespace = ncp_reply_data(server, 2);
 
 	while (no_namespaces > 0) {

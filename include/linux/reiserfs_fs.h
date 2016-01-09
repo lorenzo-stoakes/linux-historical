@@ -56,7 +56,7 @@
 
 #define REISERFS_PREALLOCATE
 #define DISPLACE_NEW_PACKING_LOCALITIES
-#define PREALLOCATION_SIZE 8
+#define PREALLOCATION_SIZE 9
 
 /* n must be power of 2 */
 #define _ROUND_UP(x,n) (((x)+(n)-1u) & ~((n)-1u))
@@ -1970,13 +1970,14 @@ extern inline int reiserfs_new_form_blocknrs (struct tree_balance * tb,
 }
 
 extern inline int reiserfs_new_unf_blocknrs (struct reiserfs_transaction_handle *th,
+					     struct inode *inode,
 					     b_blocknr_t *new_blocknrs,
 					     struct path * path, long block)
 {
     reiserfs_blocknr_hint_t hint = {
 	th: th,
 	path: path,
-	inode: NULL,
+	inode: inode,
 	block: block,
 	formatted_node: 0,
 	preallocate: 0
@@ -2007,6 +2008,7 @@ void reiserfs_discard_all_prealloc (struct reiserfs_transaction_handle *th);
 #endif
 void reiserfs_claim_blocks_to_be_allocated( struct super_block *sb, int blocks);
 void reiserfs_release_claimed_blocks( struct super_block *sb, int blocks);
+int reiserfs_can_fit_pages(struct super_block *sb);
 
 /* hashes.c */
 __u32 keyed_hash (const signed char *msg, int len);

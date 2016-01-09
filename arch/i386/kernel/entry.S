@@ -622,18 +622,18 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_ni_syscall)	/* Reserved for Security */
 	.long SYMBOL_NAME(sys_gettid)
 	.long SYMBOL_NAME(sys_readahead)	/* 225 */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for setxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for lsetxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for fsetxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for getxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* 230 reserved for lgetxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for fgetxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for listxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for llistxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for flistxattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* 235 reserved for removexattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for lremovexattr */
-	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for fremovexattr */
+	.long SYMBOL_NAME(sys_setxattr)
+	.long SYMBOL_NAME(sys_lsetxattr)
+	.long SYMBOL_NAME(sys_fsetxattr)
+	.long SYMBOL_NAME(sys_getxattr)
+	.long SYMBOL_NAME(sys_lgetxattr)	/* 230 */
+	.long SYMBOL_NAME(sys_fgetxattr)
+	.long SYMBOL_NAME(sys_listxattr)
+	.long SYMBOL_NAME(sys_llistxattr)
+	.long SYMBOL_NAME(sys_flistxattr)
+	.long SYMBOL_NAME(sys_removexattr)	/* 235 */
+	.long SYMBOL_NAME(sys_lremovexattr)
+	.long SYMBOL_NAME(sys_fremovexattr)
  	.long SYMBOL_NAME(sys_tkill)
 	.long SYMBOL_NAME(sys_ni_syscall)	/* reserved for sendfile64 */
 	.long SYMBOL_NAME(sys_ni_syscall)	/* 240 reserved for futex */

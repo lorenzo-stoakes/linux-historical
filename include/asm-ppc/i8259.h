@@ -9,8 +9,8 @@
 
 extern struct hw_interrupt_type i8259_pic;
 
-extern void i8259_init(long);
-extern int i8259_irq(void);
-extern int i8259_poll(void);
+void i8259_init(unsigned long int_ack);
+int i8259_irq(struct pt_regs *regs);
+int i8259_poll(struct pt_regs *regs);
 
 #endif /* _PPC_KERNEL_i8259_H */

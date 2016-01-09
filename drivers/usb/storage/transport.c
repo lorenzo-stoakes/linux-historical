@@ -360,7 +360,6 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 			 u8 request, u8 requesttype, u16 value, u16 index, 
 			 void *data, u16 size)
 {
-	struct completion urb_done;
 	int status;
 	struct usb_ctrlrequest *dr;
 
@@ -377,7 +376,7 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 	dr->wLength = cpu_to_le16(size);
 
 	/* set up data structures for the wakeup system */
-	init_completion(&urb_done);
+	init_completion(&us->current_done);
 
 	/* lock the URB */
 	down(&(us->current_urb_sem));
@@ -385,7 +384,7 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 	/* fill the URB */
 	FILL_CONTROL_URB(us->current_urb, us->pusb_dev, pipe, 
 			 (unsigned char*) dr, data, size, 
-			 usb_stor_blocking_completion, &urb_done);
+			 usb_stor_blocking_completion, &us->current_done);
 	us->current_urb->actual_length = 0;
 	us->current_urb->error_count = 0;
 	us->current_urb->transfer_flags = USB_ASYNC_UNLINK;
@@ -401,7 +400,7 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 
 	/* wait for the completion of the URB */
 	up(&(us->current_urb_sem));
-	wait_for_completion(&urb_done);
+	wait_for_completion(&us->current_done);
 	down(&(us->current_urb_sem));
 
 	/* return the actual length of the data transferred if no error*/
@@ -421,18 +420,17 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 int usb_stor_bulk_msg(struct us_data *us, void *data, int pipe,
 		      unsigned int len, unsigned int *act_len)
 {
-	struct completion urb_done;
 	int status;
 
 	/* set up data structures for the wakeup system */
-	init_completion(&urb_done);
+	init_completion(&us->current_done);
 
 	/* lock the URB */
 	down(&(us->current_urb_sem));
 
 	/* fill the URB */
 	FILL_BULK_URB(us->current_urb, us->pusb_dev, pipe, data, len,
-		      usb_stor_blocking_completion, &urb_done);
+		      usb_stor_blocking_completion, &us->current_done);
 	us->current_urb->actual_length = 0;
 	us->current_urb->error_count = 0;
 	us->current_urb->transfer_flags = USB_ASYNC_UNLINK;
@@ -447,7 +445,7 @@ int usb_stor_bulk_msg(struct us_data *us, void *data, int pipe,
 
 	/* wait for the completion of the URB */
 	up(&(us->current_urb_sem));
-	wait_for_completion(&urb_done);
+	wait_for_completion(&us->current_done);
 	down(&(us->current_urb_sem));
 
 	/* return the actual length of the data transferred */

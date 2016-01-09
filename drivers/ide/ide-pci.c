@@ -623,8 +623,12 @@ static void __init ide_setup_pci_device (struct pci_dev *dev, ide_pci_device_t *
 	}
 
 	if (pci_enable_device(dev)) {
-		printk(KERN_WARNING "%s: (ide_setup_pci_device:) Could not enable device.\n", d->name);
-		return;
+		if(pci_enable_device_bars(dev, 1<<4))
+		{
+			printk(KERN_WARNING "%s: (ide_setup_pci_device:) Could not enable device.\n", d->name);
+			return;
+		}
+		printk(KERN_INFO "%s: BIOS setup was incomplete.\n");
 	}
 
 check_if_enabled:

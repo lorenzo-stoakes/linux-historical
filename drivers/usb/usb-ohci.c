@@ -1512,6 +1512,8 @@ static void dl_del_urb (struct urb * urb)
 			urb->complete (urb);
 	} else {
 		urb->status = -ENOENT;
+		if (urb->complete)
+			urb->complete (urb);
 
 		/* unblock sohci_unlink_urb */
 		if (wait_head)

@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.chrp_pci.c 1.22 09/08/01 15:47:42 paulus
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  * CHRP pci routines.
@@ -158,37 +158,14 @@ static struct pci_ops rtas_pci_ops =
 	rtas_write_config_dword
 };
 
-    /*
-     *  Temporary fixes for PCI devices. These should be replaced by OF query
-     *  code -- Geert
-     */
-
-static u_char hydra_openpic_initsenses[] __initdata = {
-    1,	/* HYDRA_INT_SIO */
-    0,	/* HYDRA_INT_SCSI_DMA */
-    0,	/* HYDRA_INT_SCCA_TX_DMA */
-    0,	/* HYDRA_INT_SCCA_RX_DMA */
-    0,	/* HYDRA_INT_SCCB_TX_DMA */
-    0,	/* HYDRA_INT_SCCB_RX_DMA */
-    1,	/* HYDRA_INT_SCSI */
-    1,	/* HYDRA_INT_SCCA */
-    1,	/* HYDRA_INT_SCCB */
-    1,	/* HYDRA_INT_VIA */
-    1,	/* HYDRA_INT_ADB */
-    0,	/* HYDRA_INT_ADB_NMI */
-    	/* all others are 1 (= default) */
-};
-
 int __init
 hydra_init(void)
 {
 	struct device_node *np;
 
 	np = find_devices("mac-io");
-	if (np == NULL || np->n_addrs == 0) {
-		printk(KERN_WARNING "Warning: no mac-io found\n");
+	if (np == NULL || np->n_addrs == 0)
 		return 0;
-	}
 	Hydra = ioremap(np->addrs[0].address, np->addrs[0].size);
 	printk("Hydra Mac I/O at %x\n", np->addrs[0].address);
 	out_le32(&Hydra->Feature_Control, (HYDRA_FC_SCC_CELL_EN |
@@ -199,9 +176,6 @@ hydra_init(void)
 					   HYDRA_FC_MPIC_ENABLE |
 					   HYDRA_FC_SLOW_SCC_PCLK |
 					   HYDRA_FC_MPIC_IS_MASTER));
-	OpenPIC_Addr = &Hydra->OpenPIC;
-	OpenPIC_InitSenses = hydra_openpic_initsenses;
-	OpenPIC_NumInitSenses = sizeof(hydra_openpic_initsenses);
 	return 1;
 }
 
@@ -220,6 +194,29 @@ chrp_pcibios_fixup(void)
 	}
 }
 
+#define PRG_CL_RESET_VALID 0x00010000
+
+static void __init
+setup_python(struct pci_controller *hose, struct device_node *dev)
+{
+	u32 *reg, val;
+	volatile unsigned char *cfg;
+
+	hose->ops = &python_pci_ops;
+	cfg = ioremap(dev->addrs[0].address + 0xf8000, 0x20);
+	hose->cfg_addr = (volatile unsigned int *) cfg;
+	hose->cfg_data = cfg + 0x10;
+
+	/* Clear the magic go-slow bit */
+	reg = (u32 *) ioremap(dev->addrs[0].address + 0xf6000, 0x40);
+	val = in_be32(&reg[12]);
+	if (val & PRG_CL_RESET_VALID) {
+		out_be32(&reg[12], val & ~PRG_CL_RESET_VALID);
+		in_be32(&reg[12]);
+	}
+	iounmap(reg);
+}
+
 void __init
 chrp_find_bridges(void)
 {
@@ -227,16 +224,10 @@ chrp_find_bridges(void)
 	int *bus_range;
 	int len, index = -1;
 	struct pci_controller *hose;
-	volatile unsigned char *cfg;
 	unsigned int *dma;
 	char *model, *machine;
 	int is_longtrail = 0, is_mot = 0;
 	struct device_node *root = find_path_device("/");
-#ifdef CONFIG_POWER3
-	unsigned int *opprop = (unsigned int *)
-		get_property(root, "platform-open-pic", NULL);
-	int i;
-#endif
 
 	/*
 	 * The PCI host bridge nodes on some machines don't have
@@ -288,10 +279,7 @@ chrp_find_bridges(void)
 		if (model == NULL)
 			model = "<none>";
 		if (device_is_compatible(dev, "IBM,python")) {
-			hose->ops = &python_pci_ops;
-			cfg = ioremap(dev->addrs[0].address + 0xf8000, 0x20);
-			hose->cfg_addr = (volatile unsigned int *) cfg;
-			hose->cfg_data = cfg + 0x10;
+			setup_python(hose, dev);
 		} else if (is_mot
 			   || strncmp(model, "Motorola, Grackle", 17) == 0) {
 			setup_grackle(hose);
@@ -299,6 +287,19 @@ chrp_find_bridges(void)
 			hose->ops = &gg2_pci_ops;
 			gg2_pci_config_base = (unsigned long)
 				ioremap(GG2_PCI_CONFIG_BASE, 0x80000);
+		} else if (!strncmp(model, "IBM,CPC710", 10)) {
+			setup_indirect_pci(hose,
+				dev->addrs[0].address + 0x000f8000,
+				dev->addrs[0].address + 0x000f8010);
+			if (index == 0) {
+				dma = (unsigned int *)
+					get_property(dev, "system-dma-base", &len);
+			 	if (dma && len >= sizeof(*dma)) {
+					dma = (unsigned int *)(((unsigned long)dma) +
+						len - sizeof(*dma));
+					pci_dram_offset = *dma;
+				}
+			}
 		} else {
 			printk("No methods for %s (model %s), using RTAS\n",
 			       dev->full_name, model);
@@ -306,13 +307,6 @@ chrp_find_bridges(void)
 		}
 
 		pci_process_bridge_OF_ranges(hose, dev, index == 0);
-
-#ifdef CONFIG_POWER3
-		if (opprop != NULL) {
-			i = prom_n_addr_cells(root) * (index + 2) - 1;
-			openpic_setup_ISU(index, opprop[i]);
-		}
-#endif /* CONFIG_POWER3 */
 
 		/* check the first bridge for a property that we can
 		   use to set pci_dram_offset */

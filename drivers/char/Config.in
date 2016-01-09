@@ -223,6 +223,7 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
       fi
    fi
    tristate '  ZF MachZ Watchdog' CONFIG_MACHZ_WDT
+   dep_tristate '  AMD 766/768 TCO Timer/Watchdog' CONFIG_AMD7XX_TCO $CONFIG_EXPERIMENTAL
 fi
 endmenu
 

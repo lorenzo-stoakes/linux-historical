@@ -67,6 +67,7 @@
 #include <asm/bitops.h>
 #include <asm/io.h>
 #include <asm/dma.h>
+#include <asm/uaccess.h>
 
 #include <linux/in.h>
 #include <linux/ip.h>
@@ -849,12 +850,16 @@ static int proc_read(char *buf , char **start, off_t offset,
 	return p - buf;
 }
 
-static int count_trail_chars(const char *buffer, unsigned int maxlen)
+static int count_trail_chars(const char *user_buffer, unsigned int maxlen)
 {
 	int i;
 
 	for (i = 0; i < maxlen; i++) {
-		switch (buffer[i]) {
+		char c;
+
+		if (get_user(c, &user_buffer[i]))
+			return -EFAULT;
+		switch (c) {
 		case '\"':
 		case '\n':
 		case '\r':
@@ -870,7 +875,7 @@ done:
 	return i;
 }
 
-static unsigned long num_arg(const char *buffer, unsigned long maxlen, 
+static unsigned long num_arg(const char *user_buffer, unsigned long maxlen,
 			     unsigned long *num)
 {
 	int i = 0;
@@ -878,21 +883,29 @@ static unsigned long num_arg(const char *buffer, unsigned long maxlen,
 	*num = 0;
   
 	for(; i < maxlen; i++) {
-		if ((buffer[i] >= '0') && (buffer[i] <= '9')) {
+		char c;
+
+		if (get_user(c, &user_buffer[i]))
+			return -EFAULT;
+		if ((c >= '0') && (c <= '9')) {
 			*num *= 10;
-			*num += buffer[i] -'0';
+			*num += c -'0';
 		} else
 			break;
 	}
 	return i;
 }
 
-static int strn_len(const char *buffer, unsigned int maxlen)
+static int strn_len(const char *user_buffer, unsigned int maxlen)
 {
 	int i = 0;
 
 	for(; i < maxlen; i++) {
-		switch (buffer[i]) {
+		char c;
+
+		if (get_user(c, &user_buffer[i]))
+			return -EFAULT;
+		switch (c) {
 		case '\"':
 		case '\n':
 		case '\r':
@@ -907,7 +920,7 @@ done_str:
 	return i;
 }
 
-static int proc_write(struct file *file, const char *buffer,
+static int proc_write(struct file *file, const char *user_buffer,
 			 unsigned long count, void *data)
 {
 	int i = 0, max, len;
@@ -916,6 +929,7 @@ static int proc_write(struct file *file, const char *buffer,
         int idx = (int)(long)(data);
         struct pktgen_info* info = NULL;
         char* result = NULL;
+	int tmp;
         
         if ((idx < 0) || (idx >= MAX_PKTGEN)) {
                 printk("ERROR: idx: %i is out of range in proc_write\n", idx);
@@ -930,17 +944,24 @@ static int proc_write(struct file *file, const char *buffer,
 	}
   
 	max = count - i;
-	i += count_trail_chars(&buffer[i], max);
+	tmp = count_trail_chars(&user_buffer[i], max);
+	if (tmp < 0)
+		return tmp;
+	i += tmp;
   
 	/* Read variable name */
 
-	len = strn_len(&buffer[i], sizeof(name) - 1);
+	len = strn_len(&user_buffer[i], sizeof(name) - 1);
+	if (len < 0)
+		return len;
 	memset(name, 0, sizeof(name));
-	strncpy(name, &buffer[i], len);
+	copy_from_user(name, &user_buffer[i], len);
 	i += len;
   
 	max = count -i;
-	len = count_trail_chars(&buffer[i], max);
+	len = count_trail_chars(&user_buffer[i], max);
+	if (len < 0)
+		return len;
 	i += len;
 
 	if (debug)
@@ -958,7 +979,9 @@ static int proc_write(struct file *file, const char *buffer,
 	}
 
 	if (!strcmp(name, "pkt_size")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 		if (value < 14+20+8)
 			value = 14+20+8;
@@ -967,49 +990,63 @@ static int proc_write(struct file *file, const char *buffer,
 		return count;
 	}
 	if (!strcmp(name, "frags")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 		info->nfrags = value;
 		sprintf(result, "OK: frags=%u", info->nfrags);
 		return count;
 	}
 	if (!strcmp(name, "ipg")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 		info->ipg = value;
 		sprintf(result, "OK: ipg=%u", info->ipg);
 		return count;
 	}
  	if (!strcmp(name, "udp_src_min")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 	 	info->udp_src_min = value;
 		sprintf(result, "OK: udp_src_min=%u", info->udp_src_min);
 		return count;
 	}
  	if (!strcmp(name, "udp_dst_min")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 	 	info->udp_dst_min = value;
 		sprintf(result, "OK: udp_dst_min=%u", info->udp_dst_min);
 		return count;
 	}
  	if (!strcmp(name, "udp_src_max")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 	 	info->udp_src_max = value;
 		sprintf(result, "OK: udp_src_max=%u", info->udp_src_max);
 		return count;
 	}
  	if (!strcmp(name, "udp_dst_max")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 	 	info->udp_dst_max = value;
 		sprintf(result, "OK: udp_dst_max=%u", info->udp_dst_max);
 		return count;
 	}
 	if (!strcmp(name, "clone_skb")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
                 info->clone_skb = value;
 	
@@ -1017,30 +1054,38 @@ static int proc_write(struct file *file, const char *buffer,
 		return count;
 	}
 	if (!strcmp(name, "count")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 		info->count = value;
 		sprintf(result, "OK: count=%llu", (unsigned long long) info->count);
 		return count;
 	}
 	if (!strcmp(name, "src_mac_count")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 		info->src_mac_count = value;
 		sprintf(result, "OK: src_mac_count=%d", info->src_mac_count);
 		return count;
 	}
 	if (!strcmp(name, "dst_mac_count")) {
-		len = num_arg(&buffer[i], 10, &value);
+		len = num_arg(&user_buffer[i], 10, &value);
+		if (len < 0)
+			return len;
 		i += len;
 		info->dst_mac_count = value;
 		sprintf(result, "OK: dst_mac_count=%d", info->dst_mac_count);
 		return count;
 	}
 	if (!strcmp(name, "odev")) {
-		len = strn_len(&buffer[i], sizeof(info->outdev) - 1);
+		len = strn_len(&user_buffer[i], sizeof(info->outdev) - 1);
+		if (len < 0)
+			return len;
 		memset(info->outdev, 0, sizeof(info->outdev));
-		strncpy(info->outdev, &buffer[i], len);
+		copy_from_user(info->outdev, &user_buffer[i], len);
 		i += len;
 		sprintf(result, "OK: odev=%s", info->outdev);
 		return count;
@@ -1048,8 +1093,10 @@ static int proc_write(struct file *file, const char *buffer,
 	if (!strcmp(name, "flag")) {
                 char f[32];
                 memset(f, 0, 32);
-		len = strn_len(&buffer[i], sizeof(f) - 1);
-		strncpy(f, &buffer[i], len);
+		len = strn_len(&user_buffer[i], sizeof(f) - 1);
+		if (len < 0)
+			return len;
+		copy_from_user(f, &user_buffer[i], len);
 		i += len;
                 if (strcmp(f, "IPSRC_RND") == 0) {
                         info->flags |= F_IPSRC_RND;
@@ -1097,9 +1144,11 @@ static int proc_write(struct file *file, const char *buffer,
 		return count;
 	}
 	if (!strcmp(name, "dst_min") || !strcmp(name, "dst")) {
-		len = strn_len(&buffer[i], sizeof(info->dst_min) - 1);
+		len = strn_len(&user_buffer[i], sizeof(info->dst_min) - 1);
+		if (len < 0)
+			return len;
 		memset(info->dst_min, 0, sizeof(info->dst_min));
-		strncpy(info->dst_min, &buffer[i], len);
+		copy_from_user(info->dst_min, &user_buffer[i], len);
 		if(debug)
 			printk("pg: dst_min set to: %s\n", info->dst_min);
 		i += len;
@@ -1107,9 +1156,11 @@ static int proc_write(struct file *file, const char *buffer,
 		return count;
 	}
 	if (!strcmp(name, "dst_max")) {
-		len = strn_len(&buffer[i], sizeof(info->dst_max) - 1);
+		len = strn_len(&user_buffer[i], sizeof(info->dst_max) - 1);
+		if (len < 0)
+			return len;
 		memset(info->dst_max, 0, sizeof(info->dst_max));
-		strncpy(info->dst_max, &buffer[i], len);
+		copy_from_user(info->dst_max, &user_buffer[i], len);
 		if(debug)
 			printk("pg: dst_max set to: %s\n", info->dst_max);
 		i += len;
@@ -1117,9 +1168,11 @@ static int proc_write(struct file *file, const char *buffer,
 		return count;
 	}
 	if (!strcmp(name, "src_min")) {
-		len = strn_len(&buffer[i], sizeof(info->src_min) - 1);
+		len = strn_len(&user_buffer[i], sizeof(info->src_min) - 1);
+		if (len < 0)
+			return len;
 		memset(info->src_min, 0, sizeof(info->src_min));
-		strncpy(info->src_min, &buffer[i], len);
+		copy_from_user(info->src_min, &user_buffer[i], len);
 		if(debug)
 			printk("pg: src_min set to: %s\n", info->src_min);
 		i += len;
@@ -1127,9 +1180,11 @@ static int proc_write(struct file *file, const char *buffer,
 		return count;
 	}
 	if (!strcmp(name, "src_max")) {
-		len = strn_len(&buffer[i], sizeof(info->src_max) - 1);
+		len = strn_len(&user_buffer[i], sizeof(info->src_max) - 1);
+		if (len < 0)
+			return len;
 		memset(info->src_max, 0, sizeof(info->src_max));
-		strncpy(info->src_max, &buffer[i], len);
+		copy_from_user(info->src_max, &user_buffer[i], len);
 		if(debug)
 			printk("pg: src_max set to: %s\n", info->src_max);
 		i += len;
@@ -1140,9 +1195,11 @@ static int proc_write(struct file *file, const char *buffer,
 		char *v = valstr;
 		unsigned char *m = info->dst_mac;
 
-		len = strn_len(&buffer[i], sizeof(valstr) - 1);
+		len = strn_len(&user_buffer[i], sizeof(valstr) - 1);
+		if (len < 0)
+			return len;
 		memset(valstr, 0, sizeof(valstr));
-		strncpy(valstr, &buffer[i], len);
+		copy_from_user(valstr, &user_buffer[i], len);
 		i += len;
 
 		for(*m = 0;*v && m < info->dst_mac + 6; v++) {
@@ -1170,9 +1227,11 @@ static int proc_write(struct file *file, const char *buffer,
 		char *v = valstr;
 		unsigned char *m = info->src_mac;
 
-		len = strn_len(&buffer[i], sizeof(valstr) - 1);
+		len = strn_len(&user_buffer[i], sizeof(valstr) - 1);
+		if (len < 0)
+			return len;
 		memset(valstr, 0, sizeof(valstr));
-		strncpy(valstr, &buffer[i], len);
+		copy_from_user(valstr, &user_buffer[i], len);
 		i += len;
 
 		for(*m = 0;*v && m < info->src_mac + 6; v++) {

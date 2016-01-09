@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.open_pic.h 1.14 10/11/01 12:09:12 trini
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  *  arch/ppc/kernel/open_pic.h -- OpenPIC Interrupt Handling
@@ -41,6 +41,7 @@ extern u_char *OpenPIC_InitSenses;
 extern void* OpenPIC_Addr;
 
 /* Exported functions */
+extern void openpic_set_sources(int first_irq, int num_irqs, void *isr);
 extern void openpic_init(int, int, unsigned char *, int);
 extern u_int openpic_irq(void);
 extern void openpic_eoi(void);

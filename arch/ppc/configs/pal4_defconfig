@@ -38,6 +38,7 @@ CONFIG_PAL4=y
 # CONFIG_SMP is not set
 # CONFIG_ALTIVEC is not set
 # CONFIG_TAU is not set
+CONFIG_PPC_ISATIMER=y
 
 #
 # General setup
@@ -562,8 +563,4 @@ CONFIG_MSDOS_PARTITION=y
 #
 # Kernel hacking
 #
-# CONFIG_MAGIC_SYSRQ is not set
-# CONFIG_KGDB is not set
-# CONFIG_XMON is not set
-CONFIG_BDI_SWITCH=y
-# CONFIG_MORE_COMPILE_OPTIONS is not set
+# CONFIG_DEBUG_KERNEL is not set

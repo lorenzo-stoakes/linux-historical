@@ -17,6 +17,8 @@
 */
 
 #include <linux/fs.h>
+#include <linux/locks.h>
+
 #include "jfs_incore.h"
 #include "jfs_filsys.h"
 #include "jfs_metapage.h"
@@ -26,8 +28,6 @@
 #include "jfs_superblock.h"
 #include "jfs_txnmgr.h"
 #include "jfs_debug.h"
-
-extern s64 jfs_get_volume_size(struct super_block *);
 
 #define BITSPERPAGE     (PSIZE << 3)
 #define L2MEGABYTE      20
@@ -80,9 +80,8 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 	int log_formatted = 0;
 	struct inode *iplist[1];
 	struct jfs_superblock *j_sb, *j_sb2;
-	metapage_t *sbp, *sb2p;
 	uint old_agsize;
-	struct buffer_head *bh;
+	struct buffer_head *bh, *bh2;
 
 	/* If the volume hasn't grown, get out now */
 
@@ -98,7 +97,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 		goto out;
 	}
 
-	VolumeSize = jfs_get_volume_size(sb);
+	VolumeSize = sb->s_bdev->bd_inode->i_size >> sb->s_blocksize_bits;
 	if (VolumeSize) {
 		if (newLVSize > VolumeSize) {
 			printk(KERN_WARNING "jfs_extendfs: invalid size\n");
@@ -230,9 +229,9 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 		 */
 
 		/* read in superblock */
-		if ((rc = readSuper(sb, &sbp)))
+		if ((rc = readSuper(sb, &bh)))
 			goto error_out;
-		j_sb = (struct jfs_superblock *) (sbp->data);
+		j_sb = (struct jfs_superblock *)bh->b_data;
 
 		/* mark extendfs() in progress */
 		j_sb->s_state |= cpu_to_le32(FM_EXTENDFS);
@@ -243,7 +242,10 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 		PXDlength(&j_sb->s_xlogpxd, newLogSize);
 
 		/* synchronously update superblock */
-		flush_metapage(sbp);
+		mark_buffer_dirty(bh);
+		ll_rw_block(WRITE, 1, &bh);
+		wait_on_buffer(bh);
+		brelse(bh);
 
 		/*
 		 * format new inline log synchronously;
@@ -472,12 +474,13 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 
 	diWriteSpecial(ipbmap2, 1);
 	diFreeSpecial(ipbmap2);
+
 	/*
 	 *      update superblock
 	 */
-	if ((rc = readSuper(sb, &sbp)))
+	if ((rc = readSuper(sb, &bh)))
 		goto error_out;
-	j_sb = (struct jfs_superblock *) (sbp->data);
+	j_sb = (struct jfs_superblock *)bh->b_data;
 
 	/* mark extendfs() completion */
 	j_sb->s_state &= cpu_to_le32(~FM_EXTENDFS);
@@ -501,17 +504,22 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 	/* sb->s_fsckloglen remains the same */
 
 	/* Update secondary superblock */
-	sb2p = read_metapage(sbi->direct_inode,
-			     SUPER2_OFF >> sb->s_blocksize_bits, PSIZE, 1);
-
-	if (sb2p) {
-		j_sb2 = (struct jfs_superblock *) (sb2p->data);
+	bh2 = sb_bread(sb, SUPER2_OFF >> sb->s_blocksize_bits);
+	if (bh2) {
+		j_sb2 = (struct jfs_superblock *)bh2->b_data;
 		memcpy(j_sb2, j_sb, sizeof (struct jfs_superblock));
-		flush_metapage(sb2p);
+
+		mark_buffer_dirty(bh);
+		ll_rw_block(WRITE, 1, &bh2);
+		wait_on_buffer(bh2);
+		brelse(bh);
 	}
 
 	/* write primary superblock */
-	flush_metapage(sbp);
+	mark_buffer_dirty(bh);
+	ll_rw_block(WRITE, 1, &bh);
+	wait_on_buffer(bh);
+	brelse(bh);
 
 	goto resume;
 

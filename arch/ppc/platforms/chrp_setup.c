@@ -29,18 +29,16 @@
 #include <linux/interrupt.h>
 #include <linux/reboot.h>
 #include <linux/init.h>
-#include <linux/blk.h>
-#include <linux/ioport.h>
-#include <linux/console.h>
 #include <linux/pci.h>
 #include <linux/version.h>
 #include <linux/adb.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/ide.h>
+#include <linux/irq.h>
+#include <linux/console.h>
 #include <linux/seq_file.h>
 
-#include <asm/mmu.h>
 #include <asm/processor.h>
 #include <asm/io.h>
 #include <asm/pgtable.h>
@@ -57,7 +55,6 @@
 #include <asm/btext.h>
 #include <asm/i8259.h>
 #include <asm/open_pic.h>
-#include <asm/xics.h>
 
 unsigned long chrp_get_rtc_time(void);
 int chrp_set_rtc_time(unsigned long nowtime);
@@ -92,7 +89,6 @@ static int max_width;
 
 #ifdef CONFIG_SMP
 extern struct smp_ops_t chrp_smp_ops;
-extern struct smp_ops_t xics_smp_ops;
 #endif
 
 static const char *gg2_memtypes[4] = {
@@ -126,11 +122,11 @@ chrp_show_cpuinfo(struct seq_file *m)
 	if (!strncmp(model, "IBM,LongTrail", 13)) {
 		/* VLSI VAS96011/12 `Golden Gate 2' */
 		/* Memory banks */
-		sdramen = (in_le32((unsigned *)(GG2_PCI_CONFIG_BASE+
+		sdramen = (in_le32((unsigned *)(gg2_pci_config_base+
 						GG2_PCI_DRAM_CTRL))
 			   >>31) & 1;
 		for (i = 0; i < (sdramen ? 4 : 6); i++) {
-			t = in_le32((unsigned *)(GG2_PCI_CONFIG_BASE+
+			t = in_le32((unsigned *)(gg2_pci_config_base+
 						 GG2_PCI_DRAM_BANK0+
 						 i*4));
 			if (!(t & 1))
@@ -162,7 +158,7 @@ chrp_show_cpuinfo(struct seq_file *m)
 				   gg2_memtypes[sdramen ? 1 : ((t>>1) & 3)]);
 		}
 		/* L2 cache */
-		t = in_le32((unsigned *)(GG2_PCI_CONFIG_BASE+GG2_PCI_CC_CTRL));
+		t = in_le32((unsigned *)(gg2_pci_config_base+GG2_PCI_CC_CTRL));
 		seq_printf(m, "board l2\t: %s %s (%s)\n",
 			   gg2_cachesizes[(t>>7) & 3],
 			   gg2_cachetypes[(t>>2) & 3],
@@ -227,6 +223,8 @@ void __init
 chrp_setup_arch(void)
 {
 	struct device_node *device;
+	int i;
+	extern unsigned long smp_chrp_cpu_nr;
 
 	/* init to some ~sane value until calibrate_delay() runs */
 	loops_per_jiffy = 50000000/HZ;
@@ -253,23 +251,6 @@ chrp_setup_arch(void)
 
 #endif /* CONFIG_PPC64BRIDGE */
 
-	/* Some IBM machines don't have the hydra -- Cort */
-	if (!OpenPIC_Addr) {
-		struct device_node *root;
-		unsigned long *opprop;
-		int n;
-
-		root = find_path_device("/");
-		opprop = (unsigned long *) get_property
-			(root, "platform-open-pic", NULL);
-		n = prom_n_addr_cells(root);
-		if (opprop != 0) {
-			printk("OpenPIC addrs: %lx %lx %lx\n",
-			       opprop[n-1], opprop[2*n-1], opprop[3*n-1]);
-			OpenPIC_Addr = ioremap(opprop[n-1], 0x40000);
-		}
-	}
-
 	/*
 	 *  Fix the Super I/O configuration
 	 */
@@ -285,7 +266,7 @@ chrp_setup_arch(void)
 	/* Get the event scan rate for the rtas so we know how
 	 * often it expects a heartbeat. -- Cort
 	 */
-	if ( rtas_data ) {
+	if (rtas_data) {
 		struct property *p;
 		device = find_devices("rtas");
 		for ( p = device->properties;
@@ -300,6 +281,8 @@ chrp_setup_arch(void)
 			       *(unsigned long *)p->value, ppc_md.heartbeat_reset );
 		}
 	}
+
+	pci_create_OF_bus_map();
 }
 
 void __chrp
@@ -344,35 +327,133 @@ chrp_irq_cannonicalize(u_int irq)
 	return irq;
 }
 
+
+/*
+ * Finds the open-pic node and sets OpenPIC_Addr based on its reg property.
+ * Then checks if it has an interrupt-ranges property.  If it does then
+ * we have a distributed open-pic, so call openpic_set_sources to tell
+ * the openpic code where to find the interrupt source registers.
+ */
+static void __init chrp_find_openpic(void)
+{
+	struct device_node *np;
+	int len, i;
+	unsigned int *iranges;
+	void *isu;
+
+	np = find_type_devices("open-pic");
+	if (np == NULL || np->n_addrs == 0)
+		return;
+	printk(KERN_INFO "OpenPIC at %x (size %x)\n",
+	       np->addrs[0].address, np->addrs[0].size);
+	OpenPIC_Addr = ioremap(np->addrs[0].address, 0x40000);
+	if (OpenPIC_Addr == NULL) {
+		printk(KERN_ERR "Failed to map OpenPIC!\n");
+		return;
+	}
+
+	iranges = (unsigned int *) get_property(np, "interrupt-ranges", &len);
+	if (iranges == NULL || len < 2 * sizeof(unsigned int))
+		return;		/* not distributed */
+
+	/*
+	 * The first pair of cells in interrupt-ranges refers to the
+	 * IDU; subsequent pairs refer to the ISUs.
+	 */
+	len /= 2 * sizeof(unsigned int);
+	if (np->n_addrs < len) {
+		printk(KERN_ERR "Insufficient addresses for distributed"
+		       " OpenPIC (%d < %d)\n", np->n_addrs, len);
+		return;
+	}
+	if (iranges[1] != 0) {
+		printk(KERN_INFO "OpenPIC irqs %d..%d in IDU\n",
+		       iranges[0], iranges[0] + iranges[1] - 1);
+		openpic_set_sources(iranges[0], iranges[1], NULL);
+	}
+	for (i = 1; i < len; ++i) {
+		iranges += 2;
+		printk(KERN_INFO "OpenPIC irqs %d..%d in ISU at %x (%x)\n",
+		       iranges[0], iranges[0] + iranges[1] - 1,
+		       np->addrs[i].address, np->addrs[i].size);
+		isu = ioremap(np->addrs[i].address, np->addrs[i].size);
+		if (isu != NULL)
+			openpic_set_sources(iranges[0], iranges[1], isu);
+		else
+			printk(KERN_ERR "Failed to map OpenPIC ISU at %x!\n",
+			       np->addrs[i].address);
+	}
+}
+
+static void __init
+chrp_init_irq_openpic(unsigned long intack)
+{
+	int i;
+	unsigned char* chrp_int_ack_special = 0;
+	int nmi_irq = -1;
+	unsigned char init_senses[NR_IRQS - NUM_8259_INTERRUPTS];
+
+	chrp_find_openpic();
+
+	prom_get_irq_senses(init_senses, NUM_8259_INTERRUPTS, NR_IRQS);
+	OpenPIC_InitSenses = init_senses;
+	OpenPIC_NumInitSenses = NR_IRQS - NUM_8259_INTERRUPTS;
+
+	if (intack)
+		chrp_int_ack_special = (unsigned char *) ioremap(intack, 1);
+	openpic_init(1, NUM_8259_INTERRUPTS, chrp_int_ack_special, nmi_irq);
+	for (i = 0; i < NUM_8259_INTERRUPTS; i++)
+		irq_desc[i].handler = &i8259_pic;
+	i8259_init(0);
+}
+
+static void __init
+chrp_init_irq_8259(unsigned long intack)
+{
+	int i;
+	
+	ppc_md.get_irq = i8259_irq;
+	for (i = 0; i < NUM_8259_INTERRUPTS; i++)
+		irq_desc[i].handler = &i8259_pic;
+	i8259_init(intack);
+}
+
 void __init chrp_init_IRQ(void)
 {
 	struct device_node *np;
-	int i;
-	unsigned int *addrp;
-	unsigned char* chrp_int_ack_special = 0;
-	unsigned char init_senses[NR_IRQS - NUM_8259_INTERRUPTS];
-	int nmi_irq = -1;
+	unsigned long intack = 0;
+	struct device_node *main_irq_ctrler = NULL;
 #if defined(CONFIG_VT) && defined(CONFIG_ADB_KEYBOARD) && defined(XMON)	
 	struct device_node *kbd;
 #endif
 
-	if (!(np = find_devices("pci"))
-	    || !(addrp = (unsigned int *)
-		 get_property(np, "8259-interrupt-acknowledge", NULL)))
-		printk("Cannot find pci to get ack address\n");
-	else
-		chrp_int_ack_special = (unsigned char *)
-			ioremap(addrp[prom_n_addr_cells(np)-1], 1);
-	/* hydra still sets OpenPIC_InitSenses to a static set of values */
-	if (OpenPIC_InitSenses == NULL) {
-		prom_get_irq_senses(init_senses, NUM_8259_INTERRUPTS, NR_IRQS);
-		OpenPIC_InitSenses = init_senses;
-		OpenPIC_NumInitSenses = NR_IRQS - NUM_8259_INTERRUPTS;
+	for (np = find_devices("pci"); np != NULL; np = np->next) {
+		unsigned int *addrp = (unsigned int *)
+			get_property(np, "8259-interrupt-acknowledge", NULL);
+		if (addrp == NULL)
+			continue;
+		intack = addrp[prom_n_addr_cells(np)-1];
+		break;
 	}
-	openpic_init(1, NUM_8259_INTERRUPTS, chrp_int_ack_special, nmi_irq);
-	for ( i = 0 ; i < NUM_8259_INTERRUPTS  ; i++ )
-		irq_desc[i].handler = &i8259_pic;
-	i8259_init(0);
+	if (np == NULL)
+		printk("Cannot find pci to get ack address\n");
+
+	/* Look for the node of the toplevel interrupt controller.
+	 * If we don't find it, we assume openpic
+	 */
+	np = find_path_device("/chosen");
+	if (np) {
+		phandle *irq_ctrler_ph =
+			(phandle *)get_property(np, "interrupt-controller", NULL);
+		if (irq_ctrler_ph)
+			main_irq_ctrler = find_phandle(*irq_ctrler_ph);
+	}
+
+	if (main_irq_ctrler && device_is_compatible(main_irq_ctrler, "8259"))
+		chrp_init_irq_8259(intack);
+	else
+		chrp_init_irq_openpic(intack);
+
 #if defined(CONFIG_VT) && defined(CONFIG_ADB_KEYBOARD) && defined(XMON)
 	/* see if there is a keyboard in the device tree
 	   with a parent of type "adb" */
@@ -381,7 +462,7 @@ void __init chrp_init_IRQ(void)
 		    && strcmp(kbd->parent->type, "adb") == 0)
 			break;
 	if (kbd)
-		request_irq( HYDRA_INT_ADB_NMI, xmon_irq, 0, "XMON break", 0);
+		request_irq(HYDRA_INT_ADB_NMI, xmon_irq, 0, "XMON break", 0);
 #endif
 }
 
@@ -389,6 +470,11 @@ void __init
 chrp_init2(void)
 {
 #ifdef CONFIG_NVRAM  
+/* Fix me: currently, a lot of pmac_nvram routines are marked __pmac, and
+ * blindly calling pmac_nvram_init() on chrp cause bad results.
+ * Among others, it cracks on briQ.
+ * Please implement a CHRP specific version. --BenH
+ */
 	pmac_nvram_init();
 #endif
 
@@ -459,39 +545,13 @@ chrp_ide_init_hwif_ports(hw_regs_t *hw, ide_ioreg_t data_port, ide_ioreg_t ctrl_
 }
 #endif
 
-/*
- * One of the main thing these mappings are needed for is so that
- * xmon can get to the serial port early on.  We probably should
- * handle the machines with the mpc106 as well as the python (F50)
- * and the GG2 (longtrail).  Actually we should look in the device
- * tree and do the right thing.
- */
-static void __init
-chrp_map_io(void)
-{
-	char *name;
-
-	/*
-	 * The code below tends to get removed, please don't take it out.
-	 * The F50 needs this mapping and it you take it out I'll track you
-	 * down and slap your hands.  If it causes problems please email me.
-	 *  -- Cort <cort@fsmlabs.com>
-	 */
-	name = get_property(find_path_device("/"), "name", NULL);
-	if (name && strncmp(name, "IBM-70", 6) == 0
-	    && strstr(name, "-F50")) {
-		io_block_mapping(0x80000000, 0x80000000, 0x10000000, _PAGE_IO);
-		io_block_mapping(0x90000000, 0x90000000, 0x10000000, _PAGE_IO);
-		return;
-	} else {
-		io_block_mapping(0xf8000000, 0xf8000000, 0x04000000, _PAGE_IO);
-	}
-}
-
 void __init
 chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	  unsigned long r6, unsigned long r7)
 {
+	struct device_node *root = find_path_device("/");
+	char *machine;
+
 #ifdef CONFIG_BLK_DEV_INITRD
 	/* take care of initrd if we have one */
 	if ( r6 )
@@ -510,13 +570,8 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.show_percpuinfo = of_show_percpuinfo;
 	ppc_md.show_cpuinfo   = chrp_show_cpuinfo;
 	ppc_md.irq_cannonicalize = chrp_irq_cannonicalize;
-#ifndef CONFIG_POWER4
 	ppc_md.init_IRQ       = chrp_init_IRQ;
 	ppc_md.get_irq        = openpic_get_irq;
-#else
-	ppc_md.init_IRQ	      = xics_init_IRQ;
-	ppc_md.get_irq	      = xics_get_irq;
-#endif /* CONFIG_POWER4 */
 
 	ppc_md.init           = chrp_init2;
 
@@ -530,7 +585,6 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.calibrate_decr = chrp_calibrate_decr;
 
 	ppc_md.find_end_of_memory = pmac_find_end_of_memory;
-	ppc_md.setup_io_mappings = chrp_map_io;
 
 #ifdef CONFIG_VT
 	/* these are adjusted in chrp_init2 if we have an ADB keyboard */
@@ -568,11 +622,7 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 #endif
 
 #ifdef CONFIG_SMP
-#ifndef CONFIG_POWER4
 	ppc_md.smp_ops = &chrp_smp_ops;
-#else
-	ppc_md.smp_ops = &xics_smp_ops;
-#endif /* CONFIG_POWER4 */
 #endif /* CONFIG_SMP */
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)

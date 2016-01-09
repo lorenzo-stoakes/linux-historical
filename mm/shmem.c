@@ -736,6 +736,8 @@ struct inode *shmem_get_inode(struct super_block *sb, int mode, int dev)
 			break;
 		case S_IFDIR:
 			inode->i_nlink++;
+			/* Some things misbehave if size == 0 on a directory */
+			inode->i_size = 1;
 			inode->i_op = &shmem_dir_inode_operations;
 			inode->i_fop = &dcache_dir_ops;
 			break;

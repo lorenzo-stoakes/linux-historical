@@ -871,13 +871,13 @@ static int video1394_ioctl(struct inode *inode, struct file *file,
 		}
 		ohci->ISO_channel_usage |= mask;
 
-		if (v.buf_size<=0) {
+		if (v.buf_size == 0 || v.buf_size > VIDEO1394_MAX_SIZE) {
 			PRINT(KERN_ERR, ohci->id,
 			      "Invalid %d length buffer requested",v.buf_size);
 			return -EFAULT;
 		}
 
-		if (v.nb_buffers<=0) {
+		if (v.nb_buffers == 0 || v.nb_buffers > VIDEO1394_MAX_SIZE) {
 			PRINT(KERN_ERR, ohci->id,
 			      "Invalid %d buffers requested",v.nb_buffers);
 			return -EFAULT;

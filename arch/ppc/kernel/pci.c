@@ -795,6 +795,24 @@ pci_process_bridge_OF_ranges(struct pci_controller *hose,
 		ranges += np;
 	}
 }
+
+/* We create the "pci-OF-bus-map" property now so it appears in the
+ * /proc device tree
+ */
+void __init
+pci_create_OF_bus_map(void)
+{
+	struct property* of_prop;
+		
+	of_prop = (struct property*) alloc_bootmem(sizeof(struct property) + 256);
+	if (of_prop && find_path_device("/")) {
+		memset(of_prop, -1, sizeof(struct property) + 256);
+		of_prop->name = "pci-OF-bus-map";
+		of_prop->length = 256;
+		of_prop->value = (unsigned char *)&of_prop[1];
+		prom_add_property(find_path_device("/"), of_prop);
+	}
+}
 #endif /* CONFIG_ALL_PPC */
 
 void __init

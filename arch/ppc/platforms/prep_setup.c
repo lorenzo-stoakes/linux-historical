@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.prep_setup.c 1.52 04/05/02 10:17:22 trini
+ * BK Id: %F% %I% %G% %U% %#%
  */
 /*
  *  linux/arch/ppc/kernel/setup.c
@@ -505,40 +505,32 @@ mk48t59_calibrate_decr(void)
 static void __prep
 prep_restart(char *cmd)
 {
-	unsigned long i = 10000;
-
-	__cli();
+#define PREP_SP92	0x92	/* Special Port 92 */
+	__cli(); /* no interrupts */
 
 	/* set exception prefix high - to the prom */
 	_nmask_and_or_msr(0, MSR_IP);
 
 	/* make sure bit 0 (reset) is a 0 */
-	outb( inb(0x92) & ~1L , 0x92 );
+	outb( inb(PREP_SP92) & ~1L , PREP_SP92);
 	/* signal a reset to system control port A - soft reset */
-	outb( inb(0x92) | 1 , 0x92 );
+	outb( inb(PREP_SP92) | 1 , PREP_SP92);
 
-	while ( i != 0 ) i++;
-	panic("restart failed\n");
+	while ( 1 ) ;
+	/* not reached */
+#undef PREP_SP92
 }
 
 static void __prep
 prep_halt(void)
 {
-	unsigned long flags;
-	__cli();
-	/* set exception prefix high - to the prom */
-	save_flags( flags );
-	restore_flags( flags|MSR_IP );
+	__cli(); /* no interrupts */
 
-	/* make sure bit 0 (reset) is a 0 */
-	outb( inb(0x92) & ~1L , 0x92 );
-	/* signal a reset to system control port A - soft reset */
-	outb( inb(0x92) | 1 , 0x92 );
+	/* set exception prefix high - to the prom */
+	_nmask_and_or_msr(0, MSR_IP);
 
 	while ( 1 ) ;
-	/*
-	 * Not reached
-	 */
+	/* not reached */
 }
 
 /*
@@ -624,12 +616,6 @@ prep_irq_cannonicalize(u_int irq)
 		return irq;
 	}
 }
-
-static int __prep
-prep_get_irq(struct pt_regs *regs)
-{
-	return i8259_irq();
-}		
 
 static void __init
 prep_init_IRQ(void)
@@ -851,7 +837,7 @@ prep_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.irq_cannonicalize = prep_irq_cannonicalize;
 	ppc_md.init_IRQ       = prep_init_IRQ;
 	/* this gets changed later on if we have an OpenPIC -- Cort */
-	ppc_md.get_irq        = prep_get_irq;
+	ppc_md.get_irq        = i8259_irq;
 	ppc_md.init           = prep_init2;
 
 	ppc_md.restart        = prep_restart;

@@ -17,12 +17,10 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-#include <linux/fs.h>
-#include <linux/locks.h>
 #include <linux/config.h>
+#include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/completion.h>
-#include <linux/blkdev.h>
 #include <asm/uaccess.h>
 #include "jfs_incore.h"
 #include "jfs_filsys.h"
@@ -123,38 +121,8 @@ static void jfs_put_super(struct super_block *sb)
 	unload_nls(sbi->nls_tab);
 	sbi->nls_tab = NULL;
 
-	/*
-	 * We need to clean out the direct_inode pages since this inode
-	 * is not in the inode hash.
-	 */
-	fsync_inode_data_buffers(sbi->direct_inode);
-	truncate_inode_pages(sbi->direct_mapping, 0);
-	iput(sbi->direct_inode);
-	sbi->direct_inode = NULL;
-	sbi->direct_mapping = NULL;
-
 	kfree(sbi);
 }
-
-s64 jfs_get_volume_size(struct super_block *sb)
-{
-	uint blocks = 0;
-	s64 bytes;
-	kdev_t dev = sb->s_dev;
-	int major = MAJOR(dev);
-	int minor = MINOR(dev);
-
-	if (blk_size[major]) {
-		blocks = blk_size[major][minor];
-		if (blocks) {
-			bytes = ((s64)blocks) << BLOCK_SIZE_BITS;
-			return bytes >> sb->s_blocksize_bits;
-		}
-	}
-	
-	return 0;
-}
-			
 
 static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 {
@@ -184,7 +152,8 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 			}
 		} else if (!strcmp(this_char, "resize")) {
 			if (!value || !*value) {
-				*newLVSize = jfs_get_volume_size(sb);
+				*newLVSize = sb->s_bdev->bd_inode->i_size >>
+					sb->s_blocksize_bits;
 				if (*newLVSize == 0)
 					printk(KERN_ERR
 					 "JFS: Cannot determine volume size\n");
@@ -220,7 +189,6 @@ cleanup:
 
 int jfs_remount(struct super_block *sb, int *flags, char *data)
 {
-	struct jfs_sb_info *sbi = JFS_SBI(sb);
 	s64 newLVSize = 0;
 	int rc = 0;
 
@@ -238,15 +206,9 @@ int jfs_remount(struct super_block *sb, int *flags, char *data)
 			return rc;
 	}
 
-	if ((sb->s_flags & MS_RDONLY) && !(*flags & MS_RDONLY)) {
-		/*
-		 * Invalidate any previously read metadata.  fsck may
-		 * have changed the on-disk data since we mounted r/o
-		 */
-		truncate_inode_pages(sbi->direct_mapping, 0);
-
+	if ((sb->s_flags & MS_RDONLY) && !(*flags & MS_RDONLY))
 		return jfs_mount_rw(sb, 1);
-	} else if ((!(sb->s_flags & MS_RDONLY)) && (*flags & MS_RDONLY))
+	else if ((!(sb->s_flags & MS_RDONLY)) && (*flags & MS_RDONLY))
 		return jfs_umount_rw(sb);
 
 	return 0;
@@ -283,37 +245,20 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	/*
 	 * Initialize blocksize to 4K.
 	 */
-	sb->s_blocksize = PSIZE;
-	sb->s_blocksize_bits = L2PSIZE;
-	set_blocksize(sb->s_dev, PSIZE);
+	sb_set_blocksize(sb, PSIZE);
 
 	/*
-	 * Initialize direct-mapping inode/address-space
+	 * Set method vectors.
 	 */
-	inode = new_inode(sb);
-	if (inode == NULL)
-		goto out_kfree;
-	inode->i_ino = 0;
-	inode->i_nlink = 1;
-	inode->i_size = 0x0000010000000000LL;
-	inode->i_mapping->a_ops = &direct_aops;
-	inode->i_mapping->gfp_mask = GFP_NOFS;
+	sb->s_op = &jfs_super_operations;
 
-	sbi->direct_inode = inode;
-	sbi->direct_mapping = inode->i_mapping;
-
-	rc = alloc_jfs_inode(inode);
-	if (rc)
-		goto out_free_inode;
-
-	sb->s_op = &jfs_super_operations;;
 	rc = jfs_mount(sb);
 	if (rc) {
 		if (!silent) {
 			jERROR(1,
 			       ("jfs_mount failed w/return code = %d\n", rc));
 		}
-		goto out_mount_failed;
+		goto out_kfree;
 	}
 	if (sb->s_flags & MS_RDONLY)
 		sbi->log = 0;
@@ -344,7 +289,10 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	/* logical blocks are represented by 40 bits in pxd_t, etc. */
 	sb->s_maxbytes = ((u64) sb->s_blocksize) << 40;
 #if BITS_PER_LONG == 32
-	/* Page cache is indexed by long. */
+	/*
+	 * Page cache is indexed by long.
+	 * I would use MAX_LFS_FILESIZE, but it's only half as big
+	 */
 	sb->s_maxbytes = min(((u64) PAGE_CACHE_SIZE << 32) - 1, sb->s_maxbytes);
 #endif
 
@@ -360,23 +308,39 @@ out_no_rw:
 	if (rc) {
 		jERROR(1, ("jfs_umount failed with return code %d\n", rc));
 	}
-out_mount_failed:
-	fsync_inode_data_buffers(sbi->direct_inode);
-	truncate_inode_pages(sbi->direct_mapping, 0);
-	sb->s_op = NULL;
-
-	free_jfs_inode(inode);
-
-out_free_inode:
-	iput(sbi->direct_inode);
-	sbi->direct_inode = NULL;
-	sbi->direct_mapping = NULL;
 out_kfree:
 	if (sbi->nls_tab)
 		unload_nls(sbi->nls_tab);
 	kfree(sbi);
 	return NULL;
 }
+
+static void jfs_write_super_lockfs(struct super_block *sb)
+{
+	struct jfs_sb_info *sbi = JFS_SBI(sb);
+	log_t *log = sbi->log;
+
+	if (!(sb->s_flags & MS_RDONLY)) {
+		txQuiesce(sb);
+		lmLogShutdown(log);
+	}
+}
+
+static void jfs_unlockfs(struct super_block *sb)
+{
+	struct jfs_sb_info *sbi = JFS_SBI(sb);
+	log_t *log = sbi->log;
+	int rc = 0;
+
+	if (!(sb->s_flags & MS_RDONLY)) {
+		if ((rc = lmLogInit(log)))
+			jERROR(1,
+			       ("jfs_unlock failed with return code %d\n", rc));
+		else
+			txResume(sb);
+	}
+}
+
 
 static struct super_operations jfs_super_operations = {
 	.read_inode	= jfs_read_inode,
@@ -385,6 +349,8 @@ static struct super_operations jfs_super_operations = {
 	.clear_inode	= jfs_clear_inode,
 	.delete_inode	= jfs_delete_inode,
 	.put_super	= jfs_put_super,
+	.write_super_lockfs = jfs_write_super_lockfs,
+	.unlockfs       = jfs_unlockfs,
 	.statfs		= jfs_statfs,
 	.remount_fs	= jfs_remount,
 };
@@ -420,9 +386,8 @@ static int __init init_jfs_fs(void)
 	int rc;
 
 	jfs_inode_cachep =
-	    kmem_cache_create("jfs_ip",
-			      sizeof (struct jfs_inode_info),
-			      0, 0, init_once, NULL);
+	    kmem_cache_create("jfs_ip", sizeof (struct jfs_inode_info), 0, 0,
+			      init_once, NULL);
 	if (jfs_inode_cachep == NULL)
 		return -ENOMEM;
 
@@ -506,11 +471,11 @@ static void __exit exit_jfs_fs(void)
 	txExit();
 	metapage_exit();
 	wake_up(&jfs_IO_thread_wait);
-	wait_for_completion(&jfsIOwait);	/* Wait for thread exit */
+	wait_for_completion(&jfsIOwait);	/* Wait for IO thread exit */
 	wake_up(&jfs_commit_thread_wait);
-	wait_for_completion(&jfsIOwait);	/* Wait for thread exit */
+	wait_for_completion(&jfsIOwait);	/* Wait for Commit thread exit */
 	wake_up(&jfs_sync_thread_wait);
-	wait_for_completion(&jfsIOwait);	/* Wait for thread exit */
+	wait_for_completion(&jfsIOwait);	/* Wait for Sync thread exit */
 #ifdef PROC_FS_JFS
 	jfs_proc_clean();
 #endif

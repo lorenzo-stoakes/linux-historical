@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.ppc_ksyms.c 1.63 01/20/02 23:53:11 benh
+ * BK Id: %F% %I% %G% %U% %#%
  */
 #include <linux/config.h>
 #include <linux/module.h>
@@ -17,13 +17,13 @@
 #include <linux/irq.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
+#include <linux/ide.h>
 
 #include <asm/page.h>
 #include <asm/semaphore.h>
 #include <asm/processor.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <linux/ide.h>
 #include <asm/ide.h>
 #include <asm/atomic.h>
 #include <asm/bitops.h>
@@ -167,8 +167,10 @@ EXPORT_SYMBOL(iounmap);
 EXPORT_SYMBOL(iopa);
 EXPORT_SYMBOL(mm_ptov);
 
+#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
 EXPORT_SYMBOL(ppc_ide_md);
 EXPORT_SYMBOL(ppc_generic_ide_fix_driveid);
+#endif
 
 #ifdef CONFIG_PCI
 EXPORT_SYMBOL_NOVERS(isa_io_base);
@@ -205,7 +207,7 @@ EXPORT_SYMBOL(__global_cli);
 EXPORT_SYMBOL(__global_sti);
 EXPORT_SYMBOL(__global_save_flags);
 EXPORT_SYMBOL(__global_restore_flags);
-#ifdef SPINLOCK_DEBUG
+#if SPINLOCK_DEBUG
 EXPORT_SYMBOL(_spin_lock);
 EXPORT_SYMBOL(_spin_unlock);
 EXPORT_SYMBOL(spin_trylock);
@@ -246,6 +248,7 @@ EXPORT_SYMBOL(find_devices);
 EXPORT_SYMBOL(find_type_devices);
 EXPORT_SYMBOL(find_compatible_devices);
 EXPORT_SYMBOL(find_path_device);
+EXPORT_SYMBOL(find_phandle);
 EXPORT_SYMBOL(device_is_compatible);
 EXPORT_SYMBOL(machine_is_compatible);
 EXPORT_SYMBOL(find_all_nodes);

@@ -107,6 +107,7 @@
 #define ION_DEVICE_ID_BB_EDGEPORT_16_DUAL_CPU	0x012	// Half of an Edgeport/16 (the kind with 2 EP/8s)
 #define ION_DEVICE_ID_BB_EDGEPORT_8I		0x014	// Edgeport/8 RS422 (single-CPU)
 
+
 /* Edgeport TI based devices */
 #define ION_DEVICE_ID_TI_EDGEPORT_4		0x0201	/* Edgeport/4 RS232 */
 #define ION_DEVICE_ID_TI_EDGEPORT_2		0x0205	/* Edgeport/2 RS232 */
@@ -207,11 +208,11 @@
 // Version 2 format of DeviceParams. This format is longer (3C0h)
 // and starts lower in memory, at the uppermost 1K in ROM.
 #define	EDGE_MANUF_DESC_ADDR		0x00FF7C00
-#define	EDGE_MANUF_DESC_LEN		sizeof(EDGE_MANUF_DESCRIPTOR)
+#define	EDGE_MANUF_DESC_LEN		sizeof(struct edge_manuf_descriptor)
 
 // Boot params descriptor
 #define	EDGE_BOOT_DESC_ADDR		0x00FF7FC0
-#define	EDGE_BOOT_DESC_LEN		sizeof(EDGE_BOOT_DESCRIPTOR)
+#define	EDGE_BOOT_DESC_LEN		sizeof(struct edge_boot_descriptor)
 
 // Define the max block size that may be read or written
 // in a read/write RAM/ROM command.
@@ -252,7 +253,7 @@
 #define MAX_SERIALNUMBER_LEN	12
 #define MAX_ASSEMBLYNUMBER_LEN	14
 
-typedef struct _EDGE_MANUF_DESCRIPTOR {
+struct edge_manuf_descriptor {
 
 	__u16	RootDescTable[0x10];			// C00 Root of descriptor tables (just a placeholder)
 	__u8	DescriptorArea[0x2E0];			// C20 Descriptors go here, up to 2E0h (just a placeholder)
@@ -297,7 +298,7 @@ typedef struct _EDGE_MANUF_DESCRIPTOR {
 	__u8	IonConfig;				// FBF Config byte for ION manufacturing use
 							// FBF end of structure, total len = 3C0h
 
-} EDGE_MANUF_DESCRIPTOR, *PEDGE_MANUF_DESCRIPTOR;
+};
 
 
 #define MANUF_DESC_VER_1	1	// Original definition of MANUF_DESC
@@ -342,10 +343,10 @@ typedef struct _EDGE_MANUF_DESCRIPTOR {
 
 
 
-#define	MANUF_SERNUM_LENGTH		sizeof(((PEDGE_MANUF_DESCRIPTOR)0)->SerialNumber)
-#define	MANUF_ASSYNUM_LENGTH		sizeof(((PEDGE_MANUF_DESCRIPTOR)0)->AssemblyNumber)
-#define	MANUF_OEMASSYNUM_LENGTH		sizeof(((PEDGE_MANUF_DESCRIPTOR)0)->OemAssyNumber)
-#define	MANUF_MANUFDATE_LENGTH		sizeof(((PEDGE_MANUF_DESCRIPTOR)0)->ManufDate)
+#define	MANUF_SERNUM_LENGTH		sizeof(((struct edge_manuf_descriptor *)0)->SerialNumber)
+#define	MANUF_ASSYNUM_LENGTH		sizeof(((struct edge_manuf_descriptor *)0)->AssemblyNumber)
+#define	MANUF_OEMASSYNUM_LENGTH		sizeof(((struct edge_manuf_descriptor *)0)->OemAssyNumber)
+#define	MANUF_MANUFDATE_LENGTH		sizeof(((struct edge_manuf_descriptor *)0)->ManufDate)
 
 #define	MANUF_ION_CONFIG_MASTER		0x80	// 1=Master mode, 0=Normal
 #define	MANUF_ION_CONFIG_DIAG		0x40	// 1=Run h/w diags, 0=norm
@@ -360,7 +361,7 @@ typedef struct _EDGE_MANUF_DESCRIPTOR {
 // - FF:xFFF. Note that the 930-mandated UCONFIG bytes are
 // included in this structure.
 //
-typedef struct _EDGE_BOOT_DESCRIPTOR {
+struct edge_boot_descriptor {
 	__u8		Length;			// C0 Desc length, per USB (= 40h)
 	__u8		DescType;		// C1 Desc type, per USB (= DEVICE type)
 	__u8		DescVer;		// C2 Desc version/format
@@ -384,8 +385,7 @@ typedef struct _EDGE_BOOT_DESCRIPTOR {
 	__u8		UConfig1;		// F9 930-defined CPU configuration byte 1
 	__u8		Reserved3[6];		// FA -- unused, set to 0 --
 						// FF end of structure, total len = 80
-
-} EDGE_BOOT_DESCRIPTOR, *PEDGE_BOOT_DESCRIPTOR;
+};
 
 
 #define BOOT_DESC_VER_1		1	// Original definition of BOOT_PARAMS
@@ -442,7 +442,7 @@ struct ti_i2c_image_header
 	__u8	CheckSum;
 }__attribute__((packed));
 
-typedef struct
+struct ti_basic_descriptor
 {
 	__u8	Power;		// Self powered
 				// bit 7: 1 - power switching supported
@@ -457,7 +457,7 @@ typedef struct
 	__u16	DevPid;		// PID Edgeport
 	__u8	HubTime;	// Time for power on to power good
 	__u8	HubCurrent;	// HUB Current = 100ma
-} TI_BASIC_DESCRIPTOR, *PTI_BASIC_DESCRIPTOR __attribute__((packed));
+} __attribute__((packed));
 
 
 #define TI_GET_CPU_REVISION(x)		(__u8)((((x)>>4)&0x0f))

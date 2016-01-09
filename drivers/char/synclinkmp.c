@@ -506,8 +506,8 @@ MODULE_PARM(dosyncppp,"1-" __MODULE_STRING(MAX_DEVICES) "i");
 static char *driver_name = "SyncLink MultiPort driver";
 static char *driver_version = "$Revision: 3.17 $";
 
-static int __init synclinkmp_init_one(struct pci_dev *dev,const struct pci_device_id *ent);
-static void __exit synclinkmp_remove_one(struct pci_dev *dev);
+static int __devinit synclinkmp_init_one(struct pci_dev *dev,const struct pci_device_id *ent);
+static void __devexit synclinkmp_remove_one(struct pci_dev *dev);
 
 static struct pci_device_id synclinkmp_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_MICROGATE, PCI_DEVICE_ID_MICROGATE_SCA, PCI_ANY_ID, PCI_ANY_ID, },
@@ -519,7 +519,7 @@ static struct pci_driver synclinkmp_pci_driver = {
 	name:		"synclinkmp",
 	id_table:	synclinkmp_pci_tbl,
 	probe:		synclinkmp_init_one,
-	remove:		synclinkmp_remove_one,
+	remove:		__devexit_p(synclinkmp_remove_one),
 };
 
 
@@ -5595,8 +5595,8 @@ void write_control_reg(SLMP_INFO * info)
 }
 
 
-static int __init synclinkmp_init_one (struct pci_dev *dev,
-				       const struct pci_device_id *ent)
+static int __devinit synclinkmp_init_one (struct pci_dev *dev,
+				          const struct pci_device_id *ent)
 {
 	if (pci_enable_device(dev)) {
 		printk("error enabling pci device %p\n", dev);
@@ -5606,6 +5606,6 @@ static int __init synclinkmp_init_one (struct pci_dev *dev,
 	return 0;
 }
 
-static void __exit synclinkmp_remove_one (struct pci_dev *dev)
+static void __devexit synclinkmp_remove_one (struct pci_dev *dev)
 {
 }

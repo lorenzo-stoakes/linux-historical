@@ -98,11 +98,9 @@ static __devinitdata struct usb_device_id id_table_combined [] = {
 MODULE_DEVICE_TABLE (usb, id_table_combined);
 
 static struct usb_serial_device_type edgeport_1port_device = {
+	owner:			THIS_MODULE,
 	name:			"Edgeport 1 port adapter",
 	id_table:		edgeport_1port_id_table,
-	needs_interrupt_in:	MUST_HAVE,
-	needs_bulk_in:		MUST_HAVE,
-	needs_bulk_out:		MUST_HAVE,
 	num_interrupt_in:	1,
 	num_bulk_in:		1,
 	num_bulk_out:		1,
@@ -122,11 +120,9 @@ static struct usb_serial_device_type edgeport_1port_device = {
 };
 
 static struct usb_serial_device_type edgeport_2port_device = {
+	owner:			THIS_MODULE,
 	name:			"Edgeport 2 port adapter",
 	id_table:		edgeport_2port_id_table,
-	needs_interrupt_in:	MUST_HAVE,
-	needs_bulk_in:		MUST_HAVE,
-	needs_bulk_out:		MUST_HAVE,
 	num_interrupt_in:	1,
 	num_bulk_in:		1,
 	num_bulk_out:		1,
@@ -146,11 +142,9 @@ static struct usb_serial_device_type edgeport_2port_device = {
 };
 
 static struct usb_serial_device_type edgeport_4port_device = {
+	owner:			THIS_MODULE,
 	name:			"Edgeport 4 port adapter",
 	id_table:		edgeport_4port_id_table,
-	needs_interrupt_in:	MUST_HAVE,
-	needs_bulk_in:		MUST_HAVE,
-	needs_bulk_out:		MUST_HAVE,
 	num_interrupt_in:	1,
 	num_bulk_in:		1,
 	num_bulk_out:		1,
@@ -170,11 +164,9 @@ static struct usb_serial_device_type edgeport_4port_device = {
 };
 
 static struct usb_serial_device_type edgeport_8port_device = {
+	owner:			THIS_MODULE,
 	name:			"Edgeport 8 port adapter",
 	id_table:		edgeport_8port_id_table,
-	needs_interrupt_in:	MUST_HAVE,
-	needs_bulk_in:		MUST_HAVE,
-	needs_bulk_out:		MUST_HAVE,
 	num_interrupt_in:	1,
 	num_bulk_in:		1,
 	num_bulk_out:		1,

@@ -1065,8 +1065,8 @@ void hid_init_reports(struct hid_device *hid)
 			list = report_enum->report_list.next;
 			while (list != &report_enum->report_list) {
 				report = (struct hid_report *) list;
-				usb_set_idle(hid->dev, hid->ifnum, 0, report->id);
 				hid_read_report(hid, report);
+				usb_set_idle(hid->dev, hid->ifnum, 0, report->id);
 				list = list->next;
 			}
 		}

@@ -71,6 +71,10 @@ ifdef CONFIG_Q40
   SERIAL = serial.o
 endif
 
+ifdef CONFIG_APOLLO
+  KEYBD += dn_keyb.o
+endif
+
 ifeq ($(ARCH),parisc)
    ifdef CONFIG_GSC_PS2
       KEYBD   = hp_psaux.o hp_keyb.o
@@ -271,10 +275,12 @@ obj-$(CONFIG_MACHZ_WDT) += machzwd.o
 obj-$(CONFIG_SH_WDT) += shwdt.o
 obj-$(CONFIG_EUROTECH_WDT) += eurotechwdt.o
 obj-$(CONFIG_ALIM7101_WDT) += alim7101_wdt.o
+#obj-$(CONFIG_ALIM1535_WDT) += alim1535d_wdt.o
 obj-$(CONFIG_INDYDOG) += indydog.o
 obj-$(CONFIG_SC1200_WDT) += sc1200wdt.o
 obj-$(CONFIG_WAFER_WDT) += wafer5823wdt.o
 obj-$(CONFIG_SOFT_WATCHDOG) += softdog.o
+obj-$(CONFIG_AMD7XX_TCO) += amd7xx_tco.o
 
 subdir-$(CONFIG_MWAVE) += mwave
 ifeq ($(CONFIG_MWAVE),y)

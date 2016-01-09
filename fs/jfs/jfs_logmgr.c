@@ -960,14 +960,16 @@ int lmLogSync(log_t * log, int nosyncwait)
 	 * reset syncpt = sync
 	 */
 	if (log->sync != log->syncpt) {
-		struct jfs_sb_info	*sbi = JFS_SBI(log->sb);
+		struct super_block *sb = log->sb;
+		struct jfs_sb_info *sbi = JFS_SBI(sb);
+
 		/*
 		 * We need to make sure all of the "written" metapages
 		 * actually make it to disk
 		 */
 		fsync_inode_data_buffers(sbi->ipbmap);
 		fsync_inode_data_buffers(sbi->ipimap);
-		fsync_inode_data_buffers(sbi->direct_inode);
+		fsync_inode_data_buffers(sb->s_bdev->bd_inode);
 
 		lrd.logtid = 0;
 		lrd.backchain = 0;
@@ -1085,7 +1087,7 @@ int lmLogOpen(struct super_block *sb, log_t ** logptr)
 	 * initialize log.
 	 */
 	if ((rc = lmLogInit(log)))
-		goto errout10;
+		goto free;
 	goto out;
 
 	/*
@@ -1101,12 +1103,12 @@ int lmLogOpen(struct super_block *sb, log_t ** logptr)
 
 	if (!(bdev = bdget(kdev_t_to_nr(JFS_SBI(sb)->logdev)))) {
 		rc = ENODEV;
-		goto errout10;
+		goto free;
 	}
 
 	if ((rc = blkdev_get(bdev, FMODE_READ|FMODE_WRITE, 0, BDEV_FS))) {
 		rc = -rc;
-		goto errout10;
+		goto free;
 	}
 
 	log->bdev = bdev;
@@ -1116,13 +1118,13 @@ int lmLogOpen(struct super_block *sb, log_t ** logptr)
 	 * initialize log:
 	 */
 	if ((rc = lmLogInit(log)))
-		goto errout20;
+		goto close;
 
 	/*
 	 * add file system to log active file system list
 	 */
 	if ((rc = lmLogFileSystem(log, JFS_SBI(sb)->uuid, 1)))
-		goto errout30;
+		goto shutdown;
 
       out:
 	jFYI(1, ("lmLogOpen: exit(0)\n"));
@@ -1132,13 +1134,13 @@ int lmLogOpen(struct super_block *sb, log_t ** logptr)
 	/*
 	 *      unwind on error
 	 */
-      errout30:		/* unwind lbmLogInit() */
+      shutdown:		/* unwind lbmLogInit() */
 	lbmLogShutdown(log);
 
-      errout20:		/* close external log device */
+      close:		/* close external log device */
 	blkdev_put(bdev, BDEV_FS);
 
-      errout10:		/* free log descriptor */
+      free:		/* free log descriptor */
 	kfree(log);
 
 	jFYI(1, ("lmLogOpen: exit(%d)\n", rc));
@@ -1384,6 +1386,35 @@ int lmLogClose(struct super_block *sb, log_t * log)
 
 
 /*
+ * NAME:	lmLogWait()
+ *
+ * FUNCTION:	wait for all outstanding log records to be written to disk
+ */
+void lmLogWait(log_t *log)
+{
+	int i;
+
+	jFYI(1, ("lmLogWait: log:0x%p\n", log));
+
+	if (log->cqueue.head || !list_empty(&log->synclist)) {
+		/*
+		 * If there was very recent activity, we may need to wait
+		 * for the lazycommit thread to catch up
+		 */
+
+		for (i = 0; i < 800; i++) {	/* Too much? */
+			current->state = TASK_INTERRUPTIBLE;
+			schedule_timeout(HZ / 4);
+			if ((log->cqueue.head == NULL) &&
+			    list_empty(&log->synclist))
+				break;
+		}
+	}
+	assert(log->cqueue.head == NULL);
+	assert(list_empty(&log->synclist));
+}
+
+/*
  * NAME:	lmLogShutdown()
  *
  * FUNCTION:	log shutdown at last LogClose().
@@ -1409,23 +1440,7 @@ int lmLogShutdown(log_t * log)
 
 	jFYI(1, ("lmLogShutdown: log:0x%p\n", log));
 
-	if (log->cqueue.head || !list_empty(&log->synclist)) {
-		/*
-		 * If there was very recent activity, we may need to wait
-		 * for the lazycommit thread to catch up
-		 */
-		int i;
-
-		for (i = 0; i < 800; i++) {	/* Too much? */
-			current->state = TASK_INTERRUPTIBLE;
-			schedule_timeout(HZ / 4);
-			if ((log->cqueue.head == NULL) &&
-			    list_empty(&log->synclist))
-				break;
-		}
-	}
-	assert(log->cqueue.head == NULL);
-	assert(list_empty(&log->synclist));
+	lmLogWait(log);
 
 	/*
 	 * We need to make sure all of the "written" metapages
@@ -2120,8 +2135,6 @@ int jfsIOWait(void *arg)
 	return 0;
 }
 
-
-
 /*
  * NAME:	lmLogFormat()/jfs_logform()
  *
@@ -2253,7 +2266,6 @@ exit:
 
 	return rc;
 }
-
 
 #ifdef CONFIG_JFS_STATISTICS
 int jfs_lmstats_read(char *buffer, char **start, off_t offset, int length,

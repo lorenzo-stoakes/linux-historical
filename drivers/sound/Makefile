@@ -71,6 +71,7 @@ obj-$(CONFIG_SOUND_ESSSOLO1)	+= esssolo1.o
 obj-$(CONFIG_SOUND_FUSION)	+= cs46xx.o ac97_codec.o
 obj-$(CONFIG_SOUND_MAESTRO)	+= maestro.o
 obj-$(CONFIG_SOUND_MAESTRO3)	+= maestro3.o ac97_codec.o
+obj-$(CONFIG_SOUND_FORTE)	+= forte.o ac97_codec.o
 obj-$(CONFIG_SOUND_TRIDENT)	+= trident.o ac97_codec.o
 obj-$(CONFIG_SOUND_HARMONY)	+= harmony.o
 obj-$(CONFIG_SOUND_EMU10K1)	+= ac97_codec.o

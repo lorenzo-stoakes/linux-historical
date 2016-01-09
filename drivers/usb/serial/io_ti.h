@@ -165,11 +165,11 @@ struct ump_uart_config		/* UART settings                    */
  * TYPE DEFINITIONS
  * Structures for USB interrupts
  */
-typedef struct				/* Interrupt packet structure       */
+struct ump_interrupt			/* Interrupt packet structure       */
 {
 	__u8 bICode;			/* Interrupt code (interrupt num)   */
 	__u8 bIInfo;			/* Interrupt information            */
-} tUmpInterrupt, *ptUmpInterrupt __attribute__((packed));
+}  __attribute__((packed));
 
 
 #define TIUMP_GET_PORT_FROM_CODE(c)	(((c) >> 4) - 3)

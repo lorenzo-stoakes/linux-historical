@@ -7,14 +7,14 @@
 
 static int IMAGE_SIZE = 12166;
 
-typedef struct _EDGE_FIRMWARE_VERSION_INFO
+struct EDGE_FIRMWARE_VERSION_INFO
 {
 	unsigned char   MajorVersion;
 	unsigned char   MinorVersion;
 	unsigned short  BuildNumber;
-} EDGE_FIRMWARE_VERSION_INFO, *PEDGE_FIRMWARE_VERSION_INFO;
+};
 
-static EDGE_FIRMWARE_VERSION_INFO IMAGE_VERSION_NAME =
+static struct EDGE_FIRMWARE_VERSION_INFO IMAGE_VERSION_NAME =
 {
 	4, 1, 0		// Major, Minor, Build
 

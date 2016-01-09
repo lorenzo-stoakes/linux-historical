@@ -3411,6 +3411,16 @@ CONFIG_PCMCIA_SERIAL_CS
   a module, say M here and read <file:Documentation/modules.txt>.
   If unsure, say N.
 
+CONFIG_SYNCLINK_CS
+  Enable support for the SyncLink PC Card serial adapter, running
+  asynchronous and HDLC communications up to 512Kbps. The port is
+  selectable for RS-232, V.35, RS-449, RS-530, and X.21
+
+  This driver may be built as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called synclink_cs.o.  If you want to do that, say M
+  here.
+
 ACP Modem (Mwave) support
 CONFIG_MWAVE
   The ACP modem (Mwave) for Linux is a WinModem. It is composed of a
@@ -16874,6 +16884,17 @@ CONFIG_SYNCLINK
   This driver can only be built as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
   The module will be called synclink.o.  If you want to do that, say M
+  here.
+
+CONFIG_SYNCLINKMP
+  Enable support for the SyncLink Multiport (2 or 4 ports)
+  serial adapter, running asynchronous and HDLC communications up
+  to 2.048Mbps. Each ports is independently selectable for
+  RS-232, V.35, RS-449, RS-530, and X.21
+
+  This driver may be built as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called synclinkmp.o.  If you want to do that, say M
   here.
 
 Synchronous HDLC line discipline support

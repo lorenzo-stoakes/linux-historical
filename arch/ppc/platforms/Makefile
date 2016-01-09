@@ -41,8 +41,12 @@ obj-$(CONFIG_ALL_PPC)		+= pmac_pic.o pmac_setup.o pmac_time.o \
 					pmac_feature.o pmac_pci.o chrp_setup.o\
 					chrp_time.o chrp_pci.o prep_pci.o \
 					prep_time.o prep_setup.o
-ifeq ($(CONFIG_ALL_PPC),y)
-obj-$(CONFIG_NVRAM)		+= pmac_nvram.o
+# CONFIG_NVRAM can't be 'm' on CONFIG_ALL_PPC, only 'y' or 'n'.
+ifeq ($(CONFIG_NVRAM),y)
+obj-$(CONFIG_ALL_PPC)		+= pmac_nvram.o
+endif
+ifeq ($(CONFIG_NVRAM),m)
+obj-$(CONFIG_ALL_PPC)		+= pmac_nvram.o
 endif
 obj-$(CONFIG_PMAC_BACKLIGHT)	+= pmac_backlight.o
 obj-$(CONFIG_PMAC_PBOOK)	+= sleep.o

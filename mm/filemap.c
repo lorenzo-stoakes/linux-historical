@@ -2906,7 +2906,7 @@ repeat:
 	return page;
 }
 
-inline void remove_suid(struct inode *inode)
+void remove_suid(struct inode *inode)
 {
 	unsigned int mode;
 

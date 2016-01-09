@@ -73,7 +73,6 @@ extern struct device_node *allnodes;
 static unsigned long finish_node(struct device_node *, unsigned long,
 				 interpret_func *, int, int);
 static unsigned long finish_node_interrupts(struct device_node *, unsigned long);
-static struct device_node *find_phandle(phandle);
 
 extern void enter_rtas(void *);
 void phys_call_rtas(int, int, int, ...);
@@ -899,7 +898,7 @@ find_path_device(const char *path)
 /*
  * Find the device_node with a given phandle.
  */
-static struct device_node * __init
+struct device_node * __init
 find_phandle(phandle ph)
 {
 	struct device_node *np;

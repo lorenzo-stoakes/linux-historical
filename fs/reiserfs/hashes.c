@@ -18,6 +18,7 @@
 // r5_hash
 //
 
+#include <linux/kernel.h>	/* for printk() as called by BUG() */
 #include <asm/types.h>
 #include <asm/page.h>
 

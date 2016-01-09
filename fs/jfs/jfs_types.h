@@ -30,8 +30,6 @@
 #include <linux/types.h>
 #include <linux/nls.h>
 
-#include "endian24.h"
-
 /*
  * transaction and lock id's
  */
@@ -144,6 +142,8 @@ typedef struct {
 #define	DXDaddress	PXDaddress
 #define	lengthDXD	lengthPXD
 #define	addressDXD	addressPXD
+#define	DXDsize(dxd, size32) ((dxd)->size = cpu_to_le32(size32))
+#define	sizeDXD(dxd)	le32_to_cpu((dxd)->size)
 
 /*
  *      directory entry argument
