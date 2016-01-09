@@ -1488,6 +1488,7 @@ MODULE_PARM_DESC(rose_ndevs, "number of ROSE devices");
 
 MODULE_AUTHOR("Jonathan Naylor G4KLX <g4klx@g4klx.demon.co.uk>");
 MODULE_DESCRIPTION("The amateur radio ROSE network layer protocol");
+MODULE_LICENSE("GPL");
 
 static void __exit rose_exit(void)
 {

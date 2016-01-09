@@ -50,6 +50,9 @@ endif
 ifdef CONFIG_CPU_R3000
 GCCFLAGS	+= -mcpu=r3000 -mips1
 endif
+ifdef CONFIG_CPU_TX39XX
+GCCFLAGS	+= -mcpu=r3000 -mips1
+endif
 ifdef CONFIG_CPU_R6000
 GCCFLAGS	+= -mcpu=r6000 -mips2 -Wa,--trap
 endif
@@ -60,6 +63,9 @@ ifdef CONFIG_CPU_VR41XX
 GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
 endif
 ifdef CONFIG_CPU_R4X00
+GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
+endif
+ifdef CONFIG_CPU_TX49XX
 GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
 endif
 ifdef CONFIG_CPU_MIPS32
@@ -83,6 +89,9 @@ GCCFLAGS	+= -mcpu=r5000 -mips2 -Wa,--trap
 endif
 ifdef CONFIG_CPU_SB1
 GCCFLAGS	+= -mcpu=sb1 -mips2 -Wa,--trap
+ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
+MODFLAGS       += -msb1-pass1-workarounds
+endif
 endif
 
 GCCFLAGS	+= -pipe
@@ -96,6 +105,16 @@ ASFLAGS		+= $(GCCFLAGS)
 #
 CORE_FILES	+=arch/mips/math-emu/fpu_emulator.o
 SUBDIRS		+=arch/mips/math-emu
+
+#
+# ramdisk/initrd support
+# You need a compressed ramdisk image, named ramdisk.gz in
+# arch/mips/ramdisk
+#
+ifdef CONFIG_EMBEDDED_RAMDISK
+CORE_FILES	+= arch/mips/ramdisk/ramdisk.o
+SUBDIRS		+= arch/mips/ramdisk
+endif
 
 #
 # Board-dependent options and extra files
@@ -138,6 +157,12 @@ LIBS          += arch/mips/arc/arclib.a
 LOADADDR      += 0x80080000
 endif
 
+ifdef CONFIG_MIPS_COBALT
+SUBDIRS       += arch/mips/cobalt
+CORE_FILES    += arch/mips/cobalt/cobalt.o
+LOADADDR      += 0x80080000
+endif
+
 ifdef CONFIG_SNI_RM200_PCI
 CORE_FILES    += arch/mips/sni/sni.o
 SUBDIRS       += arch/mips/sni arch/mips/arc
@@ -146,9 +171,9 @@ LOADADDR      += 0x80080000
 endif
 
 ifdef CONFIG_SGI_IP22
-CORE_FILES    += arch/mips/sgi/kernel/ip22-kern.o
+CORE_FILES    += arch/mips/sgi-ip22/ip22-kern.o
 LIBS          += arch/mips/arc/arclib.a
-SUBDIRS       += arch/mips/sgi/kernel arch/mips/arc
+SUBDIRS       += arch/mips/sgi-ip22 arch/mips/arc
 #
 # Set LOADADDR to >= 0x88069000 if you want to leave space for symmon,
 # 0x88002000 for production kernels.  Note that the value must be
@@ -180,8 +205,9 @@ endif
 # NEC DDB Vrc-5476
 #
 ifdef CONFIG_DDB5476
-SUBDIRS       += arch/mips/ddb5476
-LIBS          += arch/mips/ddb5476/ddb5476.a
+SUBDIRS       += arch/mips/ddb5xxx/common arch/mips/ddb5xxx/ddb5476
+LIBS          += arch/mips/ddb5xxx/common/ddb5xxx.o \
+		 arch/mips/ddb5xxx/ddb5476/ddb5476.o
 LOADADDR      += 0x80080000
 endif
 
@@ -194,6 +220,16 @@ SUBDIRS       += arch/mips/ddb5xxx/common arch/mips/ddb5xxx/ddb5477
 LIBS          += arch/mips/ddb5xxx/common/ddb5xxx.o \
                  arch/mips/ddb5xxx/ddb5477/ddb5477.o
 LOADADDR      += 0x80080000
+endif
+
+#
+# NEC Osprey (vr4181) board
+#
+ifdef CONFIG_NEC_OSPREY
+SUBDIRS       += arch/mips/vr4181/common arch/mips/vr4181/osprey
+LIBS          += arch/mips/vr4181/common/vr4181.o \
+                 arch/mips/vr4181/osprey/osprey.o
+LOADADDR      += 0x80002000
 endif
 
 #
@@ -256,10 +292,58 @@ endif
 # Au1000 eval board
 #
 ifdef CONFIG_MIPS_PB1000
-LIBS          += arch/mips/au1000/pb1000/pb1000.o arch/mips/au1000/common/au1000.o
+LIBS          += arch/mips/au1000/pb1000/pb1000.o \
+                 arch/mips/au1000/common/au1000.o
 SUBDIRS       += arch/mips/au1000/pb1000 arch/mips/au1000/common
 LOADADDR      += 0x80100000
 endif
+
+ifdef CONFIG_MIPS_PB1500
+LIBS          += arch/mips/au1000/pb1500/pb1500.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/pb1500 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+#
+# Sibyte SB1250 SOC
+#
+ifdef CONFIG_SIBYTE_SB1250
+# This is a LIB so that it links at the end, and initcalls are later
+# the sequence; but it is built as an object so that modules don't get
+# removed (as happens, even if they have __initcall/module_init)
+LIBS          += arch/mips/sibyte/sb1250/sb1250.o
+SUBDIRS       += arch/mips/sibyte/sb1250 
+endif
+
+#
+# Sibyte SWARM board
+#
+ifdef CONFIG_SB1_CACHE_ERROR
+LIBS          += arch/mips/sibyte/sb1/sb1kern.a
+SUBDIRS       += arch/mips/sibyte/sb1
+endif
+
+ifdef CONFIG_SIBYTE_SWARM
+LIBS          += arch/mips/sibyte/swarm/sbswarm.a
+SUBDIRS       += arch/mips/sibyte/swarm
+LOADADDR      += 0x80100000
+endif
+
+#
+# HP LaserJet
+#
+ifdef CONFIG_HP_LASERJET
+SUBDIRS       += arch/mips/hp-lj
+LIBS          += arch/mips/hp-lj/hp-lj.o
+LOADADDR      := 0x80030000
+endif
+
+ifdef CONFIG_TOSHIBA_JMR3927
+CORE_FILES    += arch/mips/jmr3927/rbhma3100/jmr3927.o arch/mips/jmr3927/common/tx3927.o
+SUBDIRS       += arch/mips/jmr3927/rbhma3100  arch/mips/jmr3927/common
+LOADADDR      += 0x80050000 
+endif                                                        
 
 #
 # Choosing incompatible machines durings configuration will result in

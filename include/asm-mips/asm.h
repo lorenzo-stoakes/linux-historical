@@ -1,6 +1,4 @@
 /*
- * include/asm-mips/asm.h
- *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
@@ -124,20 +122,20 @@ symbol		=	value
 		TEXT(string)
 
 #define	TEXT(msg)                                       \
-		.data;                                  \
+		.pushsection .data;			\
 8:		.asciiz	msg;                            \
-		.previous;
+		.popsection;
 
 /*
  * Build text tables
  */
 #define TTABLE(string)                                  \
-		.text;                                  \
+		.pushsection .text;			\
 		.word	1f;                             \
-		.previous;                              \
-		.data;                                  \
+		.popsection				\
+		.pushsection .data;			\
 1:		.asciz	string;                         \
-		.previous
+		.popsection
 
 /*
  * MIPS IV pref instruction.
@@ -146,15 +144,24 @@ symbol		=	value
  * MIPS IV implementations are free to treat this as a nop.  The R5000
  * is one of them.  So we should have an option not to use this instruction.
  */
-#if (_MIPS_ISA == _MIPS_ISA_MIPS4 ) || (_MIPS_ISA == _MIPS_ISA_MIPS5) || \
-    (_MIPS_ISA == _MIPS_ISA_MIPS64)
+#if CONFIG_CPU_HAS_PREFETCH
+
 #define PREF(hint,addr)                                 \
-		pref	hint,addr
+		.set	push;				\
+		.set	mips4;				\
+		pref	hint,addr;			\
+		.set	pop
+
 #define PREFX(hint,addr)                                \
-		prefx	hint,addr
+		.set	push;				\
+		.set	mips4;				\
+		prefx	hint,addr;			\
+		.set	pop
 #else
-#define PREF
-#define PREFX
+
+#define PREF(hint,addr)
+#define PREFX(hint,addr)
+
 #endif
 
 /*
@@ -383,5 +390,7 @@ symbol		=	value
 #define MFC0	dmfc0
 #define MTC0	dmtc0
 #endif
+
+#define SSNOP	sll zero, zero, 1
 
 #endif /* __ASM_ASM_H */

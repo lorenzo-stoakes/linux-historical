@@ -36,6 +36,7 @@
 #include <asm/floppy.h>
 #endif
 #include <asm/dma.h>
+#include <asm/time.h>
 
 #if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_PROM_CONSOLE)
 extern void console_setup(char *, int *);
@@ -64,6 +65,17 @@ struct resource standard_io_resources[] = {
 };
 
 #define STANDARD_IO_RESOURCES (sizeof(standard_io_resources)/sizeof(struct resource))
+
+const char *get_system_type(void)
+{
+	return "MIPS Malta";
+}
+
+void __init bus_error_init(void)
+{
+}
+
+extern void mips_time_init(void);
 
 void __init malta_setup(void)
 {
@@ -122,6 +134,8 @@ void __init malta_setup(void)
 		mips_cpu.options &= ~MIPS_CPU_FPU;
 		
 	rtc_ops = &malta_rtc_ops;
+	board_time_init = mips_time_init;
+
 #ifdef CONFIG_BLK_DEV_IDE
         ide_ops = &std_ide_ops;
 #endif

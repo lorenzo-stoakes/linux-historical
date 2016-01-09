@@ -110,6 +110,9 @@
 #ifndef PCI_DEVICE_ID_NVIDIA_MCP1_AUDIO
 #define PCI_DEVICE_ID_NVIDIA_MCP1_AUDIO	0x01b1
 #endif
+#ifndef PCI_DEVICE_ID_AMD_768_AUDIO
+#define PCI_DEVICE_ID_AMD_768_AUDIO	0x7445
+#endif
 
 static int ftsodell=0;
 static int strict_clocking=0;
@@ -231,7 +234,8 @@ enum {
 	INTELICH2,
 	INTELICH3,
 	SI7012,
-	NVIDIA_NFORCE
+	NVIDIA_NFORCE,
+	AMD768
 };
 
 static char * card_names[] = {
@@ -241,7 +245,8 @@ static char * card_names[] = {
 	"Intel ICH2",
 	"Intel ICH3",
 	"SiS 7012",
-	"NVIDIA nForce Audio"
+	"NVIDIA nForce Audio",
+	"AMD 768"
 };
 
 static struct pci_device_id i810_pci_tbl [] __initdata = {
@@ -259,6 +264,8 @@ static struct pci_device_id i810_pci_tbl [] __initdata = {
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, SI7012},
 	{PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_MCP1_AUDIO,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, NVIDIA_NFORCE},
+	{PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_768_AUDIO,
+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, AMD768},
 	{0,}
 };
 
@@ -2679,6 +2686,14 @@ static int __init i810_ac97_init(struct i810_card *card)
 			break;
 		}
 		
+		codec->codec_write(codec, AC97_EXTENDED_MODEM_ID, 0L);
+		if(codec->codec_read(codec, AC97_EXTENDED_MODEM_ID))
+		{
+			printk(KERN_WARNING "i810_audio: codec %d is a softmodem - skipping.\n", num_ac97);
+			kfree(codec);
+			continue;
+		}
+	
 		card->ac97_features = eid;
 				
 		/* Now check the codec for useful features to make up for

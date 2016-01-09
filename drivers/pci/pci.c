@@ -964,7 +964,7 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 	}
 }
 
-void __devinit  pci_read_bridge_bases(struct pci_bus *child)
+void __devinit pci_read_bridge_bases(struct pci_bus *child)
 {
 	struct pci_dev *dev = child->self;
 	u8 io_base_lo, io_limit_lo;
@@ -1055,7 +1055,7 @@ void __devinit  pci_read_bridge_bases(struct pci_bus *child)
 	}
 }
 
-static struct pci_bus * __devinit  pci_alloc_bus(void)
+static struct pci_bus * __devinit pci_alloc_bus(void)
 {
 	struct pci_bus *b;
 
@@ -1380,7 +1380,7 @@ unsigned int __devinit pci_do_scan_bus(struct pci_bus *bus)
 	return max;
 }
 
-int __devinit  pci_bus_exists(const struct list_head *list, int nr)
+int __devinit pci_bus_exists(const struct list_head *list, int nr)
 {
 	const struct list_head *l;
 
@@ -1392,7 +1392,7 @@ int __devinit  pci_bus_exists(const struct list_head *list, int nr)
 	return 0;
 }
 
-struct pci_bus * __devinit  pci_alloc_primary_bus(int bus)
+struct pci_bus * __devinit pci_alloc_primary_bus(int bus)
 {
 	struct pci_bus *b;
 
@@ -1411,7 +1411,7 @@ struct pci_bus * __devinit  pci_alloc_primary_bus(int bus)
 	return b;
 }
 
-struct pci_bus * __devinit  pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata)
+struct pci_bus * __devinit pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata)
 {
 	struct pci_bus *b = pci_alloc_primary_bus(bus);
 	if (b) {
@@ -1944,7 +1944,7 @@ void __devinit  pci_init(void)
 #endif
 }
 
-static int __devinit  pci_setup(char *str)
+static int __devinit pci_setup(char *str)
 {
 	while (str) {
 		char *k = strchr(str, ',');

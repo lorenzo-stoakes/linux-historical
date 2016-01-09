@@ -39,6 +39,9 @@ Auvo Häkkinen, University of Helsinki Finland
 Taneli Vähäkangas, University of Helsinki Finland
 	Fixes to i2o_config
 
+Boji T Kannanthanam
+	Intel i2o controller work, extending proc/config stuff
+
 CREDITS
 
 	This work was made possible by 
@@ -62,32 +65,38 @@ SysKonnect
 ASUSTeK
         Loan of I2O motherboard 
 
-STATUS:
+Promise
+	Providing a Supertrak 100 board and support info
 
-o	The core setup works within limits.
-o	The scsi layer seems to almost work. 
-           I'm still chasing down the hang bug.
-o	The block OSM is mostly functional
-o	LAN OSM works with FDDI and Ethernet cards.
+DPT
+	Providing a DPT smartraid I2O card (use dpt_i2o for this
+	board however)
+
+STATUS:
+o	Should be stable for x86 32bit
+
+KNOWN ISSUES:
+o	Reports that intel boards die if you load i2o_block and i2o_scsi
+o	Some promise cards need firmware updates
 
 TO DO:
 
 General:
+o	Finish 64bit and big endian cleanup
+o	Switch to new PCI mapping layer throughout
+o	Hotswap of controllers
 o	Provide hidden address space if asked
 o	Long term message flow control
 o	PCI IOP's without interrupts are not supported yet
 o	Push FAIL handling into the core
 o	DDM control interfaces for module load etc
-o       Add I2O 2.0 support (Deffered to 2.5 kernel)
 
 Block:
-o	Multiple major numbers
-o	Read ahead and cache handling stuff. Talk to Ingo and people
+o	Multiple major numbers (problem goes away in 2.5)
 o	Power management
 o	Finish Media changers
 
 SCSI:
-o	Find the right way to associate drives/luns/busses
 
 Lan:	
 o	Performance tuning
@@ -95,4 +104,3 @@ o	Test Fibre Channel code
 
 Tape:
 o	Anyone seen anything implementing this ?
-           (D.S: Will attempt to do so if spare cycles permit)

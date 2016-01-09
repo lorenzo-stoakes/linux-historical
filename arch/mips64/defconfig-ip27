@@ -1,6 +1,8 @@
 #
 # Automatically generated make config: don't edit
 #
+CONFIG_MIPS=y
+CONFIG_MIPS64=y
 
 #
 # Code maturity level options
@@ -10,8 +12,8 @@
 #
 # Machine selection
 #
-# CONFIG_SGI_IP22 is not set
 CONFIG_SGI_IP27=y
+# CONFIG_SIBYTE_SB1250 is not set
 # CONFIG_SGI_SN0_N_MODE is not set
 CONFIG_DISCONTIGMEM=y
 CONFIG_NUMA=y
@@ -23,7 +25,6 @@ CONFIG_RWSEM_GENERIC_SPINLOCK=y
 # CONFIG_RWSEM_XCHGADD_ALGORITHM is not set
 CONFIG_BOOT_ELF64=y
 CONFIG_ARC64=y
-CONFIG_COHERENT_IO=y
 CONFIG_MAPPED_PCI_IO=y
 CONFIG_PCI=y
 CONFIG_QL_ISP_A64=y
@@ -42,6 +43,9 @@ CONFIG_L1_CACHE_SHIFT=7
 # CONFIG_CPU_NEVADA is not set
 # CONFIG_CPU_R8000 is not set
 CONFIG_CPU_R10000=y
+# CONFIG_CPU_SB1 is not set
+CONFIG_CPU_HAS_LLSC=y
+CONFIG_CPU_HAS_LLDSCD=y
 
 #
 # General setup
@@ -52,6 +56,7 @@ CONFIG_NET=y
 CONFIG_PCI_NAMES=y
 # CONFIG_HOTPLUG is not set
 # CONFIG_PCMCIA is not set
+# CONFIG_HOTPLUG_PCI is not set
 CONFIG_SYSVIPC=y
 # CONFIG_BSD_PROCESS_ACCT is not set
 CONFIG_SYSCTL=y
@@ -99,6 +104,7 @@ CONFIG_PCI_NAMES=y
 # CONFIG_MD_RAID0 is not set
 # CONFIG_MD_RAID1 is not set
 # CONFIG_MD_RAID5 is not set
+# CONFIG_MD_MULTIPATH is not set
 # CONFIG_BLK_DEV_LVM is not set
 
 #
@@ -106,8 +112,6 @@ CONFIG_PCI_NAMES=y
 #
 CONFIG_PACKET=y
 CONFIG_PACKET_MMAP=y
-CONFIG_NETLINK=y
-CONFIG_RTNETLINK=y
 CONFIG_NETLINK_DEV=y
 # CONFIG_NETFILTER is not set
 # CONFIG_FILTER is not set
@@ -204,8 +208,8 @@ CONFIG_SCSI_LOGGING=y
 # CONFIG_SCSI_INITIO is not set
 # CONFIG_SCSI_INIA100 is not set
 # CONFIG_SCSI_NCR53C406A is not set
-# CONFIG_SCSI_NCR_D700 is not set
 # CONFIG_SCSI_NCR53C7xx is not set
+# CONFIG_SCSI_SYM53C8XX_2 is not set
 # CONFIG_SCSI_NCR53C8XX is not set
 # CONFIG_SCSI_SYM53C8XX is not set
 # CONFIG_SCSI_PAS16 is not set
@@ -245,7 +249,6 @@ CONFIG_SGI_IOC3_ETH=y
 # CONFIG_HAPPYMEAL is not set
 # CONFIG_SUNBMAC is not set
 # CONFIG_SUNQE is not set
-# CONFIG_SUNLANCE is not set
 # CONFIG_SUNGEM is not set
 # CONFIG_NET_VENDOR_3COM is not set
 # CONFIG_LANCE is not set
@@ -380,7 +383,6 @@ CONFIG_AUTOFS_FS=y
 # CONFIG_AFFS_FS is not set
 # CONFIG_HFS_FS is not set
 # CONFIG_BFS_FS is not set
-# CONFIG_CMS_FS is not set
 # CONFIG_EXT3_FS is not set
 # CONFIG_JBD is not set
 # CONFIG_JBD_DEBUG is not set
@@ -396,8 +398,9 @@ CONFIG_AUTOFS_FS=y
 # CONFIG_RAMFS is not set
 # CONFIG_ISO9660_FS is not set
 # CONFIG_JOLIET is not set
+# CONFIG_ZISOFS is not set
 # CONFIG_MINIX_FS is not set
-# CONFIG_FREEVXFS_FS is not set
+# CONFIG_VXFS_FS is not set
 # CONFIG_NTFS_FS is not set
 # CONFIG_NTFS_RW is not set
 # CONFIG_HPFS_FS is not set
@@ -439,6 +442,8 @@ CONFIG_LOCKD_V4=y
 # CONFIG_NCPFS_SMALLDOS is not set
 # CONFIG_NCPFS_NLS is not set
 # CONFIG_NCPFS_EXTRAS is not set
+# CONFIG_ZISOFS_FS is not set
+# CONFIG_ZLIB_FS_INFLATE is not set
 
 #
 # Partition Types
@@ -488,9 +493,11 @@ CONFIG_KCORE_ELF=y
 # CONFIG_USB_STORAGE_DEBUG is not set
 # CONFIG_USB_STORAGE_DATAFAB is not set
 # CONFIG_USB_STORAGE_FREECOM is not set
-# CONFIG_USB_STORAGE_JUMPSHOT is not set
+# CONFIG_USB_STORAGE_ISD200 is not set
 # CONFIG_USB_STORAGE_DPCM is not set
+# CONFIG_USB_STORAGE_HP8200e is not set
 # CONFIG_USB_STORAGE_SDDR09 is not set
+# CONFIG_USB_STORAGE_JUMPSHOT is not set
 # CONFIG_USB_ACM is not set
 # CONFIG_USB_PRINTER is not set
 
@@ -518,12 +525,10 @@ CONFIG_KCORE_ELF=y
 #
 #   Video4Linux support is needed for USB Multimedia device support
 #
-# CONFIG_USB_DABUSB is not set
 
 #
 # USB Network adaptors
 #
-# CONFIG_USB_PLUSB is not set
 # CONFIG_USB_PEGASUS is not set
 # CONFIG_USB_KAWETH is not set
 # CONFIG_USB_CATC is not set
@@ -546,25 +551,30 @@ CONFIG_KCORE_ELF=y
 # CONFIG_USB_SERIAL_EMPEG is not set
 # CONFIG_USB_SERIAL_FTDI_SIO is not set
 # CONFIG_USB_SERIAL_VISOR is not set
+# CONFIG_USB_SERIAL_IPAQ is not set
+# CONFIG_USB_SERIAL_IR is not set
 # CONFIG_USB_SERIAL_EDGEPORT is not set
 # CONFIG_USB_SERIAL_KEYSPAN_PDA is not set
 # CONFIG_USB_SERIAL_KEYSPAN is not set
 # CONFIG_USB_SERIAL_KEYSPAN_USA28 is not set
 # CONFIG_USB_SERIAL_KEYSPAN_USA28X is not set
+# CONFIG_USB_SERIAL_KEYSPAN_USA28XA is not set
+# CONFIG_USB_SERIAL_KEYSPAN_USA28XB is not set
 # CONFIG_USB_SERIAL_KEYSPAN_USA19 is not set
 # CONFIG_USB_SERIAL_KEYSPAN_USA18X is not set
 # CONFIG_USB_SERIAL_KEYSPAN_USA19W is not set
 # CONFIG_USB_SERIAL_KEYSPAN_USA49W is not set
 # CONFIG_USB_SERIAL_MCT_U232 is not set
+# CONFIG_USB_SERIAL_KLSI is not set
 # CONFIG_USB_SERIAL_PL2303 is not set
 # CONFIG_USB_SERIAL_CYBERJACK is not set
+# CONFIG_USB_SERIAL_XIRCOM is not set
 # CONFIG_USB_SERIAL_OMNINET is not set
 
 #
-# Miscellaneous USB drivers
+# USB Miscellaneous drivers
 #
 # CONFIG_USB_RIO500 is not set
-# CONFIG_USB_ID75 is not set
 
 #
 # Input core support

@@ -15,7 +15,6 @@
 #include <asm/pgtable.h>
 #include <asm/r10kcache.h>
 #include <asm/system.h>
-#include <asm/sgialib.h>
 #include <asm/mmu_context.h>
 
 static int scache_lsz64;
@@ -43,9 +42,9 @@ static void andes_clear_page(void * page)
 		"sd\t$0,-8(%0)\n\t"
 		".set\tat\n\t"
 		".set\treorder"
-		:"=r" (page)
-		:"0" (page), "I" (PAGE_SIZE)
-		:"$1", "memory");
+		: "=r" (page)
+		: "0" (page), "I" (PAGE_SIZE)
+		: "memory");
 }
 
 /* R10000 has no Create_Dirty type cacheops.  */
@@ -132,8 +131,7 @@ andes_flush_cache_sigtramp(unsigned long addr)
 #define NTLB_ENTRIES       64
 #define NTLB_ENTRIES_HALF  32
 
-static inline void
-andes_flush_tlb_all(void)
+void local_flush_tlb_all(void)
 {
 	unsigned long flags;
 	unsigned long old_ctx;
@@ -153,7 +151,7 @@ andes_flush_tlb_all(void)
 	entry = get_wired();
 
 	/* Blast 'em all away. */
-	while(entry < NTLB_ENTRIES) {
+	while (entry < NTLB_ENTRIES) {
 		set_index(entry);
 		tlb_write_indexed();
 		entry++;
@@ -162,7 +160,7 @@ andes_flush_tlb_all(void)
 	__restore_flags(flags);
 }
 
-static void andes_flush_tlb_mm(struct mm_struct *mm)
+void local_flush_tlb_mm(struct mm_struct *mm)
 {
 	if (CPU_CONTEXT(smp_processor_id(), mm) != 0) {
 		unsigned long flags;
@@ -171,16 +169,15 @@ static void andes_flush_tlb_mm(struct mm_struct *mm)
 		printk("[tlbmm<%d>]", mm->context);
 #endif
 		__save_and_cli(flags);
-		get_new_cpu_mmu_context(mm, smp_processor_id());
+		get_new_mmu_context(mm, smp_processor_id());
 		if(mm == current->mm)
 			set_entryhi(CPU_CONTEXT(smp_processor_id(), mm) & 0xff);
 		__restore_flags(flags);
 	}
 }
 
-static void
-andes_flush_tlb_range(struct mm_struct *mm, unsigned long start,
-                      unsigned long end)
+void local_flush_tlb_range(struct mm_struct *mm, unsigned long start,
+                           unsigned long end)
 {
 	if (CPU_CONTEXT(smp_processor_id(), mm) != 0) {
 		unsigned long flags;
@@ -193,7 +190,7 @@ andes_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 		__save_and_cli(flags);
 		size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		size = (size + 1) >> 1;
-		if(size <= NTLB_ENTRIES_HALF) {
+		if (size <= NTLB_ENTRIES_HALF) {
 			int oldpid = (get_entryhi() & 0xff);
 			int newpid = (CPU_CONTEXT(smp_processor_id(), mm) & 0xff);
 
@@ -216,7 +213,7 @@ andes_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 			}
 			set_entryhi(oldpid);
 		} else {
-			get_new_cpu_mmu_context(mm, smp_processor_id());
+			get_new_mmu_context(mm, smp_processor_id());
 			if(mm == current->mm)
 				set_entryhi(CPU_CONTEXT(smp_processor_id(), mm) & 
 									0xff);
@@ -225,8 +222,7 @@ andes_flush_tlb_range(struct mm_struct *mm, unsigned long start,
 	}
 }
 
-static void
-andes_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 {
 	if (CPU_CONTEXT(smp_processor_id(), vma->vm_mm) != 0) {
 		unsigned long flags;
@@ -245,7 +241,7 @@ andes_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 		set_entrylo0(0);
 		set_entrylo1(0);
 		set_entryhi(KSEG0);
-		if(idx < 0)
+		if (idx < 0)
 			goto finish;
 		tlb_write_indexed();
 
@@ -273,16 +269,16 @@ static void andes_update_mmu_cache(struct vm_area_struct * vma,
 	if (current->active_mm != vma->vm_mm)
 		return;
 
-	__save_and_cli(flags);
 	pid = get_entryhi() & 0xff;
 
-	if((pid != (CPU_CONTEXT(smp_processor_id(), vma->vm_mm) & 0xff)) ||
+	if ((pid != (CPU_CONTEXT(smp_processor_id(), vma->vm_mm) & 0xff)) ||
 	   (CPU_CONTEXT(smp_processor_id(), vma->vm_mm) == 0)) {
 		printk("update_mmu_cache: Wheee, bogus tlbpid mmpid=%d "
 			"tlbpid=%d\n", (int) (CPU_CONTEXT(smp_processor_id(),
 			vma->vm_mm) & 0xff), pid);
 	}
 
+	__save_and_cli(flags);
 	address &= (PAGE_MASK << 1);
 	set_entryhi(address | (pid));
 	pgdp = pgd_offset(vma->vm_mm, address);
@@ -293,43 +289,13 @@ static void andes_update_mmu_cache(struct vm_area_struct * vma,
 	set_entrylo0(pte_val(*ptep++) >> 6);
 	set_entrylo1(pte_val(*ptep) >> 6);
 	set_entryhi(address | (pid));
-	if(idx < 0) {
+	if (idx < 0) {
 		tlb_write_random();
 	} else {
 		tlb_write_indexed();
 	}
 	set_entryhi(pid);
 	__restore_flags(flags);
-}
-
-static void andes_show_regs(struct pt_regs *regs)
-{
-	printk("Cpu %d\n", smp_processor_id());
-	/* Saved main processor registers. */
-	printk("$0      : %016lx %016lx %016lx %016lx\n",
-	       0UL, regs->regs[1], regs->regs[2], regs->regs[3]);
-	printk("$4      : %016lx %016lx %016lx %016lx\n",
-               regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
-	printk("$8      : %016lx %016lx %016lx %016lx\n",
-	       regs->regs[8], regs->regs[9], regs->regs[10], regs->regs[11]);
-	printk("$12     : %016lx %016lx %016lx %016lx\n",
-               regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
-	printk("$16     : %016lx %016lx %016lx %016lx\n",
-	       regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19]);
-	printk("$20     : %016lx %016lx %016lx %016lx\n",
-               regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
-	printk("$24     : %016lx %016lx\n",
-	       regs->regs[24], regs->regs[25]);
-	printk("$28     : %016lx %016lx %016lx %016lx\n",
-	       regs->regs[28], regs->regs[29], regs->regs[30], regs->regs[31]);
-	printk("Hi      : %016lx\n", regs->hi);
-	printk("Lo      : %016lx\n", regs->lo);
-
-	/* Saved cp0 registers. */
-	printk("epc     : %016lx    %s\nbadvaddr: %016lx\n",
-	       regs->cp0_epc, print_tainted(), regs->cp0_badvaddr);
-	printk("Status  : %08x\nCause   : %08x\n",
-	       (unsigned int) regs->cp0_status, (unsigned int) regs->cp0_cause);
 }
 
 void __init ld_mmu_andes(void)
@@ -350,11 +316,6 @@ void __init ld_mmu_andes(void)
 	_flush_cache_l2 = andes_flush_cache_l2;
 	_flush_cache_sigtramp = andes_flush_cache_sigtramp;
 
-	_flush_tlb_all = andes_flush_tlb_all;
-	_flush_tlb_mm = andes_flush_tlb_mm;
-	_flush_tlb_range = andes_flush_tlb_range;
-	_flush_tlb_page = andes_flush_tlb_page;
-
 	switch (sc_lsize()) {
 		case 64:
 			scache_lsz64 = 1;
@@ -367,9 +328,7 @@ void __init ld_mmu_andes(void)
 			while(1);
 	}
     
-	update_mmu_cache = andes_update_mmu_cache;
-
-	_show_regs = andes_show_regs;
+	_update_mmu_cache = andes_update_mmu_cache;
 
         flush_cache_l1();
 
@@ -381,9 +340,10 @@ void __init ld_mmu_andes(void)
 	 *     be set for 4kb pages.
 	 */
 	write_32bit_cp0_register(CP0_PAGEMASK, PM_4K);
+	write_32bit_cp0_register(CP0_FRAMEMASK, 0);
 
         /* From this point on the ARC firmware is dead.  */
-	_flush_tlb_all();
+	local_flush_tlb_all();
 
-        /* Did I tell you that ARC SUCKS?  */
+	/* Did I tell you that ARC SUCKS?  */
 }

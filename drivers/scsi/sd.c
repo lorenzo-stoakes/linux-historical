@@ -279,7 +279,7 @@ static request_queue_t *sd_find_queue(kdev_t dev)
  	target = DEVICE_NR(dev);
 
 	dpnt = &rscsi_disks[target];
-	if (!dpnt)
+	if (!dpnt->device)
 		return NULL;	/* No such device */
 	return &dpnt->device->request_queue;
 }
@@ -302,7 +302,7 @@ static int sd_init_command(Scsi_Cmnd * SCpnt)
 
 	dpnt = &rscsi_disks[dev];
 	if (devm >= (sd_template.dev_max << 4) ||
-	    !dpnt ||
+	    !dpnt->device ||
 	    !dpnt->device->online ||
  	    block + SCpnt->request.nr_sectors > sd[devm].nr_sects) {
 		SCSI_LOG_HLQUEUE(2, printk("Finishing %ld sectors\n", SCpnt->request.nr_sectors));

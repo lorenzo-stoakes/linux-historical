@@ -199,7 +199,9 @@ struct files_struct {
 }
 
 /* Maximum number of active map areas.. This is a random (large) number */
-#define MAX_MAP_COUNT	(65536)
+#define DEFAULT_MAX_MAP_COUNT	(65536)
+
+extern int max_map_count;
 
 struct mm_struct {
 	struct vm_area_struct * mmap;		/* list of VMAs */

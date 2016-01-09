@@ -62,8 +62,6 @@ EXPORT_SYMBOL_NOVERS(strstr);
 EXPORT_SYMBOL_NOVERS(strtok);
 
 EXPORT_SYMBOL(_clear_page);
-EXPORT_SYMBOL(enable_irq);
-EXPORT_SYMBOL(disable_irq);
 EXPORT_SYMBOL(kernel_thread);
 
 /*
@@ -87,8 +85,6 @@ EXPORT_SYMBOL(csum_partial_copy);
  */
 EXPORT_SYMBOL(_flush_page_to_ram);
 EXPORT_SYMBOL(_flush_cache_all);
-EXPORT_SYMBOL(_dma_cache_wback_inv);
-EXPORT_SYMBOL(_dma_cache_inv);
 
 EXPORT_SYMBOL(invalid_pte_table);
 
@@ -99,11 +95,6 @@ EXPORT_SYMBOL(__down);
 EXPORT_SYMBOL(__down_interruptible);
 EXPORT_SYMBOL(__down_trylock);
 EXPORT_SYMBOL(__up);
-
-/*
- * Base address of ports for Intel style I/O.
- */
-EXPORT_SYMBOL(mips_io_port_base);
 
 /*
  * Architecture specific stuff.
@@ -124,9 +115,6 @@ EXPORT_SYMBOL(hpc3c0);
 #include <asm/branch.h>
 #include <linux/sched.h>
 
-int register_fpe(void (*handler)(struct pt_regs *regs, unsigned int fcr31));
-int unregister_fpe(void (*handler)(struct pt_regs *regs, unsigned int fcr31));
-
 #ifdef CONFIG_VT
 EXPORT_SYMBOL(screen_info);
 #endif
@@ -136,4 +124,3 @@ EXPORT_SYMBOL(ide_ops);
 #endif
 
 EXPORT_SYMBOL(get_wchan);
-EXPORT_SYMBOL(flush_tlb_page);

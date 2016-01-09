@@ -347,3 +347,18 @@ sys_call_table:
 	PTR	sys_mincore
 	PTR	sys_madvise
 	PTR	sys_getdents64
+	PTR	sys_ni_syscall
+	PTR	sys_gettid				/* 5215 */
+	PTR	sys_readahead
+	PTR	sys_ni_syscall			/* reserved for setxattr */
+	PTR	sys_ni_syscall			/* reserved for lsetxattr */
+	PTR	sys_ni_syscall			/* reserved for fsetxattr */
+	PTR	sys_ni_syscall			/* 5220 res. for getxattr */
+	PTR	sys_ni_syscall			/* reserved for lgetxattr */
+	PTR	sys_ni_syscall			/* reserved for fgetxattr */
+	PTR	sys_ni_syscall			/* reserved for listxattr */
+	PTR	sys_ni_syscall			/* reserved for llistxattr */
+	PTR	sys_ni_syscall			/* 5225 res. for flistxattr */
+	PTR	sys_ni_syscall			/* reserved for removexattr */
+	PTR	sys_ni_syscall			/* reserved for lremovexattr */
+	PTR	sys_ni_syscall			/* reserved for fremovexattr */

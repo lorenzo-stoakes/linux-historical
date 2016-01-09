@@ -191,6 +191,7 @@
 #ifdef MODULE
    static char *ips = NULL;
    MODULE_PARM(ips, "s");
+   MODULE_LICENSE("GPL");
 #endif
 
 /*

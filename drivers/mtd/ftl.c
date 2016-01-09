@@ -87,7 +87,7 @@
 #define register_disk(dev, drive, minors, ops, size) \
     do { (dev)->part[(drive)*(minors)].nr_sects = size; \
         if (size == 0) (dev)->part[(drive)*(minors)].start_sect = -1; \
-        resetup_one_dev(dev, drive); } while (0);
+        resetup_one_dev(dev, drive); } while (0)
 #endif
 
 #if (LINUX_VERSION_CODE < 0x20320)

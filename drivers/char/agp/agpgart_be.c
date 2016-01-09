@@ -410,34 +410,8 @@ static void agp_generic_agp_enable(u32 mode)
 	 */
 
 
-	pci_for_each_dev(device)
-	{
-		/*
-		 *	Enable AGP devices. Most will be VGA display but
-		 *	some may be coprocessors on non VGA devices too
-		 */
-		 
-		if((((device->class >> 16) & 0xFF) != PCI_BASE_CLASS_DISPLAY) &&
-			(device->class != (PCI_CLASS_PROCESSOR_CO << 8)))
-			continue;
-
-		pci_read_config_dword(device, 0x04, &scratch);
-
-		if (!(scratch & 0x00100000))
-			continue;
-
-		pci_read_config_byte(device, 0x34, &cap_ptr);
-
-		if (cap_ptr != 0x00) {
-			do {
-				pci_read_config_dword(device,
-						      cap_ptr, &cap_id);
-
-				if ((cap_id & 0xff) != 0x02)
-					cap_ptr = (cap_id >> 8) & 0xff;
-			}
-			while (((cap_id & 0xff) != 0x02) && (cap_ptr != 0x00));
-		}
+	pci_for_each_dev(device) {
+		cap_ptr = pci_find_capability(device, PCI_CAP_ID_AGP);
 		if (cap_ptr != 0x00) {
 			/*
 			 * Ok, here we have a AGP device. Disable impossible 
@@ -506,25 +480,8 @@ static void agp_generic_agp_enable(u32 mode)
 	 *        command registers.
 	 */
 
-	while ((device = pci_find_class(PCI_CLASS_DISPLAY_VGA << 8,
-					device)) != NULL) {
-		pci_read_config_dword(device, 0x04, &scratch);
-
-		if (!(scratch & 0x00100000))
-			continue;
-
-		pci_read_config_byte(device, 0x34, &cap_ptr);
-
-		if (cap_ptr != 0x00) {
-			do {
-				pci_read_config_dword(device,
-						      cap_ptr, &cap_id);
-
-				if ((cap_id & 0xff) != 0x02)
-					cap_ptr = (cap_id >> 8) & 0xff;
-			}
-			while (((cap_id & 0xff) != 0x02) && (cap_ptr != 0x00));
-		}
+	pci_for_each_dev(device) {
+		cap_ptr = pci_find_capability(device, PCI_CAP_ID_AGP);
 		if (cap_ptr != 0x00)
 			pci_write_config_dword(device, cap_ptr + 8, command);
 	}
@@ -622,7 +579,7 @@ static int agp_generic_create_gatt_table(void)
 	table_end = table + ((PAGE_SIZE * (1 << page_order)) - 1);
 
 	for (page = virt_to_page(table); page <= virt_to_page(table_end); page++)
-		set_bit(PG_reserved, &page->flags);
+		SetPageReserved(page);
 
 	agp_bridge.gatt_table_real = (unsigned long *) table;
 	CACHE_FLUSH();
@@ -632,7 +589,7 @@ static int agp_generic_create_gatt_table(void)
 
 	if (agp_bridge.gatt_table == NULL) {
 		for (page = virt_to_page(table); page <= virt_to_page(table_end); page++)
-			clear_bit(PG_reserved, &page->flags);
+			ClearPageReserved(page);
 
 		free_pages((unsigned long) table, page_order);
 
@@ -699,7 +656,7 @@ static int agp_generic_free_gatt_table(void)
 	table_end = table + ((PAGE_SIZE * (1 << page_order)) - 1);
 
 	for (page = virt_to_page(table); page <= virt_to_page(table_end); page++)
-		clear_bit(PG_reserved, &page->flags);
+		ClearPageReserved(page);
 
 	free_pages((unsigned long) agp_bridge.gatt_table_real, page_order);
 	return 0;
@@ -812,8 +769,8 @@ static unsigned long agp_generic_alloc_page(void)
 	if (page == NULL) {
 		return 0;
 	}
-	atomic_inc(&page->count);
-	set_bit(PG_locked, &page->flags);
+	get_page(page);
+	LockPage(page);
 	atomic_inc(&agp_bridge.current_memory_agp);
 	return (unsigned long)page_address(page);
 }
@@ -828,9 +785,8 @@ static void agp_generic_destroy_page(unsigned long addr)
 	}
 	
 	page = virt_to_page(pt);
-	atomic_dec(&page->count);
-	clear_bit(PG_locked, &page->flags);
-	wake_up(&page->wait);
+	put_page(page);
+	UnlockPage(page);
 	free_page((unsigned long) pt);
 	atomic_dec(&agp_bridge.current_memory_agp);
 }
@@ -2285,13 +2241,12 @@ static int amd_create_page_map(amd_page_map *page_map)
 	if (page_map->real == NULL) {
 		return -ENOMEM;
 	}
-	set_bit(PG_reserved, &virt_to_page(page_map->real)->flags);
+	SetPageReserved(virt_to_page(page_map->real));
 	CACHE_FLUSH();
 	page_map->remapped = ioremap_nocache(virt_to_phys(page_map->real), 
 					    PAGE_SIZE);
 	if (page_map->remapped == NULL) {
-		clear_bit(PG_reserved, 
-			  &virt_to_page(page_map->real)->flags);
+		ClearPageReserved(virt_to_page(page_map->real));
 		free_page((unsigned long) page_map->real);
 		page_map->real = NULL;
 		return -ENOMEM;
@@ -2308,8 +2263,7 @@ static int amd_create_page_map(amd_page_map *page_map)
 static void amd_free_page_map(amd_page_map *page_map)
 {
 	iounmap(page_map->remapped);
-	clear_bit(PG_reserved, 
-		  &virt_to_page(page_map->real)->flags);
+	ClearPageReserved(virt_to_page(page_map->real));
 	free_page((unsigned long) page_map->real);
 }
 
@@ -2797,8 +2751,8 @@ static unsigned long ali_alloc_page(void)
 	if (page == NULL)
 		return 0;
 
-	atomic_inc(&page->count);
-	set_bit(PG_locked, &page->flags);
+	get_page(page);
+	LockPage(page);
 	atomic_inc(&agp_bridge.current_memory_agp);
 
 	global_cache_flush();
@@ -2833,9 +2787,8 @@ static void ali_destroy_page(unsigned long addr)
 	}
 
 	page = virt_to_page(pt);
-	atomic_dec(&page->count);
-	clear_bit(PG_locked, &page->flags);
-	wake_up(&page->wait);
+	put_page(page);
+	UnlockPage(page);
 	free_page((unsigned long) pt);
 	atomic_dec(&agp_bridge.current_memory_agp);
 }
@@ -2917,13 +2870,12 @@ static int serverworks_create_page_map(serverworks_page_map *page_map)
 	if (page_map->real == NULL) {
 		return -ENOMEM;
 	}
-	set_bit(PG_reserved, &virt_to_page(page_map->real)->flags);
+	SetPageReserved(virt_to_page(page_map->real));
 	CACHE_FLUSH();
 	page_map->remapped = ioremap_nocache(virt_to_phys(page_map->real), 
 					    PAGE_SIZE);
 	if (page_map->remapped == NULL) {
-		clear_bit(PG_reserved, 
-			  &virt_to_page(page_map->real)->flags);
+		ClearPageReserved(virt_to_page(page_map->real));
 		free_page((unsigned long) page_map->real);
 		page_map->real = NULL;
 		return -ENOMEM;
@@ -2940,8 +2892,7 @@ static int serverworks_create_page_map(serverworks_page_map *page_map)
 static void serverworks_free_page_map(serverworks_page_map *page_map)
 {
 	iounmap(page_map->remapped);
-	clear_bit(PG_reserved, 
-		  &virt_to_page(page_map->real)->flags);
+	ClearPageReserved(virt_to_page(page_map->real));
 	free_page((unsigned long) page_map->real);
 }
 
@@ -3331,24 +3282,8 @@ static void serverworks_agp_enable(u32 mode)
 	 */
 
 
-	pci_for_each_dev(device)
-	{
-		/*
-		 *	Enable AGP devices. Most will be VGA display but
-		 *	some may be coprocessors on non VGA devices too
-		 */
-		 
-		if((((device->class >> 16) & 0xFF) != PCI_BASE_CLASS_DISPLAY) &&
-			(device->class != (PCI_CLASS_PROCESSOR_CO << 8)))
-			continue;
-
-		pci_read_config_dword(device, 0x04, &scratch);
-
-		if (!(scratch & 0x00100000))
-			continue;
-
-		pci_read_config_byte(device, 0x34, &cap_ptr);
-
+	pci_for_each_dev(device) {
+		cap_ptr = pci_find_capability(device, PCI_CAP_ID_AGP);
 		if (cap_ptr != 0x00) {
 			do {
 				pci_read_config_dword(device,
@@ -3426,25 +3361,8 @@ static void serverworks_agp_enable(u32 mode)
 	 *        command registers.
 	 */
 
-	while ((device = pci_find_class(PCI_CLASS_DISPLAY_VGA << 8,
-					device)) != NULL) {
-		pci_read_config_dword(device, 0x04, &scratch);
-
-		if (!(scratch & 0x00100000))
-			continue;
-
-		pci_read_config_byte(device, 0x34, &cap_ptr);
-
-		if (cap_ptr != 0x00) {
-			do {
-				pci_read_config_dword(device,
-						      cap_ptr, &cap_id);
-
-				if ((cap_id & 0xff) != 0x02)
-					cap_ptr = (cap_id >> 8) & 0xff;
-			}
-			while (((cap_id & 0xff) != 0x02) && (cap_ptr != 0x00));
-		}
+	pci_for_each_dev(device) {
+		cap_ptr = pci_find_capability(device, PCI_CAP_ID_AGP);
 		if (cap_ptr != 0x00)
 			pci_write_config_dword(device, cap_ptr + 8, command);
 	}
@@ -4042,20 +3960,7 @@ static int __init agp_find_supported_device(void)
 #endif	/* CONFIG_AGP_SWORKS */
 
 	/* find capndx */
-	pci_read_config_dword(dev, 0x04, &scratch);
-	if (!(scratch & 0x00100000))
-		return -ENODEV;
-
-	pci_read_config_byte(dev, 0x34, &cap_ptr);
-	if (cap_ptr != 0x00) {
-		do {
-			pci_read_config_dword(dev, cap_ptr, &cap_id);
-
-			if ((cap_id & 0xff) != 0x02)
-				cap_ptr = (cap_id >> 8) & 0xff;
-		}
-		while (((cap_id & 0xff) != 0x02) && (cap_ptr != 0x00));
-	}
+	cap_ptr = pci_find_capability(dev, PCI_CAP_ID_AGP);
 	if (cap_ptr == 0x00)
 		return -ENODEV;
 	agp_bridge.capndx = cap_ptr;

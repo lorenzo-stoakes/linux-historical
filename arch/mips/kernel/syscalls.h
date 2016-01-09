@@ -235,3 +235,18 @@ SYS(sys_mincore, 3)
 SYS(sys_madvise, 3)
 SYS(sys_getdents64, 3)
 SYS(sys_fcntl64, 3)				/* 4220 */
+SYS(sys_ni_syscall, 0)
+SYS(sys_gettid, 0)
+SYS(sys_readahead, 5)
+SYS(sys_ni_syscall, 0)				/* reserved for setxattr */
+SYS(sys_ni_syscall, 0)				/* 4225 res. for lsetxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for fsetxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for getxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for lgetxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for fgetxattr */
+SYS(sys_ni_syscall, 0)				/* 4230 res. for listxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for llistxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for flistxattr */
+SYS(sys_ni_syscall, 0)				/* reserved for removexattr */
+SYS(sys_ni_syscall, 0)				/* reserved for lremovexattr */
+SYS(sys_ni_syscall, 0)				/* 4235 res. for fremovexattr */

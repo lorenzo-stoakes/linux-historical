@@ -77,12 +77,9 @@ int kstack_depth_to_print = 24;
  */
 #define MODULE_RANGE (8*1024*1024)
 
-#ifndef CONFIG_CPU_HAS_LLSC
 /*
  * This stuff is needed for the userland ll-sc emulation for R2300
  */
-void simulate_ll(struct pt_regs *regs, unsigned int opcode);
-void simulate_sc(struct pt_regs *regs, unsigned int opcode);
 
 #define OPCODE 0xfc000000
 #define BASE   0x03e00000
@@ -90,7 +87,96 @@ void simulate_sc(struct pt_regs *regs, unsigned int opcode);
 #define OFFSET 0x0000ffff
 #define LL     0xc0000000
 #define SC     0xe0000000
+
+/*
+ * The ll_bit is cleared by r*_switch.S
+ */
+
+unsigned long ll_bit;
+#ifdef CONFIG_PROC_FS
+extern unsigned long ll_ops;
+extern unsigned long sc_ops;
 #endif
+
+static struct task_struct *ll_task = NULL;
+
+static inline void simulate_ll(struct pt_regs *regp, unsigned int opcode)
+{
+	unsigned long value, *vaddr;
+	long offset;
+	int signal = 0;
+
+	/*
+	 * analyse the ll instruction that just caused a ri exception
+	 * and put the referenced address to addr.
+	 */
+
+	/* sign extend offset */
+	offset = opcode & OFFSET;
+	offset <<= 16;
+	offset >>= 16;
+
+	vaddr = (unsigned long *)((long)(regp->regs[(opcode & BASE) >> 21]) + offset);
+
+#ifdef CONFIG_PROC_FS
+	ll_ops++;
+#endif
+
+	if ((unsigned long)vaddr & 3)
+		signal = SIGBUS;
+	else if (get_user(value, vaddr))
+		signal = SIGSEGV;
+	else {
+		if (ll_task == NULL || ll_task == current) {
+			ll_bit = 1;
+		} else {
+			ll_bit = 0;
+		}
+		ll_task = current;
+		regp->regs[(opcode & RT) >> 16] = value;
+	}
+	if (compute_return_epc(regp))
+		return;
+	if (signal)
+		send_sig(signal, current, 1);
+}
+
+static inline void simulate_sc(struct pt_regs *regp, unsigned int opcode)
+{
+	unsigned long *vaddr, reg;
+	long offset;
+	int signal = 0;
+
+	/*
+	 * analyse the sc instruction that just caused a ri exception
+	 * and put the referenced address to addr.
+	 */
+
+	/* sign extend offset */
+	offset = opcode & OFFSET;
+	offset <<= 16;
+	offset >>= 16;
+
+	vaddr = (unsigned long *)((long)(regp->regs[(opcode & BASE) >> 21]) + offset);
+	reg = (opcode & RT) >> 16;
+
+#ifdef CONFIG_PROC_FS
+	sc_ops++;
+#endif
+
+	if ((unsigned long)vaddr & 3)
+		signal = SIGBUS;
+	else if (ll_bit == 0 || ll_task != current)
+		regp->regs[reg] = 0;
+	else if (put_user(regp->regs[reg], vaddr))
+		signal = SIGSEGV;
+	else
+		regp->regs[reg] = 1;
+	if (compute_return_epc(regp))
+		return;
+	if (signal)
+		send_sig(signal, current, 1);
+}
 
 /*
  * This routine abuses get_user()/put_user() to reference pointers
@@ -101,7 +187,7 @@ void show_stack(unsigned int *sp)
 	int i;
 	unsigned int *stack;
 
-	stack = sp;
+	stack = sp ? sp : (unsigned int *)&sp;
 	i = 0;
 
 	printk("Stack:");
@@ -128,12 +214,13 @@ void show_stack(unsigned int *sp)
 void show_trace(unsigned int *sp)
 {
 	int i;
+	int column = 0;
 	unsigned int *stack;
 	unsigned long kernel_start, kernel_end;
 	unsigned long module_start, module_end;
 	extern char _stext, _etext;
 
-	stack = sp;
+	stack = sp ? sp : (unsigned int *) &sp;
 	i = 0;
 
 	kernel_start = (unsigned long) &_stext;
@@ -164,12 +251,23 @@ void show_trace(unsigned int *sp)
 		    (addr >= module_start && addr < module_end)) { 
 
 			printk(" [<%08lx>]", addr);
+			if (column++ == 5) {
+				printk("\n");
+				column = 0;
+			}
 			if (++i > 40) {
 				printk(" ...");
 				break;
 			}
 		}
 	}
+	if (column != 0)
+		printk("\n");
+}
+
+void show_trace_task(struct task_struct *tsk)
+{
+	show_trace((unsigned int *)tsk->thread.reg29);
 }
 
 void show_code(unsigned int *pc)
@@ -188,17 +286,36 @@ void show_code(unsigned int *pc)
 	}
 }
 
-spinlock_t die_lock;
-
-extern void __die(const char * str, struct pt_regs * regs, const char *where,
-                  unsigned long line)
+void show_regs(struct pt_regs * regs)
 {
-	console_verbose();
-	spin_lock_irq(&die_lock);
-	printk("%s", str);
-	if (where)
-		printk(" in %s, line %ld", where, line);
-	printk(":\n");
+	/*
+	 * Saved main processor registers
+	 */
+	printk("$0 : %08x %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	       0,             regs->regs[1], regs->regs[2], regs->regs[3],
+	       regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
+	printk("$8 : %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	       regs->regs[8],  regs->regs[9],  regs->regs[10], regs->regs[11],
+               regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
+	printk("$16: %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+	       regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19],
+               regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
+	printk("$24: %08lx %08lx                   %08lx %08lx %08lx %08lx\n",
+	       regs->regs[24], regs->regs[25],
+	       regs->regs[28], regs->regs[29], regs->regs[30], regs->regs[31]);
+	printk("Hi : %08lx\n", regs->hi);
+	printk("Lo : %08lx\n", regs->lo);
+
+	/*
+	 * Saved cp0 registers
+	 */
+	printk("epc  : %08lx    %s\nStatus: %08lx\nCause : %08lx\n",
+	       regs->cp0_epc, print_tainted(), regs->cp0_status,
+	       regs->cp0_cause);
+}
+
+void show_registers(struct pt_regs *regs)
+{
 	show_regs(regs);
 	printk("Process %s (pid: %d, stackpage=%08lx)\n",
 		current->comm, current->pid, (unsigned long) current);
@@ -206,6 +323,20 @@ extern void __die(const char * str, struct pt_regs * regs, const char *where,
 	show_trace((unsigned int *) regs->regs[29]);
 	show_code((unsigned int *) regs->cp0_epc);
 	printk("\n");
+}
+
+static spinlock_t die_lock = SPIN_LOCK_UNLOCKED;
+
+void __die(const char * str, struct pt_regs * regs, const char *where,
+           unsigned long line)
+{
+	console_verbose();
+	spin_lock_irq(&die_lock);
+	printk("%s", str);
+	if (where)
+		printk(" in %s, line %ld", where, line);
+	printk(":\n");
+	show_registers(regs);
 	spin_unlock_irq(&die_lock);
 	do_exit(SIGSEGV);
 }
@@ -375,7 +506,6 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		return;
 
 	force_sig(SIGFPE, current);
-	printk(KERN_DEBUG "Sent send SIGFPE to %s\n", current->comm);
 }
 
 static inline int get_insn_opcode(struct pt_regs *regs, unsigned int *opcode)
@@ -424,7 +554,7 @@ asmlinkage void do_bp(struct pt_regs *regs)
 			info.si_code = FPE_INTOVF;
 		info.si_signo = SIGFPE;
 		info.si_errno = 0;
-		info.si_addr = (void *)compute_return_epc(regs);
+		info.si_addr = (void *)regs->cp0_epc;
 		force_sig_info(SIGFPE, &info, current);
 		break;
 	default:
@@ -464,7 +594,7 @@ asmlinkage void do_tr(struct pt_regs *regs)
 			info.si_code = FPE_INTOVF;
 		info.si_signo = SIGFPE;
 		info.si_errno = 0;
-		info.si_addr = (void *)compute_return_epc(regs);
+		info.si_addr = (void *)regs->cp0_epc;
 		force_sig_info(SIGFPE, &info, current);
 		break;
 	default:
@@ -476,12 +606,6 @@ sigsegv:
 	force_sig(SIGSEGV, current);
 }
 
-#ifndef CONFIG_CPU_HAS_LLSC
-
-#ifdef CONFIG_SMP
-#error "ll/sc emulation is not SMP safe"
-#endif
-
 /*
  * userland emulation for R2300 CPUs
  * needed for the multithreading part of glibc
@@ -491,10 +615,17 @@ sigsegv:
  */
 asmlinkage void do_ri(struct pt_regs *regs)
 {
-	unsigned int opcode;
-
 	if (!user_mode(regs))
 		BUG();
+
+#ifndef CONFIG_CPU_HAS_LLSC
+
+#ifdef CONFIG_SMP
+#error "ll/sc emulation is not SMP safe"
+#endif
+
+	{
+	unsigned int opcode;
 
 	if (!get_insn_opcode(regs, &opcode)) {
 		if ((opcode & OPCODE) == LL) {
@@ -506,121 +637,19 @@ asmlinkage void do_ri(struct pt_regs *regs)
 			return;
 		}
 	}
-
-	if (compute_return_epc(regs))
-		return;
-	force_sig(SIGILL, current);
-}
-
-/*
- * The ll_bit is cleared by r*_switch.S
- */
-
-unsigned long ll_bit;
-#ifdef CONFIG_PROC_FS
-extern unsigned long ll_ops;
-extern unsigned long sc_ops;
-#endif
-
-static struct task_struct *ll_task = NULL;
-
-void simulate_ll(struct pt_regs *regp, unsigned int opcode)
-{
-	unsigned long value, *vaddr;
-	long offset;
-	int signal = 0;
-
-	/*
-	 * analyse the ll instruction that just caused a ri exception
-	 * and put the referenced address to addr.
-	 */
-
-	/* sign extend offset */
-	offset = opcode & OFFSET;
-	offset <<= 16;
-	offset >>= 16;
-
-	vaddr = (unsigned long *)((long)(regp->regs[(opcode & BASE) >> 21]) + offset);
-
-#ifdef CONFIG_PROC_FS
-	ll_ops++;
-#endif
-
-	if ((unsigned long)vaddr & 3)
-		signal = SIGBUS;
-	else if (get_user(value, vaddr))
-		signal = SIGSEGV;
-	else {
-		if (ll_task == NULL || ll_task == current) {
-			ll_bit = 1;
-		} else {
-			ll_bit = 0;
-		}
-		ll_task = current;
-		regp->regs[(opcode & RT) >> 16] = value;
 	}
-	if (compute_return_epc(regp))
-		return;
-	if (signal)
-		send_sig(signal, current, 1);
-}
+#endif /* CONFIG_CPU_HAS_LLSC */
 
-void simulate_sc(struct pt_regs *regp, unsigned int opcode)
-{
-	unsigned long *vaddr, reg;
-	long offset;
-	int signal = 0;
-
-	/*
-	 * analyse the sc instruction that just caused a ri exception
-	 * and put the referenced address to addr.
-	 */
-
-	/* sign extend offset */
-	offset = opcode & OFFSET;
-	offset <<= 16;
-	offset >>= 16;
-
-	vaddr = (unsigned long *)((long)(regp->regs[(opcode & BASE) >> 21]) + offset);
-	reg = (opcode & RT) >> 16;
-
-#ifdef CONFIG_PROC_FS
-	sc_ops++;
-#endif
-
-	if ((unsigned long)vaddr & 3)
-		signal = SIGBUS;
-	else if (ll_bit == 0 || ll_task != current)
-		regp->regs[reg] = 0;
-	else if (put_user(regp->regs[reg], vaddr))
-		signal = SIGSEGV;
-	else
-		regp->regs[reg] = 1;
-	if (compute_return_epc(regp))
-		return;
-	if (signal)
-		send_sig(signal, current, 1);
-}
-
-#else /* MIPS 2 or higher */
-
-asmlinkage void do_ri(struct pt_regs *regs)
-{
-	unsigned int opcode;
-
-	get_insn_opcode(regs, &opcode);
 	if (compute_return_epc(regs))
 		return;
-
 	force_sig(SIGILL, current);
 }
-
-#endif
 
 asmlinkage void do_cpu(struct pt_regs *regs)
 {
 	unsigned int cpid;
 	extern void lazy_fpu_switch(void *);
+	extern void save_fp(struct task_struct *);
 	extern void init_fpu(void);
 	void fpu_emulator_init_fpu(void);
 	int sig;
@@ -639,10 +668,13 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	if (current->used_math) {		/* Using the FPU again.  */
 		lazy_fpu_switch(last_task_used_math);
 	} else {				/* First time FPU user.  */
+		if (last_task_used_math != NULL)
+			save_fp(last_task_used_math);
 		init_fpu();
 		current->used_math = 1;
 	}
 	last_task_used_math = current;
+
 	return;
 
 fp_emul:
@@ -659,15 +691,27 @@ fp_emul:
 	return;
 
 bad_cid:
+#ifndef CONFIG_CPU_HAS_LLSC
+	switch (mips_cpu.cputype) {
+	case CPU_TX3927:
+	case CPU_TX39XX:
+		do_ri(regs);
+		return;
+	}
+#endif
+	compute_return_epc(regs);
 	force_sig(SIGILL, current);
 }
 
 asmlinkage void do_watch(struct pt_regs *regs)
 {
+	extern void dump_tlb_all(void);
+
 	/*
 	 * We use the watch exception where available to detect stack
 	 * overflows.
 	 */
+	dump_tlb_all();
 	show_regs(regs);
 	panic("Caught WATCH exception - probably caused by stack overflow.");
 }
@@ -782,18 +826,31 @@ extern asmlinkage int _restore_fp_context(struct sigcontext *sc);
 extern asmlinkage int fpu_emulator_save_context(struct sigcontext *sc);
 extern asmlinkage int fpu_emulator_restore_context(struct sigcontext *sc);
 
+void __init per_cpu_trap_init(void)
+{
+	unsigned int cpu = smp_processor_id();
+
+	/* Some firmware leaves the BEV flag set, clear it.  */
+	clear_cp0_status(ST0_BEV);
+
+	/*
+	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
+	 * interrupt processing overhead.  Use it where available.
+	 */
+	if (mips_cpu.options & MIPS_CPU_DIVEC)
+		set_cp0_cause(CAUSEF_IV);
+
+	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
+	set_context(cpu << 23);
+}
+
 void __init trap_init(void)
 {
-	extern char except_vec0_nevada, except_vec0_r4000;
-	extern char except_vec0_r4600, except_vec0_r2300;
 	extern char except_vec1_generic, except_vec2_generic;
 	extern char except_vec3_generic, except_vec3_r4000;
 	extern char except_vec4;
 	extern char except_vec_ejtag_debug;
 	unsigned long i;
-
-	/* Some firmware leaves the BEV flag set, clear it.  */
-	clear_cp0_status(ST0_BEV);
 
 	/* Copy the generic exception handler code to it's final destination. */
 	memcpy((void *)(KSEG0 + 0x80), &except_vec1_generic, 0x80);
@@ -810,7 +867,8 @@ void __init trap_init(void)
 	 * Copy the EJTAG debug exception vector handler code to it's final 
 	 * destination.
 	 */
-	memcpy((void *)(KSEG0 + 0x300), &except_vec_ejtag_debug, 0x80);
+	if (mips_cpu.options & MIPS_CPU_EJTAG)
+		memcpy((void *)(KSEG0 + 0x200), &except_vec_ejtag_debug, 0x80);
 
 	/*
 	 * Only some CPUs have the watch exceptions or a dedicated
@@ -858,19 +916,14 @@ void __init trap_init(void)
 
 	if (mips_cpu.options & MIPS_CPU_FPU)
 		set_except_vector(15, handle_fpe);
+	if (mips_cpu.options & MIPS_CPU_MCHECK)
+		set_except_vector(24, handle_mcheck);
 
 	/*
 	 * Handling the following exceptions depends mostly of the cpu type
 	 */
 	if ((mips_cpu.options & MIPS_CPU_4KEX)
 	    && (mips_cpu.options & MIPS_CPU_4KTLB)) {
-		if (mips_cpu.cputype == CPU_NEVADA) {
-			memcpy((void *)KSEG0, &except_vec0_nevada, 0x80);
-		} else if (mips_cpu.cputype == CPU_R4600)
-			memcpy((void *)KSEG0, &except_vec0_r4600, 0x80);
-		else
-			memcpy((void *)KSEG0, &except_vec0_r4000, 0x80);
-
 		/* Cache error vector already set above.  */
 
 		if (mips_cpu.options & MIPS_CPU_VCE) {
@@ -894,8 +947,14 @@ void __init trap_init(void)
 		 * XXX - This should be folded in to the "cleaner" handling,
 		 * above
 		 */
-		memcpy((void *)KSEG0, &except_vec0_r4000, 0x80);
 		memcpy((void *)(KSEG0 + 0x180), &except_vec3_r4000, 0x80);
+#ifdef CONFIG_SB1_CACHE_ERROR
+		/* Special cache error handler for SB1 */
+		extern char except_vec2_sb1;
+		memcpy((void *)(KSEG0 + 0x100), &except_vec2_sb1, 0x80);
+		memcpy((void *)(KSEG1 + 0x100), &except_vec2_sb1, 0x80);
+#endif
+
 		save_fp_context = _save_fp_context;
 		restore_fp_context = _restore_fp_context;
 
@@ -907,7 +966,7 @@ void __init trap_init(void)
 	case CPU_R6000A:
 	        save_fp_context = _save_fp_context;
 		restore_fp_context = _restore_fp_context;
-		
+
 		/*
 		 * The R6000 is the only R-series CPU that features a machine
 		 * check exception (similar to the R4000 cache error) and
@@ -929,9 +988,9 @@ void __init trap_init(void)
 	case CPU_TX3912:
 	case CPU_TX3922:
 	case CPU_TX3927:
+	case CPU_TX39XX:
 	        save_fp_context = _save_fp_context;
 		restore_fp_context = _restore_fp_context;
-		memcpy((void *)KSEG0, &except_vec0_r2300, 0x80);
 		memcpy((void *)(KSEG0 + 0x80), &except_vec3_generic, 0x80);
 		break;
 
@@ -939,6 +998,11 @@ void __init trap_init(void)
 	default:
 		panic("Unknown CPU type");
 	}
+	if (!(mips_cpu.options & MIPS_CPU_FPU)) {
+		save_fp_context = fpu_emulator_save_context;
+		restore_fp_context = fpu_emulator_restore_context;
+	}
+
 	flush_icache_range(KSEG0, KSEG0 + 0x200);
 
 	if (mips_cpu.isa_level == MIPS_CPU_ISA_IV)
@@ -946,6 +1010,8 @@ void __init trap_init(void)
 
 	atomic_inc(&init_mm.mm_count);	/* XXX  UP?  */
 	current->active_mm = &init_mm;
-	write_32bit_cp0_register(CP0_CONTEXT, smp_processor_id()<<23);
-	current_pgd[0] = init_mm.pgd;
+
+	/* XXX Must be done for all CPUs  */
+	current_cpu_data.asid_cache = ASID_FIRST_VERSION;
+	TLBMISS_HANDLER_SETUP();
 }

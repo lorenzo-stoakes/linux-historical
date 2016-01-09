@@ -3167,6 +3167,13 @@ CONFIG_SGI_DS1286
   via the file /proc/rtc and its behaviour is set by various ioctls on
   /dev/rtc.
 
+Indy/I2 Hardware Watchdog
+CONFIG_INDYDOG
+  Hardwaredriver for the Indy's/I2's watchdog. This is a
+  watchdog timer that will reboot the machine after a 60 second 
+  timer expired and no process has written to /dev/watchdog during
+  that time.
+
 Support the Bell Technologies HUB6 card
 CONFIG_HUB6
   Say Y here to enable support in the dumb serial driver to support
@@ -12702,6 +12709,30 @@ CONFIG_USB_LONG_TIMEOUT
   If you have an MGE Ellipse UPS, or you see timeouts in HID
   transactions, say Y; otherwise say N.
 
+EHCI (USB 2.0) support
+CONFIG_USB_EHCI_HCD
+  The Enhanced Host Controller Interface (EHCI) is standard for USB 2.0
+  "high speed" (480 Mbit/sec, 60 Mbyte/sec) host controller hardware.
+  If your USB host controller supports USB 2.0, you will likely want to
+  configure this Host Controller Driver.  At this writing, the primary
+  implementation of EHCI is a chip from NEC, widely available in add-on
+  PCI cards, but implementations are in the works from other vendors
+  including Intel and Philips.  Motherboard support is appearing.
+
+  EHCI controllers are packaged with "companion" host controllers (OHCI
+  or UHCI) to handle USB 1.1 devices connected to root hub ports.  Ports
+  will connect to EHCI if it the device is high speed, otherwise they
+  connect to a companion controller.  If you configure EHCI, you should
+  probably configure the OHCI (for NEC and some other vendors) USB Host
+  Controller Driver too.
+
+  You may want to read <file:Documentation/usb/ehci.txt>.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called ehci-hcd.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>.
+
 UHCI (Intel PIIX4, VIA, ...) support
 CONFIG_USB_UHCI
   The Universal Host Controller Interface is a standard by Intel for
@@ -14693,10 +14724,12 @@ CONFIG_ROMFS_FS
 
 QNX4 file system support (read only)
 CONFIG_QNX4FS_FS
-  This is the file system used by the operating system QNX 4. Say Y if
-  you intend to mount QNX hard disks or floppies. Unless you say Y to
-  "QNX4FS read-write support" below, you will only be able to read
-  these file systems.
+  This is the file system used by the real-time operating systems
+  QNX 4 and QNX 6 (the latter is also called QNX RTP).
+  Further information is available at <http://www.qnx.com/>.
+  Say Y if you intend to mount QNX hard disks or floppies.
+  Unless you say Y to "QNX4FS read-write support" below, you will
+  only be able to read these file systems.
 
   This file system support is also available as a module ( = code
   which can be inserted in and removed from the running kernel
@@ -14710,6 +14743,9 @@ CONFIG_QNX4FS_FS
 QNX4FS write support (DANGEROUS)
 CONFIG_QNX4FS_RW
   Say Y if you want to test write support for QNX4 file systems.
+
+  It's currently broken, so for now:
+  answer N.
 
 Kernel automounter support
 CONFIG_AUTOFS_FS
@@ -17622,6 +17658,17 @@ CONFIG_SH_WDT
   The module is called shwdt.o. If you want to compile it as a module,
   say M here and read Documentation/modules.txt.
 	      
+Machine Check Exception
+CONFIG_X86_MCE
+  Machine Check Exception support allows the processor to notify the
+  kernel if it detects a problem (e.g. overheating, component failure).
+  The action the kernel takes depends on the severity of the problem, 
+  ranging from a warning message on the console, to halting the machine.
+  Your processor must be a Pentium or newer to support this - check the 
+  flags in /proc/cpuinfo for mce.  Note that some older Pentium systems
+  have a design flaw which leads to false MCE events - for these and
+  old non-MCE processors (386, 486), say N.  Otherwise say Y.
+
 Toshiba Laptop support
 CONFIG_TOSHIBA
   This adds a driver to safely access the System Management Mode of

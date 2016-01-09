@@ -23,6 +23,7 @@
  *
  */
 
+#include <linux/types.h>
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
@@ -31,8 +32,10 @@
 
 #include <asm/mipsregs.h>
 #include <asm/ptrace.h>
+#include <asm/hardirq.h>
 #include <asm/div64.h>
 
+#include <linux/interrupt.h>
 #include <linux/mc146818rtc.h>
 #include <linux/timex.h>
 
@@ -133,13 +136,15 @@ static int set_rtc_mmss(unsigned long nowtime)
  */
 void mips_timer_interrupt(struct pt_regs *regs)
 {
+	int cpu = smp_processor_id();
 	int irq = 7;
 
 	if (r4k_offset == 0)
 		goto null;
 
+	irq_enter(cpu, irq);
 	do {
-		kstat.irqs[0][irq]++;
+		kstat.irqs[cpu][irq]++;
 		do_timer(regs);
 
 		/* Historical comment/code:
@@ -153,12 +158,13 @@ void mips_timer_interrupt(struct pt_regs *regs)
 		if ((time_status & STA_UNSYNC) == 0 
 		    && xtime.tv_sec > last_rtc_update + 660 
 		    && xtime.tv_usec >= 500000 - (tick >> 1) 
-		    && xtime.tv_usec <= 500000 + (tick >> 1))
+		    && xtime.tv_usec <= 500000 + (tick >> 1)) {
 			if (set_rtc_mmss(xtime.tv_sec) == 0)
 				last_rtc_update = xtime.tv_sec;
 			else
 				/* do it again in 60 s */
 	    			last_rtc_update = xtime.tv_sec - 600; 
+		}
 		read_unlock(&xtime_lock);
 
 		if ((timer_tick_count++ % HZ) == 0) {
@@ -172,6 +178,10 @@ void mips_timer_interrupt(struct pt_regs *regs)
 
 	} while (((unsigned long)read_32bit_cp0_register(CP0_COUNT)
 	         - r4k_cur) < 0x7fffffff);
+	irq_exit(cpu, irq);
+
+	if (softirq_pending(cpu))
+		do_softirq();
 
 	return;
 
@@ -245,7 +255,7 @@ static unsigned long __init get_mips_time(void)
 	return mktime(year, mon, day, hour, min, sec);
 }
 
-void __init time_init(void)
+void __init mips_time_init(void)
 {
         unsigned int est_freq, flags;
 
@@ -271,140 +281,4 @@ void __init time_init(void)
 	xtime.tv_sec = get_mips_time();
 	xtime.tv_usec = 0;
 	write_unlock_irqrestore(&xtime_lock, flags);
-}
-
-/* This is for machines which generate the exact clock. */
-#define USECS_PER_JIFFY (1000000/HZ)
-#define USECS_PER_JIFFY_FRAC ((1000000 << 32) / HZ & 0xffffffff)
-
-/* Cycle counter value at the previous timer interrupt.. */
-
-static unsigned int timerhi = 0, timerlo = 0;
-
-/*
- * FIXME: Does playing with the RP bit in c0_status interfere with this code?
- */
-static unsigned long do_fast_gettimeoffset(void)
-{
-	u32 count;
-	unsigned long res, tmp;
-
-	/* Last jiffy when do_fast_gettimeoffset() was called. */
-	static unsigned long last_jiffies=0;
-	unsigned long quotient;
-
-	/*
-	 * Cached "1/(clocks per usec)*2^32" value.
-	 * It has to be recalculated once each jiffy.
-	 */
-	static unsigned long cached_quotient=0;
-
-	tmp = jiffies;
-
-	quotient = cached_quotient;
-
-	if (tmp && last_jiffies != tmp) {
-		last_jiffies = tmp;
-#ifdef CONFIG_CPU_MIPS32
-		if (last_jiffies != 0) {
-			unsigned long r0;
-			do_div64_32(r0, timerhi, timerlo, tmp);
-			do_div64_32(quotient, USECS_PER_JIFFY,
-				    USECS_PER_JIFFY_FRAC, r0);
-			cached_quotient = quotient;
-		}
-#else
-		__asm__(".set\tnoreorder\n\t"
-			".set\tnoat\n\t"
-			".set\tmips3\n\t"
-			"lwu\t%0,%2\n\t"
-			"dsll32\t$1,%1,0\n\t"
-			"or\t$1,$1,%0\n\t"
-			"ddivu\t$0,$1,%3\n\t"
-			"mflo\t$1\n\t"
-			"dsll32\t%0,%4,0\n\t"
-			"nop\n\t"
-			"ddivu\t$0,%0,$1\n\t"
-			"mflo\t%0\n\t"
-			".set\tmips0\n\t"
-			".set\tat\n\t"
-			".set\treorder"
-			:"=&r" (quotient)
-			:"r" (timerhi),
-			 "m" (timerlo),
-			 "r" (tmp),
-			 "r" (USECS_PER_JIFFY)
-			:"$1");
-		cached_quotient = quotient;
-#endif
-	}
-
-	/* Get last timer tick in absolute kernel time */
-	count = read_32bit_cp0_register(CP0_COUNT);
-
-	/* .. relative to previous jiffy (32 bits is enough) */
-	count -= timerlo;
-
-	__asm__("multu\t%1,%2\n\t"
-		"mfhi\t%0"
-		:"=r" (res)
-		:"r" (count),
-		 "r" (quotient));
-
-	/*
- 	 * Due to possible jiffies inconsistencies, we need to check 
-	 * the result so that we'll get a timer that is monotonic.
-	 */
-	if (res >= USECS_PER_JIFFY)
-		res = USECS_PER_JIFFY-1;
-
-	return res;
-}
-
-void do_gettimeofday(struct timeval *tv)
-{
-	unsigned int flags;
-
-	read_lock_irqsave (&xtime_lock, flags);
-	*tv = xtime;
-	tv->tv_usec += do_fast_gettimeoffset();
-
-	/*
-	 * xtime is atomically updated in timer_bh. jiffies - wall_jiffies
-	 * is nonzero if the timer bottom half hasnt executed yet.
-	 */
-	if (jiffies - wall_jiffies)
-		tv->tv_usec += USECS_PER_JIFFY;
-
-	read_unlock_irqrestore (&xtime_lock, flags);
-
-	if (tv->tv_usec >= 1000000) {
-		tv->tv_usec -= 1000000;
-		tv->tv_sec++;
-	}
-}
-
-void do_settimeofday(struct timeval *tv)
-{
-	write_lock_irq (&xtime_lock);
-
-	/* This is revolting. We need to set the xtime.tv_usec correctly.
-	 * However, the value in this location is is value at the last tick.
-	 * Discover what correction gettimeofday would have done, and then
-	 * undo it!
-	 */
-	tv->tv_usec -= do_fast_gettimeoffset();
-
-	if (tv->tv_usec < 0) {
-		tv->tv_usec += 1000000;
-		tv->tv_sec--;
-	}
-
-	xtime = *tv;
-	time_adjust = 0;		/* stop active adjtime() */
-	time_status |= STA_UNSYNC;
-	time_maxerror = NTP_PHASE_LIMIT;
-	time_esterror = NTP_PHASE_LIMIT;
-
-	write_unlock_irq (&xtime_lock);
 }

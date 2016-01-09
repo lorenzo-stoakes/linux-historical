@@ -397,7 +397,7 @@ static LIST_HEAD(devs);
  * so that it cannot wreak havoc. The attribute makes sure it doesn't
  * cross a page boundary and ensures dword alignment for the DMA engine
  */
-static unsigned char bugbuf[16] __attribute__ ((aligned (16)));
+static unsigned char *bugbuf;  // [16] __attribute__ ((aligned (16)));
 
 /* --------------------------------------------------------------------- */
 
@@ -2564,6 +2564,11 @@ static int __devinit es1370_probe(struct pci_dev *pcidev, const struct pci_devic
 	mm_segment_t fs;
 	int i, val, ret;
 
+	if (bugbuf == NULL)
+		bugbuf = kmalloc(16, GFP_KERNEL);
+	if (bugbuf == NULL)
+		return -ENOMEM;
+	
 	if ((ret=pci_enable_device(pcidev)))
 		return ret;
 
@@ -2747,6 +2752,8 @@ static void __exit cleanup_es1370(void)
 {
 	printk(KERN_INFO "es1370: unloading\n");
 	pci_unregister_driver(&es1370_driver);
+	if(bugbuf)
+		kfree(bugbuf);
 }
 
 module_init(init_es1370);

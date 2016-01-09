@@ -105,20 +105,20 @@ symbol		=	value
 		TEXT(string)
 
 #define	TEXT(msg)                                       \
-		.data;                                  \
+		.pushsection .data;			\
 8:		.asciiz	msg;                            \
-		.previous;
+		.popsection;
 
 /*
  * Build text tables
  */
 #define TTABLE(string)                                  \
-		.text;                                  \
+		.pushsection .text;			\
 		.word	1f;                             \
-		.previous;                              \
-		.data;                                  \
+		.popsection				\
+		.pushsection .data;			\
 1:		.asciz	string;                         \
-		.previous
+		.popsection
 
 /*
  * MIPS IV pref instruction.
@@ -134,8 +134,8 @@ symbol		=	value
 #define PREFX(hint,addr)                                \
 		prefx	hint,addr
 #else
-#define PREF
-#define PREFX
+#define PREF(hint,addr)
+#define PREFX(hint,addr)
 #endif
 
 /*
@@ -360,5 +360,7 @@ symbol		=	value
 #define MFC0	dmfc0
 #define MTC0	dmtc0
 #endif
+
+#define SSNOP	sll zero, zero, 1
 
 #endif /* __ASM_ASM_H */

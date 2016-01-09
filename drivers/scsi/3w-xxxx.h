@@ -213,7 +213,7 @@ static char *tw_aen_string[] = {
 #ifdef TW_DEBUG
 #define dprintk(msg...) printk(msg)
 #else
-#define dprintk(msg...) do { } while(0);
+#define dprintk(msg...) do { } while(0)
 #endif
 
 /* Scatter Gather List Entry */

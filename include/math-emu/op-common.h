@@ -25,7 +25,7 @@
 #define __MATH_EMU_OP_COMMON_H__
 
 #define _FP_DECL(wc, X)			\
-  _FP_I_TYPE X##_c, X##_s, X##_e;	\
+  _FP_I_TYPE X##_c=0, X##_s=0, X##_e=0;	\
   _FP_FRAC_DECL_##wc(X)
 
 /*

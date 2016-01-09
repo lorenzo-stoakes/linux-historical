@@ -636,4 +636,4 @@ int vlan_ioctl_handler(unsigned long arg)
 	return err;
 }
 
-
+MODULE_LICENSE("GPL");

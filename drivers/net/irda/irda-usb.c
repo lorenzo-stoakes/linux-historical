@@ -1582,3 +1582,4 @@ MODULE_PARM(qos_mtt_bits, "i");
 MODULE_PARM_DESC(qos_mtt_bits, "Minimum Turn Time");
 MODULE_AUTHOR("Roman Weissgaerber <weissg@vienna.at>, Dag Brattli <dag@brattli.net> and Jean Tourrilhes <jt@hpl.hp.com>");
 MODULE_DESCRIPTION("IrDA-USB Dongle Driver"); 
+MODULE_LICENSE("GPL");

@@ -550,6 +550,14 @@ extern int init_private_file(struct file *, struct dentry *, int);
 
 #define	MAX_NON_LFS	((1UL<<31) - 1)
 
+/* Page cache limit. The filesystems should put that into their s_maxbytes 
+   limits, otherwise bad things can happen in VM. */ 
+#if BITS_PER_LONG==32
+#define MAX_LFS_FILESIZE	(((u64)PAGE_CACHE_SIZE << (BITS_PER_LONG-1))-1) 
+#elif BITS_PER_LONG==64
+#define MAX_LFS_FILESIZE 	0x7fffffffffffffff
+#endif
+
 #define FL_POSIX	1
 #define FL_FLOCK	2
 #define FL_BROKEN	4	/* broken flock() emulation */
@@ -1448,11 +1456,9 @@ extern char root_device_name[];
 
 
 extern void show_buffers(void);
-extern void mount_root(void);
 
 #ifdef CONFIG_BLK_DEV_INITRD
 extern unsigned int real_root_dev;
-extern int change_root(kdev_t, const char *);
 #endif
 
 extern ssize_t char_read(struct file *, char *, size_t, loff_t *);

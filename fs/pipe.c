@@ -129,6 +129,8 @@ out:
 out_nolock:
 	if (read)
 		ret = read;
+
+	UPDATE_ATIME(inode);
 	return ret;
 }
 

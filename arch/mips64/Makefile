@@ -46,22 +46,25 @@ endif
 # CPU-dependent compiler/assembler options for optimization.
 #
 ifdef CONFIG_CPU_R4300
-CFLAGS		:= $(CFLAGS) -mcpu=r4300 -mips3
+CFLAGS		+= -mcpu=r4300 -mips3
 endif
 ifdef CONFIG_CPU_R4X00
-CFLAGS		:= $(CFLAGS) -mcpu=r4600 -mips3
+CFLAGS		+= -mcpu=r4600 -mips3
 endif
 ifdef CONFIG_CPU_R5000
-CFLAGS		:= $(CFLAGS) -mcpu=r8000 -mips4
+CFLAGS		+= -mcpu=r8000 -mips4
 endif
 ifdef CONFIG_CPU_NEVADA
-CFLAGS		:= $(CFLAGS) -mcpu=r8000 -mips3 -mmad
+CFLAGS		+= -mcpu=r8000 -mips3 -mmad
 endif
 ifdef CONFIG_CPU_R8000
-CFLAGS		:= $(CFLAGS) -mcpu=r8000 -mips4
+CFLAGS		+= -mcpu=r8000 -mips4
 endif
 ifdef CONFIG_CPU_R10000
-CFLAGS		:= $(CFLAGS) -mcpu=r8000 -mips4
+CFLAGS		+= -mcpu=r8000 -mips4
+endif
+ifdef CONFIG_CPU_SB1
+CFLAGS		+= -mcpu=r8000 -mips4
 endif
 
 ifdef CONFIG_MIPS_FPU_EMULATOR
@@ -72,9 +75,21 @@ endif
 #
 # Board-dependent options and extra files
 #
+ifdef CONFIG_MIPS_ATLAS
+LIBS		+= arch/mips/mips-boards/atlas/atlas.o arch/mips/mips-boards/generic/mipsboards.o
+SUBDIRS		+= arch/mips/mips-boards/generic arch/mips/mips-boards/atlas
+LOADADDR	+= 0x80100000
+endif
+
+ifdef CONFIG_MIPS_MALTA
+LIBS		+= arch/mips/mips-boards/malta/malta.o arch/mips/mips-boards/generic/mipsboards.o
+SUBDIRS		+= arch/mips/mips-boards/malta arch/mips/mips-boards/generic
+LOADADDR	+= 0x80100000
+endif
+
 ifdef CONFIG_SGI_IP22
-LIBS          += arch/mips64/sgi-ip22/ip22.a arch/mips64/arc/arclib.a
-SUBDIRS       += arch/mips64/sgi-ip22 arch/mips64/arc
+LIBS          += arch/mips/sgi-ip22/ip22-kern.o arch/mips64/arc/arclib.a
+SUBDIRS       += arch/mips/sgi-ip22 arch/mips64/arc
 #
 # Set LOADADDR to >= 0x88069000 if you want to leave space for symmon,
 # 0x88004000 for production kernels.  Note that the value must be
@@ -109,6 +124,31 @@ SUBDIRS		+= arch/mips64/sgi-ip32 arch/mips64/arc
 # 16kb aligned or the handling of the current variable will break.
 #
 LOADADDR	+= 0x80002000
+endif
+
+#
+# Sibyte SB1250 SOC
+#
+ifdef CONFIG_SIBYTE_SB1250
+# This is a LIB so that it links at the end, and initcalls are later
+# the sequence; but it is built as an object so that modules don't get
+# removed (as happens, even if they have __initcall/module_init)
+LIBS          += arch/mips/sibyte/sb1250/sb1250.o
+SUBDIRS       += arch/mips/sibyte/sb1250 
+endif
+
+#
+# Sibyte SWARM board
+#
+ifdef CONFIG_SB1_CACHE_ERROR
+LIBS          += arch/mips/sibyte/sb1/sb1kern.a
+SUBDIRS       += arch/mips/sibyte/sb1
+endif
+
+ifdef CONFIG_SIBYTE_SWARM
+LIBS          += arch/mips/sibyte/swarm/sbswarm.a
+SUBDIRS       += arch/mips/sibyte/swarm
+LOADADDR      += 0x80100000
 endif
 
 #

@@ -30,7 +30,7 @@
 
 /* This is for machines which generate the exact clock. */
 #define USECS_PER_JIFFY (1000000/HZ)
-#define USECS_PER_JIFFY_FRAC ((1000000ULL << 32) / HZ & 0xffffffff)
+#define USECS_PER_JIFFY_FRAC ((u32)((1000000ULL << 32) / HZ))
 
 /*
  * forward reference
@@ -255,8 +255,7 @@ unsigned long calibrate_div64_gettimeoffset(void)
 	        :"r" (timerhi),
 	         "m" (timerlo),
 	         "r" (tmp),
-	         "r" (USECS_PER_JIFFY)
-	        :"$1");
+	         "r" (USECS_PER_JIFFY));
 	        cached_quotient = quotient;
 	}
 
@@ -407,7 +406,8 @@ static struct irqaction timer_irqaction = {
 	0,
 	"timer",
 	NULL,
-	NULL};
+	NULL
+};
 
 void __init time_init(void)
 {
@@ -475,10 +475,10 @@ static int month_days[12] = {
 
 void to_tm(unsigned long tim, struct rtc_time * tm)
 {
-	long hms, day;
+	long hms, day, gday;
 	int i;
 
-	day = tim / SECDAY;
+	gday = day = tim / SECDAY;
 	hms = tim % SECDAY;
 
 	/* Hours, minutes, seconds are easy */
@@ -497,7 +497,7 @@ void to_tm(unsigned long tim, struct rtc_time * tm)
 	for (i = 1; day >= days_in_month(i); i++)
 	day -= days_in_month(i);
 	days_in_month(FEBRUARY) = 28;
-	tm->tm_mon = i;
+	tm->tm_mon = i-1;	/* tm_mon starts from 0 to 11 */
 
 	/* Days are what is left over (+1) from all that. */
 	tm->tm_mday = day + 1;
@@ -505,5 +505,5 @@ void to_tm(unsigned long tim, struct rtc_time * tm)
 	/*
 	 * Determine the day of week
 	 */
-	tm->tm_wday = (day + 3) % 7;
+	tm->tm_wday = (gday + 4) % 7; /* 1970/1/1 was Thursday */
 }

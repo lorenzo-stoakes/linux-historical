@@ -670,9 +670,10 @@ void Cyber_blank(int blank)
  */
 
 #define Cyber3D_WaitQueue(v) \
-	 do { \
+	do { \
 		while ((rl_3d(0x8504) & 0x1f00) < (((v)+2) << 8)); \
-	 } while (0)
+	} \
+	while (0)
 
 static inline void Cyber3D_WaitBusy(void)
 {

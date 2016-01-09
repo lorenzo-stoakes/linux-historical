@@ -9,6 +9,7 @@
 #ifndef _ASM_PGTABLE_H
 #define _ASM_PGTABLE_H
 
+#include <linux/config.h>
 #include <asm/addrspace.h>
 #include <asm/page.h>
 
@@ -16,7 +17,7 @@
 
 #include <linux/linkage.h>
 #include <asm/cachectl.h>
-#include <linux/config.h>
+#include <asm/fixmap.h>
 
 /* Cache flushing:
  *
@@ -26,18 +27,23 @@
  *  - flush_cache_range(mm, start, end) flushes a range of pages
  *  - flush_page_to_ram(page) write back kernel page to ram
  *  - flush_icache_range(start, end) flush a range of instructions
+ *
+ *  - flush_cache_sigtramp() flush signal trampoline
+ *  - flush_icache_all() flush the entire instruction cache
  */
 extern void (*_flush_cache_all)(void);
 extern void (*___flush_cache_all)(void);
 extern void (*_flush_cache_mm)(struct mm_struct *mm);
 extern void (*_flush_cache_range)(struct mm_struct *mm, unsigned long start,
-				 unsigned long end);
-extern void (*_flush_cache_page)(struct vm_area_struct *vma, unsigned long page);
-extern void (*_flush_cache_sigtramp)(unsigned long addr);
+	unsigned long end);
+extern void (*_flush_cache_page)(struct vm_area_struct *vma,
+	unsigned long page);
 extern void (*_flush_page_to_ram)(struct page * page);
 extern void (*_flush_icache_range)(unsigned long start, unsigned long end);
 extern void (*_flush_icache_page)(struct vm_area_struct *vma,
-                                  struct page *page);
+	struct page *page);
+extern void (*_flush_cache_sigtramp)(unsigned long addr);
+extern void (*_flush_icache_all)(void);
 
 #define flush_dcache_page(page)			do { } while (0)
 
@@ -46,12 +52,17 @@ extern void (*_flush_icache_page)(struct vm_area_struct *vma,
 #define flush_cache_mm(mm)		_flush_cache_mm(mm)
 #define flush_cache_range(mm,start,end)	_flush_cache_range(mm,start,end)
 #define flush_cache_page(vma,page)	_flush_cache_page(vma, page)
-#define flush_cache_sigtramp(addr)	_flush_cache_sigtramp(addr)
 #define flush_page_to_ram(page)		_flush_page_to_ram(page)
 
 #define flush_icache_range(start, end)	_flush_icache_range(start,end)
 #define flush_icache_page(vma, page) 	_flush_icache_page(vma, page)
 
+#define flush_cache_sigtramp(addr)	_flush_cache_sigtramp(addr)
+#ifdef CONFIG_VTAG_ICACHE
+#define flush_icache_all()		_flush_icache_all()
+#else
+#define flush_icache_all()		do { } while(0)
+#endif
 
 /*
  * - add_wired_entry() add a fixed TLB entry, and move wired register
@@ -80,27 +91,46 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #endif /* !defined (_LANGUAGE_ASSEMBLY) */
 
 /* PMD_SHIFT determines the size of the area a second-level page table can map */
+#ifdef CONFIG_64BIT_PHYS_ADDR
+#define PMD_SHIFT	21
+#else
 #define PMD_SHIFT	22
+#endif
 #define PMD_SIZE	(1UL << PMD_SHIFT)
 #define PMD_MASK	(~(PMD_SIZE-1))
 
 /* PGDIR_SHIFT determines what a third-level page table entry can map */
-#define PGDIR_SHIFT	22
+#define PGDIR_SHIFT	PMD_SHIFT
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
 #define PGDIR_MASK	(~(PGDIR_SIZE-1))
 
-/* Entries per page directory level: we use two-level, so
+/*
+ * Entries per page directory level: we use two-level, so
  * we don't really have any PMD directory physically.
  */
+#ifdef CONFIG_64BIT_PHYS_ADDR
+#define PTRS_PER_PTE	512
+#define PTRS_PER_PMD	1
+#define PTRS_PER_PGD	2048
+#define PGD_ORDER	1
+#else
 #define PTRS_PER_PTE	1024
 #define PTRS_PER_PMD	1
 #define PTRS_PER_PGD	1024
-#define USER_PTRS_PER_PGD	(TASK_SIZE/PGDIR_SIZE)
+#define PGD_ORDER	0
+#endif
+
+#define USER_PTRS_PER_PGD	(0x80000000UL/PGDIR_SIZE)
 #define FIRST_USER_PGD_NR	0
 
 #define VMALLOC_START     KSEG2
 #define VMALLOC_VMADDR(x) ((unsigned long)(x))
-#define VMALLOC_END       KSEG3
+
+#if CONFIG_HIGHMEM
+# define VMALLOC_END	(PKMAP_BASE-2*PAGE_SIZE)
+#else
+# define VMALLOC_END	(FIXADDR_START-2*PAGE_SIZE)
+#endif
 
 /* Note that we shift the lower 32bits of each EntryLo[01] entry
  * 6 bits to the left. That way we can convert the PFN into the
@@ -128,7 +158,7 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #define _PAGE_ACCESSED              (1<<3)  /* implemented in software */
 #define _PAGE_MODIFIED              (1<<4)  /* implemented in software */
 
-#if defined(CONFIG_CPU_R3000)
+#if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
 
 #define _PAGE_GLOBAL                (1<<8)
 #define _PAGE_VALID                 (1<<9)
@@ -178,12 +208,10 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 
 #ifdef CONFIG_MIPS_UNCACHED
 #define PAGE_CACHABLE_DEFAULT	_CACHE_UNCACHED
-#else
-#ifdef CONFIG_CPU_SB1
+#elif CONFIG_CPU_SB1
 #define PAGE_CACHABLE_DEFAULT	_CACHE_CACHABLE_COW
 #else
 #define PAGE_CACHABLE_DEFAULT	_CACHE_CACHABLE_NONCOHERENT
-#endif
 #endif
 
 #define PAGE_NONE	__pgprot(_PAGE_PRESENT | _CACHE_CACHABLE_NONCOHERENT)
@@ -194,11 +222,11 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #define PAGE_READONLY   __pgprot(_PAGE_PRESENT | _PAGE_READ | \
 			PAGE_CACHABLE_DEFAULT)
 #define PAGE_KERNEL	__pgprot(_PAGE_PRESENT | __READABLE | __WRITEABLE | \
-			PAGE_CACHABLE_DEFAULT)
+			_PAGE_GLOBAL | PAGE_CACHABLE_DEFAULT)
 #define PAGE_USERIO     __pgprot(_PAGE_PRESENT | _PAGE_READ | _PAGE_WRITE | \
 			PAGE_CACHABLE_DEFAULT)
-#define PAGE_KERNEL_UNCACHED __pgprot(_PAGE_PRESENT | __READABLE | __WRITEABLE | \
-			_CACHE_UNCACHED)
+#define PAGE_KERNEL_UNCACHED __pgprot(_PAGE_PRESENT | __READABLE | \
+			__WRITEABLE | _PAGE_GLOBAL | _CACHE_UNCACHED)
 
 /*
  * MIPS can't do page protection for execute, and considers that the same like
@@ -225,33 +253,23 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 
 #if !defined (_LANGUAGE_ASSEMBLY)
 
+#ifdef CONFIG_64BIT_PHYS_ADDR
 #define pte_ERROR(e) \
-	printk("%s:%d: bad pte %016lx.\n", __FILE__, __LINE__, pte_val(e))
+	printk("%s:%d: bad pte %016Lx.\n", __FILE__, __LINE__, pte_val(e))
+#else
+#define pte_ERROR(e) \
+	printk("%s:%d: bad pte %08lx.\n", __FILE__, __LINE__, pte_val(e))
+#endif
 #define pmd_ERROR(e) \
-	printk("%s:%d: bad pmd %016lx.\n", __FILE__, __LINE__, pmd_val(e))
+	printk("%s:%d: bad pmd %08lx.\n", __FILE__, __LINE__, pmd_val(e))
 #define pgd_ERROR(e) \
-	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
+	printk("%s:%d: bad pgd %08lx.\n", __FILE__, __LINE__, pgd_val(e))
 
 extern unsigned long empty_zero_page;
 extern unsigned long zero_page_mask;
 
 #define ZERO_PAGE(vaddr) \
 	(virt_to_page(empty_zero_page + (((unsigned long)(vaddr)) & zero_page_mask)))
-
-/* number of bits that fit into a memory pointer */
-#define BITS_PER_PTR			(8*sizeof(unsigned long))
-
-/* to align the pointer to a pointer address */
-#define PTR_MASK			(~(sizeof(void*)-1))
-
-/*
- * sizeof(void*) == (1 << SIZEOF_PTR_LOG2)
- */
-#define SIZEOF_PTR_LOG2			2
-
-/* to find an entry in a page-table */
-#define PAGE_PTR(address) \
-((unsigned long)(address)>>(PAGE_SHIFT-SIZEOF_PTR_LOG2)&PTR_MASK&~PAGE_MASK)
 
 extern void load_pgd(unsigned long pg_dir);
 
@@ -261,29 +279,29 @@ extern pmd_t invalid_pte_table[PAGE_SIZE/sizeof(pmd_t)];
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
  */
-extern inline unsigned long pmd_page(pmd_t pmd)
+static inline unsigned long pmd_page(pmd_t pmd)
 {
 	return pmd_val(pmd);
 }
 
-extern inline void pmd_set(pmd_t * pmdp, pte_t * ptep)
+static inline void pmd_set(pmd_t * pmdp, pte_t * ptep)
 {
 	pmd_val(*pmdp) = (((unsigned long) ptep) & PAGE_MASK);
 }
 
-extern inline int pte_none(pte_t pte)    { return !pte_val(pte); }
-extern inline int pte_present(pte_t pte) { return pte_val(pte) & _PAGE_PRESENT; }
+static inline int pte_none(pte_t pte)    { return !pte_val(pte); }
+static inline int pte_present(pte_t pte) { return pte_val(pte) & _PAGE_PRESENT; }
 
 /* Certain architectures need to do special things when pte's
  * within a page table are directly modified.  Thus, the following
  * hook is made available.
  */
-extern inline void set_pte(pte_t *ptep, pte_t pteval)
+static inline void set_pte(pte_t *ptep, pte_t pteval)
 {
 	*ptep = pteval;
 }
 
-extern inline void pte_clear(pte_t *ptep)
+static inline void pte_clear(pte_t *ptep)
 {
 	set_pte(ptep, __pte(0));
 }
@@ -298,23 +316,23 @@ extern inline void pte_clear(pte_t *ptep)
 /*
  * Empty pgd/pmd entries point to the invalid_pte_table.
  */
-extern inline int pmd_none(pmd_t pmd)
+static inline int pmd_none(pmd_t pmd)
 {
 	return pmd_val(pmd) == (unsigned long) invalid_pte_table;
 }
 
-extern inline int pmd_bad(pmd_t pmd)
+static inline int pmd_bad(pmd_t pmd)
 {
 	return ((pmd_page(pmd) > (unsigned long) high_memory) ||
 	        (pmd_page(pmd) < PAGE_OFFSET));
 }
 
-extern inline int pmd_present(pmd_t pmd)
+static inline int pmd_present(pmd_t pmd)
 {
 	return (pmd_val(pmd) != (unsigned long) invalid_pte_table);
 }
 
-extern inline void pmd_clear(pmd_t *pmdp)
+static inline void pmd_clear(pmd_t *pmdp)
 {
 	pmd_val(*pmdp) = ((unsigned long) invalid_pte_table);
 }
@@ -324,16 +342,11 @@ extern inline void pmd_clear(pmd_t *pmdp)
  * setup: the pgd is never bad, and a pmd always exists (as it's folded
  * into the pgd entry)
  */
-extern inline int pgd_none(pgd_t pgd)		{ return 0; }
-extern inline int pgd_bad(pgd_t pgd)		{ return 0; }
-extern inline int pgd_present(pgd_t pgd)	{ return 1; }
-extern inline void pgd_clear(pgd_t *pgdp)	{ }
+static inline int pgd_none(pgd_t pgd)		{ return 0; }
+static inline int pgd_bad(pgd_t pgd)		{ return 0; }
+static inline int pgd_present(pgd_t pgd)	{ return 1; }
+static inline void pgd_clear(pgd_t *pgdp)	{ }
 
-/*
- * Permanent address of a page.  On MIPS we never have highmem, so this
- * is simple.
- */
-#define page_address(page)	((page)->virtual)
 #ifdef CONFIG_CPU_VR41XX
 #define pte_page(x)             (mem_map+(unsigned long)((pte_val(x) >> (PAGE_SHIFT + 2))))
 #else
@@ -344,36 +357,36 @@ extern inline void pgd_clear(pgd_t *pgdp)	{ }
  * The following only work if pte_present() is true.
  * Undefined behaviour if not..
  */
-extern inline int pte_read(pte_t pte)	{ return pte_val(pte) & _PAGE_READ; }
-extern inline int pte_write(pte_t pte)	{ return pte_val(pte) & _PAGE_WRITE; }
-extern inline int pte_dirty(pte_t pte)	{ return pte_val(pte) & _PAGE_MODIFIED; }
-extern inline int pte_young(pte_t pte)	{ return pte_val(pte) & _PAGE_ACCESSED; }
+static inline int pte_read(pte_t pte)	{ return pte_val(pte) & _PAGE_READ; }
+static inline int pte_write(pte_t pte)	{ return pte_val(pte) & _PAGE_WRITE; }
+static inline int pte_dirty(pte_t pte)	{ return pte_val(pte) & _PAGE_MODIFIED; }
+static inline int pte_young(pte_t pte)	{ return pte_val(pte) & _PAGE_ACCESSED; }
 
-extern inline pte_t pte_wrprotect(pte_t pte)
+static inline pte_t pte_wrprotect(pte_t pte)
 {
 	pte_val(pte) &= ~(_PAGE_WRITE | _PAGE_SILENT_WRITE);
 	return pte;
 }
 
-extern inline pte_t pte_rdprotect(pte_t pte)
+static inline pte_t pte_rdprotect(pte_t pte)
 {
 	pte_val(pte) &= ~(_PAGE_READ | _PAGE_SILENT_READ);
 	return pte;
 }
 
-extern inline pte_t pte_mkclean(pte_t pte)
+static inline pte_t pte_mkclean(pte_t pte)
 {
 	pte_val(pte) &= ~(_PAGE_MODIFIED|_PAGE_SILENT_WRITE);
 	return pte;
 }
 
-extern inline pte_t pte_mkold(pte_t pte)
+static inline pte_t pte_mkold(pte_t pte)
 {
 	pte_val(pte) &= ~(_PAGE_ACCESSED|_PAGE_SILENT_READ);
 	return pte;
 }
 
-extern inline pte_t pte_mkwrite(pte_t pte)
+static inline pte_t pte_mkwrite(pte_t pte)
 {
 	pte_val(pte) |= _PAGE_WRITE;
 	if (pte_val(pte) & _PAGE_MODIFIED)
@@ -381,7 +394,7 @@ extern inline pte_t pte_mkwrite(pte_t pte)
 	return pte;
 }
 
-extern inline pte_t pte_mkread(pte_t pte)
+static inline pte_t pte_mkread(pte_t pte)
 {
 	pte_val(pte) |= _PAGE_READ;
 	if (pte_val(pte) & _PAGE_ACCESSED)
@@ -389,7 +402,7 @@ extern inline pte_t pte_mkread(pte_t pte)
 	return pte;
 }
 
-extern inline pte_t pte_mkdirty(pte_t pte)
+static inline pte_t pte_mkdirty(pte_t pte)
 {
 	pte_val(pte) |= _PAGE_MODIFIED;
 	if (pte_val(pte) & _PAGE_WRITE)
@@ -414,7 +427,7 @@ static inline pgprot_t pgprot_noncached(pgprot_t _prot)
 	return __pgprot(prot);
 }
 
-extern inline pte_t pte_mkyoung(pte_t pte)
+static inline pte_t pte_mkyoung(pte_t pte)
 {
 	pte_val(pte) |= _PAGE_ACCESSED;
 	if (pte_val(pte) & _PAGE_READ)
@@ -426,12 +439,13 @@ extern inline pte_t pte_mkyoung(pte_t pte)
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
  */
+
 #ifdef CONFIG_CPU_VR41XX
 #define mk_pte(page, pgprot)                                            \
 ({                                                                      \
         pte_t   __pte;                                                  \
                                                                         \
-        pte_val(__pte) = ((unsigned long)(page - mem_map) << (PAGE_SHIFT + 2)) | \
+        pte_val(__pte) = ((phys_t)(page - mem_map) << (PAGE_SHIFT + 2)) | \
                          pgprot_val(pgprot);                            \
                                                                         \
         __pte;                                                          \
@@ -441,14 +455,14 @@ extern inline pte_t pte_mkyoung(pte_t pte)
 ({									\
 	pte_t   __pte;							\
 									\
-	pte_val(__pte) = ((unsigned long)(page - mem_map) << PAGE_SHIFT) | \
+	pte_val(__pte) = ((phys_t)(page - mem_map) << PAGE_SHIFT) | \
 	                 pgprot_val(pgprot);				\
 									\
 	__pte;								\
 })
 #endif
 
-extern inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
+static inline pte_t mk_pte_phys(phys_t physpage, pgprot_t pgprot)
 {
 #ifdef CONFIG_CPU_VR41XX
         return __pte((physpage << 2) | pgprot_val(pgprot));
@@ -457,12 +471,16 @@ extern inline pte_t mk_pte_phys(unsigned long physpage, pgprot_t pgprot)
 #endif
 }
 
-extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
+static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 {
 	return __pte((pte_val(pte) & _PAGE_CHG_MASK) | pgprot_val(newprot));
 }
 
 #define page_pte(page) page_pte_prot(page, __pgprot(0))
+
+#define __pgd_offset(address)	pgd_index(address)
+#define __pmd_offset(address) \
+	(((address) >> PMD_SHIFT) & (PTRS_PER_PMD-1))
 
 /* to find an entry in a kernel page-table-directory */
 #define pgd_offset_k(address) pgd_offset(&init_mm, address)
@@ -470,19 +488,19 @@ extern inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 #define pgd_index(address)	((address) >> PGDIR_SHIFT)
 
 /* to find an entry in a page-table-directory */
-extern inline pgd_t *pgd_offset(struct mm_struct *mm, unsigned long address)
+static inline pgd_t *pgd_offset(struct mm_struct *mm, unsigned long address)
 {
 	return mm->pgd + pgd_index(address);
 }
 
 /* Find an entry in the second-level page table.. */
-extern inline pmd_t *pmd_offset(pgd_t *dir, unsigned long address)
+static inline pmd_t *pmd_offset(pgd_t *dir, unsigned long address)
 {
 	return (pmd_t *) dir;
 }
 
 /* Find an entry in the third-level page table.. */ 
-extern inline pte_t *pte_offset(pmd_t * dir, unsigned long address)
+static inline pte_t *pte_offset(pmd_t * dir, unsigned long address)
 {
 	return (pte_t *) (pmd_page(*dir)) +
 	       ((address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1));
@@ -506,274 +524,6 @@ extern void update_mmu_cache(struct vm_area_struct *vma,
 /* Needs to be defined here and not in linux/mm.h, as it is arch dependent */
 #define PageSkip(page)		(0)
 #define kern_addr_valid(addr)	(1)
-
-/* TLB operations. */
-extern inline void tlb_probe(void)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"tlbp\n\t"
-		".set pop");
-}
-
-extern inline void tlb_read(void)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"tlbr\n\t"
-		".set pop");
-}
-
-extern inline void tlb_write_indexed(void)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"tlbwi\n\t"
-		".set pop");
-}
-
-extern inline void tlb_write_random(void)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"tlbwr\n\t"
-		".set pop");
-}
-
-/* Dealing with various CP0 mmu/cache related registers. */
-
-/* CP0_PAGEMASK register */
-extern inline unsigned long get_pagemask(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $5\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-extern inline void set_pagemask(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $5\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-/* CP0_ENTRYLO0 and CP0_ENTRYLO1 registers */
-extern inline unsigned long get_entrylo0(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(	
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $2\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-extern inline void set_entrylo0(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $2\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-extern inline unsigned long get_entrylo1(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $3\n\t"
-		".set pop" : "=r" (val));
-
-	return val;
-}
-
-extern inline void set_entrylo1(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $3\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-/* CP0_ENTRYHI register */
-extern inline unsigned long get_entryhi(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $10\n\t"
-		".set pop"
-		: "=r" (val));
-
-	return val;
-}
-
-extern inline void set_entryhi(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $10\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-/* CP0_INDEX register */
-extern inline unsigned long get_index(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $0\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-extern inline void set_index(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $0\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-/* CP0_WIRED register */
-extern inline unsigned long get_wired(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $6\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-extern inline void set_wired(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $6\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-extern inline unsigned long get_info(void)
-{
-	unsigned long val;
-
-	__asm__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $7\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-/* CP0_TAGLO and CP0_TAGHI registers */
-extern inline unsigned long get_taglo(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $28\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-extern inline void set_taglo(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $28\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-extern inline unsigned long get_taghi(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $29\n\t"
-		".set pop"
-		: "=r" (val));
-	return val;
-}
-
-extern inline void set_taghi(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $29\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
-
-/* CP0_CONTEXT register */
-extern inline unsigned long get_context(void)
-{
-	unsigned long val;
-
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mfc0 %0, $4\n\t"
-		".set pop"
-		: "=r" (val));
-
-	return val;
-}
-
-extern inline void set_context(unsigned long val)
-{
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set reorder\n\t"
-		"mtc0 %z0, $4\n\t"
-		".set pop"
-		: : "Jr" (val));
-}
 
 #include <asm-generic/pgtable.h>
 

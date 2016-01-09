@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 4
 SUBLEVEL = 19
-EXTRAVERSION = pre1
+EXTRAVERSION = -pre2
 
 KERNELRELEASE=$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 
@@ -258,8 +258,8 @@ Version: dummy
 boot: vmlinux
 	@$(MAKE) CFLAGS="$(CFLAGS) $(CFLAGS_KERNEL)" -C arch/$(ARCH)/boot
 
-vmlinux: include/linux/version.h $(CONFIGURATION) init/main.o init/version.o linuxsubdirs
-	$(LD) $(LINKFLAGS) $(HEAD) init/main.o init/version.o \
+vmlinux: include/linux/version.h $(CONFIGURATION) init/main.o init/version.o init/do_mounts.o linuxsubdirs
+	$(LD) $(LINKFLAGS) $(HEAD) init/main.o init/version.o init/do_mounts.o \
 		--start-group \
 		$(CORE_FILES) \
 		$(DRIVERS) \
@@ -336,6 +336,9 @@ init/version.o: init/version.c include/linux/compile.h include/config/MARKER
 	$(CC) $(CFLAGS) $(CFLAGS_KERNEL) -DUTS_MACHINE='"$(ARCH)"' -DKBUILD_BASENAME=$(subst $(comma),_,$(subst -,_,$(*F))) -c -o init/version.o init/version.c
 
 init/main.o: init/main.c include/config/MARKER
+	$(CC) $(CFLAGS) $(CFLAGS_KERNEL) $(PROFILING) -DKBUILD_BASENAME=$(subst $(comma),_,$(subst -,_,$(*F))) -c -o $*.o $<
+
+init/do_mounts.o: init/do_mounts.c include/config/MARKER
 	$(CC) $(CFLAGS) $(CFLAGS_KERNEL) $(PROFILING) -DKBUILD_BASENAME=$(subst $(comma),_,$(subst -,_,$(*F))) -c -o $*.o $<
 
 fs lib mm ipc kernel drivers net: dummy

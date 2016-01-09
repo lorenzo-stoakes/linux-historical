@@ -64,6 +64,8 @@ const struct pci_device_id cciss_pci_device_id[] = {
                         0x0E11, 0x4080, 0, 0, 0},
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSB,
                         0x0E11, 0x4082, 0, 0, 0},
+	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSB,
+                        0x0E11, 0x4083, 0, 0, 0},
 	{0,}
 };
 MODULE_DEVICE_TABLE(pci, cciss_pci_device_id);
@@ -78,6 +80,7 @@ static struct board_type products[] = {
 	{ 0x40700E11, "Smart Array 5300",	&SA5_access },
 	{ 0x40800E11, "Smart Array 5i", &SA5B_access},
 	{ 0x40820E11, "Smart Array 532", &SA5B_access},
+	{ 0x40830E11, "Smart Array 5312", &SA5B_access},
 };
 
 /* How long to wait (in millesconds) for board to go into simple mode */
@@ -367,20 +370,18 @@ static int cciss_open(struct inode *inode, struct file *filep)
 
 	if (ctlr > MAX_CTLR || hba[ctlr] == NULL)
 		return -ENXIO;
-
-	if (!suser() && hba[ctlr]->sizes[ MINOR(inode->i_rdev)] == 0)
-		return -ENXIO;
-
 	/*
 	 * Root is allowed to open raw volume zero even if its not configured
-	 * so array config can still work.  I don't think I really like this,
+	 * so array config can still work. I don't think I really like this,
 	 * but I'm already using way to many device nodes to claim another one
 	 * for "raw controller".
 	 */
-	if (suser()
-		&& (hba[ctlr]->sizes[MINOR(inode->i_rdev)] == 0) 
-		&& (MINOR(inode->i_rdev)!= 0))
-		return -ENXIO;
+	if (hba[ctlr]->sizes[MINOR(inode->i_rdev)] == 0) { /* not online? */
+		if (MINOR(inode->i_rdev) != 0)	 /* not node 0? */
+			return -ENXIO;
+		if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;
+	}
 
 	hba[ctlr]->drv[dsk].usage_count++;
 	hba[ctlr]->usage_count++;
@@ -442,6 +443,8 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 		put_user((u64)hba[ctlr]->hd[MINOR(inode->i_rdev)].nr_sects << 9, (u64*)arg);
 		return 0;
 	case BLKRRPART:
+		if(!capable(CAP_SYS_ADMIN))
+			return -EPERM;
 		return revalidate_logvol(inode->i_rdev, 1);
 	case BLKFLSBUF:
 	case BLKBSZSET:
@@ -984,6 +987,15 @@ static int sendcmd(
                         c->Request.Timeout = 0; // Don't time out
                         c->Request.CDB[0] = CCISS_READ_CAPACITY;
 		break;
+		case CCISS_CACHE_FLUSH:
+			c->Request.CDBLen = 12;
+			c->Request.Type.Type =  TYPE_CMD; // It is a command.
+			c->Request.Type.Attribute = ATTR_SIMPLE;
+			c->Request.Type.Direction = XFER_WRITE; // No data
+			c->Request.Timeout = 0; // Don't time out
+			c->Request.CDB[0] = BMIC_WRITE;  // BMIC Passthru
+			c->Request.CDB[6] = BMIC_CACHE_FLUSH;
+		break;
 		default:
 			printk(KERN_WARNING
 				"cciss:  Unknown Command 0x%c sent attempted\n",
@@ -1194,17 +1206,27 @@ static inline void complete_command( CommandList_struct *cmd, int timeout)
 	{ /* an error has occurred */ 
 		switch(cmd->err_info->CommandStatus)
 		{
+			unsigned char sense_key;
 			case CMD_TARGET_STATUS:
-				printk(KERN_WARNING "cciss: cmd %p has "
-					" completed with errors\n", cmd);
-				if( cmd->err_info->ScsiStatus)
-                		{
-                    			printk(KERN_WARNING "cciss: cmd %p "
-					"has SCSI Status = %x\n",
-                        			cmd,  
-						cmd->err_info->ScsiStatus);
-                		}
-
+				status = 0;
+			
+				if( cmd->err_info->ScsiStatus == 0x02) {
+					printk(KERN_WARNING "cciss: cmd %p "
+						"has CHECK CONDITION,"
+						" sense key = 0x%x\n", cmd,
+						cmd->err_info->SenseInfo[2]);
+					/* check the sense key */
+					sense_key = 0xf & 
+						cmd->err_info->SenseInfo[2];
+					/* no status or recovered error */
+					if ((sense_key == 0x0) ||
+						(sense_key == 0x1))
+							status = 1;
+				} else {
+					printk(KERN_WARNING "cciss: cmd %p "
+						"has SCSI Status 0x%x\n",
+						cmd, cmd->err_info->ScsiStatus);
+				}
 			break;
 			case CMD_DATA_UNDERRUN:
 				printk(KERN_WARNING "cciss: cmd %p has"
@@ -1547,6 +1569,15 @@ static void print_cfg_table( CfgTable_struct *tb)
 }
 #endif /* CCISS_DEBUG */ 
 
+static void release_io_mem(ctlr_info_t *c)
+{
+	/* if IO mem was not protected do nothing */
+	if( c->io_mem_addr == 0)
+		return;
+	release_region(c->io_mem_addr, c->io_mem_length);
+	c->io_mem_addr = 0;
+	c->io_mem_length = 0;
+}
 static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 {
 	ushort vendor_id, device_id, command;
@@ -1587,6 +1618,36 @@ static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 	(void) pci_read_config_dword(pdev, PCI_SUBSYSTEM_VENDOR_ID, 
 						&board_id);
 
+	/* check to see if controller has been disabled */
+	if (!(command & 0x02)) {
+		printk(KERN_WARNING "cciss: controller appears to be disabled\n");
+		return(-1);
+	}
+	/* search for our IO range so we can protect it */
+	for (i=0; i<6; i++) {
+		/* is this an IO range */
+		if (pdev->resource[i].flags & 0x01) {
+			c->io_mem_addr = pdev->resource[i].start;
+			c->io_mem_length = pdev->resource[i].end -
+				pdev->resource[i].start +1; 
+#ifdef CCISS_DEBUG
+			printk("IO value found base_addr[%d] %lx %lx\n", i,
+				c->io_mem_addr, c->io_mem_length);
+#endif /* CCISS_DEBUG */
+			/* register the IO range */
+			if (!request_region( c->io_mem_addr,
+                                        c->io_mem_length, "cciss")) {
+				printk(KERN_WARNING 
+					"cciss I/O memory range already in "
+					"use addr=%lx length=%ld\n",
+				c->io_mem_addr, c->io_mem_length);
+				c->io_mem_addr= 0;
+				c->io_mem_length = 0;
+			}
+			break;
+		}
+	}
+
 #ifdef CCISS_DEBUG
 	printk("vendor_id = %x\n", vendor_id);
 	printk("device_id = %x\n", device_id);
@@ -1607,7 +1668,7 @@ static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
          *   table
 	 */
 
-	c->paddr = addr[0] & 0xfffffff0; /* remove the addressing mode bits */
+	c->paddr = addr[0] ; /* addressing mode bits already removed */
 #ifdef CCISS_DEBUG
 	printk("address 0 = %x\n", c->paddr);
 #endif /* CCISS_DEBUG */ 
@@ -1868,6 +1929,7 @@ static void cciss_getgeometry(int cntl_num)
 	}
 	kfree(ld_buff);
 	kfree(size_buff);
+	kfree(inq_buff);
 }	
 
 /* Function to find the first free pointer into our hba[] array */
@@ -1932,17 +1994,20 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 	{
 		printk(KERN_ERR "cciss:  Unable to get major number "
 			"%d for %s\n", MAJOR_NR+i, hba[i]->devname);
+		release_io_mem(hba[i]);
 		free_hba(i);
 		return(-1);
 	}
 	/* make sure the board interrupts are off */
 	hba[i]->access.set_intr_mask(hba[i], CCISS_INTR_OFF);
 	if( request_irq(hba[i]->intr, do_cciss_intr, 
-		SA_INTERRUPT|SA_SHIRQ, hba[i]->devname, hba[i]))
+		SA_INTERRUPT | SA_SHIRQ | SA_SAMPLE_RANDOM, 
+			hba[i]->devname, hba[i]))
 	{
 		printk(KERN_ERR "ciss: Unable to get irq %d for %s\n",
 			hba[i]->intr, hba[i]->devname);
 		unregister_blkdev( MAJOR_NR+i, hba[i]->devname);
+		release_io_mem(hba[i]);
 		free_hba(i);
 		return(-1);
 	}
@@ -1971,6 +2036,7 @@ static int __init cciss_init_one(struct pci_dev *pdev,
 				hba[i]->errinfo_pool_dhandle);
                 free_irq(hba[i]->intr, hba[i]);
                 unregister_blkdev(MAJOR_NR+i, hba[i]->devname);
+		release_io_mem(hba[i]);
 		free_hba(i);
                 printk( KERN_ERR "cciss: out of memory");
 		return(-1);
@@ -2040,6 +2106,8 @@ static void __devexit cciss_remove_one (struct pci_dev *pdev)
 {
 	ctlr_info_t *tmp_ptr;
 	int i;
+	char flush_buf[4];
+	int return_code; 
 
 	if (pci_get_drvdata(pdev) == NULL)
 	{
@@ -2054,8 +2122,15 @@ static void __devexit cciss_remove_one (struct pci_dev *pdev)
 			"already be removed \n");
 		return;
 	}
-	/* Turn board interrupts off */
-	hba[i]->access.set_intr_mask(hba[i], CCISS_INTR_OFF);
+ 	/* Turn board interrupts off  and send the flush cache command */
+ 	/* sendcmd will turn off interrupt, and send the flush...
+ 	 * To write all data in the battery backed cache to disks */
+ 	memset(flush_buf, 0, 4);
+ 	return_code = sendcmd(CCISS_CACHE_FLUSH, i, flush_buf, 4,0,0,0);
+ 	if (return_code != IO_OK) {
+ 		printk(KERN_WARNING 
+			"Error Flushing cache on controller %d\n", i);
+ 	}
 	free_irq(hba[i]->intr, hba[i]);
 	pci_set_drvdata(pdev, NULL);
 	iounmap((void*)hba[i]->vaddr);
@@ -2072,6 +2147,7 @@ static void __devexit cciss_remove_one (struct pci_dev *pdev)
 	pci_free_consistent(hba[i]->pdev, NR_CMDS * sizeof( ErrorInfo_struct),
 		hba[i]->errinfo_pool, hba[i]->errinfo_pool_dhandle);
 	kfree(hba[i]->cmd_pool_bits);
+	release_io_mem(hba[i]);
 	free_hba(i);
 }	
 

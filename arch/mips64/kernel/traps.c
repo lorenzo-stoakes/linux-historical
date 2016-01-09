@@ -11,21 +11,25 @@
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/mm.h>
+#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 #include <linux/spinlock.h>
 
+#include <asm/bootinfo.h>
 #include <asm/branch.h>
-#include <asm/cachectl.h>
+#include <asm/cpu.h>
+#include <asm/module.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
-#include <asm/bootinfo.h>
+#include <asm/paccess.h>
 #include <asm/ptrace.h>
 #include <asm/watch.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
+#include <asm/cachectl.h>
 
 extern asmlinkage void __xtlb_mod(void);
 extern asmlinkage void __xtlb_tlbl(void);
@@ -42,14 +46,11 @@ extern asmlinkage void handle_ov(void);
 extern asmlinkage void handle_tr(void);
 extern asmlinkage void handle_fpe(void);
 extern asmlinkage void handle_watch(void);
+extern asmlinkage void handle_mcheck(void);
 extern asmlinkage void handle_reserved(void);
-
-static char *cpu_names[] = CPU_NAMES;
 
 char watch_available = 0;
 char dedicated_iv_available = 0;
-char vce_available = 0;
-char mips4_available = 0;
 
 int kstack_depth_to_print = 24;
 
@@ -143,6 +144,12 @@ void show_trace(unsigned long *sp)
 	}
 }
 
+void show_trace_task(struct task_struct *tsk)
+{
+	show_trace((unsigned long *)tsk->thread.reg29);
+}
+
+
 void show_code(unsigned int *pc)
 {
 	long i;
@@ -159,16 +166,60 @@ void show_code(unsigned int *pc)
 	}
 }
 
-spinlock_t die_lock;
+void show_regs(struct pt_regs *regs)
+{
+	printk("Cpu %d\n", smp_processor_id());
+	/* Saved main processor registers. */
+	printk("$0      : %016lx %016lx %016lx %016lx\n",
+	       0UL, regs->regs[1], regs->regs[2], regs->regs[3]);
+	printk("$4      : %016lx %016lx %016lx %016lx\n",
+               regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
+	printk("$8      : %016lx %016lx %016lx %016lx\n",
+	       regs->regs[8], regs->regs[9], regs->regs[10], regs->regs[11]);
+	printk("$12     : %016lx %016lx %016lx %016lx\n",
+               regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
+	printk("$16     : %016lx %016lx %016lx %016lx\n",
+	       regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19]);
+	printk("$20     : %016lx %016lx %016lx %016lx\n",
+               regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
+	printk("$24     : %016lx %016lx\n",
+	       regs->regs[24], regs->regs[25]);
+	printk("$28     : %016lx %016lx %016lx %016lx\n",
+	       regs->regs[28], regs->regs[29], regs->regs[30], regs->regs[31]);
+	printk("Hi      : %016lx\n", regs->hi);
+	printk("Lo      : %016lx\n", regs->lo);
 
-void die(const char * str, struct pt_regs * regs, unsigned long err)
+	/* Saved cp0 registers. */
+	printk("epc     : %016lx    %s\nbadvaddr: %016lx\n",
+	       regs->cp0_epc, print_tainted(), regs->cp0_badvaddr);
+	printk("Status  : %08x  [ ", (unsigned int) regs->cp0_status);
+	if (regs->cp0_status & ST0_KX) printk("KX ");
+	if (regs->cp0_status & ST0_SX) printk("SX ");
+	if (regs->cp0_status & ST0_UX) printk("UX ");
+	switch (regs->cp0_status & ST0_KSU) {
+		case KSU_USER: printk("USER ");			break;
+		case KSU_SUPERVISOR: printk("SUPERVISOR ");	break;
+		case KSU_KERNEL: printk("KERNEL ");		break;
+		default: printk("BAD_MODE ");			break;
+	}
+	if (regs->cp0_status & ST0_ERL) printk("ERL ");
+	if (regs->cp0_status & ST0_EXL) printk("EXL ");
+	if (regs->cp0_status & ST0_IE) printk("IE ");
+	printk("]\n");
+
+	printk("Cause   : %08x\n", (unsigned int) regs->cp0_cause);
+}
+
+static spinlock_t die_lock;
+
+void die(const char * str, struct pt_regs * regs)
 {
 	if (user_mode(regs))	/* Just return if in user mode.  */
 		return;
 
 	console_verbose();
 	spin_lock_irq(&die_lock);
-	printk("%s: %04lx\n", str, err & 0xffff);
+	printk("%s\n", str);
 	show_regs(regs);
 	printk("Process %s (pid: %d, stackpage=%08lx)\n",
 		current->comm, current->pid, (unsigned long) current);
@@ -180,10 +231,100 @@ void die(const char * str, struct pt_regs * regs, unsigned long err)
 	do_exit(SIGSEGV);
 }
 
-void die_if_kernel(const char * str, struct pt_regs * regs, unsigned long err)
+void die_if_kernel(const char * str, struct pt_regs * regs)
 {
 	if (!user_mode(regs))
-		die(str, regs, err);
+		die(str, regs);
+}
+
+extern const struct exception_table_entry __start___dbe_table[];
+extern const struct exception_table_entry __stop___dbe_table[];
+
+void __declare_dbe_table(void)
+{
+	__asm__ __volatile__(
+	".section\t__dbe_table,\"a\"\n\t"
+	".previous"
+	);
+}
+
+static inline unsigned long
+search_one_table(const struct exception_table_entry *first,
+		 const struct exception_table_entry *last,
+		 unsigned long value)
+{
+	const struct exception_table_entry *mid;
+	long diff;
+
+	while (first < last) {
+		mid = (last - first) / 2 + first;
+		diff = mid->insn - value;
+		if (diff < 0)
+			first = mid + 1;
+		else
+			last = mid;
+	}
+	return (first == last && first->insn == value) ? first->nextinsn : 0;
+}
+
+extern spinlock_t modlist_lock;
+
+unsigned long search_dbe_table(unsigned long addr)
+{
+	unsigned long ret = 0;
+
+#ifndef CONFIG_MODULES
+	/* There is only the kernel to search.  */
+	ret = search_one_table(__start___dbe_table, __stop___dbe_table-1, addr);
+	return ret;
+#else
+	unsigned long flags;
+
+	/* The kernel is the last "module" -- no need to treat it special.  */
+	struct module *mp;
+	struct archdata *ap;
+
+	spin_lock_irqsave(&modlist_lock, flags);
+	for (mp = module_list; mp != NULL; mp = mp->next) {
+		if (!mod_member_present(mp, archdata_end) ||
+        	    !mod_archdata_member_present(mp, struct archdata,
+						 dbe_table_end))
+			continue;
+		ap = (struct archdata *)(mp->archdata_start);
+
+		if (ap->dbe_table_start == NULL ||
+		    !(mp->flags & (MOD_RUNNING | MOD_INITIALIZING)))
+			continue;
+		ret = search_one_table(ap->dbe_table_start,
+				       ap->dbe_table_end - 1, addr);
+		if (ret)
+			break;
+	}
+	spin_unlock_irqrestore(&modlist_lock, flags);
+	return ret;
+#endif
+}
+
+/* Default data and instruction bus error handlers.  */
+void do_ibe(struct pt_regs *regs)
+{
+	die("Got ibe\n", regs);
+}
+
+void do_dbe(struct pt_regs *regs)
+{
+	unsigned long fixup;
+
+	fixup = search_dbe_table(regs->cp0_epc);
+	if (fixup) {
+		long new_epc;
+
+		new_epc = fixup_exception(dpf_reg, fixup, regs->cp0_epc);
+		regs->cp0_epc = new_epc;
+		return;
+	}
+
+	die("Got dbe\n", regs);
 }
 
 void do_ov(struct pt_regs *regs)
@@ -291,7 +432,7 @@ void do_bp(struct pt_regs *regs)
 			info.si_code = FPE_INTOVF;
 		info.si_signo = SIGFPE;
 		info.si_errno = 0;
-		info.si_addr = (void *)compute_return_epc(regs);
+		info.si_addr = (void *)regs->cp0_epc;
 		force_sig_info(SIGFPE, &info, current);
 		break;
 	default:
@@ -333,7 +474,7 @@ void do_tr(struct pt_regs *regs)
 			info.si_code = FPE_INTOVF;
 		info.si_signo = SIGFPE;
 		info.si_errno = 0;
-		info.si_addr = (void *)compute_return_epc(regs);
+		info.si_addr = (void *)regs->cp0_epc;
 		force_sig_info(SIGFPE, &info, current);
 		break;
 	default:
@@ -347,11 +488,9 @@ sigsegv:
 
 void do_ri(struct pt_regs *regs)
 {
-	printk("Cpu%d[%s:%d] Illegal instruction at %08lx ra=%08lx\n",
-	        smp_processor_id(), current->comm, current->pid, regs->cp0_epc, 
-		regs->regs[31]);
 	if (compute_return_epc(regs))
 		return;
+
 	force_sig(SIGILL, current);
 }
 
@@ -364,7 +503,16 @@ void do_cpu(struct pt_regs *regs)
 		goto bad_cid;
 
 	regs->cp0_status |= ST0_CU1;
-#ifndef CONFIG_SMP
+
+#ifdef CONFIG_SMP
+	if (current->used_math) {
+		lazy_fpu_switch(0, current);
+	} else {
+		init_fpu();
+		current->used_math = 1;
+	}
+	current->flags |= PF_USEDFPU;
+#else
 	if (last_task_used_math == current)
 		return;
 
@@ -376,18 +524,11 @@ void do_cpu(struct pt_regs *regs)
 		current->used_math = 1;
 	}
 	last_task_used_math = current;
-#else
-	if (current->used_math) {
-		lazy_fpu_switch(0, current);
-	} else {
-		init_fpu();
-		current->used_math = 1;
-	}
-	current->flags |= PF_USEDFPU;
 #endif
 	return;
 
 bad_cid:
+	compute_return_epc(regs);
 	force_sig(SIGILL, current);
 }
 
@@ -399,6 +540,13 @@ void do_watch(struct pt_regs *regs)
 	 */
 	show_regs(regs);
 	panic("Caught WATCH exception - probably caused by stack overflow.");
+}
+
+asmlinkage void do_mcheck(struct pt_regs *regs)
+{
+	show_regs(regs);
+	panic("Caught Machine Check exception - probably caused by multiple "
+	      "matching entries in the TLB.");
 }
 
 void do_reserved(struct pt_regs *regs)
@@ -430,23 +578,6 @@ static inline void watch_init(unsigned long cputype)
 	}
 }
 
-/*
- * Some MIPS CPUs have a dedicated interrupt vector which reduces the
- * interrupt processing overhead.  Use it where available.
- * FIXME: more CPUs than just the Nevada have this feature.
- */
-static inline void setup_dedicated_int(void)
-{
-	extern void except_vec4(void);
-
-	switch(mips_cputype) {
-	case CPU_NEVADA:
-		memcpy((void *)(KSEG0 + 0x200), except_vec4, 8);
-		set_cp0_cause(CAUSEF_IV, CAUSEF_IV);
-		dedicated_iv_available = 1;
-	}
-}
-
 unsigned long exception_handlers[32];
 
 /*
@@ -458,48 +589,48 @@ void set_except_vector(int n, void *addr)
 {
 	unsigned long handler = (unsigned long) addr;
 	exception_handlers[n] = handler;
-	if (n == 0 && dedicated_iv_available) {
+
+	if (n == 0 && mips_cpu.options & MIPS_CPU_DIVEC) {
 		*(volatile u32 *)(KSEG0+0x200) = 0x08000000 |
 		                                 (0x03ffffff & (handler >> 2));
 		flush_icache_range(KSEG0+0x200, KSEG0 + 0x204);
 	}
 }
 
-static inline void mips4_setup(void)
+void __init per_cpu_trap_init(void)
 {
-	switch (mips_cputype) {
-	case CPU_R5000:
-	case CPU_R5000A:
-	case CPU_NEVADA:
-	case CPU_R8000:
-	case CPU_R10000:
-		mips4_available = 1;
-		set_cp0_status(ST0_XX, ST0_XX);
-	}
-}
+	unsigned int cpu = smp_processor_id();
 
-static inline void go_64(void)
-{
-	unsigned int bits;
+	/* Some firmware leaves the BEV flag set, clear it.  */
+	clear_cp0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_BEV);
+	set_cp0_status(ST0_CU0|ST0_FR|ST0_KX|ST0_SX|ST0_UX);
 
-	bits = ST0_KX|ST0_SX|ST0_UX;
-	set_cp0_status(bits, bits);
-	printk("Entering 64-bit mode.\n");
+	/*
+	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
+	 * interrupt processing overhead.  Use it where available.
+	 */
+	if (mips_cpu.options & MIPS_CPU_DIVEC)
+		set_cp0_cause(CAUSEF_IV);
+
+	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
+	set_context(cpu << 23);
+	set_wired(0);
 }
 
 void __init trap_init(void)
 {
 	extern char except_vec0;
 	extern char except_vec1_r10k;
-	extern char except_vec2_generic;
+	extern char except_vec2_generic, except_vec2_sb1;
 	extern char except_vec3_generic, except_vec3_r4000;
+	extern char except_vec4;
 	extern void bus_error_init(void);
 	unsigned long i;
+	int dummy;
 
-	/* Some firmware leaves the BEV flag set, clear it.  */
-	set_cp0_status(ST0_BEV, 0);
+	per_cpu_trap_init();
 
-	/* Copy the generic exception handler code to it's final destination. */
+	/* Copy the generic exception handlers to their final destination. */
 	memcpy((void *)(KSEG0 + 0x100), &except_vec2_generic, 0x80);
 	memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic, 0x80);
 
@@ -513,30 +644,37 @@ void __init trap_init(void)
 	 * Only some CPUs have the watch exceptions or a dedicated
 	 * interrupt vector.
 	 */
-	watch_init(mips_cputype);
-	setup_dedicated_int();
-	mips4_setup();
-	go_64();		/* In memoriam C128 ;-)  */
+	watch_init(mips_cpu.cputype);
+
+	/*
+	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
+	 * interrupt processing overhead.  Use it where available.
+	 */
+	memcpy((void *)(KSEG0 + 0x200), &except_vec4, 8);
+
+	if (mips_cpu.options & MIPS_CPU_MCHECK)
+		set_except_vector(24, handle_mcheck);
 
 	/*
 	 * Handling the following exceptions depends mostly of the cpu type
 	 */
-	switch(mips_cputype) {
-	case CPU_R10000:
-		/*
-		 * The R10000 is in most aspects similar to the R4400.  It
-		 * should get some special optimizations.
-		 */
-		write_32bit_cp0_register(CP0_FRAMEMASK, 0);
-		set_cp0_status(ST0_XX, ST0_XX);
-		goto r4k;
+	switch(mips_cpu.cputype) {
+        case CPU_SB1:
+#ifdef CONFIG_SB1_CACHE_ERROR
+		/* Special cache error handler for SB1 */
+		memcpy((void *)(KSEG0 + 0x100), &except_vec2_sb1, 0x80);
+		memcpy((void *)(KSEG1 + 0x100), &except_vec2_sb1, 0x80);
+#endif
+		/* Enable timer interrupt and scd mapped interrupt */
+		clear_cp0_status(0xf000);
+		set_cp0_status(0xc00);
+		goto nocache;
 
+	case CPU_R10000:
 	case CPU_R4000MC:
 	case CPU_R4400MC:
 	case CPU_R4000SC:
 	case CPU_R4400SC:
-		vce_available = 1;
-		/* Fall through ...  */
 	case CPU_R4000PC:
 	case CPU_R4400PC:
 	case CPU_R4200:
@@ -544,20 +682,20 @@ void __init trap_init(void)
 	case CPU_R4600:
 	case CPU_R5000:
 	case CPU_NEVADA:
-r4k:
+		/* Cache error vector  */
+		memcpy((void *)(KSEG0 + 0x100), (void *) KSEG0, 0x80);
+
+nocache:
 		/* Debug TLB refill handler.  */
 		memcpy((void *)KSEG0, &except_vec0, 0x80);
 		memcpy((void *)KSEG0 + 0x080, &except_vec1_r10k, 0x80);
 
-		/* Cache error vector  */
-		memcpy((void *)(KSEG0 + 0x100), (void *) KSEG0, 0x80);
-
-		if (vce_available) {
+		if (mips_cpu.options & MIPS_CPU_VCE) {
 			memcpy((void *)(KSEG0 + 0x180), &except_vec3_r4000,
-			       0x180);
+			       0x80);
 		} else {
 			memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic,
-			       0x100);
+			       0x80);
 		}
 
 		set_except_vector(1, __xtlb_mod);
@@ -566,7 +704,19 @@ r4k:
 		set_except_vector(4, handle_adel);
 		set_except_vector(5, handle_ades);
 
-		/* DBE / IBE exception handler are system specific.  */
+		set_except_vector(6, handle_ibe);
+		set_except_vector(7, handle_dbe);
+
+		/*
+		 * If nothing uses the DBE protection mechanism this is
+		 * necessary to get the kernel to link.
+		 */
+		get_dbe(dummy, (int *)KSEG0);
+
+		/*
+		 * DBE / IBE handlers may be overridden by system specific
+		 * handlers.
+		 */
 		bus_error_init();
 
 		set_except_vector(8, handle_sys);
@@ -579,7 +729,7 @@ r4k:
 		break;
 
 	case CPU_R8000:
-		panic("unsupported CPU type %s.\n", cpu_names[mips_cputype]);
+		panic("R8000 is unsupported");
 		break;
 
 	case CPU_UNKNOWN:
@@ -587,6 +737,9 @@ r4k:
 		panic("Unknown CPU type");
 	}
 	flush_icache_range(KSEG0, KSEG0 + 0x200);
+
+	if (mips_cpu.isa_level == MIPS_CPU_ISA_IV)
+		set_cp0_status(ST0_XX);
 
 	atomic_inc(&init_mm.mm_count);	/* XXX UP?  */
 	current->active_mm = &init_mm;

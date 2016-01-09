@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.setup.c 1.67 12/01/01 20:09:07 benh
+ * BK Id: SCCS/s.setup.c 1.70 02/15/02 09:27:13 trini
  */
 /*
  * Common prep/pmac/chrp boot and setup code.
@@ -50,7 +50,6 @@
 extern void platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7);
 extern void bootx_init(unsigned long r4, unsigned long phys);
-extern unsigned long reloc_offset(void);
 extern void identify_cpu(unsigned long offset, unsigned long cpu);
 extern void do_cpu_ftr_fixups(unsigned long offset);
 
@@ -59,7 +58,8 @@ extern void xmon_map_scc(void);
 #endif
 
 extern boot_infos_t *boot_infos;
-char saved_command_line[256];
+char saved_command_line[512];
+extern char cmd_line[512];
 unsigned char aux_device_present;
 struct ide_machdep_calls ppc_ide_md;
 char *sysmap;

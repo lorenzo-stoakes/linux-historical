@@ -40,9 +40,21 @@ obj-	:=
 # Each configuration option enables a list of files.
 
 obj-$(CONFIG_USB)		+= usbcore.o
+
+# EHCI should initialize/link before the other HCDs
+ifeq ($(CONFIG_USB_EHCI_HCD),y)
+	obj-y += hcd/ehci-hcd.o
+endif
+
 obj-$(CONFIG_USB_UHCI)		+= usb-uhci.o
 obj-$(CONFIG_USB_UHCI_ALT)	+= uhci.o
 obj-$(CONFIG_USB_OHCI)		+= usb-ohci.o
+
+ifneq ($(CONFIG_EHCI_HCD),n)
+	usbcore-objs		+= hcd.o
+	export-objs		+= hcd.o
+endif
+subdir-$(CONFIG_USB_EHCI_HCD)	+= hcd
 
 obj-$(CONFIG_USB_MOUSE)		+= usbmouse.o
 obj-$(CONFIG_USB_HID)		+= hid.o
@@ -73,9 +85,10 @@ obj-$(CONFIG_USB_MICROTEK)	+= microtek.o
 obj-$(CONFIG_USB_HPUSBSCSI)	+= hpusbscsi.o
 obj-$(CONFIG_USB_BLUETOOTH)	+= bluetooth.o
 obj-$(CONFIG_USB_USBNET)	+= usbnet.o
+obj-$(CONFIG_USB_AUERSWALD)	+= auerswald.o
 
 # Object files in subdirectories
-mod-subdirs	:= serial
+mod-subdirs	:= serial hcd
 
 subdir-$(CONFIG_USB_SERIAL)	+= serial
 subdir-$(CONFIG_USB_STORAGE)	+= storage

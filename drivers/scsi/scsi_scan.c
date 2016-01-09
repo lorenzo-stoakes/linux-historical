@@ -23,21 +23,20 @@
 #include <linux/kmod.h>
 #endif
 
-/* The following devices are known not to tolerate a lun != 0 scan for
- * one reason or another.  Some will respond to all luns, others will
- * lock up.
+/* 
+ * Flags for irregular SCSI devices that need special treatment 
  */
-
-#define BLIST_NOLUN     	0x001
-#define BLIST_FORCELUN  	0x002
-#define BLIST_BORKEN    	0x004
-#define BLIST_KEY       	0x008
-#define BLIST_SINGLELUN 	0x010
-#define BLIST_NOTQ		0x020
-#define BLIST_SPARSELUN 	0x040
-#define BLIST_MAX5LUN		0x080
-#define BLIST_ISDISK    	0x100
-#define BLIST_ISROM     	0x200
+#define BLIST_NOLUN     	0x001	/* Don't scan for LUNs */
+#define BLIST_FORCELUN  	0x002	/* Known to have LUNs, force sanning */
+#define BLIST_BORKEN    	0x004	/* Flag for broken handshaking */
+#define BLIST_KEY       	0x008	/* Needs to be unlocked by special command */
+#define BLIST_SINGLELUN 	0x010	/* LUNs should better not be used in parallel */
+#define BLIST_NOTQ		0x020	/* Buggy Tagged Command Queuing */
+#define BLIST_SPARSELUN 	0x040	/* Non consecutive LUN numbering */
+#define BLIST_MAX5LUN		0x080	/* Avoid LUNS >= 5 */
+#define BLIST_ISDISK    	0x100	/* Treat as (removable) disk */
+#define BLIST_ISROM     	0x200	/* Treat as (removable) CD-ROM */
+#define BLIST_LARGELUN		0x400	/* LUNs larger than 7 despite reporting as SCSI 2 */
 
 static void print_inquiry(unsigned char *data);
 static int scan_scsis_single(unsigned int channel, unsigned int dev,
@@ -62,6 +61,10 @@ struct dev_info {
  */
 static struct dev_info device_list[] =
 {
+/* The following devices are known not to tolerate a lun != 0 scan for
+ * one reason or another.  Some will respond to all luns, others will
+ * lock up.
+ */
 	{"Aashima", "IMAGERY 2400SP", "1.03", BLIST_NOLUN},	/* Locks up if polled for lun != 0 */
 	{"CHINON", "CD-ROM CDS-431", "H42", BLIST_NOLUN},	/* Locks up if polled for lun != 0 */
 	{"CHINON", "CD-ROM CDS-535", "Q14", BLIST_NOLUN},	/* Locks up if polled for lun != 0 */
@@ -75,7 +78,6 @@ static struct dev_info device_list[] =
 	{"MAXTOR", "XT-4170S", "B5A", BLIST_NOLUN},		/* Locks-up sometimes when LUN>0 polled. */
 	{"MAXTOR", "XT-8760S", "B7B", BLIST_NOLUN},		/* guess what? */
 	{"MEDIAVIS", "RENO CD-ROMX2A", "2.03", BLIST_NOLUN},	/*Responds to all lun */
-	{"MICROP", "4110", "*", BLIST_NOTQ},			/* Buggy Tagged Queuing */
 	{"NEC", "CD-ROM DRIVE:841", "1.0", BLIST_NOLUN},	/* Locks-up when LUN>0 polled. */
 	{"PHILIPS", "PCA80SC", "V4-2", BLIST_NOLUN},		/* Responds to all lun */
 	{"RODIME", "RO3000S", "2.33", BLIST_NOLUN},		/* Locks up if polled for lun != 0 */
@@ -126,6 +128,7 @@ static struct dev_info device_list[] =
 	{"INSITE", "Floptical   F*8I", "*", BLIST_KEY},
 	{"INSITE", "I325VM", "*", BLIST_KEY},
 	{"LASOUND","CDX7405","3.10", BLIST_MAX5LUN | BLIST_SINGLELUN},
+	{"MICROP", "4110", "*", BLIST_NOTQ},			/* Buggy Tagged Queuing */
 	{"NRC", "MBR-7", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
 	{"NRC", "MBR-7.4", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
 	{"REGAL", "CDC-4X", "*", BLIST_MAX5LUN | BLIST_SINGLELUN},
@@ -152,7 +155,7 @@ static struct dev_info device_list[] =
 	{"DELL", "PV660F   PSEUDO",   "*", BLIST_SPARSELUN},
 	{"DELL", "PSEUDO DEVICE .",   "*", BLIST_SPARSELUN}, // Dell PV 530F
 	{"DELL", "PV530F",    "*", BLIST_SPARSELUN}, // Dell PV 530F
-	{"EMC", "SYMMETRIX", "*", BLIST_SPARSELUN},
+	{"EMC", "SYMMETRIX", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 	{"CMD", "CRA-7280", "*", BLIST_SPARSELUN},   // CMD RAID Controller
 	{"CNSI", "G7324", "*", BLIST_SPARSELUN},     // Chaparral G7324 RAID
 	{"CNSi", "G8324", "*", BLIST_SPARSELUN},     // Chaparral G8324 RAID
@@ -434,8 +437,13 @@ void scan_scsis(struct Scsi_Host *shpnt,
 								       scsi_result)
 						    && !sparse_lun)
 							break;	/* break means don't probe further for luns!=0 */
-						if (SDpnt && (0 == lun))
-							lun0_sl = SDpnt->scsi_level;
+						if (SDpnt && (0 == lun)) {
+							int bflags = get_device_flags (scsi_result);
+							if (bflags & BLIST_LARGELUN)
+								lun0_sl = SCSI_3; /* treat as SCSI 3 */
+							else
+								lun0_sl = SDpnt->scsi_level;
+						}
 					}	/* for lun ends */
 				}	/* if this_id != id ends */
 			}	/* for dev ends */

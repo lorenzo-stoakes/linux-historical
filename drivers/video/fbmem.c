@@ -122,6 +122,10 @@ extern int sisfb_init(void);
 extern int sisfb_setup(char*);
 extern int stifb_init(void);
 extern int stifb_setup(char*);
+extern int pmagbafb_init(void);
+extern int pmagbbfb_init(void);
+extern void maxinefb_init(void);
+extern int tx3912fb_init(void);
 extern int radeonfb_init(void);
 extern int radeonfb_setup(char*);
 extern int e1355fb_init(void);
@@ -280,15 +284,29 @@ static struct {
 #ifdef CONFIG_FB_HIT
 	{ "hitfb", hitfb_init, NULL },
 #endif
+#ifdef CONFIG_FB_TX3912
+	{ "tx3912", tx3912fb_init, NULL },
+#endif
 #ifdef CONFIG_FB_E1355
 	{ "e1355fb", e1355fb_init, e1355fb_setup },
 #endif
 #ifdef CONFIG_FB_PVR2
 	{ "pvr2", pvr2fb_init, pvr2fb_setup },
 #endif
+#ifdef CONFIG_FB_PMAG_BA
+	{ "pmagbafb", pmagbafb_init, NULL },
+#endif
 #ifdef CONFIG_FB_VOODOO1
 	{ "sst", sstfb_init, sstfb_setup },
 #endif
+#ifdef CONFIG_FB_PMAGB_B
+	{ "pmagbbfb", pmagbbfb_init, NULL },
+#endif
+#ifdef CONFIG_FB_MAXINE
+	{ "maxinefb", maxinefb_init, NULL },
+#endif
+
+
 	/*
 	 * Generic drivers that don't use resource management (yet)
 	 */
@@ -612,15 +630,14 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 #elif defined(__i386__) || defined(__x86_64__)
 	if (boot_cpu_data.x86 > 3)
 		pgprot_val(vma->vm_page_prot) |= _PAGE_PCD;
-#elif defined(__mips__)
-	pgprot_val(vma->vm_page_prot) &= ~_CACHE_MASK;
-	pgprot_val(vma->vm_page_prot) |= _CACHE_UNCACHED;
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__mips__)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	/* This is an IO map - tell maydump to skip this VMA */
 	vma->vm_flags |= VM_IO;
 #elif defined(__sh__)
 	pgprot_val(vma->vm_page_prot) &= ~_PAGE_CACHABLE;
+#elif defined(__ia64__)
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 #else
 #warning What do we have to do here??
 #endif

@@ -13,6 +13,7 @@
 #include <linux/mm.h>
 #include <linux/stddef.h>
 #include <linux/unistd.h>
+#include <linux/personality.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/mman.h>
@@ -32,7 +33,7 @@
 #include <asm/elf.h>
 #include <asm/isadep.h>
 
-void cpu_idle(void)
+ATTRIB_NORET void cpu_idle(void)
 {
 	/* endless idle loop with no priority at all */
 	current->nice = 20;
@@ -55,8 +56,8 @@ asmlinkage void ret_from_fork(void);
 void exit_thread(void)
 {
 	/* Forget lazy fpu state */
-	if (last_task_used_math == current) {
-		set_cp0_status(ST0_CU1);
+	if (last_task_used_math == current && mips_cpu.options & MIPS_CPU_FPU) {
+		__enable_fpu();
 		__asm__ __volatile__("cfc1\t$0,$31");
 		last_task_used_math = NULL;
 	}
@@ -65,8 +66,8 @@ void exit_thread(void)
 void flush_thread(void)
 {
 	/* Forget lazy fpu state */
-	if (last_task_used_math == current) {
-		set_cp0_status(ST0_CU1);
+	if (last_task_used_math == current && mips_cpu.options & MIPS_CPU_FPU) {
+		__enable_fpu();
 		__asm__ __volatile__("cfc1\t$0,$31");
 		last_task_used_math = NULL;
 	}
@@ -84,7 +85,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 
 	if (last_task_used_math == current)
 		if (mips_cpu.options & MIPS_CPU_FPU) {
-			set_cp0_status(ST0_CU1);
+			__enable_fpu();
 			save_fp(p);
 		}
 	/* set up new TSS. */
@@ -174,16 +175,15 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 		"1:  addiu   $sp,32           \n"
 		"    move    %0,$2            \n"
 		".set reorder"
-		:"=r" (retval)
-		:"i" (__NR_clone), "i" (__NR_exit),
-		 "r" (arg), "r" (fn),
-		 "r" (flags | CLONE_VM)
+		: "=r" (retval)
+		: "i" (__NR_clone), "i" (__NR_exit), "r" (arg), "r" (fn),
+		  "r" (flags | CLONE_VM)
 		 /*
 		  * The called subroutine might have destroyed any of the
 		  * at, result, argument or temporary registers ...
 		  */
-		:"$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8",
-		 "$9","$10","$11","$12","$13","$14","$15","$24","$25");
+		: "$2", "$3", "$4", "$5", "$6", "$7", "$8",
+		  "$9","$10","$11","$12","$13","$14","$15","$24","$25");
 
 	return retval;
 }

@@ -51,6 +51,8 @@ struct ctlr_info
 	__u32	board_id;
 	ulong   vaddr;
 	__u32	paddr;	
+	unsigned long io_mem_addr;
+	unsigned long io_mem_length;
 	CfgTable_struct *cfgtable;
 	int	intr;
 

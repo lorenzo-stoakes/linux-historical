@@ -1619,7 +1619,7 @@ void ide_timer_expiry (unsigned long data)
  * drive is ready to accept one, in which case we know the drive is not
  * trying to interrupt us.  And ide_set_handler() is always invoked before
  * completing the issuance of any new drive command, so we will not be
- * accidently invoked as a result of any valid command completion interrupt.
+ * accidentally invoked as a result of any valid command completion interrupt.
  *
  */
 static void unexpected_intr (int irq, ide_hwgroup_t *hwgroup)
@@ -3351,6 +3351,12 @@ static void __init probe_for_hwifs (void)
 		pmac_ide_probe();
 	}
 #endif /* CONFIG_BLK_DEV_IDE_PMAC */
+#ifdef CONFIG_BLK_DEV_IDE_SWARM
+	{
+		extern void swarm_ide_probe(void);
+		swarm_ide_probe();
+	}
+#endif /* CONFIG_BLK_DEV_IDE_SWARM */
 #ifdef CONFIG_BLK_DEV_IDE_ICSIDE
 	{
 		extern void icside_init(void);

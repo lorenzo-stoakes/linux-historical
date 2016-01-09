@@ -2,6 +2,9 @@
 # For a description of the syntax of this configuration file,
 # see Documentation/kbuild/config-language.txt.
 #
+define_bool CONFIG_MIPS y
+define_bool CONFIG_MIPS64 y
+
 mainmenu_name "Linux Kernel Configuration"
 
 mainmenu_option next_comment
@@ -11,9 +14,29 @@ endmenu
 
 mainmenu_option next_comment
 comment 'Machine selection'
-choice 'Machine type'						\
-	"SGI-IP22,Indy/Indigo2 CONFIG_SGI_IP22			\
-	 SGI-IP27,Origin200/2000 CONFIG_SGI_IP27 SGI-IP27,Origin200/2000"
+if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+   bool 'Support for MIPS Atlas board' CONFIG_MIPS_ATLAS
+   bool 'Support for MIPS Malta board' CONFIG_MIPS_MALTA
+fi
+bool '  Support for SGI-IP27 (Origin200/2000)' CONFIG_SGI_IP27
+if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+   bool '  Support for SGI-IP22 (Indy/Indigo2)' CONFIG_SGI_IP22
+   bool '  Support for SGI-IP32 (O2)' CONFIG_SGI_IP32
+fi
+bool 'Support for SiByte SB1250 SOC' CONFIG_SIBYTE_SB1250
+if [ "$CONFIG_SIBYTE_SB1250" = "y" ]; then
+   bool '  Support for SB1250 onchip PCI controller' CONFIG_PCI
+   bool '  Support for SB1250 profiling - SB1/SCD perf counters' CONFIG_SIBYTE_SB1250_PROF
+   bool '  Support for BCM1250 profiling using trace buffer' CONFIG_BCM1250_TBPROF
+   bool '  Remote debugging (kgdb over UART 1)' CONFIG_REMOTE_DEBUG
+   bool '  Support for SiByte SWARM board' CONFIG_SIBYTE_SWARM
+   if [ "$CONFIG_SIBYTE_SWARM" = "y" ]; then
+      bool '    Running under simulation' CONFIG_SIMULATION
+      bool '    Configure for L3proc Demo' CONFIG_L3DEMO
+      int '      Maximum memory chunks' CONFIG_SIBYTE_SWARM_MAX_MEM_REGIONS 16
+      bool '      Multi-Processing support' CONFIG_SMP
+   fi
+fi
 
 if [ "$CONFIG_SGI_IP27" = "y" ]; then
    bool '  IP27 N-Mode' CONFIG_SGI_SN0_N_MODE
@@ -33,22 +56,33 @@ define_bool CONFIG_RWSEM_XCHGADD_ALGORITHM n
 #
 # Select some configuration options automatically based on user selections
 #
-unset CONFIG_ARC32
-unset CONFIG_ARC64
-unset CONFIG_BINFMT_ELF32
-unset CONFIG_BOARD_SCACHE
-unset CONFIG_BOOT_ELF32
-unset CONFIG_BOOT_ELF64
-unset CONFIG_COHERENT_IO
-unset CONFIG_ISA
-unset CONFIG_MAPPED_PCI_IO
-unset CONFIG_PCI
+
+if [ "$CONFIG_MIPS_ATLAS" = "y" ]; then
+   define_bool CONFIG_BOOT_ELF32 y
+   define_int CONFIG_L1_CACHE_SHIFT 5
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_PCI y
+   define_bool CONFIG_SWAP_IO_SPACE y
+fi
+
+if [ "$CONFIG_MIPS_MALTA" = "y" ]; then
+   define_bool CONFIG_BOOT_ELF32 y
+   define_bool CONFIG_I8259 y
+   define_int CONFIG_L1_CACHE_SHIFT 5
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_PCI y
+   define_bool CONFIG_SWAP_IO_SPACE y
+fi
 
 if [ "$CONFIG_SGI_IP22" = "y" ]; then
-   define_bool CONFIG_BOOT_ELF32 y
    define_bool CONFIG_ARC32 y
-   define_bool CONFIG_BOARD_SCACHE y
+   define_bool CONFIG_ARC_CONSOLE y
    define_bool CONFIG_ARC_MEMORY y
+   define_bool CONFIG_BOARD_SCACHE y
+   define_bool CONFIG_IRQ_CPU y
+   define_bool CONFIG_PC_KEYB y
+   define_bool CONFIG_BOOT_ELF32 y
+   define_bool CONFIG_NONCOHERENT_IO y
    define_bool CONFIG_SGI y
    define_int CONFIG_L1_CACHE_SHIFT 5
 fi
@@ -56,11 +90,30 @@ fi
 if [ "$CONFIG_SGI_IP27" = "y" ]; then
    define_bool CONFIG_BOOT_ELF64 y
    define_bool CONFIG_ARC64 y
-   define_bool CONFIG_COHERENT_IO y
    define_bool CONFIG_MAPPED_PCI_IO y
    define_bool CONFIG_PCI y
    define_bool CONFIG_QL_ISP_A64 y
    define_int CONFIG_L1_CACHE_SHIFT 7
+fi
+
+if [ "$CONFIG_SGI_IP32" = "y" ]; then
+   define_bool CONFIG_BOOT_ELF32 y
+   define_bool CONFIG_ARC32 y
+   define_bool CONFIG_PC_KEYB y
+   define_bool CONFIG_PCI y
+   #define_bool CONFIG_BOARD_SCACHE y
+   define_bool CONFIG_MAPPED_PCI_IO n
+   define_bool CONFIG_NONCOHERENT_IO y
+   define_bool CONFIG_ARC_MEMORY y
+   define_int CONFIG_L1_CACHE_SHIFT 5
+fi
+
+if [ "$CONFIG_SIBYTE_SWARM" = "y" ]; then
+   define_bool CONFIG_BOOT_ELF32 y
+   define_bool CONFIG_SWAP_IO_SPACE y
+   define_bool CONFIG_CFE y
+   define_bool CONFIG_SIBYTE_SB1250 y
+   define_int CONFIG_L1_CACHE_SHIFT 5
 fi
 
 if [ "$CONFIG_ISA" != "y" ]; then
@@ -86,8 +139,18 @@ choice 'CPU type'				\
 	 R5000 CONFIG_CPU_R5000			\
 	 R52x0 CONFIG_CPU_NEVADA		\
 	 R8000 CONFIG_CPU_R8000			\
-	 R10000 CONFIG_CPU_R10000" R4x00
+	 R10000 CONFIG_CPU_R10000		\
+	 SB1   CONFIG_CPU_SB1" R4x00
 endmenu
+
+if [ "$CONFIG_CPU_SB1" = "y" ]; then
+   bool '  Workarounds for pass 1 sb1 bugs' CONFIG_SB1_PASS_1_WORKAROUNDS
+   bool '  Support for SB1 Cache Error handler' CONFIG_SB1_CACHE_ERROR
+   define_bool CONFIG_VTAG_ICACHE y
+fi
+
+define_bool CONFIG_CPU_HAS_LLSC y
+define_bool CONFIG_CPU_HAS_LLDSCD y
 
 mainmenu_option next_comment
 comment 'General setup'
@@ -109,8 +172,10 @@ bool 'Support for hot-pluggable devices' CONFIG_HOTPLUG
 
 if [ "$CONFIG_HOTPLUG" = "y" ] ; then
    source drivers/pcmcia/Config.in
+   source drivers/hotplug/Config.in
 else
    define_bool CONFIG_PCMCIA n
+   define_bool CONFIG_HOTPLUG_PCI n
 fi
 
 bool 'System V IPC' CONFIG_SYSVIPC

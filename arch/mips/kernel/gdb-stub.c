@@ -11,8 +11,6 @@
  *  Send complaints, suggestions etc. to <andy@waldorf-gmbh.de>
  *
  *  Copyright (C) 1995 Andreas Busse
- *
- * $Id: gdb-stub.c,v 1.6 1999/05/01 22:40:35 ralf Exp $
  */
 
 /*
@@ -578,7 +576,7 @@ void set_async_breakpoint(unsigned int epc)
 	async_bp.addr = epc;
 	async_bp.val  = *(unsigned *)epc;
 	*(unsigned *)epc = BP;
-	flush_cache_all();
+	__flush_cache_all();
 }
 
 
@@ -805,7 +803,7 @@ void handle_exception (struct gdb_regs *regs)
 			 * NB: We flush both caches, just to be sure...
 			 */
 
-			flush_cache_all();
+			__flush_cache_all();
 			return;
 			/* NOTREACHED */
 			break;
@@ -834,7 +832,7 @@ void handle_exception (struct gdb_regs *regs)
 			 * use breakpoints and continue, instead.
 			 */
 			single_step(regs);
-			flush_cache_all();
+			__flush_cache_all();
 			return;
 			/* NOTREACHED */
 
@@ -925,9 +923,8 @@ void adel(void)
 
 #ifdef CONFIG_GDB_CONSOLE
 
-void gdb_puts(const char *str)
+void gdb_putsn(const char *str, int l)
 {
-	int l = strlen(str);
 	char outbuf[18];
 
 	outbuf[0]='O';
@@ -949,7 +946,7 @@ static kdev_t gdb_console_dev(struct console *con)
 
 static void gdb_console_write(struct console *con, const char *s, unsigned n)
 {
-	gdb_puts(s);
+	gdb_putsn(s, n);
 }
 
 static struct console gdb_console = {

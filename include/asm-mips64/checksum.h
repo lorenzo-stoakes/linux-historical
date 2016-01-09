@@ -43,7 +43,7 @@ unsigned int csum_partial_copy_from_user(const char *src, char *dst, int len,
  * Copy and checksum to user
  */
 #define HAVE_CSUM_COPY_USER
-extern inline unsigned int csum_and_copy_to_user (const char *src, char *dst,
+static inline unsigned int csum_and_copy_to_user (const char *src, char *dst,
 						  int len, int sum,
 						  int *err_ptr)
 {
@@ -82,8 +82,7 @@ static inline unsigned short int csum_fold(unsigned int sum)
 	"xori\t%0,0xffff\n\t"
 	".set\tat"
 	: "=r" (sum)
-	: "0" (sum)
-	: "$1");
+	: "0" (sum));
 
  	return sum;
 }
@@ -135,8 +134,7 @@ static inline unsigned short ip_fast_csum(unsigned char *iph,
 	"2:\t.set\tat\n\t"
 	".set\treorder"
 	: "=&r" (sum), "=&r" (iph), "=&r" (ihl), "=&r" (dummy)
-	: "1" (iph), "2" (ihl)
-	: "$1");
+	: "1" (iph), "2" (ihl));
 
 	return csum_fold(sum);
 }
@@ -167,8 +165,7 @@ static inline unsigned long csum_tcpudp_nofold(unsigned long saddr,
 #else
 	  "r" (((proto)<<16)+len),
 #endif
-	  "r" (sum)
-	: "$1");
+	  "r" (sum));
 
 	return sum;
 }
@@ -196,11 +193,11 @@ static inline unsigned short ip_compute_csum(unsigned char * buff, int len)
 }
 
 #define _HAVE_ARCH_IPV6_CSUM
-static inline unsigned short int csum_ipv6_magic(struct in6_addr *saddr,
-						 struct in6_addr *daddr,
-						 __u32 len,
-						 unsigned short proto,
-						 unsigned int sum) 
+static __inline__ unsigned short int csum_ipv6_magic(struct in6_addr *saddr,
+						     struct in6_addr *daddr,
+						     __u32 len,
+						     unsigned short proto,
+						     unsigned int sum) 
 {
 	__asm__(
 	".set\tnoreorder\t\t\t# csum_ipv6_magic\n\t"
@@ -214,48 +211,49 @@ static inline unsigned short int csum_ipv6_magic(struct in6_addr *saddr,
 	"lw\t%1, 0(%2)\t\t\t# four words source address\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 4(%2)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 8(%2)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 12(%2)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 0(%3)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 4(%3)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 8(%3)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
 
 	"lw\t%1, 12(%3)\n\t"
 	"addu\t%0, $1\n\t"
 	"addu\t%0, %1\n\t"
-	"sltu\t$1, %0, $1\n\t"
+	"sltu\t$1, %0, %1\n\t"
+
+	"addu\t%0, $1\t\t\t# Add final carry\n\t"
 	".set\tnoat\n\t"
 	".set\tnoreorder"
 	: "=r" (sum), "=r" (proto)
 	: "r" (saddr), "r" (daddr),
-	  "0" (htonl(len)), "1" (htonl(proto)), "r" (sum)
-	: "$1");
+	  "0" (htonl(len)), "1" (htonl(proto)), "r" (sum));
 
 	return csum_fold(sum);
 }

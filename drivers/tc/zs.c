@@ -1473,7 +1473,7 @@ static void rs_wait_until_sent(struct tty_struct *tty, int timeout)
 		schedule_timeout(char_time);
 		if (signal_pending(current))
 			break;
-		if (timeout && ((orig_jiffies + timeout) < jiffies))
+		if (timeout && time_after(jiffies, orig_jiffies + timeout))
 			break;
 	}
 	current->state = TASK_RUNNING;
@@ -1925,9 +1925,9 @@ int __init zs_init(void)
 	callout_driver.subtype = SERIAL_TYPE_CALLOUT;
 
 	if (tty_register_driver(&serial_driver))
-		panic("Couldn't register serial driver\n");
+		panic("Couldn't register serial driver");
 	if (tty_register_driver(&callout_driver))
-		panic("Couldn't register callout driver\n");
+		panic("Couldn't register callout driver");
 
 	save_flags(flags); cli();
 

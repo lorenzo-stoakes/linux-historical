@@ -2,7 +2,7 @@
  * USB HandSpring Visor, Palm m50x, and Sony Clie driver
  * (supports all of the Palm OS USB devices)
  *
- *	Copyright (C) 1999 - 2001
+ *	Copyright (C) 1999 - 2002
  *	    Greg Kroah-Hartman (greg@kroah.com)
  *
  *	This program is free software; you can redistribute it and/or modify
@@ -12,6 +12,12 @@
  *
  * See Documentation/usb/usb-serial.txt for more information on using this driver
  * 
+ * (02/21/2002) SilaS
+ *	Added support for the Palm m515 devices.
+ *
+ * (02/15/2002) gkh
+ *	Added support for the Clie S-360 device.
+ *
  * (12/18/2001) gkh
  *	Added better Clie support for 3.5 devices.  Thanks to Geoffrey Levand
  *	for the patch.
@@ -160,6 +166,7 @@ static __devinitdata struct usb_device_id visor_id_table [] = {
 static __devinitdata struct usb_device_id palm_4_0_id_table [] = {
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M500_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M505_ID) },
+	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M515_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M125_ID) },
 	{ }					/* Terminating entry */
 };
@@ -171,6 +178,7 @@ static __devinitdata struct usb_device_id clie_id_3_5_table [] = {
 
 static __devinitdata struct usb_device_id clie_id_4_0_table [] = {
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_0_ID) },
+	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_S360_ID) },
 	{ }					/* Terminating entry */
 };
 
@@ -178,9 +186,11 @@ static __devinitdata struct usb_device_id id_table [] = {
 	{ USB_DEVICE(HANDSPRING_VENDOR_ID, HANDSPRING_VISOR_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M500_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M505_ID) },
+	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M515_ID) },
 	{ USB_DEVICE(PALM_VENDOR_ID, PALM_M125_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_3_5_ID) },
 	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_4_0_ID) },
+	{ USB_DEVICE(SONY_VENDOR_ID, SONY_CLIE_S360_ID) },
 	{ }					/* Terminating entry */
 };
 

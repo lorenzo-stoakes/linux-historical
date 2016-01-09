@@ -271,6 +271,18 @@ extern void ide_init_it8172(ide_hwif_t *);
 #define INIT_IT8172	NULL
 #endif
 
+#ifdef CONFIG_BLK_DEV_IT8172
+extern unsigned int pci_init_it8172(struct pci_dev *, const char *);
+extern unsigned int ata66_it8172(ide_hwif_t *);
+extern void ide_init_it8172(ide_hwif_t *);
+#define PCI_IT8172	&pci_init_it8172
+#define INIT_IT8172	&ide_init_it8172
+#else
+#define PCI_IT8172	NULL
+#define ATA66_IT8172	NULL
+#define INIT_IT8172	NULL
+#endif
+
 #ifdef CONFIG_BLK_DEV_RZ1000
 extern void ide_init_rz1000(ide_hwif_t *);
 #define INIT_RZ1000	&ide_init_rz1000

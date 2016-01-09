@@ -57,6 +57,11 @@
  * 10/00: add in optional software flow control for serial console.
  *	  Kanoj Sarcar <kanoj@sgi.com>  (Modified by Theodore Ts'o)
  *
+ * 02/02: Fix for AMD Elan bug in transmit irq routine, by
+ *        Christer Weinigel <wingel@hog.ctrl-c.liu.se>,
+ *        Robert Schwebel <robert@schwebel.de>,
+ *        Juergen Beisert <jbeisert@eurodsn.de>,
+ *        Theodore Ts'o <tytso@mit.edu>
  */
 
 static char *serial_version = "5.05c";
@@ -801,7 +806,7 @@ static _INLINE_ void check_modem_status(struct async_struct *info)
  */
 static void rs_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 {
-	int status;
+	int status, iir;
 	struct async_struct * info;
 	int pass_counter = 0;
 	struct async_struct *end_mark = 0;
@@ -826,7 +831,7 @@ static void rs_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 
 	do {
 		if (!info->tty ||
-		    (serial_in(info, UART_IIR) & UART_IIR_NO_INT)) {
+		    ((iir=serial_in(info, UART_IIR)) & UART_IIR_NO_INT)) {
 			if (!end_mark)
 				end_mark = info;
 			goto next;
@@ -845,7 +850,9 @@ static void rs_interrupt(int irq, void *dev_id, struct pt_regs * regs)
 		if (status & UART_LSR_DR)
 			receive_chars(info, &status, regs);
 		check_modem_status(info);
-		if (status & UART_LSR_THRE)
+		if ((status & UART_LSR_THRE) ||
+			/* for buggy ELAN processors */
+			((iir & UART_IIR_ID) == UART_IIR_THRI))
 			transmit_chars(info, 0);
 
 	next:
@@ -879,7 +886,7 @@ static void rs_interrupt(int irq, void *dev_id, struct pt_regs * regs)
  */
 static void rs_interrupt_single(int irq, void *dev_id, struct pt_regs * regs)
 {
-	int status;
+	int status, iir;
 	int pass_counter = 0;
 	struct async_struct * info;
 #ifdef CONFIG_SERIAL_MULTIPORT	
@@ -901,6 +908,7 @@ static void rs_interrupt_single(int irq, void *dev_id, struct pt_regs * regs)
 		first_multi = inb(multi->port_monitor);
 #endif
 
+	iir = serial_in(info, UART_IIR);
 	do {
 		status = serial_inp(info, UART_LSR);
 #ifdef SERIAL_DEBUG_INTR
@@ -909,18 +917,21 @@ static void rs_interrupt_single(int irq, void *dev_id, struct pt_regs * regs)
 		if (status & UART_LSR_DR)
 			receive_chars(info, &status, regs);
 		check_modem_status(info);
-		if (status & UART_LSR_THRE)
+		if ((status & UART_LSR_THRE) ||
+		    /* For buggy ELAN processors */
+		    ((iir & UART_IIR_ID) == UART_IIR_THRI))
 			transmit_chars(info, 0);
 		if (pass_counter++ > RS_ISR_PASS_LIMIT) {
-#if 0
+#if SERIAL_DEBUG_INTR
 			printk("rs_single loop break.\n");
 #endif
 			break;
 		}
+		iir = serial_in(info, UART_IIR);
 #ifdef SERIAL_DEBUG_INTR
-		printk("IIR = %x...", serial_in(info, UART_IIR));
+		printk("IIR = %x...", iir);
 #endif
-	} while (!(serial_in(info, UART_IIR) & UART_IIR_NO_INT));
+	} while ((iir & UART_IIR_NO_INT) == 0);
 	info->last_active = jiffies;
 #ifdef CONFIG_SERIAL_MULTIPORT	
 	if (multi->port_monitor)

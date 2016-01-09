@@ -1,5 +1,5 @@
 /*
- * BK Id: SCCS/s.machdep.h 1.27 12/01/01 20:09:11 benh
+ * BK Id: SCCS/s.machdep.h 1.29 02/14/02 17:27:01 trini
  */
 #ifdef __KERNEL__
 #ifndef _PPC_MACHDEP_H
@@ -113,7 +113,7 @@ struct machdep_calls {
 };
 
 extern struct machdep_calls ppc_md;
-extern char cmd_line[512];
+extern char cmd_line[];
 
 extern void setup_pci_ptrs(void);
 

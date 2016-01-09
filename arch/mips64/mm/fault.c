@@ -31,7 +31,8 @@
 
 #define development_version (LINUX_VERSION_CODE & 0x100)
 
-extern void die(char *, struct pt_regs *, unsigned long write);
+extern void die(char *, struct pt_regs *, unsigned long write)
+	__attribute__((noreturn));
 
 /*
  * Macro for exception fixup code to access integer registers.
@@ -70,6 +71,10 @@ void bust_spinlocks(int yes)
 	spin_lock_init(&timerlist_lock);
 	if (yes) {
 		oops_in_progress = 1;
+#ifdef CONFIG_SMP
+		/* Many serial drivers do __global_cli() */
+		global_irq_lock = SPIN_LOCK_UNLOCKED;
+#endif
 	} else {
 		int loglevel_save = console_loglevel;
 #ifdef CONFIG_VT
@@ -101,6 +106,11 @@ do_page_fault(struct pt_regs *regs, unsigned long write, unsigned long address)
 	unsigned long fixup;
 	siginfo_t info;
 
+#if 0
+	printk("Cpu%d[%s:%d:%08lx:%ld:%08lx]\n", smp_processor_id(),
+		current->comm, current->pid, address, write, regs->cp0_epc);
+#endif
+
 	/*
 	 * We fault-in kernel-space virtual memory on-demand. The
 	 * 'reference' page table is init_mm.pgd.
@@ -110,7 +120,7 @@ do_page_fault(struct pt_regs *regs, unsigned long write, unsigned long address)
 	 * only copy the information from the master page table,
 	 * nothing more.
 	 */
-	if (address >= TASK_SIZE)
+	if (address >= VMALLOC_START)
 		goto vmalloc_fault;
 
 	info.si_code = SEGV_MAPERR;
@@ -120,10 +130,7 @@ do_page_fault(struct pt_regs *regs, unsigned long write, unsigned long address)
 	 */
 	if (in_interrupt() || mm == &init_mm)
 		goto no_context;
-#if DEBUG_MIPS64
-	printk("Cpu%d[%s:%d:%08lx:%ld:%08lx]\n", smp_processor_id(), current->comm,
-		current->pid, address, write, regs->cp0_epc);
-#endif
+
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, address);
 	if (!vma)
@@ -149,6 +156,7 @@ good_area:
 			goto bad_area;
 	}
 
+survive:
 	/*
 	 * If for any reason at all we couldn't handle the fault,
 	 * make sure we exit gracefully rather than endlessly redo
@@ -177,7 +185,6 @@ good_area:
 bad_area:
 	up_read(&mm->mmap_sem);
 
-bad_area_nosemaphore:
 	if (user_mode(regs)) {
 		tsk->thread.cp0_badvaddr = address;
 		tsk->thread.error_code = write;
@@ -189,6 +196,7 @@ bad_area_nosemaphore:
 		       address,
 		       (unsigned long) regs->cp0_epc,
 		       (unsigned long) regs->regs[31]);
+while(1);
 #endif
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
@@ -221,12 +229,9 @@ no_context:
 	bust_spinlocks(1);
 
 	printk(KERN_ALERT "Cpu %d Unable to handle kernel paging request at "
-	       "address %08lx, epc == %08x, ra == %08x\n",
-	       smp_processor_id(), address, (unsigned int) regs->cp0_epc,
-               (unsigned int) regs->regs[31]);
+	       "address %016lx, epc == %016lx, ra == %016lx\n",
+	       smp_processor_id(), address, regs->cp0_epc, regs->regs[31]);
 	die("Oops", regs, write);
-	do_exit(SIGKILL);
-	bust_spinlocks(0);
 
 /*
  * We ran out of memory, or some other thing happened to us that made
@@ -234,6 +239,12 @@ no_context:
  */
 out_of_memory:
 	up_read(&mm->mmap_sem);
+	if (tsk->pid == 1) {
+		tsk->policy |= SCHED_YIELD;
+		schedule();
+		down_read(&mm->mmap_sem);
+		goto survive;
+	}
 	printk("VM: killing process %s\n", tsk->comm);
 	if (user_mode(regs))
 		do_exit(SIGKILL);
@@ -247,7 +258,7 @@ do_sigbus:
 	 * or user mode.
 	 */
 	tsk->thread.cp0_badvaddr = address;
-	info.si_code = SIGBUS;
+	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code = BUS_ADRERR;
 	info.si_addr = (void *) address;

@@ -354,7 +354,7 @@ static int rd_make_request(request_queue_t * q, int rw, struct buffer_head *sbh)
 	sbh->b_end_io(sbh,1);
 	return 0;
  fail:
-	sbh->b_end_io(sbh,0);
+	buffer_IO_error(sbh);
 	return 0;
 } 
 
@@ -382,6 +382,7 @@ static int rd_ioctl(struct inode *inode, struct file *file, unsigned int cmd, un
 				error = 0;
 			}
 			up(&inode->i_bdev->bd_sem);
+			invalidate_buffers(inode->i_rdev);
 			break;
          	case BLKGETSIZE:   /* Return device size */
 			if (!arg)

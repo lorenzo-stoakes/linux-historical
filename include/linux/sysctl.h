@@ -141,7 +141,8 @@ enum
 	VM_PGT_CACHE=9,		/* struct: Set page table cache parameters */
 	VM_PAGE_CLUSTER=10,	/* int: set number of pages to swap together */
        VM_MIN_READAHEAD=12,    /* Min file readahead */
-       VM_MAX_READAHEAD=13     /* Max file readahead */
+       VM_MAX_READAHEAD=13,     /* Max file readahead */
+	VM_MAX_MAP_COUNT=19	/* int: Maximum number of active map areas */
 };
 
 

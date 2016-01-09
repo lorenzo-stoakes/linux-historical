@@ -29,8 +29,7 @@
 #include <asm/mips-boards/malta.h>
 
 /* Environment variable */
-typedef struct
-{
+typedef struct {
 	char *name;
 	char *val;
 } t_env_var;
@@ -126,9 +125,9 @@ int __init prom_init(int argc, char **argv, char **envp)
 #endif
 
 #if defined(CONFIG_MIPS_MALTA)
-	mips_io_port_base = MALTA_PORT_BASE;
+	set_io_port_base(MALTA_PORT_BASE);
 #else
-	mips_io_port_base = KSEG1;
+	set_io_port_base(KSEG1);
 #endif
 	setup_prom_printf(0);
 	prom_printf("\nLINUX started...\n");

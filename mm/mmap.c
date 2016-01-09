@@ -45,6 +45,7 @@ pgprot_t protection_map[16] = {
 };
 
 int sysctl_overcommit_memory;
+int max_map_count = DEFAULT_MAX_MAP_COUNT;
 
 /* Check that a process has enough memory to allocate a
  * new virtual mapping.
@@ -413,7 +414,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 		return -EINVAL;
 
 	/* Too many mappings? */
-	if (mm->map_count > MAX_MAP_COUNT)
+	if (mm->map_count > max_map_count)
 		return -ENOMEM;
 
 	/* Obtain the address to map to. we verify (or select) it and ensure
@@ -919,7 +920,7 @@ int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 
 	/* If we'll make "hole", check the vm areas limit */
 	if ((mpnt->vm_start < addr && mpnt->vm_end > addr+len)
-	    && mm->map_count >= MAX_MAP_COUNT)
+	    && mm->map_count >= max_map_count)
 		return -ENOMEM;
 
 	/*
@@ -1040,16 +1041,13 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	    > current->rlim[RLIMIT_AS].rlim_cur)
 		return -ENOMEM;
 
-	if (mm->map_count > MAX_MAP_COUNT)
+	if (mm->map_count > max_map_count)
 		return -ENOMEM;
 
 	if (!vm_enough_memory(len >> PAGE_SHIFT))
 		return -ENOMEM;
 
-	flags = calc_vm_flags(PROT_READ|PROT_WRITE|PROT_EXEC,
-				MAP_FIXED|MAP_PRIVATE) | mm->def_flags;
-
-	flags |= VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
+	flags = VM_DATA_DEFAULT_FLAGS | mm->def_flags;
 
 	/* Can we just expand an old anonymous mapping? */
 	if (rb_parent && vma_merge(mm, prev, rb_parent, addr, addr + len, flags))

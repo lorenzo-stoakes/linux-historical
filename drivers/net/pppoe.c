@@ -86,11 +86,11 @@ struct proto_ops pppoe_ops;
 
 
 #if 0
-#define CHECKPTR(x,y) { if (!(x) && pppoe_debug &7 ){ printk(KERN_CRIT "PPPoE Invalid pointer : %s , %p\n",#x,(x)); error=-EINVAL; goto y; }}
-#define DEBUG(s,args...) if( pppoe_debug & (s) ) printk(KERN_CRIT args );
+#define CHECKPTR(x,y) do { if (!(x) && pppoe_debug &7 ){ printk(KERN_CRIT "PPPoE Invalid pointer : %s , %p\n",#x,(x)); error=-EINVAL; goto y; }} while (0)
+#define DEBUG(s,args...) do { if( pppoe_debug & (s) ) printk(KERN_CRIT args ); } while (0)
 #else
-#define CHECKPTR(x,y) do {} while (0);
-#define DEBUG(s,args...) do { } while (0);
+#define CHECKPTR(x,y) do { } while (0)
+#define DEBUG(s,args...) do { } while (0)
 #endif
 
 

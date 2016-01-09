@@ -62,8 +62,14 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    if [ "$CONFIG_MIPS_AU1000" = "y" ]; then
       bool '  MIPS AU1000 Ethernet support' CONFIG_MIPS_AU1000_ENET
    fi
+   if [ "$CONFIG_SIBYTE_SB1250" = "y" ]; then
+      tristate '  SB1250 Ethernet support' CONFIG_NET_SB1250_MAC
+   fi
    if [ "$CONFIG_SGI_IP27" = "y" ]; then
       bool '  SGI IOC3 Ethernet' CONFIG_SGI_IOC3_ETH
+   fi
+   if [ "$CONFIG_SGI_IP32" = "y" ]; then
+      tristate '  SGI O2 MACE Fast Ethernet support' CONFIG_SGI_O2MACE_ETH
    fi
    if [ "$CONFIG_IA64_SGI_SN1" = "y" ]; then
       bool '  SGI IOC3 Ethernet' CONFIG_SGI_IOC3_ETH
@@ -161,6 +167,7 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
       dep_tristate '    Apricot Xen-II on board Ethernet' CONFIG_APRICOT $CONFIG_ISA
       dep_tristate '    CS89x0 support' CONFIG_CS89x0 $CONFIG_ISA
       dep_tristate '    DECchip Tulip (dc21x4x) PCI support' CONFIG_TULIP $CONFIG_PCI
+      dep_tristate '    TOSHIBA TC35815 Ethernet support' CONFIG_TC35815 $CONFIG_PCI
       if [ "$CONFIG_TULIP" = "y" -o "$CONFIG_TULIP" = "m" ]; then
          dep_bool '      New bus configuration (EXPERIMENTAL)' CONFIG_TULIP_MWI $CONFIG_EXPERIMENTAL
          bool '      Use PCI shared mem for NIC registers' CONFIG_TULIP_MMIO
@@ -215,9 +222,12 @@ if [ "$CONFIG_NET_ETHERNET" = "y" ]; then
    fi
    if [ "$CONFIG_DECSTATION" = "y" ]; then
       bool '  DEC LANCE ethernet controller support' CONFIG_DECLANCE
-   fi 
+   fi
    if [ "$CONFIG_BAGET_MIPS" = "y" ]; then
       tristate '  Baget AMD LANCE support' CONFIG_BAGETLANCE
+   fi
+   if [ "$CONFIG_NEC_OSPREY" = "y" ]; then
+      bool '  Memory-mapped onboard NE2000-compatible ethernet' CONFIG_NE2000
    fi
 fi
 

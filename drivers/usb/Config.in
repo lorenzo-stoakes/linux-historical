@@ -18,7 +18,8 @@ comment 'Miscellaneous USB options'
    bool '  Long timeout for slow-responding devices (some MGE Ellipse UPSes)' CONFIG_USB_LONG_TIMEOUT
 fi
 
-comment 'USB Controllers'
+comment 'USB Host Controller Drivers'
+source drivers/usb/hcd/Config.in
 if [ "$CONFIG_USB_UHCI_ALT" != "y" ]; then
    dep_tristate '  UHCI (Intel PIIX4, VIA, ...) support' CONFIG_USB_UHCI $CONFIG_USB
 fi
@@ -98,5 +99,6 @@ source drivers/usb/serial/Config.in
 
 comment 'USB Miscellaneous drivers'
 dep_tristate '  USB Diamond Rio500 support (EXPERIMENTAL)' CONFIG_USB_RIO500 $CONFIG_USB $CONFIG_EXPERIMENTAL
+dep_tristate '  USB Auerswald ISDN support (EXPERIMENTAL)' CONFIG_USB_AUERSWALD $CONFIG_USB $CONFIG_EXPERIMENTAL
 
 endmenu
