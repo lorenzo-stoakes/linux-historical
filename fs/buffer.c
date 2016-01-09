@@ -1231,10 +1231,11 @@ void set_bh_page (struct buffer_head *bh, struct page *page, unsigned long offse
 	if (offset >= PAGE_SIZE)
 		BUG();
 
-	/*
-	 * page_address will return NULL anyways for highmem pages
-	 */
-	bh->b_data = page_address(page) + offset;
+	if (PageHighMem(page)) {
+		bh->b_data = (char *)offset;
+	} else {
+		bh->b_data = page_address(page) + offset;
+	}
 	bh->b_page = page;
 }
 EXPORT_SYMBOL(set_bh_page);

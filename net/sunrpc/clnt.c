@@ -770,9 +770,16 @@ call_decode(struct rpc_task *task)
 				__FUNCTION__);
 
 	/* Verify the RPC header */
-	if (!(p = call_verify(task)))
+	if (!(p = call_verify(task))) {
+		/*
+		 * When call_verfiy sets tk_action to NULL (via task_exit)
+		 * a non-retry-able error has occurred (like the server
+		 * not supporting a particular procedure call).
+		 */
+		if (task->tk_action == NULL)
+			return;
 		goto out_retry;
-
+	}
 	/*
 	 * The following is an NFS-specific hack to cater for setuid
 	 * processes whose uid is mapped to nobody on the server.

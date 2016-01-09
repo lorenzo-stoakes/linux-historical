@@ -467,6 +467,18 @@ CONFIG_BLK_DEV_INITRD
   "real" root file system, etc. See <file:Documentation/initrd.txt>
   for details.
 
+Embed root filesystem ramdisk into the kernel
+CONFIG_EMBEDDED_RAMDISK
+  Select this option if you want to build the ramdisk image into the
+  the final kernel binary.
+
+Filename of gziped ramdisk image
+CONFIG_EMBEDDED_RAMDISK_IMAGE
+  This is the filename of the ramdisk image to be built into the
+  kernel.  Relative pathnames are relative to arch/mips/ramdisk/.
+  The ramdisk image is not part of the kernel distribution; you must
+  provide one yourself.
+
 Loopback device support
 CONFIG_BLK_DEV_LOOP
   Saying Y here will allow you to use a regular file as a block
@@ -1474,6 +1486,11 @@ CONFIG_BLK_DEV_IDEDMA_PMAC
   to transfer data to and from memory.  Saying Y is safe and improves
   performance.
 
+Broadcom SiByte onboard IDE support
+CONFIG_BLK_DEV_IDE_SIBYTE
+  Include the driver for on-board IDE on the SiByte Generic Bus.  Note
+  that this limits the number of IDE devices to 4 (ide0...ide3).
+
 Use DMA by default
 CONFIG_BLK_DEV_IDEDMA_PMAC_AUTO
   This option allows the driver for the built-in IDE controller on
@@ -2095,6 +2112,78 @@ CONFIG_MIPS_MALTA
   This enables support for the VR5000-based MIPS Malta evaluation
   board.
 
+# Choice: bcmboard
+Support for Broadcom SiByte boards
+CONFIG_SIBYTE_SWARM
+  Enable support for boards based on the Broadcom SiByte family:
+
+  BCM91250A-SWARM    BCM1250 ATX size Eval Board (BCM91250A-SWARM)
+
+  BCM91250E-Sentosa  BCM1250 PCI card Eval Board (BCM91250E-Sentosa)
+
+  BCM91125E-Rhone    BCM1125 PCI card Eval Board (BCM91125E-Rhone)
+
+  Other              Non-Broadcom SiByte-based platform
+
+# Choice: bcmsoc
+Support for Broadcom BCM1xxx SOCs
+CONFIG_SIBYTE_SB1250
+
+  BCM1250     Dual-CPU SB1 with PCI and HyperTransport.
+
+  BCM1120     Uniprocessor SB1.
+
+  BCM1125     Uniprocessor SB1 with PCI (and HyperTransport for 1125H).
+
+BCM1250 Stepping
+CONFIG_CPU_SB1_PASS_1
+  Which pass of the SOC is supported (see the "system_revision"
+  register in the User Manual for more discussion of revisions):
+
+  Pass1    1250 "Pass 1"
+
+  An       1250 "Pass 2"
+
+  Bn       1250 "Pass 2.2"
+
+  Cn       1250 "Pass 3"
+
+BCM112x Stepping
+CONFIG_CPU_SB1_PASS_2
+  Which pass of the SOC is supported (see the "system_revision"
+  register in the User Manual for more discussion of revisions):
+
+  Hybrid   1250 "Pass 2"
+
+  An       112x "Pass 1"
+
+Booting from CFE
+CONFIG_SIBYTE_CFE
+  Make use of the CFE API for enumerating available memory,
+  controlling secondary CPUs, and possibly console output.
+
+Use firmware console
+CONFIG_SIBYTE_CFE_CONSOLE
+  Use the CFE API's console write routines during boot.  Other console
+  options (VT console, sb1250 duart console, etc.) should not be
+  configured.
+
+Support for Bus Watcher statistics
+CONFIG_SIBYTE_BUS_WATCHER
+  Handle and keep statistics on the bus error interrupts (COR_ECC,
+  BAD_ECC, IO_BUS).
+
+Corelis Debugger
+CONFIG_SB1XXX_CORELIS
+  Select compile flags that produce code that can be processed by the
+  Corelis mksym utility and UDB Emulator.
+
+DMA for page clear and copy
+CONFIG_SIBYTE_DMA_PAGEOPS
+  Instead of using the CPU to zero and copy pages, use a Data Mover
+  channel.  These DMA channels are otherwise unused by the standard
+  SiByte Linux port.  Seems to give a small performance benefit.
+
 Support for Galileo Evaluation board or CoSine Orion
 CONFIG_ORION
   Say Y if configuring for the Galileo evaluation board
@@ -2164,11 +2253,6 @@ CONFIG_JAZZ_ESP
   4000, Acer PICA, Olivetti M700-10 and a few other identical OEM
   systems.
 
-MIPS GT96100 support
-CONFIG_MIPS_GT96100
-  Say Y here to support the Galileo Technology GT96100 communications
-  controller card.  There is a web page at <http://www.galileot.com/>.
-
 MIPS GT96100 Ethernet support
 CONFIG_MIPS_GT96100ETH
   Say Y here to support the Ethernet subsystem on your GT96100 card.
@@ -2181,15 +2265,30 @@ CONFIG_SCSI_ZALON
   workstations).  Say Y here to make sure it gets initialized
   correctly before the Linux kernel tries to talk to the controller.
 
-Kernel floating-point instruction emulation
-CONFIG_MIPS_FPU_EMULATOR
-  This option enables the MIPS software floating support.  Due to
-  the way floating point works you should always enable this option
-  unless you exactly know what you're doing.
-
 SGI PROM Console Support
 CONFIG_SGI_PROM_CONSOLE
   Say Y here to set up the boot console on serial port 0.
+
+DECstation serial support
+CONFIG_SERIAL_DEC
+  This selects whether you want to be asked about drivers for
+  DECstation serial ports.
+
+  Note that the answer to this question won't directly affect the
+  kernel: saying N will just cause the configurator to skip all
+  the questions about DECstation serial ports.
+
+  If unsure, say Y.
+
+Support for console on a DECstation serial port
+CONFIG_SERIAL_DEC_CONSOLE
+  If you say Y here, it will be possible to use a serial port as the
+  system console (the system console is the device which receives all
+  kernel messages and warnings and which allows logins in single user
+  mode).  Note that the firmware uses ttyS0 as the serial console on
+  the Maxine and ttyS2 on the others.
+
+  If unsure, say Y.
 
 DZ11 Serial Support
 CONFIG_DZ
@@ -2310,6 +2409,8 @@ CONFIG_CPU_R3000
 
   R10000   MIPS Technologies R10000-series processors.
 
+  SB1      Broadcom SiByte SB1 processor.
+
 R6000
 CONFIG_CPU_R6000
   MIPS Technologies R6000-series processors, including the 64474,
@@ -2339,6 +2440,10 @@ CONFIG_CPU_R8000
 R10000
 CONFIG_CPU_R10000
   MIPS Technologies R10000-series processors.
+
+SB1
+CONFIG_CPU_SB1
+  Broadcom SiByte SB1 processor.
 
 Discontiguous Memory Support
 CONFIG_DISCONTIGMEM
@@ -3448,17 +3553,10 @@ CONFIG_SERIAL_MULTIPORT
   servicing. Say Y here to enable the serial driver to take advantage
   of those special I/O ports.
 
-SGI Zilog85C30 serial support
-CONFIG_SGI_SERIAL
-  If you want to use your SGI's built-in serial ports under Linux,
+SGI IP22 Zilog85C30 serial support
+CONFIG_IP22_SERIAL
+  If you want to use your IP22's built-in serial ports under Linux,
   answer Y.
-
-SGI Newport Graphics support
-CONFIG_SGI_NEWPORT_GFX
-  If you have an SGI machine and you want to compile the graphics
-  drivers, say Y here. This will include the code for the
-  /dev/graphics and /dev/gfx drivers into the kernel for supporting
-  virtualized access to your graphics hardware.
 
 SGI Newport Console support
 CONFIG_SGI_NEWPORT_CONSOLE
@@ -4001,6 +4099,11 @@ CONFIG_TCIC
   "Bridge" is the name used for the hardware inside your computer that
   PCMCIA cards are plugged into. If unsure, say N.
 
+CONFIG_PCMCIA_SIBYTE
+  Say Y here to include support for the SiByte SOC's built-in PCMCIA
+  interface.  Only ATA cards and CompactFlash are currently
+  supported.
+
 System V IPC
 CONFIG_SYSVIPC
   Inter Process Communication is a suite of library functions and
@@ -4521,21 +4624,20 @@ CONFIG_FB_ATY128
 
 Maxine (Personal DECstation) onboard framebuffer support
 CONFIG_FB_MAXINE
-  Say Y here to directly support the on-board framebuffer in the
-  Maxine (5000/20, /25, /33) version of the DECstation.  There is a
-  page dedicated to Linux on DECstations at <http://decstation.unix-ag.org/>.
+  Support for the onboard framebuffer (1024x768x8) in the Personal
+  DECstation series (Personal DECstation 5000/20, /25, /33, /50,
+  Codename "Maxine").
 
 PMAG-BA TURBOchannel framebuffer support
 CONFIG_FB_PMAG_BA
-  Say Y here to directly support the on-board PMAG-BA framebuffer in
-  the 5000/1xx versions of the DECstation.  There is a page dedicated
-  to Linux on DECstations at <http://decstation.unix-ag.org/>.
+  Support for the PMAG-BA TURBOchannel framebuffer card (1024x864x8)
+  used mainly in the MIPS-based DECstation series.
 
 PMAGB-B TURBOchannel framebuffer support
 CONFIG_FB_PMAGB_B
-  Say Y here to directly support the on-board PMAGB-B framebuffer in
-  the 5000/1xx versions of the DECstation.  There is a page dedicated
-  to Linux on DECstations at <http://decstation.unix-ag.org/>.
+  Support for the PMAGB-B TURBOchannel framebuffer card used mainly
+  in the MIPS-based DECstation series. The card is currently only 
+  supported in 1280x1024x8 mode.  
 
 FutureTV PCI card
 CONFIG_ARCH_FTVPCI
@@ -13703,6 +13805,18 @@ CONFIG_MTD_SLRAM
   <file:Documentation/modules.txt>. The module will be called
   slram.o
 
+DEC MS02-NV NVRAM module support
+CONFIG_MTD_MS02NV
+  This is a MTD driver for the DEC's MS02-NV (54-20948-01) battery
+  backed-up NVRAM module.  The module was originally meant as an NFS
+  accelerator.  Say Y here if you have a DECstation 5000/2x0 or a
+  DECsystem 5900 equipped with such a module.
+
+  If you want to compile this driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module will
+  be called ms02-nv.o.
+
 Debugging RAM test driver
 CONFIG_MTD_MTDRAM
   This enables a test MTD device driver which uses vmalloc() to
@@ -18114,6 +18228,16 @@ CONFIG_ITE_I2C_ADAP
   <file:Documentation/modules.txt>.
   The module will be called i2c-adap-ite.o.
 
+SiByte I2C Algorithm
+CONFIG_I2C_ALGO_SIBYTE
+  Supports the SiByte SOC on-chip I2C interfaces (2 channels).
+
+MAX1617 Temperature Sensor
+CONFIG_I2C_MAX1617
+  This builds a simple polling driver for the Maxim 1617 temperature
+  sensor.  Currently the device is only supported on a SiByte I2C
+  adapter, and the driver prints status updates to the system log.
+
 I2C device interface
 CONFIG_I2C_CHARDEV
   Say Y here to use i2c-* device files, usually found in the /dev
@@ -18846,19 +18970,24 @@ CONFIG_ACPI
   The ACPI Sourceforge project may also be of interest:
   <http://sf.net/projects/acpi/>
 
-ACPI Processor Enumeration Only
+ACPI Processor Enumeration for HT
 CONFIG_ACPI_HT_ONLY
-  This option enables limited ACPI support -- just enough to
-  enumerate processors from the ACPI Multiple APIC Description
-  Table (MADT).  Note that ACPI supports both logical (e.g. Hyper-
-  Threading) and physical processors, where the MultiProcessor
-  Specification (MPS) table only supports physical processors.
+  ACPI enumerates both logical (a.k.a. Hyper-Threaded -- HT)
+  and physical processors.  It is designed to obsolete several older
+  specifications, including the MultiProcessor Specification (MPS),
+  which supported only physical processors.
 
-  Full ACPI support (CONFIG_ACPI) is preferred.  Use this option
-  only if you wish to limit ACPI's role to processor enumeration.
+  CONFIG_ACPI_HT_ONLY includes just the minimal ACPI boot-time code
+  necessary to enumerate logical processors and enable HT.
 
-  In this configuration, ACPI defaults to off. It must be enabled
-  on the command-line with the "acpismp=force" option.
+  CONFIG_ACPI includes this code, plus IO APIC enumeration,
+  and the hooks to run the ACPI AML interpreter for run-time events.
+
+  When CONFIG_ACPI is selected, the command-line option "acpi=ht"
+  is available to run just the ACPI boot-time code -- just as if
+  only CONFIG_ACPI_HT_ONLY were selected.
+
+  Note that "acpi=off" can be used to disable all ACPI code in the kernel.
 
 Enable ACPI 2.0 with errata 1.3
 CONFIG_ACPI20
@@ -19497,6 +19626,17 @@ CONFIG_RTC
   inserted in and removed from the running kernel whenever you want).
   The module is called rtc.o. If you want to compile it as a module,
   say M here and read <file:Documentation/modules.txt>.
+
+Generic MIPS RTC Support
+CONFIG_MIPS_RTC
+
+  If your machine is a MIPS machine, this option provides a simple,
+  generic RTC driver for /dev/rtc device.  It only implements two IOCTL 
+  operations of the standard PC RTC driver: RTC_RD_TIME and RTC_SET_TIME.
+  It is sufficient to run hwclock program. 
+
+  You should say Y here if there is no machine-specific RTC driver for your
+  MIPS machine but you do want a simple RTC driver for your RTC device.
 
 Generic Real Time Clock Support
 CONFIG_GEN_RTC
@@ -20248,6 +20388,14 @@ CONFIG_SOUND_CS4232
   See <file:Documentation/sound/CS4232> for more information on
   configuring this card.
 
+Support for Crystal CS4297a on SiByte syncser
+CONFIG_SOUND_BCM_CS4297A
+  The BCM91250A has a Crystal CS4297a on synchronous serial port B (in
+  addition to the DB-9 serial port).  Say Y or M here to enable the
+  sound chip instead of the UART.  Also note that CONFIG_KGDB should
+  not be enabled at the same time, since it also attempts to use this
+  UART port.
+
 Support for Yamaha OPL3-SA2 and SA3 based PnP cards
 CONFIG_SOUND_OPL3SA2
   Say Y or M if you have a card based on one of these Yamaha sound
@@ -20850,6 +20998,23 @@ CONFIG_MIPS32_COMPAT
   compatibility. Since all software available for Linux/MIPS is
   currently 32-bit you should say Y here.
 
+Kernel support for o32 binaries
+CONFIG_MIPS32_O32
+  Select this option if you want to run o32 binaries.  These are pure
+  32-bit binaries as used by the 32-bit Linux/MIPS port.  Most of
+  existing binaries are in this format.
+
+  If unsure, say Y.
+
+Kernel support for n32 binaries
+CONFIG_MIPS32_N32
+  Select this option if you want to run n32 binaries.  These are
+  64-bit binaries using 32-bit quantities for addressing and certain
+  data that would normally be 64-bit.  They are used in special
+  cases.
+
+  If unsure, say N.
+
 Build fp exception handler module
 CONFIG_MIPS_FPE_MODULE
   Build the floating point exception handler module. This option is
@@ -20918,19 +21083,12 @@ CONFIG_NINO_16MB
   Palm PCs from Philips (INCOMPLETE).
 Model-300/301/302/319
 
-Low-level debugging
-CONFIG_LL_DEBUG
-  Enable low-level debugging assertion macros in the kernel code.
-  Currently used only by the time services code in the MIPS port.
-  Don't turn this on unless you know what you are doing.
-
-Remote GDB kernel debugging
-CONFIG_REMOTE_DEBUG
-  If you say Y here, it will be possible to remotely debug the MIPS
-  kernel using gdb. This enlarges your kernel image disk size by
-  several megabytes and requires a machine with more than 16 MB,
-  better 32 MB RAM to avoid excessive linking time. This is only
-  useful for kernel hackers. If unsure, say N.
+Enable run-time debugging
+CONFIG_RUNTIME_DEBUG
+  If you say Y here, some debugging macros will do run-time checking.
+  If you say N here, those macros will mostly turn to no-ops.  Currently
+  supported by MIPS arch.  See include/asm-mips/debug.h for debuging macros.
+  If unsure, say N.
 
 Run uncached
 CONFIG_MIPS_UNCACHED
@@ -23913,6 +24071,12 @@ CONFIG_VIDEO_W9966
 
   Check out <file:drivers/media/video4linux/w9966.txt> and
   <file:drivers/media/video/w9966.c> for more information.
+
+Philips SAA7114H for SiByte BCM91250A
+CONFIG_VIDEO_SWARM_7114H
+  Say Y or M to build the video4linux driver for the Philips SAA7114H
+  video decoder on Broadcom SWARM board (BCM91250A).  The decoder chip
+  is on the BCM1250's "E2" 8-bit FIFO port.
 
 CPiA Video For Linux
 CONFIG_VIDEO_CPIA

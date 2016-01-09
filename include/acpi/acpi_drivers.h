@@ -174,7 +174,7 @@ void acpi_pci_get_translations (struct acpi_pci_id* id, u64* mem_tra, u64* io_tr
 #define ACPI_PCI_LINK_FILE_STATUS	"state"
 
 int acpi_pci_link_check (void);
-int acpi_pci_link_get_irq (acpi_handle handle, int index);
+int acpi_pci_link_get_irq (acpi_handle handle, int index, int* edge_level, int* active_high_low);
 int acpi_pci_link_init (void);
 void acpi_pci_link_exit (void);
 

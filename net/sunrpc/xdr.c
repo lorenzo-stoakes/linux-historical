@@ -231,7 +231,6 @@ map_tail:
 		iov->iov_base = (char *)xdr->tail[0].iov_base + base;
 		iov++;
 	}
- out:
 	return (iov - iov_base);
 out_err:
 	for (; first_kmap != ppage; first_kmap++)

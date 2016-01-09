@@ -78,12 +78,6 @@ L:	linux-tr@linuxtr.net
 W:	http://www.linuxtr.net
 S:	Maintained
 
-3C501 NETWORK DRIVER
-P:	Alan Cox
-M:	alan@lxorguk.ukuu.org.uk
-L:	linux-net@vger.kernel.org
-S:	Maintained for 2.2 only
-
 3C505 NETWORK DRIVER
 P:	Philip Blundell
 M:	Philip.Blundell@pobox.com
@@ -760,8 +754,8 @@ W:	http://www.nyx.net/~arobinso
 S:	Maintained
 
 HFS FILESYSTEM
-P:      Oliver Neukum
-M:      oliver@neukum.org
+P:		Roman Zippel
+P:		zippel@linux-m68k.org
 L:      linux-kernel@vger.kernel.org
 S:      Maintained
 
@@ -1585,7 +1579,7 @@ S:	Unmaintained
 
 SCSI TAPE DRIVER
 P:	Kai Mäkisara
-M:	Kai.Makisara@metla.fi
+M:	Kai.Makisara@kolumbus.fi
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 
@@ -1654,11 +1648,6 @@ P:	Stelian Pop
 M:	stelian@popies.net
 W:	http://popies.net/sonypi/
 S:	Maintained
-
-SOUND
-P:	Alan Cox
-M:	alan@redhat.com
-S:	Maintained for 2.2 only
 
 UltraSPARC (sparc64):
 P:	David S. Miller
@@ -2139,12 +2128,6 @@ P:	Pete Zaitcev
 M:	zaitcev@yahoo.com
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
-
-Z85230 SYNCHRONOUS DRIVER
-P:	Alan Cox
-M:	alan@redhat.com
-W:	http://roadrunner.swansea.linux.org.uk/synchronous.shtml
-S:	Maintained for 2.2 only
 
 Z8530 DRIVER FOR AX.25
 P:	Joerg Reuter

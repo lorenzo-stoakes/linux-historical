@@ -37,7 +37,7 @@ if [ "$CONFIG_SGI_IP22" = "y" ]; then
 fi
 if [ "$CONFIG_DECSTATION" = "y" ]; then
    dep_tristate 'DEC NCR53C94 Scsi Driver' CONFIG_SCSI_DECNCR $CONFIG_SCSI $CONFIG_TC
-   dep_tristate 'DEC SII Scsi Driver' CONFIG_SCSI_DECSII $CONFIG_SCSI
+   dep_tristate 'DEC SII Scsi Driver' CONFIG_SCSI_DECSII $CONFIG_SCSI $CONFIG_MIPS32
 fi
 
 if [ "$CONFIG_PCI" = "y" ]; then

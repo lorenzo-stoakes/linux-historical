@@ -93,7 +93,7 @@ if [ "$CONFIG_BLK_DEV_IDE" != "n" ]; then
 	   define_bool CONFIG_BLK_DEV_IDEPCI $CONFIG_BLK_DEV_IDEDMA_PMAC
 	 fi
       fi
-      if [ "$CONFIG_SIBYTE_SWARM" = "y" ]; then
+      if [ "$CONFIG_SIBYTE_GENBUS_IDE" = "y" ]; then
 	 bool '  Broadcom SiByte onboard IDE support' CONFIG_BLK_DEV_IDE_SIBYTE
       fi
       if [ "$CONFIG_ARCH_ACORN" = "y" ]; then

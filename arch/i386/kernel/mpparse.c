@@ -989,7 +989,7 @@ void __init mp_register_lapic (
 	MP_processor_info(&processor);
 }
 
-#ifdef CONFIG_X86_IO_APIC
+#if defined(CONFIG_X86_IO_APIC) && defined(CONFIG_ACPI_INTERPRETER)
 
 #define MP_ISA_BUS		0
 #define MP_MAX_IOAPIC_PIN	127
@@ -1152,7 +1152,8 @@ void __init mp_config_acpi_legacy_irqs (void)
 	mp_bus_id_to_local = (int *)&bus_data[(MAX_MP_BUSSES * sizeof(int)) * 2];
 	mp_bus_id_to_pci_bus = (int *)&bus_data[(MAX_MP_BUSSES * sizeof(int)) * 3];
 	mp_irqs = (struct mpc_config_intsrc *)&bus_data[(MAX_MP_BUSSES * sizeof(int)) * 4];
-	memset(mp_bus_id_to_pci_bus, -1, MAX_MP_BUSSES);
+	for (i = 0; i < MAX_MP_BUSSES; ++i)
+	  mp_bus_id_to_pci_bus[i] = -1;
 
 	/* 
 	 * Fabricate the legacy ISA bus (bus #31).
@@ -1249,7 +1250,7 @@ void __init mp_config_ioapic_for_sci(int irq)
 
 	ioapic_pin = irq - mp_ioapic_routing[ioapic].irq_start;
 
-	io_apic_set_pci_routing(ioapic, ioapic_pin, irq);
+	io_apic_set_pci_routing(ioapic, ioapic_pin, irq, 1, 1); // Active low, level triggered
 }
 
 
@@ -1263,6 +1264,8 @@ void __init mp_parse_prt (void)
 	int			ioapic_pin = 0;
 	int			irq = 0;
 	int			idx, bit = 0;
+	int			edge_level = 0;
+	int			active_high_low = 0;
 
 	/*
 	 * Parsing through the PCI Interrupt Routing Table (PRT) and program
@@ -1273,12 +1276,16 @@ void __init mp_parse_prt (void)
 
 		/* Need to get irq for dynamic entry */
 		if (entry->link.handle) {
-			irq = acpi_pci_link_get_irq(entry->link.handle, entry->link.index);
+			irq = acpi_pci_link_get_irq(entry->link.handle, entry->link.index, &edge_level, &active_high_low);
 			if (!irq)
 				continue;
 		}
-		else
+		else {
+			/* Hardwired IRQ. Assume PCI standard settings */
 			irq = entry->link.index;
+			edge_level = 1;
+			active_high_low = 1;
+		}
 
 		/* Don't set up the ACPI SCI because it's already set up */
 		if (acpi_fadt.sci_int == irq)
@@ -1311,7 +1318,7 @@ void __init mp_parse_prt (void)
 
 		mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
 
-		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, irq))
+		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, irq, edge_level, active_high_low))
 			entry->irq = irq;
 
 		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
@@ -1326,6 +1333,6 @@ void __init mp_parse_prt (void)
 
 #endif /*CONFIG_ACPI_PCI*/
 
-#endif /*CONFIG_X86_IO_APIC*/
+#endif /*CONFIG_X86_IO_APIC && CONFIG_ACPI_INTERPRETER*/
 
-#endif /*CONFIG_ACPI_BOOT*/
+#endif /*CONFIG_ACPI*/

@@ -16,14 +16,13 @@ EXTRA_CFLAGS	+= $(ACPI_CFLAGS)
 
 export-objs 	:= acpi_ksyms.o processor.o
 
-obj-y		:= acpi_ksyms.o 
+obj-$(CONFIG_ACPI)	:= acpi_ksyms.o 
 
 #
 # ACPI Boot-Time Table Parsing
 #
-ifeq ($(CONFIG_ACPI_BOOT),y)
-  obj-y		+= tables.o blacklist.o
-endif
+obj-$(CONFIG_ACPI_BOOT)		+= tables.o
+obj-$(CONFIG_ACPI_INTERPRETER)	+= blacklist.o
 
 #
 # ACPI Core Subsystem (Interpreter)

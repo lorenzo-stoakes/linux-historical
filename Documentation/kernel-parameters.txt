@@ -69,8 +69,10 @@ running once the system is up.
 	53c7xx=		[HW,SCSI] Amiga SCSI controllers.
 
 	acpi=		[HW,ACPI] Advanced Configuration and Power Interface 
-
-	acpismp=force	[IA-32] Early setup parse and use ACPI SMP table.
+		force	Force ACPI on, even if blacklisted platform
+		off	Disable ACPI
+		ht	Limit ACPI to boot-time LAPIC enumeration for HT,
+			disabling the run-time AML interpreter.
  
 	ad1816=		[HW,SOUND]
 
@@ -404,8 +406,6 @@ running once the system is up.
 	no-hlt		[BUGS=IA-32] Tells the kernel that the hlt
 			instruction doesn't work correctly and not to
 			use it.
-
-	noht		[SMP,IA-32] Disables P4 Xeon(tm) HyperThreading.
 
 	noisapnp	[ISAPNP] Disables ISA PnP code.
 

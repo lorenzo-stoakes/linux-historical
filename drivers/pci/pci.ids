@@ -1151,6 +1151,7 @@
 	0009  r4x00
 	0020  ATM Meteor 155
 		102f 00f8  ATM Meteor 155
+	0180  TX4927
 1030  TMC Research
 1031  Miro Computer Products AG
 	5601  DC20 ASIC
@@ -1196,6 +1197,7 @@
 	0074  56k Voice Modem
 		1033 8014  RCV56ACF 56k Voice Modem
 	009b  Vrc5476
+	00a5  VRC4173
 	00a6  VRC5477 AC97
 	00cd  IEEE 1394 [OrangeLink] Host Controller
 		12ee 8011  Root hub

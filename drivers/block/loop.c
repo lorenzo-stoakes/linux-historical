@@ -893,6 +893,7 @@ static int lo_ioctl(struct inode * inode, struct file * file,
 		break;
 	case BLKBSZGET:
 	case BLKBSZSET:
+	case BLKSSZGET:
 		err = blk_ioctl(inode->i_rdev, cmd, arg);
 		break;
 	default:

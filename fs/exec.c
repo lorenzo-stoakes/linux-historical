@@ -582,8 +582,6 @@ int flush_old_exec(struct linux_binprm * bprm)
 	retval = unshare_files();
 	if(retval)
 		goto flush_failed;
-	steal_locks(files, current->files);
-	put_files_struct(files);
 	
 	/* 
 	 * Release all of the old mmap stuff
@@ -592,6 +590,8 @@ int flush_old_exec(struct linux_binprm * bprm)
 	if (retval) goto mmap_failed;
 
 	/* This is the point of no return */
+	steal_locks(files);
+	put_files_struct(files);
 	release_old_signals(oldsig);
 
 	current->sas_ss_sp = current->sas_ss_size = 0;
@@ -629,6 +629,8 @@ int flush_old_exec(struct linux_binprm * bprm)
 	return 0;
 
 mmap_failed:
+	put_files_struct(current->files);
+	current->files = files;
 flush_failed:
 	spin_lock_irq(&current->sigmask_lock);
 	if (current->sig != oldsig) {

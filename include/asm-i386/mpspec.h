@@ -229,7 +229,9 @@ extern void mp_override_legacy_irq (u8 bus_irq, u8 polarity, u8 trigger, u32 glo
 extern void mp_config_acpi_legacy_irqs (void);
 extern void mp_config_ioapic_for_sci(int irq);
 extern void mp_parse_prt (void);
-#endif /*CONFIG_X86_IO_APIC*/
+#else /*!CONFIG_X86_IO_APIC*/
+static inline void mp_config_ioapic_for_sci(int irq) { }
+#endif /*!CONFIG_X86_IO_APIC*/
 
 #endif /*CONFIG_ACPI_BOOT*/
 

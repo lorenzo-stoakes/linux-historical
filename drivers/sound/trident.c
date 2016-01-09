@@ -3014,6 +3014,8 @@ static u16 ali_ac97_get(struct trident_card *card, int secondary, u8 reg)
 	}
 	
 	data = inl(TRID_REG(card, address));
+
+	spin_unlock_irqrestore(&card->lock, flags); 
 	
 	return ((u16) (data >> 16));
 

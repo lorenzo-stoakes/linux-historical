@@ -367,7 +367,20 @@ void acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa
 void acpi_numa_memory_affinity_init (struct acpi_table_memory_affinity *ma);
 void acpi_numa_arch_fixup(void);
 
-#endif /*CONFIG_ACPI_BOOT*/
+#else /*!CONFIG_ACPI_BOOT*/
+
+#ifdef	CONFIG_ACPI_HT_ONLY
+int acpi_boot_init (void);
+
+#else /* !CONFIG_ACPI_HT_ONLY */
+
+static inline int acpi_boot_init(void)
+{
+	return 0;
+}
+#endif	/* !CONFIG_ACPI_HT_ONLY */
+
+#endif /*!CONFIG_ACPI_BOOT*/
 
 
 #ifdef CONFIG_ACPI_PCI
@@ -413,11 +426,17 @@ int ec_write(u8 addr, u8 val);
 
 #endif /*CONFIG_ACPI_EC*/
 
-#ifdef CONFIG_ACPI
+#ifdef CONFIG_ACPI_INTERPRETER
 
-int acpi_init(void);
 int acpi_blacklisted(void);
 
-#endif /*CONFIG_ACPI*/
+#else /*!CONFIG_ACPI_INTERPRETER*/
+
+static inline int acpi_blacklisted(void)
+{
+	return 0;
+}
+
+#endif /*!CONFIG_ACPI_INTERPRETER*/
 
 #endif /*_LINUX_ACPI_H*/

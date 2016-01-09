@@ -1937,11 +1937,11 @@ done:
 	return length;
 }
 
-void steal_locks(fl_owner_t from, fl_owner_t to)
+void steal_locks(fl_owner_t from)
 {
 	struct list_head *tmp;
 
-	if (from == to)
+	if (from == current->files)
 		return;
 
 	lock_kernel();
@@ -1949,7 +1949,7 @@ void steal_locks(fl_owner_t from, fl_owner_t to)
 		struct file_lock *fl = list_entry(tmp, struct file_lock,
 						  fl_link);
 		if (fl->fl_owner == from)
-			fl->fl_owner = to;
+			fl->fl_owner = current->files;
 	}
 	unlock_kernel();
 }

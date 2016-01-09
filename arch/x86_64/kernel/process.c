@@ -54,6 +54,7 @@
 #include <asm/prctl.h>
 #include <asm/kdebug.h>
 #include <asm/proto.h>
+#include <asm/apic.h>
 
 #include <linux/irq.h>
 
@@ -366,7 +367,7 @@ void __show_regs(struct pt_regs * regs)
 
 void show_regs(struct pt_regs * regs)
 {
-	show_regs(regs);
+	__show_regs(regs);
 	show_trace(&regs->rsp);
 }
 

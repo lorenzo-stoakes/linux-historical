@@ -8,24 +8,8 @@
  * See Documentation/DMA-mapping.txt for the interface specification.
  * 
  * Copyright 2002 Andi Kleen, SuSE Labs.
- * $Id: pci-gart.c,v 1.24 2003/06/09 05:17:52 ak Exp $
+ * $Id: pci-gart.c,v 1.27 2003/08/05 18:25:31 ak Exp $
  */
-
-/* 
- * Notebook:
-
-agpgart_be
- check if the simple reservation scheme is enough.
-
-possible future tuning: 
- fast path for sg streaming mappings 
- more intelligent flush strategy - flush only a single NB? flush only when
- gart area fills up and alloc_iommu wraps. 
- don't flush on allocation - need to unmap the gart area first to avoid prefetches
- by the CPU
- move boundary between IOMMU and AGP in GART dynamically
-  
-*/ 
 
 #include <linux/config.h>
 #include <linux/types.h>
@@ -36,6 +20,7 @@ possible future tuning:
 #include <linux/string.h>
 #include <linux/spinlock.h>
 #include <linux/pci.h>
+#include <linux/pci_ids.h>
 #include <linux/module.h>
 #include <asm/io.h>
 #include <asm/mtrr.h>
@@ -72,7 +57,8 @@ static unsigned long *iommu_gart_bitmap; /* guarded by iommu_bitmap_lock */
 
 #define for_all_nb(dev) \
 	pci_for_each_dev(dev) \
-		if (dev->bus->number == 0 && PCI_FUNC(dev->devfn) == 3 && \
+		if (dev->vendor == PCI_VENDOR_ID_AMD && dev->device==0x1103 &&\
+		    dev->bus->number == 0 && PCI_FUNC(dev->devfn) == 3 && \
 		    (PCI_SLOT(dev->devfn) >= 24) && (PCI_SLOT(dev->devfn) <= 31))
 
 #define EMERGENCY_PAGES 32 /* = 128KB */ 
@@ -90,22 +76,24 @@ AGPEXTERN __u32 *agp_gatt_table;
 
 static unsigned long next_bit;  /* protected by iommu_bitmap_lock */
 
-static unsigned long alloc_iommu(int size, int *flush) 
+static struct pci_dev *northbridges[NR_CPUS + 1];
+static u32 northbridge_flush_word[NR_CPUS + 1];
+static int need_flush; 	/* global flush state. set for each gart wrap */
+static unsigned long alloc_iommu(int size) 
 { 	
 	unsigned long offset, flags;
 
 	spin_lock_irqsave(&iommu_bitmap_lock, flags);	
-
 	offset = find_next_zero_string(iommu_gart_bitmap,next_bit,iommu_pages,size);
 	if (offset == -1) {
-		*flush = 1;
+		need_flush = 1;
 	       	offset = find_next_zero_string(iommu_gart_bitmap,0,next_bit,size);
 	}
 	if (offset != -1) { 
 		set_bit_string(iommu_gart_bitmap, offset, size); 
 		next_bit = offset+size; 
 		if (next_bit >= iommu_pages) { 
-			*flush = 1;
+			need_flush = 1;
 			next_bit = 0;
 	} 
 	} 
@@ -121,22 +109,40 @@ static void free_iommu(unsigned long offset, int size)
 	spin_unlock_irqrestore(&iommu_bitmap_lock, flags);
 } 
 
-static inline void flush_gart(void) 
+
+/* 
+ * Use global flush state to avoid races with multiple flushers.
+ */
+static void __flush_gart(void)
 { 
-	struct pci_dev *nb; 
-	for_all_nb(nb) { 
-		u32 flag; 
-		pci_read_config_dword(nb, 0x9c, &flag); /* could cache this */ 
-		/* could complain for PTE walk errors here (bit 1 of flag) */ 
-		flag |= 1; 
-		pci_write_config_dword(nb, 0x9c, flag); 
+	unsigned long flags;
+	int flushed = 0;
+	int i;
+
+	spin_lock_irqsave(&iommu_bitmap_lock, flags);
+	/* recheck flush count inside lock */
+	if (need_flush) { 
+		for (i = 0; northbridges[i]; i++) { 
+			pci_write_config_dword(northbridges[i], 0x9c, 
+					       northbridge_flush_word[i] | 1); 
+			flushed++;
+		} 
+		if (!flushed) 
+			printk("nothing to flush?\n");
+		need_flush = 0;
 	} 
+	spin_unlock_irqrestore(&iommu_bitmap_lock, flags);
+} 
+
+static inline void flush_gart(void)
+{ 
+	if (need_flush)
+		__flush_gart();
 } 
 
 void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 			   dma_addr_t *dma_handle)
 {
-	int flush = 0;
 	void *memory;
 	int gfp = GFP_ATOMIC;
 	int i;
@@ -173,7 +179,7 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 
 	size >>= PAGE_SHIFT;
 
-	iommu_page = alloc_iommu(size, &flush);
+	iommu_page = alloc_iommu(size);
 	if (iommu_page == -1)
 		goto error; 
 
@@ -188,7 +194,6 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 		iommu_gatt_base[iommu_page + i] = GPTE_ENCODE(phys_mem); 
 	} 
 
-	if (flush)
 	flush_gart();
 	*dma_handle = iommu_bus_base + (iommu_page << PAGE_SHIFT);
 	return memory; 
@@ -292,7 +297,6 @@ static inline int need_iommu(struct pci_dev *dev, unsigned long addr, size_t siz
 dma_addr_t pci_map_single(struct pci_dev *dev, void *addr, size_t size,
 			    int dir)
 { 
-	int flush = 0;
 	unsigned long iommu_page;
 	unsigned long phys_mem, bus;
 	int i, npages;
@@ -305,7 +309,7 @@ dma_addr_t pci_map_single(struct pci_dev *dev, void *addr, size_t size,
 
 	npages = round_up(size + ((u64)addr & ~PAGE_MASK), PAGE_SIZE) >> PAGE_SHIFT;
 
-	iommu_page = alloc_iommu(npages, &flush); 
+	iommu_page = alloc_iommu(npages); 
 	if (iommu_page == -1) {
 		iommu_full(dev, addr, size, dir); 
 		return iommu_bus_base; 
@@ -327,7 +331,6 @@ dma_addr_t pci_map_single(struct pci_dev *dev, void *addr, size_t size,
 			iommu_leak_tab[iommu_page + i] = __builtin_return_address(0); 
 #endif
 	}
-	if (flush)
 	flush_gart(); 
 
 	bus = iommu_bus_base + iommu_page*PAGE_SIZE; 
@@ -542,6 +545,18 @@ void __init pci_iommu_init(void)
 	 */
 	clear_kernel_mapping((unsigned long)__va(iommu_bus_base), iommu_size);
 
+	struct pci_dev *dev;
+	for_all_nb(dev) {
+		u32 flag; 
+		int cpu = PCI_SLOT(dev->devfn) - 24;
+		if (cpu >= NR_CPUS)
+			continue;
+		northbridges[cpu] = dev;
+
+		pci_read_config_dword(dev, 0x9c, &flag); /* cache flush word */
+		northbridge_flush_word[cpu] = flag; 
+	}
+
 	asm volatile("wbinvd" ::: "memory");
 
 	flush_gart();
@@ -553,8 +568,8 @@ void __init pci_iommu_init(void)
    off   don't use the IOMMU
    leak  turn on simple iommu leak tracing (only when CONFIG_IOMMU_LEAK is on)
    memaper[=order] allocate an own aperture over RAM with size 32MB^order.
-   noforce don't force IOMMU usage. Should be fastest.
-   force  Force IOMMU and turn on unmap debugging.
+   noforce don't force IOMMU usage. Default
+   force  Force IOMMU for all devices.
 */
 __init int iommu_setup(char *opt) 
 { 

@@ -95,7 +95,7 @@ acpi_print_table_header(acpi_table_header * header)
 static void *__init
 acpi_tb_scan_memory_for_rsdp(void *address, int length)
 {
-	u32 offset;
+	int offset;
 
 	if (length <= 0)
 		return NULL;
@@ -118,7 +118,8 @@ acpi_tb_scan_memory_for_rsdp(void *address, int length)
 	}
 
 	/* Searched entire block, no RSDP was found */
-	printk(KERN_INFO "ACPI: Searched entire block, no RSDP was found.\n");
+	dprintk(KERN_INFO "ACPI: Searched entire block 0x%x:0x%x, no RSDP was found.\n",
+		(int)address, (int)address + length);
 	return NULL;
 }
 
@@ -331,7 +332,7 @@ acpi_parse_lapic(struct acpi_table_lapic *local_apic)
 	printk(KERN_INFO "CPU %d (0x%02x00)", total_cpus, local_apic->id);
 
 	if (local_apic->flags.enabled) {
-		printk(" enabled");
+		printk(" enabled\n");
 		ix = local_apic->id;
 		if (ix >= MAX_APICS) {
 			printk(KERN_WARNING
@@ -361,9 +362,8 @@ acpi_parse_lapic(struct acpi_table_lapic *local_apic)
 		proc_entry.mpc_apicver = 0x10;	/* integrated APIC */
 		MP_processor_info(&proc_entry);
 	} else {
-		printk(" disabled");
+		printk(" disabled\n");
 	}
-	printk("\n");
 
 	total_cpus++;
 	return;

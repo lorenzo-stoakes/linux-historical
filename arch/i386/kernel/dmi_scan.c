@@ -23,8 +23,11 @@ struct dmi_header
 	u16	handle;
 };
 
+#ifdef DMI_DEBUG
+#define dmi_printk(x) printk x
+#else
 #define dmi_printk(x)
-//#define dmi_printk(x) printk x
+#endif
 
 static char * __init dmi_string(struct dmi_header *dm, u8 s)
 {
@@ -440,7 +443,6 @@ static __init int swab_apm_power_in_minutes(struct dmi_blacklist *d)
  * The MP1.4 table is right however and so SMP kernels tend to work. 
  */
  
-extern int skip_ioapic_setup;
 #ifdef CONFIG_PCI
 extern int broken_440gx_bios;
 extern unsigned int pci_probe;
@@ -453,13 +455,26 @@ static __init int broken_pirq(struct dmi_blacklist *d)
 	printk(KERN_INFO " *** contact your hardware vendor and ask about updates.\n");
 	printk(KERN_INFO " *** Building an SMP kernel may evade the bug some of the time.\n");
 #ifdef CONFIG_X86_IO_APIC
-	skip_ioapic_setup = 0;
+	{
+		extern int skip_ioapic_setup; 
+		skip_ioapic_setup = 0;
+	}
 #endif
 #ifdef CONFIG_PCI
 	broken_440gx_bios = 1;
 	pci_probe |= PCI_BIOS_IRQ_SCAN;
 #endif
-	
+	return 0;
+}
+
+/*
+ * ASUS K7V-RM has broken ACPI table defining sleep modes
+ */
+
+static __init int broken_acpi_Sx(struct dmi_blacklist *d)
+{
+	printk(KERN_WARNING "Detected ASUS mainboard with broken ACPI sleep table\n");
+	dmi_broken |= BROKEN_ACPI_Sx;
 	return 0;
 }
 
@@ -531,6 +546,47 @@ static __init int print_if_true(struct dmi_blacklist *d)
 	printk("%s\n", d->ident);
 	return 0;
 }
+
+
+#ifdef	CONFIG_ACPI_BOOT
+extern int acpi_disabled, use_acpi_pci, acpi_force, acpi_ht;
+
+static __init __attribute__((unused)) int acpi_disable(struct dmi_blacklist *d) 
+{ 
+	if (!acpi_force) { 
+		printk(KERN_NOTICE "%s detected: acpi off\n",d->ident); 
+		acpi_disabled = 1;
+	} else { 
+		printk(KERN_NOTICE 
+		       "Warning: DMI blacklist says broken, but acpi forced\n"); 
+	}
+	return 0;
+} 
+
+
+/*
+ * Limit ACPI to CPU enumeration for HT
+ */
+static __init __attribute__((unused)) int force_acpi_ht(struct dmi_blacklist *d) 
+{ 
+	if (!acpi_force) { 
+		printk(KERN_NOTICE "%s detected: force use of acpi=ht\n", d->ident); 
+		acpi_disabled = 1; 
+		acpi_ht = 1; 
+	} else { 
+		printk(KERN_NOTICE 
+		       "Warning: acpi=force overrules DMI blacklist: acpi=ht\n"); 
+	}
+	return 0;
+} 
+
+static __init int disable_acpi_pci(struct dmi_blacklist *d) 
+{ 
+	printk(KERN_NOTICE "%s detected: force use of pci=noacpi\n", d->ident); 	
+	use_acpi_pci = 0; 
+	return 0;
+} 
+#endif
 
 /*
  *	Process the DMI blacklists
@@ -625,6 +681,11 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_PRODUCT_NAME, "L8400K series Notebook PC"),
 			NO_MATCH, NO_MATCH
 			} },					
+	{ apm_is_horked, "ABIT KX7-333[R]", { /* APM blows on shutdown */
+			MATCH(DMI_BOARD_VENDOR, "ABIT"),
+			MATCH(DMI_BOARD_NAME, "VT8367-8233A (KX7-333[R])"),
+			NO_MATCH, NO_MATCH,
+			} },
 	{ apm_is_horked, "Trigem Delhi3", { /* APM crashes */
 			MATCH(DMI_SYS_VENDOR, "TriGem Computer, Inc"),
 			MATCH(DMI_PRODUCT_NAME, "Delhi3"),
@@ -870,6 +931,12 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			NO_MATCH, NO_MATCH, NO_MATCH
 			} },
 			
+	{ broken_acpi_Sx, "ASUS K7V-RM", {		/* Bad ACPI Sx table */
+			MATCH(DMI_BIOS_VERSION,"ASUS K7V-RM ACPI BIOS Revision 1003A"),
+			MATCH(DMI_BOARD_NAME, "<K7V-RM>"),
+			NO_MATCH, NO_MATCH
+			} },
+			
 	{ init_ints_after_s1, "Toshiba Satellite 4030cdt", { /* Reinitialization of 8259 is needed after S1 resume */
 			MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),
 			NO_MATCH, NO_MATCH, NO_MATCH
@@ -897,6 +964,115 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			NO_MATCH, NO_MATCH, NO_MATCH
 			} },
 
+#ifdef	CONFIG_ACPI_BOOT
+	/*
+	 * If your system is blacklisted here, but you find that acpi=force
+	 * works for you, please contact acpi-devel@sourceforge.net
+	 */
+
+	/*
+	 *	Boxes that need ACPI disabled
+	 */
+
+	{ acpi_disable, "IBM Thinkpad", {
+			MATCH(DMI_BOARD_VENDOR, "IBM"),
+			MATCH(DMI_BOARD_NAME, "2629H1G"),
+			NO_MATCH, NO_MATCH }},
+
+	/*
+	 *	Boxes that need acpi=ht 
+	 */
+
+	{ force_acpi_ht, "FSC Primergy T850", {
+			MATCH(DMI_SYS_VENDOR, "FUJITSU SIEMENS"),
+			MATCH(DMI_PRODUCT_NAME, "PRIMERGY T850"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "DELL GX240", {
+			MATCH(DMI_BOARD_VENDOR, "Dell Computer Corporation"),
+			MATCH(DMI_BOARD_NAME, "OptiPlex GX240"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "HP VISUALIZE NT Workstation", {
+			MATCH(DMI_BOARD_VENDOR, "Hewlett-Packard"),
+			MATCH(DMI_PRODUCT_NAME, "HP VISUALIZE NT Workstation"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "Compaq ProLiant DL380 G2", {
+			MATCH(DMI_SYS_VENDOR, "Compaq"),
+			MATCH(DMI_PRODUCT_NAME, "ProLiant DL380 G2"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "Compaq ProLiant ML530 G2", {
+			MATCH(DMI_SYS_VENDOR, "Compaq"),
+			MATCH(DMI_PRODUCT_NAME, "ProLiant ML530 G2"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "Compaq ProLiant ML350 G3", {
+			MATCH(DMI_SYS_VENDOR, "Compaq"),
+			MATCH(DMI_PRODUCT_NAME, "ProLiant ML350 G3"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "Compaq Workstation W8000", {
+			MATCH(DMI_SYS_VENDOR, "Compaq"),
+			MATCH(DMI_PRODUCT_NAME, "Workstation W8000"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "ASUS P4B266", {
+			MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+			MATCH(DMI_BOARD_NAME, "P4B266"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "ASUS P2B-DS", {
+			MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+			MATCH(DMI_BOARD_NAME, "P2B-DS"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "ASUS CUR-DLS", {
+			MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+			MATCH(DMI_BOARD_NAME, "CUR-DLS"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "ASUS A7V", {
+			MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC"),
+			MATCH(DMI_BOARD_NAME, "<A7V>"),
+			MATCH(DMI_BIOS_VERSION, "ASUS A7V ACPI BIOS Revision 1011"), NO_MATCH }},
+
+	{ force_acpi_ht, "ABIT i440BX-W83977", {
+			MATCH(DMI_BOARD_VENDOR, "ABIT <http://www.abit.com>"),
+			MATCH(DMI_BOARD_NAME, "i440BX-W83977 (BP6)"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "IBM Bladecenter", {
+			MATCH(DMI_BOARD_VENDOR, "IBM"),
+			MATCH(DMI_BOARD_NAME, "IBM eServer BladeCenter HS20"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "IBM eServer xSeries 360", {
+			MATCH(DMI_BOARD_VENDOR, "IBM"),
+			MATCH(DMI_BOARD_NAME, "eServer xSeries 360"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "IBM eserver xSeries 330", {
+			MATCH(DMI_BOARD_VENDOR, "IBM"),
+			MATCH(DMI_BOARD_NAME, "eserver xSeries 330"),
+			NO_MATCH, NO_MATCH }},
+
+	{ force_acpi_ht, "IBM eserver xSeries 440", {
+			MATCH(DMI_BOARD_VENDOR, "IBM"),
+			MATCH(DMI_PRODUCT_NAME, "eserver xSeries 440"),
+			NO_MATCH, NO_MATCH }},
+
+	/*
+	 *	Boxes that need ACPI PCI IRQ routing disabled
+	 */
+
+	{ disable_acpi_pci, "ASUS A7V", {
+			MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC"),
+			MATCH(DMI_BOARD_NAME, "<A7V>"),
+			MATCH(DMI_BIOS_VERSION, "ASUS A7V ACPI BIOS Revision 1007"), NO_MATCH }},
+#endif	// CONFIG_ACPI_BOOT
+
 	{ NULL, }
 };
 	
@@ -906,11 +1082,34 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
  *	returns 1 or we hit the end.
  */
  
+
 static __init void dmi_check_blacklist(void)
 {
 	struct dmi_blacklist *d;
 	int i;
 		
+#ifdef  CONFIG_ACPI_BOOT
+#define	ACPI_BLACKLIST_CUTOFF_YEAR	2001
+
+	if (dmi_ident[DMI_BIOS_DATE]) { 
+		char *s = strrchr(dmi_ident[DMI_BIOS_DATE], '/'); 
+		if (s) { 
+			int year, disable = 0;
+			s++; 
+			year = simple_strtoul(s,NULL,0); 
+			if (year >= 1000) 
+				disable = year < ACPI_BLACKLIST_CUTOFF_YEAR; 
+			else if (year < 1 || (year > 90 && year <= 99))
+				disable = 1; 
+			if (disable && !acpi_force) { 
+				printk(KERN_NOTICE "ACPI disabled because your bios is from %s and too old\n", s);
+				printk(KERN_NOTICE "You can enable it with acpi=force\n");
+				acpi_disabled = 1; 
+			} 
+		}
+	}
+#endif
+
 	d=&dmi_blacklist[0];
 	while(d->callback)
 	{
@@ -941,8 +1140,9 @@ fail:
 
 static void __init dmi_decode(struct dmi_header *dm)
 {
+#ifdef	DMI_DEBUG
 	u8 *data = (u8 *)dm;
-	
+#endif
 	switch(dm->type)
 	{
 		case  0:
@@ -988,4 +1188,7 @@ void __init dmi_scan_machine(void)
 	int err = dmi_iterate(dmi_decode);
 	if(err == 0)
 		dmi_check_blacklist();
+	else
+		printk(KERN_INFO "DMI not present.\n");
 }
+
