@@ -1,6 +1,6 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2003
- *   Portions Copyright (c) Christoph Hellwig, 2001-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2003
+ *   Portions Copyright (C) Christoph Hellwig, 2001-2002
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -76,6 +76,43 @@ extern void jfs_proc_clean(void);
 extern wait_queue_head_t jfs_IO_thread_wait;
 extern wait_queue_head_t jfs_commit_thread_wait;
 extern wait_queue_head_t jfs_sync_thread_wait;
+
+static void jfs_handle_error(struct super_block *sb)
+{
+	struct jfs_sb_info *sbi = JFS_SBI(sb);
+
+	if (sb->s_flags & MS_RDONLY)
+		return;
+
+	updateSuper(sb, FM_DIRTY);
+
+	if (sbi->flag & JFS_ERR_PANIC)
+		panic("JFS (device %s): panic forced after error\n",
+			bdevname(sb->s_dev));
+	else if (sbi->flag & JFS_ERR_REMOUNT_RO) {
+		jfs_err("ERROR: (device %s): remounting filesystem "
+			"as read-only\n",
+			bdevname(sb->s_dev));
+		sb->s_flags |= MS_RDONLY;
+	} 
+
+	/* nothing is done for continue beyond marking the superblock dirty */
+}
+
+void jfs_error(struct super_block *sb, const char * function, ...)
+{
+	static char error_buf[256];
+	va_list args;
+
+	va_start(args, function);
+	vsprintf(error_buf, function, args);
+	va_end(args);
+
+	printk(KERN_ERR "ERROR: (device %s): %s\n", bdevname(sb->s_dev),
+	       error_buf);
+
+	jfs_handle_error(sb);
+}
 
 static int jfs_statfs(struct super_block *sb, struct statfs *buf)
 {
@@ -159,7 +196,26 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 			continue;
 		if ((value = strchr(this_char, '=')) != NULL)
 			*value++ = 0;
-		if (!strcmp(this_char, "integrity")) {
+		if (!strcmp(this_char, "errors")) {
+			if (!value || !*value)
+				goto needs_arg;
+			if (!strcmp(value, "continue")) {
+				*flag &= ~JFS_ERR_REMOUNT_RO;
+				*flag &= ~JFS_ERR_PANIC;
+				*flag |= JFS_ERR_CONTINUE;
+			} else if (!strcmp(value, "remount-ro")) {
+				*flag &= ~JFS_ERR_CONTINUE;
+				*flag &= ~JFS_ERR_PANIC;
+				*flag |= JFS_ERR_REMOUNT_RO;
+			} else if (!strcmp(value, "panic")) {
+				*flag &= ~JFS_ERR_CONTINUE;
+				*flag &= ~JFS_ERR_REMOUNT_RO;
+				*flag |= JFS_ERR_PANIC;
+			} else {
+				printk(KERN_ERR "JFS: %s is an invalid error handler\n", value);
+				goto cleanup;
+			}
+		} else if (!strcmp(this_char, "integrity")) {
 			*flag &= ~JFS_NOINTEGRITY;
 		} else 	if (!strcmp(this_char, "nointegrity")) {
 			*flag |= JFS_NOINTEGRITY;
@@ -269,7 +325,9 @@ static struct super_block *jfs_read_super(struct super_block *sb,
 	memset(sbi, 0, sizeof (struct jfs_sb_info));
 	sb->u.generic_sbp = sbi;
 
-	flag = 0;
+	/* initialize the mount flag and determine the default error handler */
+	flag = JFS_ERR_REMOUNT_RO;
+
 	if (!parse_options((char *) data, sb, &newLVSize, &flag)) {
 		kfree(sbi);
 		return NULL;

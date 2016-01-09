@@ -324,13 +324,14 @@ struct hci;
 #define SL11H_CTLREG1		5
 #define SL11H_INTENBLREG	6
 
-#define SL11H_HOSTCTLREG_B	8
-#define SL11H_BUFADDRREG_B	9
-#define SL11H_BUFLNTHREG_B	0x0A
-#define SL11H_PKTSTATREG_B	0x0B	/* read */
-#define SL11H_PIDEPREG_B	0x0B	/* write */
-#define SL11H_XFERCNTREG_B	0x0C	/* read */
-#define SL11H_DEVADDRREG_B	0x0C	/* write */
+// You should not use these registers
+ #define SL11H_HOSTCTLREG_B	8
+// #define SL11H_BUFADDRREG_B	9
+ #define SL11H_BUFLNTHREG_B	0x0A
+// #define SL11H_PKTSTATREG_B	0x0B	/* read */
+ #define SL11H_PIDEPREG_B	0x0B	/* write */
+// #define SL11H_XFERCNTREG_B	0x0C	/* read */
+ #define SL11H_DEVADDRREG_B	0x0C	/* write */
 
 #define SL11H_INTSTATREG	0x0D	/* write clears bitwise */
 #define SL11H_HWREVREG		0x0E	/* read */

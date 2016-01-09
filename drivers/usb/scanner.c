@@ -378,6 +378,14 @@
  *      Sergey Vlasov.
  *    - Clean up irq urb when not enough memory is available (Sergey Vlasov).
  *
+ * 0.4.15  2003-10-03
+ *    - Added vendor/product ids for Canon, HP, Microtek, Mustek, Siemens, UMAX, and
+ *      Visioneer scanners.
+ *    - Added test for USB_CLASS_CDC_DATA which is used by some fingerprint scanners
+ *    - Use static declarations for usb_scanner_init/usb_scanner_exit 
+ *      (Daniele Bellucci).
+ *
+ *
  * TODO
  *    - Performance
  *    - Select/poll methods
@@ -921,6 +929,7 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 
 	if (interface[0].bInterfaceClass != USB_CLASS_VENDOR_SPEC &&
 	    interface[0].bInterfaceClass != USB_CLASS_PER_INTERFACE &&
+	    interface[0].bInterfaceClass != USB_CLASS_CDC_DATA &&
 	    interface[0].bInterfaceClass != SCN_CLASS_SCANJET) {
 		dbg("probe_scanner: This interface doesn't look like a scanner (class=0x%x).", interface[0].bInterfaceClass);
 		return NULL;
@@ -1159,13 +1168,13 @@ usb_driver scanner_driver = {
 				 we match a user defined vendor/product ID. */
 };
 
-void __exit
+static void __exit
 usb_scanner_exit(void)
 {
 	usb_deregister(&scanner_driver);
 }
 
-int __init
+static int __init
 usb_scanner_init (void)
 {
         if (usb_register(&scanner_driver) < 0)

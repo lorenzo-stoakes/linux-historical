@@ -63,8 +63,8 @@
 // #define VERBOSE
 
 #include <linux/config.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
 #include <linux/sched.h>
@@ -181,7 +181,7 @@ static const char EP_IN_NAME [] = "ep11in-bulk";
 /* supports remote wakeup, but this driver doesn't */
 
 /* no hw optimizations to apply */
-#define hw_optimize(g) do {} while (0);
+#define hw_optimize(g) do {} while (0)
 #endif
 
 /*
@@ -208,7 +208,26 @@ static const char EP_IN_NAME [] = "ep2in-bulk";
 /* doesn't support remote wakeup? */
 
 /* no hw optimizations to apply */
-#define hw_optimize(g) do {} while (0);
+#define hw_optimize(g) do {} while (0)
+#endif
+
+/*
+ * Toshiba TC86C001 ("Goku-S") UDC
+ *
+ * This has three semi-configurable full speed bulk/interrupt endpoints.
+ */
+#ifdef	CONFIG_USB_ZERO_GOKU
+#define CHIP			"goku"
+#define DRIVER_VERSION_NUM	0x0116
+#define EP0_MAXPACKET		8
+static const char EP_OUT_NAME [] = "ep1-bulk";
+#define EP_OUT_NUM	1
+static const char EP_IN_NAME [] = "ep2-bulk";
+#define EP_IN_NUM	2
+#define SELFPOWER USB_CONFIG_ATT_SELFPOWER
+/* doesn't support remote wakeup */
+
+#define hw_optimize(g) do {} while (0)
 #endif
 
 /*-------------------------------------------------------------------------*/

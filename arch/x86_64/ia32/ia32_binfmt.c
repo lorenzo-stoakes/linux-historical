@@ -162,7 +162,7 @@ do {							\
 # define CONFIG_BINFMT_ELF_MODULE	CONFIG_BINFMT_ELF32_MODULE
 #endif
 
-#define ELF_PLAT_INIT(r)		elf32_init(r)
+#define ELF_PLAT_INIT(r, load_addr)	elf32_init(r)
 #define setup_arg_pages(bprm)		ia32_setup_arg_pages(bprm)
 
 extern void load_gs_index(unsigned);

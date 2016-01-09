@@ -93,7 +93,21 @@ static __u8 root_hub_config_des[] = {
 	0xff			/*  __u8  ep_bInterval; 255 ms */
 };
 
-/* Hub class-specific descriptor is constructed dynamically */
+/* [Hub class-specific descriptor is constructed dynamically] */
+/* copied from "dynamic source". (hne) */
+static __u8 root_hub_hub_des[] =
+{
+	0x09,			/*  __u8  bLength; */
+	0x29,			/*  __u8  bDescriptorType; Hub-descriptor */
+	0x01,			/*  __u8  bNbrPorts; */
+	0x00,			/* __u16  wHubCharacteristics; */
+	0x00,
+	0x50,			/*  __u8  bPwrOn2pwrGood; 100ms for port reset */
+	0x00,			/*  __u8  bHubContrCurrent; 0 mA */
+	0xfc, /* ??? HNE */	/*  __u8  DeviceRemovable; *** 7 Ports max *** */ /* which port is attachable (HNE) */
+	0xff			/*  __u8  PortPwrCtrlMask; *** 7 ports max *** */
+};
+
 
 /***************************************************************************
  * Function Name : rh_send_irq
@@ -154,7 +168,7 @@ static int rh_send_irq (hci_t * hci, void *rh_data, int rh_len)
 	len = i / 8 + 1;
 
 	if (ret > 0) {
-		memcpy (rh_data, data, min (len, min (rh_len, (int)sizeof (data))));
+		memcpy (rh_data, data, min (len, (int)min (rh_len, (int)sizeof (data))));
 		return len;
 	}
 	return 0;
@@ -422,19 +436,9 @@ static int rh_submit_urb (struct urb * urb)
 		break;
 
 	case RH_GET_DESCRIPTOR | RH_CLASS:
-		data_buf[0] = 9;	// min length;
-		data_buf[1] = 0x29;
-		data_buf[2] = 1;	// # of downstream port
-		data_buf[3] = 0;
-		datab[1] = 0;
-		data_buf[5] = 50;	// 100 ms for port reset
-		data_buf[7] = 0xfc;	// which port is attachable
-		if (data_buf[2] < 7) {
-			data_buf[8] = 0xff;
-		} else {
-		}
-
-		len = min (leni, min ((__u16)data_buf[0], wLength));
+		len = min_t(unsigned int, leni,
+			  min_t(unsigned int, sizeof (root_hub_hub_des), wLength));
+		memcpy (data_buf, root_hub_hub_des, len);
 		OK (len);
 
 	case RH_GET_CONFIGURATION:
@@ -484,7 +488,13 @@ static int rh_unlink_urb (struct urb * urb)
 		hci->rh.urb = NULL;
 
 		urb->hcpriv = NULL;
+		/* ---
 		usb_put_dev (urb->dev);
+
+		Can not found this function, copy from old source and other source.
+		usbnet.c us this to. Its a macro to usb_dec_dev_use. (hne)
+		--- */
+		usb_dec_dev_use(urb->dev);
 		urb->dev = NULL;
 		if (urb->transfer_flags & USB_ASYNC_UNLINK) {
 			urb->status = -ECONNRESET;

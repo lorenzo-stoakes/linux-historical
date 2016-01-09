@@ -23,8 +23,8 @@
 // #define VERBOSE
 
 #include <linux/config.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
 #include <linux/sched.h>
@@ -87,11 +87,12 @@ static const char driver_desc [] = DRIVER_DESC;
 #endif
 
 /* 2.5 modified and renamed these */
-
+#ifndef	INIT_WORK
 #define work_struct		tq_struct
 #define INIT_WORK		INIT_TQUEUE
 #define schedule_work		schedule_task
 #define	flush_scheduled_work	flush_scheduled_tasks
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -114,28 +115,6 @@ struct eth_dev {
 	unsigned long		todo;
 #define	WORK_RX_MEMORY		0
 };
-
-/*-------------------------------------------------------------------------*/
-
-/* This driver keeps a variable number of requests queued, more at
- * high speeds.  (Numbers are just educated guesses, untuned.)
- * Shrink the queue if memory is tight, or make it bigger to
- * handle bigger traffic bursts between IRQs (assuming hw dma queues)
- */
-
-static unsigned qmult = 4;
-
-#define HS_FACTOR	5
-
-#define qlen(gadget) \
-	(qmult*((gadget->speed == USB_SPEED_HIGH) ? HS_FACTOR : 1))
-
-/* defer IRQs on highspeed TX */
-#define TX_DELAY	8
-
-
-MODULE_PARM (qmult, "i");
-MODULE_PARM_DESC (qmult, "rx/tx buffering factor");
 
 /*-------------------------------------------------------------------------*/
 
@@ -187,6 +166,7 @@ MODULE_PARM_DESC (qmult, "rx/tx buffering factor");
  */
 #ifdef	CONFIG_USB_ETH_NET2280
 #define CHIP			"net2280"
+#define DEFAULT_QLEN		4		/* has dma chaining */
 #define DRIVER_VERSION_NUM	0x0111
 #define EP0_MAXPACKET		64
 static const char EP_OUT_NAME [] = "ep-a";
@@ -232,7 +212,7 @@ static const char EP_IN_NAME [] = "ep1in-bulk";
 /* supports remote wakeup, but this driver doesn't */
 
 /* no hw optimizations to apply */
-#define hw_optimize(g) do {} while (0);
+#define hw_optimize(g) do {} while (0)
 #endif
 
 /*
@@ -255,7 +235,28 @@ static const char EP_IN_NAME [] = "ep2in-bulk";
 /* doesn't support remote wakeup? */
 
 /* no hw optimizations to apply */
-#define hw_optimize(g) do {} while (0);
+#define hw_optimize(g) do {} while (0)
+#endif
+
+/*
+ * Toshiba TC86C001 ("Goku-S") UDC
+ *
+ * This has three semi-configurable full speed bulk/interrupt endpoints.
+ */
+#ifdef	CONFIG_USB_ETH_GOKU
+#define CHIP			"goku"
+#define DRIVER_VERSION_NUM	0x0116
+#define EP0_MAXPACKET		8
+static const char EP_OUT_NAME [] = "ep1-bulk";
+#define EP_OUT_NUM	1
+static const char EP_IN_NAME [] = "ep2-bulk";
+#define EP_IN_NUM	2
+static const char EP_STATUS_NAME [] = "ep3-bulk";
+#define EP_STATUS_NUM	3
+#define SELFPOWER USB_CONFIG_ATT_SELFPOWER
+/* doesn't support remote wakeup */
+
+#define hw_optimize(g) do {} while (0)
 #endif
 
 /*-------------------------------------------------------------------------*/
@@ -313,9 +314,32 @@ static const char EP_IN_NAME [] = "ep2in-bulk";
 
 /*-------------------------------------------------------------------------*/
 
+#ifndef DEFAULT_QLEN
+#define DEFAULT_QLEN	2	/* double buffering by default */
+#endif
+
+#ifdef HIGHSPEED
+
+static unsigned qmult = 5;
+MODULE_PARM (qmult, "i");
+
+
+/* for dual-speed hardware, use deeper queues at highspeed */
+#define qlen(gadget) \
+	(DEFAULT_QLEN*((gadget->speed == USB_SPEED_HIGH) ? qmult : 1))
+
+/* also defer IRQs on highspeed TX */
+#define TX_DELAY	DEFAULT_QLEN
+
+#else	/* !HIGHSPEED ... full speed: */
+#define qlen(gadget) DEFAULT_QLEN
+#endif
+
+
+/*-------------------------------------------------------------------------*/
+
 #define xprintk(d,level,fmt,args...) \
-	printk(level "%s %s: " fmt , shortname , (d)->gadget->dev.bus_id , \
-		## args)
+	printk(level "%s: " fmt , (d)->net->name , ## args)
 
 #ifdef DEBUG
 #undef DEBUG
@@ -892,6 +916,8 @@ set_ether_config (struct eth_dev *dev, int gfp_flags)
 
 static void eth_reset_config (struct eth_dev *dev)
 {
+	struct usb_request	*req;
+
 	if (dev->config == 0)
 		return;
 
@@ -900,17 +926,30 @@ static void eth_reset_config (struct eth_dev *dev)
 	netif_stop_queue (dev->net);
 	netif_carrier_off (dev->net);
 
-	/* just disable endpoints, forcing completion of pending i/o.
-	 * all our completion handlers free their requests in this case.
+	/* disable endpoints, forcing (synchronous) completion of
+	 * pending i/o.  then free the requests.
 	 */
 	if (dev->in_ep) {
 		usb_ep_disable (dev->in_ep);
+		while (likely (!list_empty (&dev->tx_reqs))) {
+			req = container_of (dev->tx_reqs.next,
+						struct usb_request, list);
+			list_del (&req->list);
+			usb_ep_free_request (dev->in_ep, req);
+		}
 		dev->in_ep = 0;
 	}
 	if (dev->out_ep) {
 		usb_ep_disable (dev->out_ep);
+		while (likely (!list_empty (&dev->rx_reqs))) {
+			req = container_of (dev->rx_reqs.next,
+						struct usb_request, list);
+			list_del (&req->list);
+			usb_ep_free_request (dev->out_ep, req);
+		}
 		dev->out_ep = 0;
 	}
+
 #ifdef	EP_STATUS_NUM
 	if (dev->status_ep) {
 		usb_ep_disable (dev->status_ep);
@@ -1676,7 +1715,7 @@ static int eth_stop (struct net_device *net)
 {
 	struct eth_dev		*dev = (struct eth_dev *) net->priv;
 
-	DEBUG (dev, "%s\n", __FUNCTION__);
+	VDEBUG (dev, "%s\n", __FUNCTION__);
 	netif_stop_queue (net);
 
 	DEBUG (dev, "stop stats: rx/tx %ld/%ld, errs %ld/%ld\n",
@@ -1690,6 +1729,7 @@ static int eth_stop (struct net_device *net)
 		usb_ep_disable (dev->out_ep);
 		if (netif_carrier_ok (dev->net)) {
 			DEBUG (dev, "host still using in/out endpoints\n");
+			// FIXME idiom may leave toggle wrong here
 			usb_ep_enable (dev->in_ep, dev->in);
 			usb_ep_enable (dev->out_ep, dev->out);
 		}
@@ -1708,7 +1748,6 @@ static void
 eth_unbind (struct usb_gadget *gadget)
 {
 	struct eth_dev		*dev = get_gadget_data (gadget);
-	struct usb_request	*req;
 
 	DEBUG (dev, "unbind\n");
 
@@ -1719,19 +1758,6 @@ eth_unbind (struct usb_gadget *gadget)
 				USB_BUFSIZ);
 		usb_ep_free_request (gadget->ep0, dev->req);
 		dev->req = 0;
-	}
-
-	while (!list_empty (&dev->tx_reqs)) {
-		req = container_of (dev->tx_reqs.next,
-					struct usb_request, list);
-		list_del (&req->list);
-		usb_ep_free_request (dev->in_ep, req);
-	}
-	while (!list_empty (&dev->rx_reqs)) {
-		req = container_of (dev->rx_reqs.next,
-					struct usb_request, list);
-		list_del (&req->list);
-		usb_ep_free_request (dev->out_ep, req);
 	}
 
 	unregister_netdev (dev->net);
@@ -1816,10 +1842,6 @@ eth_bind (struct usb_gadget *gadget)
 	dev->gadget = gadget;
 	set_gadget_data (gadget, dev);
 	gadget->ep0->driver_data = dev;
-	INFO (dev, "%s, " CHIP ", version: " DRIVER_VERSION "\n", driver_desc);
-#ifdef	DEV_CONFIG_CDC
-	INFO (dev, "CDC host enet %s\n", ethaddr);
-#endif
 	
 	/* two kinds of host-initiated state changes:
 	 *  - iff DATA transfer is active, carrier is "on"
@@ -1830,8 +1852,16 @@ eth_bind (struct usb_gadget *gadget)
 
  	// SET_NETDEV_DEV (dev->net, &gadget->dev);
  	status = register_netdev (dev->net);
- 	if (status == 0)
+ 	if (status == 0) {
+
+		INFO (dev, "%s, " CHIP ", version: " DRIVER_VERSION "\n",
+				driver_desc);
+#ifdef	DEV_CONFIG_CDC
+		INFO (dev, "CDC host enet %s\n", ethaddr);
+#endif
  		return status;
+	}
+	pr_debug("%s: register_netdev failed, %d\n", shortname, status);
 fail:
 	eth_unbind (gadget);
 	return status;

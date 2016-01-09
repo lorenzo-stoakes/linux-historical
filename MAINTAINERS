@@ -1237,7 +1237,7 @@ M:	James.Bottomley@HansenPartnership.com
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 
-NETFILTER/IPTABLES
+NETFILTER/IPTABLES/IPCHAINS
 P:	Rusty Russell
 P:	Marc Boucher
 P:	James Morris
@@ -2067,6 +2067,13 @@ P:	David Brownell
 M:	dbrownell@users.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
 S:	Maintained
+
+USB W9968CF DRIVER
+P:      Luca Risolia
+M:      luca_ing@libero.it
+L:      linux-usb-devel@lists.sourceforge.net
+W:      http://go.lamarinapunto.com
+S:      Maintained
 
 VFAT FILESYSTEM:
 P:	Gordon Chaffee

@@ -1,10 +1,36 @@
 /*-------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------*
- * SL811HS USB HCD for Linux Version 0.1 (10/28/2001)
- * 
+ * SL811HS USB HCD for Linux Version 0.1 (10/28/2001) 0.3 (11/23/2003)
+ *
  * requires (includes) hc_simple.[hc] simple generic HCD frontend
- *  
+ *
  * COPYRIGHT(C) 2001 by CYPRESS SEMICONDUCTOR INC.
+ *
+ * ! This driver have end of live! Please use hcd/sl811.c instand !
+ *
+ * 05.06.2003 HNE
+ * Support x86 architecture now.
+ * Set "bus->bus_name" at init.
+ * hc_reset,regTest: Don't load driver, if pattern-Test failed (better error returns)
+ *
+ * 06.06.2003 HNE
+ * Moved regTest from hc_reset to hc_found_hci. So we check registers
+ * only at start, and not at unload. Only all Register show, if full Debug.
+ *
+ * 22.09.2003 HNE
+ * Do not write SL11H_INTSTATREG in loop, use delay instand.
+ * If device disconnected, wait only for next insert interrupt (no Idle-Interrpts).
+ *
+ * 29.09.2003 HNE
+ * Moving hc_sl811-arm.h and hc_sl811-x86.h to include/asm-.../hc_sl811-hw.h
+ *
+ * 03.10.2003 HNE
+ * Low level only for port io into hardware-include.
+ * GPRD as parameter (ARM only).
+
+ * ToDo:
+ * Separate IO-Base for second controller (see sl811.c)
+ * Only as module tested! Compiled in Version not tested!
  *
  *-------------------------------------------------------------------------*
  * This program is free software; you can redistribute it and/or modify
@@ -38,13 +64,17 @@
 #include <asm/irq.h>
 
 #include <linux/usb.h>
-#include "../core/hcd.h"
+
+#define MODNAME "HC_SL811"
 
 #undef HC_URB_TIMEOUT
 #undef HC_SWITCH_INT
 #undef HC_ENABLE_ISOC
 
+// #define SL811_DEBUG
 #define SL811_DEBUG_ERR
+// #define SL811_DEBUG_IRQ
+// #define SL811_DEBUG_VERBOSE
 
 #ifdef SL811_DEBUG_ERR
 #define DBGERR(fmt, args...) printk(fmt,## args)
@@ -90,17 +120,10 @@ static int urb_debug = 0;
 #include "hc_simple.c"
 #include "hc_sl811_rh.c"
 
-/* The base_addr, data_reg_addr, and irq number are board specific.
- * The current values are design to run on the Accelent SA1110 IDP
- * NOTE: values need to modify for different development boards 
- */
-
-static int base_addr = 0xd3800000;
-static int data_reg_addr = 0xd3810000;
-static int irq = 34;
+/* Include hardware and board depens */
+#include <asm/hc_sl811-hw.h>
 
 /* forware declaration */
-
 int SL11StartXaction (hci_t * hci, __u8 addr, __u8 epaddr, int pid, int len,
 		      int toggle, int slow, int urb_state);
 
@@ -108,13 +131,6 @@ static int sofWaitCnt = 0;
 
 MODULE_PARM (urb_debug, "i");
 MODULE_PARM_DESC (urb_debug, "debug urb messages, default is 0 (no)");
-
-MODULE_PARM (base_addr, "i");
-MODULE_PARM_DESC (base_addr, "sl811 base address 0xd3800000");
-MODULE_PARM (data_reg_addr, "i");
-MODULE_PARM_DESC (data_reg_addr, "sl811 data register address 0xd3810000");
-MODULE_PARM (irq, "i");
-MODULE_PARM_DESC (irq, "IRQ 34 (default)");
 
 static int hc_reset (hci_t * hci);
 
@@ -126,17 +142,18 @@ static int hc_reset (hci_t * hci);
  * Input:  hci = data structure for the host controller
  *         offset = address of SL811/SL11H register or memory
  *
- * Return: data 
+ * Return: data
  **************************************************************************/
-char SL811Read (hci_t * hci, char offset)
+
+static __u8 inline SL811Read (hci_t *hci, __u8 offset)
 {
 	hcipriv_t *hp = &hci->hp;
-	char data;
-	writeb (offset, hp->hcport);
-	wmb ();
-	data = readb (hp->hcport2);
-	rmb ();
-	return (data);
+#ifdef SL811_DEBUG_ERR
+	if (!hp->hcport)
+		DBGERR ("SL811Read: Error port not set!\n");
+#endif
+	sl811_write_index (hp, offset);
+	return (sl811_read_data (hp));
 }
 
 /***************************************************************************
@@ -148,15 +165,19 @@ char SL811Read (hci_t * hci, char offset)
  *         offset = address of SL811/SL11H register or memory
  *         data  = the data going to write to SL811H
  *
- * Return: none 
+ * Return: none
  **************************************************************************/
-void SL811Write (hci_t * hci, char offset, char data)
+
+static void inline SL811Write (hci_t *hci, __u8 offset, __u8 data)
 {
 	hcipriv_t *hp = &hci->hp;
-	writeb (offset, hp->hcport);
-	writeb (data, hp->hcport2);
-	wmb ();
+#ifdef SL811_DEBUG_ERR
+	if (!hp->hcport)
+		DBGERR ("SL811Write: Error port not set!\n");
+#endif
+	sl811_write_index_data (hp, offset, data);
 }
+
 
 /***************************************************************************
  * Function Name : SL811BufRead
@@ -168,20 +189,23 @@ void SL811Write (hci_t * hci, char offset, char data)
  *         buf = the buffer where the data will store
  *         size = number of bytes to read
  *
- * Return: none 
+ * Return: none
  **************************************************************************/
-void SL811BufRead (hci_t * hci, short offset, char *buf, short size)
+
+static void SL811BufRead (hci_t *hci, __u8 offset, __u8 *buf, __u8 size)
 {
 	hcipriv_t *hp = &hci->hp;
-	if (size <= 0)
+	if( size <= 0)
 		return;
-	writeb ((char) offset, hp->hcport);
-	wmb ();
-	DBGDATAR ("SL811BufRead: offset = 0x%x, data = ", offset);
+#ifdef SL811_DEBUG_ERR
+	if (!hp->hcport)
+		DBGERR ("SL811BufRead: Error port not set!\n");
+#endif
+	sl811_write_index (hp, offset);
+	DBGDATAR ("SL811BufRead: io=%X offset = %02x, data = ", hp->hcport, offset);
 	while (size--) {
-		*buf++ = (char) readb (hp->hcport2);
-		DBGDATAR ("0x%x ", *(buf - 1));
-		rmb ();
+		*buf++ = sl811_read_data(hp);
+		DBGDATAR ("%02x ", *(buf-1));
 	}
 	DBGDATAR ("\n");
 }
@@ -198,18 +222,21 @@ void SL811BufRead (hci_t * hci, short offset, char *buf, short size)
  *
  * Return: none 
  **************************************************************************/
-void SL811BufWrite (hci_t * hci, short offset, char *buf, short size)
+
+static void SL811BufWrite(hci_t *hci, __u8 offset, __u8 *buf, __u8 size)
 {
 	hcipriv_t *hp = &hci->hp;
-	if (size <= 0)
+	if(size<=0)
 		return;
-	writeb ((char) offset, hp->hcport);
-	wmb ();
-	DBGDATAW ("SL811BufWrite: offset = 0x%x, data = ", offset);
+#ifdef SL811_DEBUG_ERR
+	if (!hp->hcport)
+		DBGERR ("SL811BufWrite: Error port not set!\n");
+#endif
+	sl811_write_index (hp, offset);
+	DBGDATAW ("SL811BufWrite: io=%X offset = %02x, data = ", hp->hcport, offset);
 	while (size--) {
-		DBGDATAW ("0x%x ", *buf);
-		writeb (*buf, hp->hcport2);
-		wmb ();
+		DBGDATAW ("%02x ", *buf);
+		sl811_write_data (hp, *buf);
 		buf++;
 	}
 	DBGDATAW ("\n");
@@ -218,7 +245,7 @@ void SL811BufWrite (hci_t * hci, short offset, char *buf, short size)
 /***************************************************************************
  * Function Name : regTest
  *
- * This routine test the Read/Write functionality of SL811HS registers  
+ * This routine test the Read/Write functionality of SL811HS registers
  *
  * 1) Store original register value into a buffer
  * 2) Write to registers with a RAMP pattern. (10, 11, 12, ..., 255)
@@ -234,13 +261,13 @@ void SL811BufWrite (hci_t * hci, short offset, char *buf, short size)
  **************************************************************************/
 int regTest (hci_t * hci)
 {
-	int i, data, result = TRUE;
-	char buf[256];
+	int i, result = TRUE;
+	__u8 buf[256], data;
 
 	DBGFUNC ("Enter regTest\n");
 	for (i = 0x10; i < 256; i++) {
 		/* save the original buffer */
-		buf[i] = (char) SL811Read (hci, i);
+		buf[i] = SL811Read (hci, i);
 
 		/* Write the new data to the buffer */
 		SL811Write (hci, i, i);
@@ -253,6 +280,10 @@ int regTest (hci_t * hci)
 			DBGERR ("Pattern test failed!! value = 0x%x, s/b 0x%x\n",
 				data, i);
 			result = FALSE;
+
+			/* If no Debug, show only first failed Address */
+			if (!urb_debug)
+			    break;
 		}
 	}
 
@@ -264,6 +295,7 @@ int regTest (hci_t * hci)
 	return (result);
 }
 
+#if 0 /* unused (hne) */
 /***************************************************************************
  * Function Name : regShow
  *
@@ -273,13 +305,14 @@ int regTest (hci_t * hci)
  *
  * Return: none 
  **************************************************************************/
-void regShow (hci_t * hci)
+static void regShow (hci_t * hci)
 {
 	int i;
 	for (i = 0; i < 256; i++) {
 		printk ("offset %d: 0x%x\n", i, SL811Read (hci, i));
 	}
 }
+#endif // if0
 
 /************************************************************************
  * Function Name : USBReset
@@ -292,6 +325,7 @@ void regShow (hci_t * hci)
  * Return: 0 = no device attached; 1 = USB device attached
  *                
  ***********************************************************************/
+/* [2.4.22] sl811_hc_reset */
 static int USBReset (hci_t * hci)
 {
 	int status;
@@ -307,16 +341,23 @@ static int USBReset (hci_t * hci)
 	mdelay (20);		// 20ms                             
 	SL811Write (hci, SL11H_CTLREG1, 0);	// remove SE0        
 
-	for (status = 0; status < 100; status++)
-		SL811Write (hci, SL11H_INTSTATREG, 0xff);	// clear all interrupt bits
+	/* disable all interrupts (18.09.2003) */
+	SL811Write (hci, SL11H_INTENBLREG, 0);
 
+	/* 19.09.2003 [2.4.22] */
+	mdelay(2);
+	SL811Write (hci, SL11H_INTSTATREG, 0xff);	// clear all interrupt bits
 	status = SL811Read (hci, SL11H_INTSTATREG);
 
-	if (status & 0x40)	// Check if device is removed
+	if (status & SL11H_INTMASK_USBRESET)	// Check if device is removed (0x40)
 	{
-		DBG ("USBReset: Device removed\n");
+		DBG ("USBReset: Device removed %03X\n", hci->hp.hcport);
+		/* 19.09.2003 [2.4.22] only IRQ for insert...
 		SL811Write (hci, SL11H_INTENBLREG,
 			    SL11H_INTMASK_XFERDONE | SL11H_INTMASK_SOFINTR |
+			    SL11H_INTMASK_INSRMV);
+		*/
+		SL811Write (hci, SL11H_INTENBLREG,
 			    SL11H_INTMASK_INSRMV);
 		hp->RHportStatus->portStatus &=
 		    ~(PORT_CONNECT_STAT | PORT_ENABLE_STAT);
@@ -324,50 +365,47 @@ static int USBReset (hci_t * hci)
 		return 0;
 	}
 
+	// Send SOF to address 0, endpoint 0.
 	SL811Write (hci, SL11H_BUFLNTHREG_B, 0);	//zero lenth
 	SL811Write (hci, SL11H_PIDEPREG_B, 0x50);	//send SOF to EP0       
 	SL811Write (hci, SL11H_DEVADDRREG_B, 0x01);	//address0
 	SL811Write (hci, SL11H_SOFLOWREG, 0xe0);
 
-	if (!(status & 0x80)) {
+	if (!(status & SL11H_INTMASK_DSTATE)) {	/* 0x80 */
 		/* slow speed device connect directly to root-hub */
 
-		DBG ("USBReset: low speed Device attached\n");
+		DBG ("USBReset: low speed Device attached %03X\n", hci->hp.hcport);
 		SL811Write (hci, SL11H_CTLREG1, 0x8);
 		mdelay (20);
-		SL811Write (hci, SL11H_SOFTMRREG, 0xee);
+		// SL811Write (hci, SL11H_SOFTMRREG, 0xee);	/* the same, but better reading (hne) */
+		SL811Write (hci, SL11H_CTLREG2, 0xee);
 		SL811Write (hci, SL11H_CTLREG1, 0x21);
 
-		/* start the SOF or EOP */
-
-		SL811Write (hci, SL11H_HOSTCTLREG_B, 0x01);
 		hp->RHportStatus->portStatus |=
 		    (PORT_CONNECT_STAT | PORT_LOW_SPEED_DEV_ATTACH_STAT);
 
-		/* clear all interrupt bits */
-
-		for (status = 0; status < 20; status++)
-			SL811Write (hci, SL11H_INTSTATREG, 0xff);
 	} else {
 		/* full speed device connect directly to root hub */
 
-		DBG ("USBReset: full speed Device attached\n");
+		DBG ("USBReset: full speed Device attached %03X \n", hci->hp.hcport);
 		SL811Write (hci, SL11H_CTLREG1, 0x8);
 		mdelay (20);
-		SL811Write (hci, SL11H_SOFTMRREG, 0xae);
+		// SL811Write (hci, SL11H_SOFTMRREG, 0xae);	/* the same, but better reading (hne) */
+		SL811Write (hci, SL11H_CTLREG2, 0xae);
 		SL811Write (hci, SL11H_CTLREG1, 0x01);
 
-		/* start the SOF or EOP */
-
-		SL811Write (hci, SL11H_HOSTCTLREG_B, 0x01);
 		hp->RHportStatus->portStatus |= (PORT_CONNECT_STAT);
 		hp->RHportStatus->portStatus &= ~PORT_LOW_SPEED_DEV_ATTACH_STAT;
 
-		/* clear all interrupt bits */
-
-		SL811Write (hci, SL11H_INTSTATREG, 0xff);
-
 	}
+
+	/* start the SOF or EOP */
+	SL811Write (hci, SL11H_HOSTCTLREG_B, 0x01);
+
+	/* clear all interrupt bits */
+	/* 19.09.2003 [2.4.22] */
+	mdelay(2);
+	SL811Write (hci, SL11H_INTSTATREG, 0xff);
 
 	/* enable all interrupts */
 	SL811Write (hci, SL11H_INTENBLREG,
@@ -430,9 +468,9 @@ static inline int hc_add_trans (hci_t * hci, int len, void *data, int toggle,
 	__u16 speed;
 	int ii, jj, kk;
 
-	DBGFUNC ("enter hc_addr_trans: len =0x%x, toggle:0x%x, endpoing:0x%x,"
+	DBGFUNC ("enter hc_add_trans: len=0x%x, toggle:0x%x, endpoing:0x%x,"
 		 " addr:0x%x, pid:0x%x,format:0x%x\n", len, toggle, endpoint,
-		 i address, pid, format);
+		 address, pid, format);
 
 	if (len > maxps) {
 		len = maxps;
@@ -454,7 +492,10 @@ static inline int hc_add_trans (hci_t * hci, int len, void *data, int toggle,
 	ii += 2 * 10 * len;
 
 	jj = SL811Read (hci, SL11H_SOFTMRREG);
-	kk = (jj & 0xFF) * 64 - ii;
+
+	/* Read back SOF counter HIGH (bit0-bit5 only) 26.11.2002 (hne) */
+	// kk = (jj & 0xFF) * 64 - ii;
+	kk = (jj & (64-1)) * 64 - ii;
 
 	if (kk < 0) {
 		DBGVERBOSE
@@ -504,25 +545,30 @@ static inline int hc_parse_trans (hci_t * hci, int *actbytes, __u8 * data,
 {
 	__u8 addr;
 	__u8 len;
+	__u8 pkt_stat;
 
 	DBGFUNC ("enter hc_parse_trans\n");
 
 	/* get packet status; convert ack rcvd to ack-not-rcvd */
 
-	*cc = (int) SL811Read (hci, SL11H_PKTSTATREG);
+	*cc = pkt_stat \
+	    = SL811Read (hci, SL11H_PKTSTATREG);
 
-	if (*cc &
+	if (pkt_stat &
 	    (SL11H_STATMASK_ERROR | SL11H_STATMASK_TMOUT | SL11H_STATMASK_OVF |
 	     SL11H_STATMASK_NAK | SL11H_STATMASK_STALL)) {
 		if (*cc & SL11H_STATMASK_OVF)
-			DBGERR ("parse trans: error recv ack, cc = 0x%x, TX_BASE_Len = "
-				"0x%x, TX_count=0x%x\n", *cc,
+			DBGERR ("parse trans: error recv ack, cc = 0x%x/0x%x, TX_BASE_Len = "
+				"0x%x, TX_count=0x%x\n", pkt_stat,
+				SL811Read (hci, SL11H_PKTSTATREG),
 				SL811Read (hci, SL11H_BUFLNTHREG),
 				SL811Read (hci, SL11H_XFERCNTREG));
-
+		else 
+			DBGVERBOSE ("parse trans: error recv ack, cc = 0x%x/0x%x\n",
+				pkt_stat, SL811Read (hci, SL11H_PKTSTATREG));
 	} else {
-		DBGVERBOSE ("parse trans: recv ack, cc = 0x%x, len = 0x%x, \n",
-			    *cc, length);
+		DBGVERBOSE ("parse trans: recv ack, cc=0x%x, len=0x%x, pid=0x%x, urb=%d\n",
+			    pkt_stat, length, pid, urb_state);
 
 		/* Successful data */
 		if ((pid == PID_IN) && (urb_state != US_CTRL_SETUP)) {
@@ -670,39 +716,44 @@ int SL11StartXaction (hci_t * hci, __u8 addr, __u8 epaddr, int pid, int len,
 	}
 	switch (pid) {
 	case PID_SETUP:
-		cmd &= SL11H_HCTLMASK_PREAMBLE;
-		cmd |=
-		    (SL11H_HCTLMASK_ARM | SL11H_HCTLMASK_ENBLEP |
-		     SL11H_HCTLMASK_WRITE);
+		// cmd &= SL11H_HCTLMASK_PREAMBLE;	/* 26.11.2002 (hne) */
+		cmd |= SL11H_HCTLMASK_ARM
+		     | SL11H_HCTLMASK_ENBLEP
+		     | SL11H_HCTLMASK_WRITE;
+		DBGVERBOSE ("SL811 Xaction: SETUP cmd=%02X\n", cmd);
 		break;
 
 	case PID_OUT:
-		cmd &= (SL11H_HCTLMASK_SEQ | SL11H_HCTLMASK_PREAMBLE);
-		cmd |=
-		    (SL11H_HCTLMASK_ARM | SL11H_HCTLMASK_ENBLEP |
-		     SL11H_HCTLMASK_WRITE);
+		// cmd &= (SL11H_HCTLMASK_SEQ | SL11H_HCTLMASK_PREAMBLE); /* (hne) 26.11.2002 */
+		cmd |= SL11H_HCTLMASK_ARM
+		     | SL11H_HCTLMASK_ENBLEP
+		     | SL11H_HCTLMASK_WRITE;
 		if (toggle) {
 			cmd |= SL11H_HCTLMASK_SEQ;
 		}
+		DBGVERBOSE ("SL811 Xaction: OUT cmd=%02X\n", cmd);
 		break;
 
 	case PID_IN:
-		cmd &= (SL11H_HCTLMASK_SEQ | SL11H_HCTLMASK_PREAMBLE);
-		cmd |= (SL11H_HCTLMASK_ARM | SL11H_HCTLMASK_ENBLEP);
+		// cmd &= (SL11H_HCTLMASK_SEQ | SL11H_HCTLMASK_PREAMBLE);	/* (hne) 26.11.2002 */
+		cmd |= SL11H_HCTLMASK_ARM
+		     | SL11H_HCTLMASK_ENBLEP;
+		DBGVERBOSE ("SL811 Xaction: IN cmd=%02x\n", cmd);
 		break;
 
 	default:
 		DBGERR ("ERR: SL11StartXaction: unknow pid = 0x%x\n", pid);
 		return 0;
 	}
-	setup_data[0] = SL11H_DATA_START;
-	setup_data[1] = len;
-	setup_data[2] = (((pid & 0x0F) << 4) | (epaddr & 0xF));
-	setup_data[3] = addr & 0x7F;
+	setup_data[0] = SL11H_DATA_START;			/* 01:SL11H_BUFADDRREG */
+	setup_data[1] = len;					/* 02:SL11H_BUFLNTHREG */
+	setup_data[2] = (((pid & 0x0F) << 4) | (epaddr & 0xF));	/* 03:SL11H_PIDEPREG */
+	setup_data[3] = addr & 0x7F;				/* 04:SL11H_DEVADDRREG */
 
 	SL811BufWrite (hci, SL11H_BUFADDRREG, (__u8 *) & setup_data[0], 4);
 
-	SL811Write (hci, SL11H_HOSTCTLREG, cmd);
+	// SL811Write (hci, SL11H_PIDEPREG, cmd);			/* 03: grrr (hne) */
+	SL811Write (hci, SL11H_HOSTCTLREG, cmd);		/* 00: 26.11.2002 (hne) */
 
 #if 0
 	/* The SL811 has a hardware flaw when hub devices sends out
@@ -739,32 +790,77 @@ int SL11StartXaction (hci_t * hci, __u8 addr, __u8 epaddr, int pid, int len,
  *****************************************************************/
 static void hc_interrupt (int irq, void *__hci, struct pt_regs *r)
 {
-	char ii;
+	__u8 ii;
 	hci_t *hci = __hci;
 	int isExcessNak = 0;
 	int urb_state = 0;
-	char tmpIrq = 0;
+	// __u8 tmpIrq = 0;
+	int irq_loop = 16;	/* total irq handled at one hardware irq */
 
+#ifdef SL811_DEBUG_IRQ
+	hcipriv_t *hp = &hci->hp;
+	unsigned char sta1, sta2;
+
+	outb (SL11H_INTSTATREG, 0x220);	// Interrupt-Status register, controller1
+	sta1 = (__u8) inb (0x220+1);
+
+	outb (SL11H_INTSTATREG, 0x222);	// Interrupt-Status register, controller2
+	sta2 = (__u8) inb (0x222+1);
+#endif
+
+    do {
 	/* Get value from interrupt status register */
 
 	ii = SL811Read (hci, SL11H_INTSTATREG);
 
+	/* All interrupts handled? (hne) */
+	if ( !(ii & (SL11H_INTMASK_INSRMV /* | SL11H_INTMASK_USBRESET */ |
+		     SL11H_INTMASK_XFERDONE | SL11H_INTMASK_SOFINTR)) )
+	{
+#ifdef SL811_DEBUG_IRQ
+	// printk ("%Xh IRQ ista=%02X not me\n", hp->hcport, ii);
+
+	    if ( sta1 != 0x80 && sta1 != 0x90 &&
+		 sta2 != 0x80 && sta2 != 0x90 )
+		printk ("%Xh IRQ sta=%02X,%02X\n", hp->hcport, sta1, sta2);
+#endif
+		return;
+	}
+
+	/* Interrupt will be handle now (18.09.2003 2.4.22) */
+	SL811Write (hci, SL11H_INTSTATREG, 0xff);
+
+	/* SOF-outputs are to slow. No debug any SOF */
+	if ( !(ii & SL11H_INTMASK_SOFINTR) )
+	    DBGVERBOSE ("SL811 ISR: %s%s%s%s io=%03X\n",
+		(ii & SL11H_INTMASK_XFERDONE) ?	" DONE": "",
+		(ii & SL11H_INTMASK_SOFINTR) ?	" SOFINTR": "",
+		(ii & SL11H_INTMASK_INSRMV) ? 	" INSRMV": "",
+		(ii & SL11H_INTMASK_USBRESET) ? " USBRESET": "",
+		hci->hp.hcport );
+
+	// if (ii & (SL11H_INTMASK_INSRMV | SL11H_INTMASK_USBRESET)) {
+	// Found in 2.5.75 (19.09.2003)
+	// "SL11H_INTMASK_USBRESET" is always on, if no device connected!
 	if (ii & SL11H_INTMASK_INSRMV) {
 		/* Device insertion or removal detected for the USB port */
-
+		/* Disable all interrupts */
 		SL811Write (hci, SL11H_INTENBLREG, 0);
+		/* No SOF, Full speed */
 		SL811Write (hci, SL11H_CTLREG1, 0);
+
 		mdelay (100);	// wait for device stable 
 		handleInsRmvIntr (hci);
 		return;
 	}
 
 	/* Clear all interrupts */
-
-	SL811Write (hci, SL11H_INTSTATREG, 0xff);
+	// SL811Write (hci, SL11H_INTSTATREG, 0xff);
 
 	if (ii & SL11H_INTMASK_XFERDONE) {
+
 		/* USB Done interrupt occurred */
+		// DBGVERBOSE ("xsta=%02X\n", SL811Read (hci, SL11H_PKTSTATREG));
 
 		urb_state = sh_done_list (hci, &isExcessNak);
 #ifdef WARNING
@@ -792,7 +888,9 @@ static void hc_interrupt (int irq, void *__hci, struct pt_regs *r)
 				sh_schedule_trans (hci, 0);
 			}
 		}
+		/* +++ (hne)
 		SL811Write (hci, SL11H_INTSTATREG, 0xff);
+		--- */
 		return;
 	}
 
@@ -809,16 +907,22 @@ static void hc_interrupt (int irq, void *__hci, struct pt_regs *r)
 				 *  GET TO THIS POINT)
 				 */
 
-				DBGERR ("SOF interrupt: td_array->len = 0x%x, s/b: 0\n",
-					hci->td_array->len);
+				DBGERR ("SOF interrupt: td_array->len = 0x%x, s/b:0 io=%03X\n",
+					hci->td_array->len,
+					hci->hp.hcport	);
 				urb_print (hci->td_array->td[hci->td_array->len - 1].urb,
 					   "INTERRUPT", 0);
+				/* FIXME: Here sh_done_list was call with urb->dev=NULL 21.11.2002 (hne) */
 				sh_done_list (hci, &isExcessNak);
+				/* +++ (hne)
 				SL811Write (hci, SL11H_INTSTATREG, 0xff);
+				--- */
 				hci->td_array->len = 0;
 				sofWaitCnt = 0;
 			}
 		}
+
+#if 0 /* grrr! This READ clears my XFERDONE interrupt! Its better handle this in a loop. (hne) */
 		tmpIrq = SL811Read (hci, SL11H_INTSTATREG) & SL811Read (hci, SL11H_INTENBLREG);
 		if (tmpIrq) {
 			DBG ("IRQ occurred while service SOF: irq = 0x%x\n",
@@ -829,17 +933,25 @@ static void hc_interrupt (int irq, void *__hci, struct pt_regs *r)
 			 */
 
 			if (tmpIrq & SL11H_INTMASK_XFERDONE) {
-				DBGERR ("IRQ occurred while service SOF: irq = 0x%x\n",
+				DBGERR ("XFERDONE occurred while service SOF: irq = 0x%x\n",
 					tmpIrq);
 				urb_state = sh_done_list (hci, &isExcessNak);
 			}
 			SL811Write (hci, SL11H_INTSTATREG, 0xff);
 		}
+#endif
 	} else {
-		DBG ("SL811 ISR: unknown, int = 0x%x \n", ii);
+		DBG ("SL811 ISR: unknown, int=0x%x io=%03X\n", ii, hci->hp.hcport);
+		return;
 	}
 
+	/* +++ (hne)
 	SL811Write (hci, SL11H_INTSTATREG, 0xff);
+	--- */
+
+	/* loop, if any interrupts can read (hne) */
+    } while (--irq_loop);
+    
 	return;
 }
 
@@ -860,7 +972,6 @@ static int hc_reset (hci_t * hci)
 	int attachFlag = 0;
 
 	DBGFUNC ("Enter hc_reset\n");
-	regTest (hci);
 	attachFlag = USBReset (hci);
 	if (attachFlag) {
 		setPortChange (hci, PORT_CONNECT_CHANGE);
@@ -1191,13 +1302,19 @@ static void hc_release_hci (hci_t * hci)
 
 	hc_reset (hci);
 
+	if (hp->hcport) {
+		// Disable all Interrupts
+		SL811Write (hci, SL11H_INTENBLREG, 0x00);
+
+		// Remove all Interrups
+		mdelay(2);
+		SL811Write (hci, SL11H_INTSTATREG, 0xff);
+	}
+
 	if (hp->tl)
 		kfree (hp->tl);
 
-	if (hp->hcport > 0) {
-		release_region (hp->hcport, 2);
-		hp->hcport = 0;
-	}
+	sl811_release_regions(hp);
 
 	if (hp->irq >= 0) {
 		free_irq (hp->irq, hci);
@@ -1215,24 +1332,6 @@ static void hc_release_hci (hci_t * hci)
 
 /*****************************************************************
  *
- * Function Name: init_irq
- *
- * This function is board specific.  It sets up the interrupt to 
- * be an edge trigger and trigger on the rising edge  
- *
- * Input: none 
- *
- * Return value  : none 
- *                
- *****************************************************************/
-void init_irq (void)
-{
-	GPDR &= ~(1 << 13);
-	set_GPIO_IRQ_edge (1 << 13, GPIO_RISING_EDGE);
-}
-
-/*****************************************************************
- *
  * Function Name: hc_found_hci
  *
  * This function request IO memory regions, request IRQ, and
@@ -1245,7 +1344,7 @@ void init_irq (void)
  * Return: 0 = success or error condition 
  *                
  *****************************************************************/
-static int __devinit hc_found_hci (int addr, int addr2, int irq)
+static int __devinit hc_found_hci (int irq, int iobase1, int iobase2)
 {
 	hci_t *hci;
 	hcipriv_t *hp;
@@ -1259,24 +1358,15 @@ static int __devinit hc_found_hci (int addr, int addr2, int irq)
 	init_irq ();
 	hp = &hci->hp;
 
-	if (!request_region (addr, 256, "SL811 USB HOST")) {
-		DBGERR ("request address %d failed", addr);
+	if (sl811_request_regions (hp, iobase1, iobase2)) {
 		hc_release_hci (hci);
 		return -EBUSY;
-	}
-	hp->hcport = addr;
-	if (!hp->hcport) {
-		DBGERR ("Error mapping SL811 Memory 0x%x", hp->hcport);
 	}
 
-	if (!request_region (addr2, 256, "SL811 USB HOST")) {
-		DBGERR ("request address %d failed", addr2);
+	if (!regTest (hci)) {
+	    DBGERR (KERN_ERR "regTest: Controller fault!\n");
 		hc_release_hci (hci);
-		return -EBUSY;
-	}
-	hp->hcport2 = addr2;
-	if (!hp->hcport2) {
-		DBGERR ("Error mapping SL811 Memory 0x%x", hp->hcport2);
+	    return -ENXIO;	/* No such device or address */
 	}
 
 	if (hc_alloc_trans_buffer (hci)) {
@@ -1286,19 +1376,37 @@ static int __devinit hc_found_hci (int addr, int addr2, int irq)
 
 	usb_register_bus (hci->bus);
 
-	if (request_irq (irq, hc_interrupt, 0, "SL811", hci) != 0) {
+	if (request_irq (irq, hc_interrupt, SA_SHIRQ, MODNAME, hci) != 0) {
 		DBGERR ("request interrupt %d failed", irq);
 		hc_release_hci (hci);
 		return -EBUSY;
 	}
 	hp->irq = irq;
 
-	printk (KERN_INFO __FILE__ ": USB SL811 at %x, addr2 = %x, IRQ %d\n",
-		addr, addr2, irq);
-	hc_reset (hci);
+	printk (KERN_INFO __FILE__ ": USB SL811 at %x,%x, IRQ %d\n",
+		hp->hcport, hp->hcport2, irq);
+
+	#ifdef SL811_DEBUG_VERBOSE
+	{
+	    __u8 u = SL811Read (hci, SL11H_HWREVREG);
+	    
+	    DBGVERBOSE ("SL811 HW: %02Xh ", u);
+	    switch (u & 0xF0) {
+	    case 0x00: DBGVERBOSE ("SL11H\n");		break;
+	    case 0x10: DBGVERBOSE ("SL811HS rev1.2\n");	break;
+	    case 0x20: DBGVERBOSE ("SL811HS rev1.5\n");	break;
+	    default:   DBGVERBOSE ("unknown!\n");
+	    }
+	}
+	#endif // SL811_DEBUG_VERBOSE
+
+	if (hc_reset (hci)) {
+		hc_release_hci (hci);
+		return -EBUSY;
+	}
 
 	if (hc_start (hci) < 0) {
-		DBGERR ("can't start usb-%x", addr);
+		DBGERR ("can't start usb-%x", hp->hcport);
 		hc_release_hci (hci);
 		return -EBUSY;
 	}
@@ -1320,9 +1428,26 @@ static int __devinit hc_found_hci (int addr, int addr2, int irq)
 static int __init hci_hcd_init (void)
 {
 	int ret;
+#ifndef __arm__
+	int io_offset = 0;
+#endif // !__arm__
 
 	DBGFUNC ("Enter hci_hcd_init\n");
-	ret = hc_found_hci (base_addr, data_reg_addr, irq);
+	DBGVERBOSE ("SL811 VERBOSE enabled\n");
+
+#ifdef __arm__
+	ret = hc_found_hci (irq, base_addr, data_reg_addr);
+#else // __arm__
+
+	// registering "another instance"
+	for (io_offset = 0; io_offset < MAX_CONTROLERS * 2; io_offset += 2) {
+
+		ret = hc_found_hci (irq, io_base + io_offset, 0);
+		if (ret)
+			return (ret);
+
+	} /* endfor */
+#endif // __arm__
 
 	return ret;
 }
@@ -1355,5 +1480,5 @@ static void __exit hci_hcd_cleanup (void)
 module_init (hci_hcd_init);
 module_exit (hci_hcd_cleanup);
 
-MODULE_AUTHOR ("Pei Liu <pbl@cypress.com>");
+MODULE_AUTHOR ("Pei Liu <pbl@cypress.com>, Henry Nestler <hne@ist1.de>");
 MODULE_DESCRIPTION ("USB SL811HS Host Controller Driver");

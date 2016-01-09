@@ -420,6 +420,7 @@ struct video_code
 #define VID_HARDWARE_CPIA2	33
 #define VID_HARDWARE_VICAM      34
 #define VID_HARDWARE_SF16FMR2	35
+#define VID_HARDWARE_W9968CF	36
 #endif /* __LINUX_VIDEODEV_H */
 
 /*

@@ -303,7 +303,7 @@ static void sonypi_setbluetoothpower(u8 state) {
 }
 
 /* Interrupt handler: some event is available */
-void sonypi_irq(int irq, void *dev_id, struct pt_regs *regs) {
+static irqreturn_t sonypi_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	u8 v1, v2, event = 0;
 	int i, j;
 
@@ -328,7 +328,10 @@ void sonypi_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	if (verbose)
 		printk(KERN_WARNING 
 		       "sonypi: unknown event port1=0x%02x,port2=0x%02x\n",v1,v2);
-	return;
+	/* We need to return IRQ_HANDLED here because there *are*
+	 * events belonging to the sonypi device we don't know about, 
+	 * but we still don't want those to pollute the logs... */
+	return IRQ_HANDLED;
 
 found:
 	if (verbose > 1)
@@ -351,6 +354,7 @@ found:
 	}
 #endif /* SONYPI_USE_INPUT */
 	sonypi_pushq(event);
+	return IRQ_HANDLED;
 }
 
 /* External camera command (exported to the motion eye v4l driver) */

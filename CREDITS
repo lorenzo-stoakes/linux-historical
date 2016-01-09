@@ -2590,6 +2590,13 @@ D: Lots of PowerPC cleanups, minor matroxfb work
 S: Tucson, Arizona
 S: USA
 
+N: Luca Risolia
+E: luca_ing@libero.it
+D: V4L driver for W996[87]CF JPEG USB Dual Mode Camera Chip
+S: Via Libertà 41/a
+S: Osio Sotto, 24046, Bergamo
+S: Italy
+
 N: William E. Roadcap
 E: roadcapw@cfw.com
 W: http://www.cfw.com/~roadcapw
@@ -3439,4 +3446,4 @@ S: France
 # alphabetically. Leonard used to be very proud of being the 
 # last entry, and he'll get positively pissed if he can't even
 # be second-to-last.  (and this file really _is_ supposed to be
-# in alphabetic order) 
+# in alphabetic order)

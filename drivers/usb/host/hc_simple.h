@@ -188,7 +188,6 @@ static inline int hc_add_trans (hci_t * hci, int len, void *data, int toggle,
 
 static void hc_start_int (hci_t * hci);
 static void hc_stop_int (hci_t * hci);
-static void SL811Write (hci_t * hci, char offset, char data);
 
 /* debug| print the main components of an URB     
  * small: 0) header + data packets 1) just header */

@@ -93,9 +93,9 @@ static int hcs_return_urb (hci_t * hci, struct urb * urb, int resub_ok)
 	struct usb_device *dev = urb->dev;
 	int resubmit = 0;
 
-	DBGFUNC ("enter hcs_return_urb, urb pointer = 0x%x, "
-		 "transferbuffer point = 0x%x, "
-		 " setup packet pointer = 0x%x, context pointer = 0x%x \n",
+	DBGFUNC ("enter hcs_return_urb, urb pointer = %p, "
+		 "transferbuffer point = %p, "
+		 " setup packet pointer = %p, context pointer = %p \n",
 		 (__u32 *) urb, (__u32 *) urb->transfer_buffer,
 		 (__u32 *) urb->setup_packet, (__u32 *) urb->context);
 	if (urb_debug)
@@ -233,7 +233,7 @@ static int hci_unlink_urb (struct urb * urb)
 			comp = urb->complete;
 			urb->complete = NULL;
 
-			list_del (&urb->urb_list);	/* relink the urb to the del list */
+/* --> crash --> */	list_del (&urb->urb_list);	/* relink the urb to the del list */
 			list_add (&urb->urb_list, &hci->del_list);
 
 			spin_unlock_irqrestore (&usb_urb_lock, flags);
@@ -605,6 +605,7 @@ static struct urb *qu_return_urb (hci_t * hci, struct urb * urb, int resub_ok)
 	return next_urb;
 }
 
+#if 0 /* unused now (hne) */
 /***************************************************************************
  * Function Name : sh_scan_iso_urb_list
  *
@@ -651,6 +652,7 @@ static int sh_scan_iso_urb_list (hci_t * hci, struct list_head *list_lh,
 	}
 	return 1;
 }
+#endif // if0
 
 /***************************************************************************
  * Function Name : sh_scan_urb_list
@@ -940,6 +942,19 @@ static int sh_done_list (hci_t * hci, int *isExcessNak)
 	for (trans = 0; ret && trans < hci->td_array->len && trans < MAX_TRANS;
 	     trans++) {
 		urb = hci->td_array->td[trans].urb;
+		/* FIXME: */
+		/* +++ I'm sorry, can't handle NULL-Pointers 21.11.2002 (hne) */
+		if (!urb) {
+			DBGERR ("sh_done_list: urb = NULL\n");
+			continue;
+		}
+		if (!urb->dev || !urb->pipe) {
+			if (!urb->dev) DBGERR ("sh_done_list: urb->dev = NULL\n");
+			if (!urb->pipe) DBGERR ("sh_done_list: urb->pipe = NULL\n");
+			continue;
+		}
+		/* --- 21.11.2002 (hne) */
+		
 		len = hci->td_array->td[trans].len;
 		out = usb_pipeout (urb->pipe);
 
@@ -949,9 +964,11 @@ static int sh_done_list (hci_t * hci, int *isExcessNak)
 			toggle = 0;
 		} else {
 			data = urb->transfer_buffer + urb->actual_length;
+			/* +++ Crash (hne)  urb->dev == NULL !!! */
 			toggle = usb_gettoggle (urb->dev,
 						usb_pipeendpoint (urb->pipe),
 						usb_pipeout (urb->pipe));
+			/* --- Crash (hne)  urb->dev == NULL !!! */
 
 		}
 		urb_state = qu_urbstate (urb);
@@ -985,9 +1002,9 @@ static int sh_done_list (hci_t * hci, int *isExcessNak)
 				urb_state = 0;
 				active = 0;
 			} else {
-				DBGERR ("done_list: packet err, cc = 0x%x, "
-					" urb->length = 0x%x, actual_len = 0x%x,"
-					" urb_state =0x%x\n",
+				DBGERR ("done_list: packet err, cc=0x%x, "
+					" urb->length=0x%x, actual_len=0x%x,"
+					" urb_state=0x%x\n",
 					cc, urb->transfer_buffer_length,
 					urb->actual_length, urb_state);
 //			if (cc & SL11H_STATMASK_STALL) {
