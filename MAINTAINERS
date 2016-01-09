@@ -154,6 +154,14 @@ M:	sullivam@us.ibm.com
 W:	http://www.ibm.com/linux/ltc/
 S:	Supported
 
+AACRAID SCSI RAID DRIVER
+P:	Adaptec OEM Raid Solutions
+M:	linux-aacraid-devel@dell.com
+L:	linux-aacraid-devel@dell.com
+L:	linux-aacraid-announce@dell.com
+W:	http://domsch.com/linux
+S:	Supported
+
 ACPI
 P:	Andy Grover
 M:	andrew.grover@intel.com
@@ -245,7 +253,7 @@ S:	Maintained
 BEFS FILE SYSTEM
 P:	Will Dyson
 M:	will@cs.earlham.edu
-W:	http://cs.earlham.edu/~will/software/linux/kernel/BeFS.html
+W:	http://befs-driver.sourceforge.net/
 S:	Maintained
 
 BERKSHIRE PRODUCTS PC WATCHDOG DRIVER
@@ -284,13 +292,6 @@ P:	Gerd Knorr
 M:	kraxel@bytesex.org
 L:	video4linux-list@redhat.com
 W:	http://bytesex.org/bttv/
-S:	Maintained
-
-BUSLOGIC SCSI DRIVER
-P:	Leonard N. Zubkoff
-M:	Leonard N. Zubkoff <lnz@dandelion.com>
-L:	linux-scsi@vger.kernel.org
-W:	http://www.dandelion.com/Linux/
 S:	Maintained
 
 CIRRUS LOGIC GENERIC FBDEV DRIVER
@@ -1041,6 +1042,12 @@ M:	kaos@ocs.com.au
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
 
+MOTION EYE VAIO PICTUREBOOK CAMERA DRIVER
+P:	Stelian Pop
+M:	stelian@popies.net
+W:	http://popies.net/meye/
+S:	Maintained
+
 MOUSE AND MISC DEVICES [GENERAL]
 P:	Alessandro Rubini
 M:	rubini@ipvvis.unipv.it
@@ -1140,6 +1147,14 @@ L:     linux-net@vger.kernel.org
 S:     Maintained
 
 NINJA SCSI-3 / NINJA SCSI-32Bi PCMCIA SCSI HOST ADAPTER DRIVER
+P:	YOKOTA Hiroshi
+M:	yokota@netlab.is.tsukuba.ac.jp
+W:	http://www.netlab.is.tsukuba.ac.jp/~yokota/izumi/ninja/
+S:	Maintained
+
+NINJA SCSI-32Bi/UDE PCI/CARDBUS SCSI HOST ADAPTER DRIVER
+P:	GOTO Masanori
+M:	gotom@debian.or.jp
 P:	YOKOTA Hiroshi
 M:	yokota@netlab.is.tsukuba.ac.jp
 W:	http://www.netlab.is.tsukuba.ac.jp/~yokota/izumi/ninja/
@@ -1277,6 +1292,13 @@ L:	linux-mips@linux-mips.org
 W:	http://www.realitydiluted.com/projects/nino
 S:	Maintained
 
+PHILIPS NINO PALM PC
+P:	Steven Hill
+M:	sjhill@realitydiluted.com
+L:	linux-mips@oss.sgi.com
+W:	http://www.realitydiluted.com/projects/nino
+S:	Maintained
+
 PNP SUPPORT
 P:	Tom Lees
 M:	tom@lpsg.demon.co.uk
@@ -1314,17 +1336,6 @@ PROMISE DC4030 CACHING DISK CONTROLLER DRIVER
 P:	Peter Denison
 M:	promise@pnd-pc.demon.co.uk
 W:	http://www.pnd-pc.demon.co.uk/promise/
-S:	Maintained
-
-PROMISE PDC202XX IDE CONTROLLER DRIVER
-P:	Hank Yang
-M:	support@promise.com.tw [TAIWAN]
-P:	Jordan Rhody
-M:	support@promise.com [U.S.A]
-P:	Jack Hu
-M:	support-china@promise.com [CHINA]
-W:	http://www.promise.com/support/linux_eng.asp
-W:	http://www.promise.com.tw/support/linux_eng.asp
 S:	Maintained
 
 QNX4 FILESYSTEM
@@ -1439,6 +1450,12 @@ M:	Kai.Makisara@metla.fi
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 
+SCx200 CPU SUPPORT
+P:	Christer Weinigel
+M:	christer@weinigel.se
+W:	http://www.weinigel.se
+S:	Supported
+
 SGI VISUAL WORKSTATION 320 AND 540
 P:	Bent Hagemark
 M:	bh@sgi.com
@@ -1485,6 +1502,12 @@ SONIC NETWORK DRIVER
 P:	Thomas Bogendoerfer
 M:	tsbogend@alpha.franken.de
 L:	linux-net@vger.kernel.org
+S:	Maintained
+
+SONY VAIO CONTROL DEVICE DRIVER
+P:	Stelian Pop
+M:	stelian@popies.net
+W:	http://popies.net/sonypi/
 S:	Maintained
 
 SOUND
@@ -1583,6 +1606,11 @@ M:      roms@lpg.ticalc.org
 P:      Julien Blache
 M:      jb@technologeek.org
 S:      Maintained
+
+TI PARALLEL LINK CABLE DRIVER
+P:     Romain Lievin
+M:     roms@lpg.ticalc.org
+S:     Maintained
 
 TIEMAN VOYAGER USB BRAILLE DISPLAY DRIVER
 P:	Stephane Dalton

@@ -91,7 +91,6 @@
 #include <asm/byteorder.h>
 #include <asm/atomic.h>
 #include <asm/uaccess.h>
-#include <linux/tqueue.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 
@@ -154,7 +153,7 @@ printk(level "%s: " fmt "\n" , OHCI1394_DRIVER_NAME , ## args)
 printk(level "%s_%d: " fmt "\n" , OHCI1394_DRIVER_NAME, card , ## args)
 
 static char version[] __devinitdata =
-	"$Rev: 578 $ Ben Collins <bcollins@debian.org>";
+	"$Rev: 693 $ Ben Collins <bcollins@debian.org>";
 
 /* Module Parameters */
 MODULE_PARM(attempt_root,"i");
@@ -1174,74 +1173,60 @@ static void ohci_irq_handler(int irq, void *dev_id,
 	}
 	if (event & OHCI1394_selfIDComplete) {
 		if (host->in_bus_reset) {
-			node_id = reg_read(ohci, OHCI1394_NodeID); 
+			node_id = reg_read(ohci, OHCI1394_NodeID);
 
-			/* If our nodeid is not valid, give a msec delay
-			 * to let it settle in and try again.  */
 			if (!(node_id & 0x80000000)) {
-				mdelay(1);
-				node_id = reg_read(ohci, OHCI1394_NodeID);
-			}
-
-			if (node_id & 0x80000000) { /* NodeID valid */
-				phyid =  node_id & 0x0000003f;
-				isroot = (node_id & 0x40000000) != 0;
-
-				DBGMSG(ohci->id,
-				      "SelfID interrupt received "
-				      "(phyid %d, %s)", phyid, 
-				      (isroot ? "root" : "not root"));
-
-				handle_selfid(ohci, host, 
-					      phyid, isroot);
-			} else {
-				PRINT(KERN_ERR, ohci->id, 
-				      "SelfID interrupt received, but "
-				      "NodeID is not valid: %08X",
+				PRINT(KERN_ERR, ohci->id,
+				      "SelfID received, but NodeID invalid "
+				      "(probably new bus reset occured): %08X",
 				      node_id);
+				goto selfid_not_valid;
 			}
+
+			phyid =  node_id & 0x0000003f;
+			isroot = (node_id & 0x40000000) != 0;
+
+			DBGMSG(ohci->id,
+			       "SelfID interrupt received "
+			       "(phyid %d, %s)", phyid,
+			       (isroot ? "root" : "not root"));
+
+			handle_selfid(ohci, host, phyid, isroot);
+
+			/* Clear the bus reset event and re-enable the
+			 * busReset interrupt.  */
+			spin_lock_irqsave(&ohci->event_lock, flags);
+			reg_write(ohci, OHCI1394_IntEventClear, OHCI1394_busReset);
+			reg_write(ohci, OHCI1394_IntMaskSet, OHCI1394_busReset);
+			spin_unlock_irqrestore(&ohci->event_lock, flags);
 
 			/* Accept Physical requests from all nodes. */
-			reg_write(ohci,OHCI1394_AsReqFilterHiSet, 
-				  0xffffffff);
-			reg_write(ohci,OHCI1394_AsReqFilterLoSet, 
-				  0xffffffff);
+			reg_write(ohci,OHCI1394_AsReqFilterHiSet, 0xffffffff);
+			reg_write(ohci,OHCI1394_AsReqFilterLoSet, 0xffffffff);
+
+			/* Turn on phys dma reception.
+			 *
+			 * TODO: Enable some sort of filtering management.
+			 */
+			if (phys_dma) {
+				reg_write(ohci,OHCI1394_PhyReqFilterHiSet, 0xffffffff);
+				reg_write(ohci,OHCI1394_PhyReqFilterLoSet, 0xffffffff);
+				reg_write(ohci,OHCI1394_PhyUpperBound, 0xffff0000);
+			} else {
+				reg_write(ohci,OHCI1394_PhyReqFilterHiSet, 0x00000000);
+				reg_write(ohci,OHCI1394_PhyReqFilterLoSet, 0x00000000);
+			}
+			DBGMSG(ohci->id, "PhyReqFilter=%08x%08x\n",
+			       reg_read(ohci,OHCI1394_PhyReqFilterHiSet),
+			       reg_read(ohci,OHCI1394_PhyReqFilterLoSet));
+
+			hpsb_selfid_complete(host, phyid, isroot);
 		} else
-			PRINT(KERN_ERR, ohci->id, 
+			PRINT(KERN_ERR, ohci->id,
 			      "SelfID received outside of bus reset sequence");
 
-		/* Finally, we clear the busReset event and reenable
-		 * the busReset interrupt. */
-		spin_lock_irqsave(&ohci->event_lock, flags);
-		reg_write(ohci, OHCI1394_IntEventClear, OHCI1394_busReset);
-		reg_write(ohci, OHCI1394_IntMaskSet, OHCI1394_busReset); 
-		spin_unlock_irqrestore(&ohci->event_lock, flags);
-		event &= ~OHCI1394_selfIDComplete;	
-
-		/* Turn on phys dma reception. We should
-		 * probably manage the filtering somehow, 
-		 * instead of blindly turning it on.  */
-
-		/*
-		 * CAUTION!
-		 * Some chips (TI TSB43AB22) won't take a value in
-		 * the PhyReqFilter register until after the IntEvent
-		 * is cleared for bus reset, and even then a short
-		 * delay is required.
-		 */
-		if (phys_dma) {
-			mdelay(1);
-			reg_write(ohci,OHCI1394_PhyReqFilterHiSet,
-				  0xffffffff);
-			reg_write(ohci,OHCI1394_PhyReqFilterLoSet,
-				  0xffffffff);
-			reg_write(ohci,OHCI1394_PhyUpperBound,
-				  0xffff0000);
-		}
-
-		DBGMSG(ohci->id, "PhyReqFilter=%08x%08x\n",
-		       reg_read(ohci,OHCI1394_PhyReqFilterHiSet),
-		       reg_read(ohci,OHCI1394_PhyReqFilterLoSet));
+		event &= ~OHCI1394_selfIDComplete;
+selfid_not_valid:
 	}
 
 	/* Make sure we handle everything, just in case we accidentally
@@ -1905,7 +1890,7 @@ static void ohci_init_config_rom(struct ti_ohci *ohci)
 	ohci->csr_config_rom_length = cr.data - ohci->csr_config_rom_cpu;
 }
 
-static size_t ohci_get_rom(struct hpsb_host *host, const quadlet_t **ptr)
+static size_t ohci_get_rom(struct hpsb_host *host, quadlet_t **ptr)
 {
 	struct ti_ohci *ohci=host->hostdata;
 

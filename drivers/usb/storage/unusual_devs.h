@@ -207,9 +207,9 @@ UNUSUAL_DEV(  0x0525, 0xa140, 0x0100, 0x0100,
 		US_FL_FIX_INQUIRY | US_FL_START_STOP ),
 
 /* This entry is needed because the device reports Sub=ff */
-UNUSUAL_DEV(  0x054c, 0x0010, 0x0106, 0x0422, 
+UNUSUAL_DEV(  0x054c, 0x0010, 0x0106, 0x0440, 
 		"Sony",
-		"DSC-S30/S70/S75/505V/F505/F707", 
+		"DSC-S30/S70/S75/505V/F505/F707/F717", 
 		US_SC_SCSI, US_PR_CB, NULL,
 		US_FL_SINGLE_LUN | US_FL_START_STOP | US_FL_MODE_XLATE ),
 
@@ -486,6 +486,18 @@ UNUSUAL_DEV(  0x07c4, 0xa109, 0x0000, 0xffff,
 		US_SC_SCSI, US_PR_DATAFAB, NULL,
 		US_FL_MODE_XLATE ),
 #endif
+
+/* Datafab KECF-USB / Sagatek DCS-CF / Simpletech Flashlink UCF-100
+ * Only revision 1.13 tested (same for all of the above devices,
+ * based on the Datafab DF-UG-07 chip).  Needed for US_FL_FIX_INQUIRY.
+ * Submitted by Marek Michalkiewicz <marekm@amelek.gda.pl>.
+ * See also http://martin.wilck.bei.t-online.de/#kecf .
+ */
+UNUSUAL_DEV(  0x07c4, 0xa400, 0x0000, 0xffff,
+		"Datafab",
+		"KECF-USB",
+		US_SC_SCSI, US_PR_BULK, NULL,
+		US_FL_FIX_INQUIRY ),
 
 /* Casio QV 2x00/3x00/4000/8000 digital still cameras are not conformant
  * to the USB storage specification in two ways:

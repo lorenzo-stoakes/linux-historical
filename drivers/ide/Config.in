@@ -69,7 +69,7 @@ if [ "$CONFIG_BLK_DEV_IDE" != "n" ]; then
 		# FIXME - probably wants to be one for old and for new
 	    dep_bool     '      Special FastTrak Feature' CONFIG_PDC202XX_FORCE $CONFIG_BLK_DEV_PDC202XX_NEW
 	    dep_tristate '    RZ1000 chipset bugfix/support' CONFIG_BLK_DEV_RZ1000 $CONFIG_X86
-	    dep_tristate '    SCx200 chipsetsupport' CONFIG_BLK_DEV_SC1200 $CONFIG_BLK_DEV_IDEDMA_PCI
+	    dep_tristate '    SCx200 chipset support' CONFIG_BLK_DEV_SC1200 $CONFIG_BLK_DEV_IDEDMA_PCI
 	    dep_tristate '    ServerWorks OSB4/CSB5/CSB6 chipsets support' CONFIG_BLK_DEV_SVWKS $CONFIG_BLK_DEV_IDEDMA_PCI
 	    dep_tristate '    Silicon Image chipset support' CONFIG_BLK_DEV_SIIMAGE $CONFIG_BLK_DEV_IDEDMA_PCI
 	    dep_tristate '    SiS5513 chipset support' CONFIG_BLK_DEV_SIS5513 $CONFIG_BLK_DEV_IDEDMA_PCI $CONFIG_X86

@@ -380,7 +380,7 @@ isdn_ppp_release(int min, struct file *file)
 	is->slcomp = NULL;
 #endif
 
-/* TODO: if this was the previous master: link the the stuff to the new master */
+/* TODO: if this was the previous master: link the stuff to the new master */
 	if(is->comp_stat)
 		is->compressor->free(is->comp_stat);
 	if(is->link_comp_stat)

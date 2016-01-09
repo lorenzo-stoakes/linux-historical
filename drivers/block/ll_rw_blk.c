@@ -394,7 +394,7 @@ int blk_grow_request_list(request_queue_t *q, int nr_requests)
 	unsigned long flags;
 	/* Several broken drivers assume that this function doesn't sleep,
 	 * this causes system hangs during boot.
-	 * As a temporary fix, make the the function non-blocking.
+	 * As a temporary fix, make the function non-blocking.
 	 */
 	spin_lock_irqsave(&io_request_lock, flags);
 	while (q->nr_requests < nr_requests) {

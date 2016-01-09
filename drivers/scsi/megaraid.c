@@ -9,7 +9,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Version : v1.18e (Nov 18, 2002)
+ * Version : v1.18f (Dec 10, 2002)
  *
  * Description: Linux device driver for LSI Logic MegaRAID controller
  *
@@ -507,6 +507,10 @@
  *
  * remove an unsed variable
  *
+ * Version 1.18f
+ * Tue Dec 10 09:54:39 EST 2002 - Atul Mukker <atul.mukker@lsil.com>
+ *
+ * remove GFP_DMA flag for ioctl. This was causing overrun of DMA buffers.
  *
  * BUGS:
  *     Some older 2.1 kernels (eg. 2.1.90) have a bug in pci.c that
@@ -4869,7 +4873,7 @@ static int megadev_ioctl (struct inode *inode, struct file *filep,
 		if(shpnt == NULL)  return -ENODEV;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
-		scsicmd = (Scsi_Cmnd *)kmalloc(sizeof(Scsi_Cmnd), GFP_KERNEL|GFP_DMA);
+		scsicmd = (Scsi_Cmnd *)kmalloc(sizeof(Scsi_Cmnd), GFP_KERNEL);
 #else
 		scsicmd = (Scsi_Cmnd *)scsi_init_malloc(sizeof(Scsi_Cmnd),
 							  GFP_ATOMIC | GFP_DMA);
@@ -5015,7 +5019,7 @@ static int megadev_ioctl (struct inode *inode, struct file *filep,
 		}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
-		scsicmd = (Scsi_Cmnd *)kmalloc(sizeof(Scsi_Cmnd), GFP_KERNEL|GFP_DMA);
+		scsicmd = (Scsi_Cmnd *)kmalloc(sizeof(Scsi_Cmnd), GFP_KERNEL);
 #else
 		scsicmd = (Scsi_Cmnd *)scsi_init_malloc(sizeof(Scsi_Cmnd),
 							  GFP_ATOMIC | GFP_DMA);
@@ -5378,8 +5382,6 @@ mega_do_del_logdrv(mega_host_config *this_hba, int logdrv)
 				logdrv);
 		return rval;
 	}
-
-	printk("megaraid: logical drive %d deleted.\n", logdrv);
 
 	/*
 	 * After deleting first logical drive, the logical drives must be

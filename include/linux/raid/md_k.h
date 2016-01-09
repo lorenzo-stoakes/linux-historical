@@ -171,6 +171,7 @@ struct mdk_rdev_s
 	struct block_device *bdev;	/* block device handle */
 
 	mdp_super_t *sb;
+	struct page *sb_page;
 	unsigned long sb_offset;
 
 	int alias_device;		/* device alias to the same disk */

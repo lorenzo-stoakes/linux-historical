@@ -733,7 +733,7 @@ D: Linux/IA-64
 D: Dell PowerEdge server, SCSI layer, misc drivers, and other patches
 S: Dell Computer Corporation
 S: One Dell Way
-S: Round Rock, TX  78681
+S: Round Rock, TX  78682
 S: USA
 
 N: Eddie C. Dost
@@ -1065,6 +1065,11 @@ D: Made support for modules, ramdisk, generic-serial, etc. optional.
 D: Transformed old user space bdflush into 1st kernel thread - kflushd.
 D: Many other patches, documentation files, mini kernels, utilities, ...
 
+N: Masanori GOTO
+E: gotom@debian.or.jp
+D: Workbit NinjaSCSI-32Bi/UDE driver
+S: Japan
+
 N: John E. Gotts
 E: jgotts@linuxsavvy.com
 D: kernel hacker
@@ -1231,11 +1236,13 @@ S: Germany
 
 N: Christoph Hellwig
 E: hch@infradead.org
-D: misc driver & makefile hacking
+E: hch@sgi.com
+D: all kinds of driver, filesystem & core kernel hacking
 D: freevxfs driver
 D: sysvfs maintainer
-S: Triftstraﬂe 26
-S: 38644 Goslar
+D: chief codingstyle nitpicker
+S: Auweg 38
+S: 85748 Garching
 S: Germany
 
 N: Richard Henderson
@@ -3281,6 +3288,12 @@ D: RTLinux (RealTime Linux)
 S: POB 1822 
 S: Socorro NM, 87801
 S: USA
+
+N: Hiroshi YOKOTA
+E: yokota@netlab.is.tsukuba.ac.jp
+D: Workbit NinjaSCSI-3/32Bi PCMCIA driver
+D: Workbit NinjaSCSI-32Bi/UDE driver
+S: Japan
 
 N: Eric Youngdale
 E: eric@andante.org

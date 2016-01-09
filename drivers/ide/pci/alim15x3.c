@@ -94,7 +94,7 @@ static char *channel_status[8] = {
  
 static int ali_get_info (char *buffer, char **addr, off_t offset, int count)
 {
-	u32 bibma;
+	unsigned long bibma;
 	u8 reg53h, reg5xh, reg5yh, reg5xh1, reg5yh1, c0, c1, rev, tmp;
 	char *q, *p = buffer;
 
@@ -106,14 +106,15 @@ static int ali_get_info (char *buffer, char **addr, off_t offset, int count)
 		fifo[3]  = "   ???  ";
 
 	/* first fetch bibma: */
-	pci_read_config_dword(bmide_dev, 0x20, &bibma);
-	bibma = (bibma & 0xfff0) ;
+	
+	bibma = pci_resource_start(bmide_dev, 4);
+
 	/*
 	 * at that point bibma+0x2 et bibma+0xa are byte
 	 * registers to investigate:
 	 */
-	c0 = inb((unsigned short)bibma + 0x02);
-	c1 = inb((unsigned short)bibma + 0x0a);
+	c0 = inb(bibma + 0x02);
+	c1 = inb(bibma + 0x0a);
 
 	p += sprintf(p,
 		"\n                                Ali M15x3 Chipset.\n");
@@ -779,9 +780,10 @@ static void __init init_hwif_common_ali15x3 (ide_hwif_t *hwif)
 static void __init init_hwif_ali15x3 (ide_hwif_t *hwif)
 {
 	u8 ideic, inmir;
-	u8 irq_routing_table[] = { -1,  9, 3, 10, 4,  5, 7,  6,
+	s8 irq_routing_table[] = { -1,  9, 3, 10, 4,  5, 7,  6,
 				      1, 11, 0, 12, 0, 14, 0, 15 };
-
+	int irq;
+	
 	hwif->irq = hwif->channel ? 15 : 14;
 
 	if (isa_dev) {
@@ -801,15 +803,17 @@ static void __init init_hwif_ali15x3 (ide_hwif_t *hwif)
 			 */
 			pci_read_config_byte(isa_dev, 0x44, &inmir);
 			inmir = inmir & 0x0f;
-			hwif->irq = irq_routing_table[inmir];
+			irq = irq_routing_table[inmir];
 		} else if (hwif->channel && !(ideic & 0x01)) {
 			/*
 			 * get SIRQ2 routing table
 			 */
 			pci_read_config_byte(isa_dev, 0x75, &inmir);
 			inmir = inmir & 0x0f;
-			hwif->irq = irq_routing_table[inmir];
+			irq = irq_routing_table[inmir];
 		}
+		if(irq >= 0)
+			hwif->irq = irq;
 	}
 
 	init_hwif_common_ali15x3(hwif);

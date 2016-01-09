@@ -116,13 +116,13 @@ unsigned long get_wchan(struct task_struct *p);
  * Free current thread data structures etc..
  */
 
-static inline void exit_thread(void)
+extern inline void exit_thread(void)
 {
         /* Nothing needs to be done.  */
 }
 
 /* Free all resources held by a thread. */
-static inline void release_thread(struct task_struct *dead_task)
+extern inline void release_thread(struct task_struct *dead_task)
 {
         /* Nothing needs to be done.  */
 }

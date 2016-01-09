@@ -2706,6 +2706,10 @@ PFC_LOGGEDIN_PORT fcFindLoggedInPort(PTACHYON fcChip, Scsi_Cmnd * Cmnd,	// searc
 					// Report Luns command
 					if (pLoggedInPort->ScsiNexus.LunMasking == 1) {
 						// we KNOW all the valid LUNs... 0xFF is invalid!
+						if (Cmnd->lun > sizeof(pLoggedInPort->ScsiNexus.lun)){
+							// printk("cpqfcTS FATAL: Invalid LUN index !!!!\n ");
+							return NULL;
+						}
 						Cmnd->SCp.have_data_in = pLoggedInPort->ScsiNexus.lun[Cmnd->lun];
 						if (pLoggedInPort->ScsiNexus.lun[Cmnd->lun] == 0xFF)
 							return NULL;

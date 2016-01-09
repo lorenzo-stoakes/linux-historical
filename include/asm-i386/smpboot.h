@@ -14,6 +14,8 @@ extern unsigned char clustered_apic_mode;
 extern unsigned char esr_disable;
 extern unsigned char int_delivery_mode;
 extern unsigned int int_dest_addr_mode;
+extern int cyclone_setup(char*);
+
 static inline void detect_clustered_apic(char* oem, char* prod)
 {
 	/*
@@ -25,6 +27,8 @@ static inline void detect_clustered_apic(char* oem, char* prod)
 		int_dest_addr_mode = APIC_DEST_PHYSICAL;
 		int_delivery_mode = dest_Fixed;
 		esr_disable = 1;
+		/*Start cyclone clock*/
+		cyclone_setup(0);
 	}
 	else if (!strncmp(oem, "IBM NUMA", 8)){
 		clustered_apic_mode = CLUSTERED_APIC_NUMAQ;

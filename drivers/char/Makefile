@@ -204,6 +204,7 @@ subdir-$(CONFIG_INPUT) += joystick
 obj-$(CONFIG_ATIXL_BUSMOUSE) += atixlmouse.o
 obj-$(CONFIG_LOGIBUSMOUSE) += logibusmouse.o
 obj-$(CONFIG_PRINTER) += lp.o
+obj-$(CONFIG_TIPAR) += tipar.o
 
 ifeq ($(CONFIG_INPUT),y)
 obj-y += joystick/js.o

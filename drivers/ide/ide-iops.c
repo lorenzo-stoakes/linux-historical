@@ -32,52 +32,52 @@
 #include <asm/bitops.h>
 
 
-static u8 ide_inb (u32 port)
+static u8 ide_inb (unsigned long port)
 {
 	return (u8) inb(port);
 }
 
-static u16 ide_inw (u32 port)
+static u16 ide_inw (unsigned long port)
 {
 	return (u16) inw(port);
 }
 
-static void ide_insw (u32 port, void *addr, u32 count)
+static void ide_insw (unsigned long port, void *addr, u32 count)
 {
 	return insw(port, addr, count);
 }
 
-static u32 ide_inl (u32 port)
+static u32 ide_inl (unsigned long port)
 {
 	return (u32) inl(port);
 }
 
-static void ide_insl (u32 port, void *addr, u32 count)
+static void ide_insl (unsigned long port, void *addr, u32 count)
 {
 	insl(port, addr, count);
 }
 
-static void ide_outb (u8 addr, u32 port)
+static void ide_outb (u8 addr, unsigned long port)
 {
 	outb(addr, port);
 }
 
-static void ide_outw (u16 addr, u32 port)
+static void ide_outw (u16 addr, unsigned long port)
 {
 	outw(addr, port);
 }
 
-static void ide_outsw (u32 port, void *addr, u32 count)
+static void ide_outsw (unsigned long port, void *addr, u32 count)
 {
 	outsw(port, addr, count);
 }
 
-static void ide_outl (u32 addr, u32 port)
+static void ide_outl (u32 addr, unsigned long port)
 {
 	outl(addr, port);
 }
 
-static void ide_outsl (u32 port, void *addr, u32 count)
+static void ide_outsl (unsigned long port, void *addr, u32 count)
 {
 	return outsl(port, addr, count);
 }
@@ -98,73 +98,54 @@ void default_hwif_iops (ide_hwif_t *hwif)
 
 EXPORT_SYMBOL(default_hwif_iops);
 
-static u8 ide_mm_inb (u32 port)
+static u8 ide_mm_inb (unsigned long port)
 {
 	return (u8) readb(port);
 }
 
-static u16 ide_mm_inw (u32 port)
+static u16 ide_mm_inw (unsigned long port)
 {
 	return (u16) readw(port);
 }
 
-static void ide_mm_insw (u32 port, void *addr, u32 count)
+static void ide_mm_insw (unsigned long port, void *addr, u32 count)
 {
-#ifdef CONFIG_PPC
-	/* Can we move the barrier out of the loop ? */
-	while (count--) { *(u16 *)addr = __raw_readw(port); iobarrier_r(); addr += 2; }
-#else /* everything else is sane benh */
-	while (count--) { *(u16 *)addr = readw(port); addr += 2; }
-#endif
+	__ide_mm_insw(port, addr, count);
 }
 
-static u32 ide_mm_inl (u32 port)
+static u32 ide_mm_inl (unsigned long port)
 {
 	return (u32) readl(port);
 }
 
-static void ide_mm_insl (u32 port, void *addr, u32 count)
+static void ide_mm_insl (unsigned long port, void *addr, u32 count)
 {
-#ifdef CONFIG_PPC
-	/* Can we move the barrier out of the loop ? */
-	while (count--) { *(u32 *)addr = __raw_readl(port); iobarrier_r(); addr += 4; }
-#else /* everything else is sane benh */
-	while (count--) { *(u32 *)addr = readl(port); addr += 4; }
-#endif
+	__ide_mm_insl(port, addr, count);
 }
 
-static void ide_mm_outb (u8 value, u32 port)
+static void ide_mm_outb (u8 value, unsigned long port)
 {
 	writeb(value, port);
 }
 
-static void ide_mm_outw (u16 value, u32 port)
+static void ide_mm_outw (u16 value, unsigned long port)
 {
 	writew(value, port);
 }
 
-static void ide_mm_outsw (u32 port, void *addr, u32 count)
+static void ide_mm_outsw (unsigned long port, void *addr, u32 count)
 {
-#ifdef CONFIG_PPC
-	/* Can we move the barrier out of the loop ? */
-	while (count--) { __raw_writew(*(u16 *)addr, port); iobarrier_w(); addr += 2; }
-#else /* everything else is sane benh */
-	while (count--) { writew(*(u16 *)addr, port); addr += 2; }
-#endif
+	__ide_mm_outsw(port, addr, count);
 }
 
-static void ide_mm_outl (u32 value, u32 port)
+static void ide_mm_outl (u32 value, unsigned long port)
 {
 	writel(value, port);
 }
 
-static void ide_mm_outsl (u32 port, void *addr, u32 count)
+static void ide_mm_outsl (unsigned long port, void *addr, u32 count)
 {
-#ifdef CONFIG_PPC
-	while (count--) { __raw_writel(*(u32 *)addr, port); iobarrier_w(); addr += 4; }
-#else /* everything else is sane benh */
-	while (count--) { writel(*(u32 *)addr, port); addr += 4; }
-#endif
+	__ide_mm_outsl(port, addr, count);
 }
 
 void default_hwif_mmiops (ide_hwif_t *hwif)

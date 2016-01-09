@@ -56,10 +56,13 @@ static void __loop_delay(unsigned long loops)
 		:"=&a" (d0)
 		:"0" (loops));
 }
-
+extern __cyclone_delay(unsigned long loops);
+extern int use_cyclone;
 void __delay(unsigned long loops)
 {
-	if (x86_udelay_tsc)
+	if (use_cyclone)
+		__cyclone_delay(loops);
+	else if (x86_udelay_tsc)
 		__rdtsc_delay(loops);
 	else
 		__loop_delay(loops);

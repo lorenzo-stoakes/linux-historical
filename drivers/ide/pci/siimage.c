@@ -31,15 +31,15 @@ static char * print_siimage_get_info (char *buf, struct pci_dev *dev, int index)
 {
 	char *p		= buf;
 	u8 mmio		= (pci_get_drvdata(dev) != NULL) ? 1 : 0;
-	u32 bmdma	= (mmio) ? ((u32) pci_get_drvdata(dev)) :
+	unsigned long bmdma	= (mmio) ? ((unsigned long) pci_get_drvdata(dev)) :
 				    (pci_resource_start(dev, 4));
 
 	p += sprintf(p, "\nController: %d\n", index);
 	p += sprintf(p, "SiI%x Chipset.\n", dev->device);
 	if (mmio)
-		p += sprintf(p, "MMIO Base 0x%08x\n", bmdma);
-	p += sprintf(p, "%s-DMA Base 0x%08x\n", (mmio)?"MMIO":"BM", bmdma);
-	p += sprintf(p, "%s-DMA Base 0x%08x\n", (mmio)?"MMIO":"BM", bmdma+8);
+		p += sprintf(p, "MMIO Base 0x%lx\n", bmdma);
+	p += sprintf(p, "%s-DMA Base 0x%lx\n", (mmio)?"MMIO":"BM", bmdma);
+	p += sprintf(p, "%s-DMA Base 0x%lx\n", (mmio)?"MMIO":"BM", bmdma+8);
 
 	p += sprintf(p, "--------------- Primary Channel "
 			"---------------- Secondary Channel "
@@ -517,10 +517,10 @@ sata_skip:
 #ifdef CONFIG_TRY_MMIO_SIIMAGE
 static unsigned int setup_mmio_siimage (struct pci_dev *dev, const char *name)
 {
-	u32 bar5	= pci_resource_start(dev, 5);
-	u32 end5	= pci_resource_end(dev, 5);
+	unsigned long bar5	= pci_resource_start(dev, 5);
+	unsigned long end5	= pci_resource_end(dev, 5);
 	u8 tmpbyte	= 0;
-	u32 addr;
+	unsigned long addr;
 	void *ioaddr;
 
 	ioaddr = ioremap_nocache(bar5, (end5 - bar5));
@@ -529,8 +529,8 @@ static unsigned int setup_mmio_siimage (struct pci_dev *dev, const char *name)
 		return 0;
 
 	pci_set_master(dev);
-	addr = (u32) ioaddr;
-	pci_set_drvdata(dev, (void *) addr);
+	pci_set_drvdata(dev, ioaddr);
+	addr = (unsigned long) ioaddr;
 
 	if (dev->device == PCI_DEVICE_ID_SII_3112) {
 		sii_outl(0, DEVADDR(0x148));
@@ -653,7 +653,7 @@ static unsigned int __init init_chipset_siimage (struct pci_dev *dev, const char
 static void __init init_mmio_iops_siimage (ide_hwif_t *hwif)
 {
 	struct pci_dev *dev	= hwif->pci_dev;
-	u32 addr		= (u32) pci_get_drvdata(hwif->pci_dev);
+	unsigned long addr	= (unsigned long) pci_get_drvdata(hwif->pci_dev);
 	u8 ch			= hwif->channel;
 //	u16 i			= 0;
 	hw_regs_t hw;

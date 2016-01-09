@@ -26,41 +26,6 @@ const static char *pdc_quirk_drives[] = {
 	NULL
 };
 
-static inline u8 *pdcnew_pio_verbose (u32 drive_pci)
-{
-	if ((drive_pci & 0x000ff000) == 0x000ff000) return("NOTSET");
-	if ((drive_pci & 0x00000401) == 0x00000401) return("PIO 4");
-	if ((drive_pci & 0x00000602) == 0x00000602) return("PIO 3");
-	if ((drive_pci & 0x00000803) == 0x00000803) return("PIO 2");
-	if ((drive_pci & 0x00000C05) == 0x00000C05) return("PIO 1");
-	if ((drive_pci & 0x00001309) == 0x00001309) return("PIO 0");
-	return("PIO ?");
-}
-
-static inline u8 *pdcnew_dma_verbose (u32 drive_pci)
-{
-	if ((drive_pci & 0x00036000) == 0x00036000) return("MWDMA 2");
-	if ((drive_pci & 0x00046000) == 0x00046000) return("MWDMA 1");
-	if ((drive_pci & 0x00056000) == 0x00056000) return("MWDMA 0");
-	if ((drive_pci & 0x00056000) == 0x00056000) return("SWDMA 2");
-	if ((drive_pci & 0x00068000) == 0x00068000) return("SWDMA 1");
-	if ((drive_pci & 0x000BC000) == 0x000BC000) return("SWDMA 0");
-	return("PIO---");
-}
-
-static inline u8 *pdcnew_ultra_verbose (u32 drive_pci, u16 slow_cable)
-{
-	if ((drive_pci & 0x000ff000) == 0x000ff000)
-		return("NOTSET");
-	if ((drive_pci & 0x00012000) == 0x00012000)
-		return((slow_cable) ? "UDMA 2" : "UDMA 4");
-	if ((drive_pci & 0x00024000) == 0x00024000)
-		return((slow_cable) ? "UDMA 1" : "UDMA 3");
-	if ((drive_pci & 0x00036000) == 0x00036000)
-		return("UDMA 0");
-	return(pdcnew_dma_verbose(drive_pci));
-}
-
 /* A Register */
 #define	SYNC_ERRDY_EN	0xC0
 
@@ -209,10 +174,10 @@ static int pdcnew_get_info(char *, char **, off_t, int);
 
 static ide_pci_host_proc_t pdcnew_procs[] __initdata = {
 	{
-		name:		"pdcnew",
-		set:		1,
-		get_info:	pdcnew_get_info,
-		parent:		NULL,
+		.name		= "pdcnew",
+		.set		= 1,
+		.get_info	= pdcnew_get_info,
+		.parent		= NULL,
 	},
 };
 #endif /* DISPLAY_PDC202XX_TIMINGS && CONFIG_PROC_FS */
@@ -227,116 +192,116 @@ static void init_dma_pdc202new(ide_hwif_t *, unsigned long);
 
 static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 	{	/* 0 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20268,
-		name:		"PDC20268",
-		init_setup:	init_setup_pdcnew,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20268,
+		.name		= "PDC20268",
+		.init_setup	= init_setup_pdcnew,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{	/* 1 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20269,
-		name:		"PDC20269",
-		init_setup:	init_setup_pdcnew,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20269,
+		.name		= "PDC20269",
+		.init_setup	= init_setup_pdcnew,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{	/* 2 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20270,
-		name:		"PDC20270",
-		init_setup:	init_setup_pdc20270,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20270,
+		.name		= "PDC20270",
+		.init_setup	= init_setup_pdc20270,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
 #ifdef CONFIG_PDC202XX_FORCE
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
 #else /* !CONFIG_PDC202XX_FORCE */
-		enablebits:	{{0x50,0x02,0x02}, {0x50,0x04,0x04}},
+		.enablebits	= {{0x50,0x02,0x02}, {0x50,0x04,0x04}},
 #endif
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{	/* 3 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20271,
-		name:		"PDC20271",
-		init_setup:	init_setup_pdcnew,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20271,
+		.name		= "PDC20271",
+		.init_setup	= init_setup_pdcnew,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{	/* 4 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20275,
-		name:		"PDC20275",
-		init_setup:	init_setup_pdcnew,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20275,
+		.name		= "PDC20275",
+		.init_setup	= init_setup_pdcnew,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{	/* 5 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20276,
-		name:		"PDC20276",
-		init_setup:	init_setup_pdc20276,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20276,
+		.name		= "PDC20276",
+		.init_setup	= init_setup_pdc20276,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
 #ifdef CONFIG_PDC202XX_FORCE
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
 #else /* !CONFIG_PDC202XX_FORCE */
-		enablebits:	{{0x50,0x02,0x02}, {0x50,0x04,0x04}},
+		.enablebits	= {{0x50,0x02,0x02}, {0x50,0x04,0x04}},
 #endif
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{	/* 6 */
-		vendor:		PCI_VENDOR_ID_PROMISE,
-		device:		PCI_DEVICE_ID_PROMISE_20277,
-		name:		"PDC20277",
-		init_setup:	init_setup_pdcnew,
-		init_chipset:	init_chipset_pdcnew,
-		init_iops:	NULL,
-		init_hwif:	init_hwif_pdc202new,
-		init_dma:	init_dma_pdc202new,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	OFF_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_PROMISE,
+		.device		= PCI_DEVICE_ID_PROMISE_20277,
+		.name		= "PDC20277",
+		.init_setup	= init_setup_pdcnew,
+		.init_chipset	= init_chipset_pdcnew,
+		.init_iops	= NULL,
+		.init_hwif	= init_hwif_pdc202new,
+		.init_dma	= init_dma_pdc202new,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= OFF_BOARD,
+		.extra		= 0,
 	},{
-		vendor:		0,
-		device:		0,
-		channels:	0,
-		bootable:	EOL,
+		.vendor		= 0,
+		.device		= 0,
+		.channels	= 0,
+		.bootable	= EOL,
 	}
 };
 

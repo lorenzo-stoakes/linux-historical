@@ -236,6 +236,16 @@ void irlmp_close_lsap(struct lsap_cb *self)
 	lap = self->lap;
 	if (lap) {
 		ASSERT(lap->magic == LMP_LAP_MAGIC, return;);
+		/* We might close a LSAP before it has completed the
+		 * connection setup. In those case, higher layers won't
+		 * send a proper disconnect request. Harmless, except
+		 * that we will forget to close LAP... - Jean II */
+		if(self->lsap_state != LSAP_DISCONNECTED) {
+			self->lsap_state = LSAP_DISCONNECTED;
+			irlmp_do_lap_event(self->lap,
+					   LM_LAP_DISCONNECT_REQUEST, NULL);
+		}
+		/* Now, remove from the link */
 		lsap = hashbin_remove(lap->lsaps, (int) self, NULL);
 	}
 	self->lap = NULL;
@@ -1674,7 +1684,7 @@ int irlmp_proc_read(char *buf, char **start, off_t offset, int len)
 	len += sprintf( buf+len, "Unconnected LSAPs:\n");
 	self = (struct lsap_cb *) hashbin_get_first( irlmp->unconnected_lsaps);
 	while (self != NULL) {
-		ASSERT(self->magic == LMP_LSAP_MAGIC, return 0;);
+		ASSERT(self->magic == LMP_LSAP_MAGIC, break;);
 		len += sprintf(buf+len, "lsap state: %s, ", 
 			       irlsap_state[ self->lsap_state]);
 		len += sprintf(buf+len, 
@@ -1703,7 +1713,7 @@ int irlmp_proc_read(char *buf, char **start, off_t offset, int len)
 		len += sprintf(buf+len, "\n  Connected LSAPs:\n");
 		self = (struct lsap_cb *) hashbin_get_first(lap->lsaps);
 		while (self != NULL) {
-			ASSERT(self->magic == LMP_LSAP_MAGIC, return 0;);
+			ASSERT(self->magic == LMP_LSAP_MAGIC, break;);
 			len += sprintf(buf+len, "  lsap state: %s, ", 
 				       irlsap_state[ self->lsap_state]);
 			len += sprintf(buf+len, 

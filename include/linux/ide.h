@@ -303,17 +303,17 @@ typedef enum {	ide_unknown,	ide_generic,	ide_pci,
 
 typedef struct ide_io_ops_s {
 	/* insert io operations here! */
-	void (*OUTB)(u8 addr, u32 port);
-	void (*OUTW)(u16 addr, u32 port);
-	void (*OUTL)(u32 addr, u32 port);
-	void (*OUTSW)(u32 port, void *addr, u32 count);
-	void (*OUTSL)(u32 port, void *addr, u32 count);
+	void (*OUTB)(u8 addr, unsigned long port);
+	void (*OUTW)(u16 addr, unsigned long port);
+	void (*OUTL)(u32 addr, unsigned long port);
+	void (*OUTSW)(unsigned long port, void *addr, u32 count);
+	void (*OUTSL)(unsigned long port, void *addr, u32 count);
 
-	u8  (*INB)(u32 port);
-	u16 (*INW)(u32 port);
-	u32 (*INL)(u32 port);
-	void (*INSW)(u32 port, void *addr, u32 count);
-	void (*INSL)(u32 port, void *addr, u32 count);
+	u8  (*INB)(unsigned long port);
+	u16 (*INW)(unsigned long port);
+	u32 (*INL)(unsigned long port);
+	void (*INSW)(unsigned long port, void *addr, u32 count);
+	void (*INSL)(unsigned long port, void *addr, u32 count);
 } ide_io_ops_t;
 
 /*
@@ -954,17 +954,17 @@ typedef struct hwif_s {
 #if 0
 	ide_io_ops_t	*iops;
 #else
-	void (*OUTB)(u8 addr, u32 port);
-	void (*OUTW)(u16 addr, u32 port);
-	void (*OUTL)(u32 addr, u32 port);
-	void (*OUTSW)(u32 port, void *addr, u32 count);
-	void (*OUTSL)(u32 port, void *addr, u32 count);
+	void (*OUTB)(u8 addr, unsigned long port);
+	void (*OUTW)(u16 addr, unsigned long port);
+	void (*OUTL)(u32 addr, unsigned long port);
+	void (*OUTSW)(unsigned long port, void *addr, u32 count);
+	void (*OUTSL)(unsigned long port, void *addr, u32 count);
 
-	u8  (*INB)(u32 port);
-	u16 (*INW)(u32 port);
-	u32 (*INL)(u32 port);
-	void (*INSW)(u32 port, void *addr, u32 count);
-	void (*INSL)(u32 port, void *addr, u32 count);
+	u8  (*INB)(unsigned long port);
+	u16 (*INW)(unsigned long port);
+	u32 (*INL)(unsigned long port);
+	void (*INSW)(unsigned long port, void *addr, u32 count);
+	void (*INSL)(unsigned long port, void *addr, u32 count);
 #endif
 
 	/* dma physical region descriptor table (cpu view) */

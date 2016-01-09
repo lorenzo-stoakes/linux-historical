@@ -320,7 +320,6 @@
 #include <linux/blk.h>
 #include <linux/smp_lock.h>
 #include <linux/init.h>
-#include <linux/blk.h>
 #include <asm/current.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -351,7 +350,7 @@
 #include "sbp2.h"
 
 static char version[] __devinitdata =
-	"$Rev: 584 $ James Goodwin <jamesg@filanet.com>";
+	"$Rev: 707 $ James Goodwin <jamesg@filanet.com>";
 
 /*
  * Module load parameter definitions
@@ -421,8 +420,9 @@ static int sbp2_max_cmds_per_lun = SBP2SCSI_MAX_CMDS_PER_LUN;
  * talking to a single sbp2 device at the same time (filesystem coherency,
  * etc.). If you're running an sbp2 device that supports multiple logins,
  * and you're either running read-only filesystems or some sort of special
- * filesystem supporting multiple hosts, then set sbp2_exclusive_login to
- * zero. Note: The Oxsemi OXFW911 sbp2 chipset supports up to four
+ * filesystem supporting multiple hosts (one such filesystem is OpenGFS,
+ * see opengfs.sourceforge.net for more info), then set sbp2_exclusive_login
+ * to zero. Note: The Oxsemi OXFW911 sbp2 chipset supports up to four
  * concurrent logins.
  */
 MODULE_PARM(sbp2_exclusive_login,"i");
@@ -800,8 +800,9 @@ sbp2util_allocate_write_request_packet(struct sbp2scsi_host_info *hi,
 		 * Set up a task queue completion routine, which returns
 		 * the packet to the free list and releases the tlabel.
 		 */
-		request_packet->tq.routine = (void (*)(void*))sbp2util_free_request_packet;
-		request_packet->tq.data = request_packet;
+		HPSB_PREPARE_WORK(&request_packet->tq,
+				  (void (*)(void*))sbp2util_free_request_packet,
+				  request_packet);
 		request_packet->hi_context = hi;
 		hpsb_add_packet_complete_task(packet, &request_packet->tq);
 
@@ -1007,13 +1008,8 @@ static void sbp2util_free_command_dma(struct sbp2_command_info *command)
 					 command->dma_size, command->dma_dir);
 			SBP2_DMA_FREE("single bulk");
 		} else if (command->dma_type == CMD_DMA_PAGE) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,13)
-			pci_unmap_single(hi->host->pdev, command->cmd_dma,
-					 command->dma_size, command->dma_dir);
-#else
 			pci_unmap_page(hi->host->pdev, command->cmd_dma,
 				       command->dma_size, command->dma_dir);
-#endif /* Linux version < 2.4.13 */
 			SBP2_DMA_FREE("single page");
 		} /* XXX: Check for CMD_DMA_NONE bug */
 		command->dma_type = CMD_DMA_NONE;
@@ -2146,17 +2142,11 @@ static int sbp2_create_command_orb(struct sbp2scsi_host_info *hi,
 			command->dma_dir = dma_dir;
 			command->dma_size = sgpnt[0].length;
 			command->dma_type = CMD_DMA_PAGE;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,13)
-			command->cmd_dma = pci_map_single (hi->host->pdev, sgpnt[0].address,
-							   command->dma_size,
-							   command->dma_dir);
-#else
 			command->cmd_dma = pci_map_page(hi->host->pdev,
 							sgpnt[0].page,
 							sgpnt[0].offset,
 							command->dma_size,
 							command->dma_dir);
-#endif /* Linux version < 2.4.13 */
 			SBP2_DMA_ALLOC("single page scatter element");
 
 			command_orb->data_descriptor_hi = ORB_SET_NODE_ID(hi->host->node_id);
@@ -2702,7 +2692,7 @@ static void sbp2_check_sbp2_response(struct scsi_id_instance_data *scsi_id,
  * This function deals with status writes from the SBP-2 device
  */
 static int sbp2_handle_status_write(struct hpsb_host *host, int nodeid, int destid,
-				    quadlet_t *data, u64 addr, unsigned int length)
+				    quadlet_t *data, u64 addr, unsigned int length, u16 fl)
 {
 	struct sbp2scsi_host_info *hi = NULL;
 	struct scsi_id_instance_data *scsi_id = NULL;
@@ -3063,15 +3053,9 @@ static void sbp2scsi_complete_command(struct sbp2scsi_host_info *hi, struct scsi
 	/*
 	 * Tell scsi stack that we're done with this command
 	 */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
 	spin_lock_irq(&io_request_lock);
 	done (SCpnt);
 	spin_unlock_irq(&io_request_lock);
-#else
-	spin_lock_irq(hi->scsi_host->host_lock);
-	done (SCpnt);
-	spin_unlock_irq(hi->scsi_host->host_lock);
-#endif
 
 	return;
 }
@@ -3148,11 +3132,7 @@ static int sbp2scsi_reset (Scsi_Cmnd *SCpnt)
 /*
  * Called by scsi stack to get bios parameters (used by fdisk, and at boot).
  */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,28)
 static int sbp2scsi_biosparam (Scsi_Disk *disk, kdev_t dev, int geom[]) 
-#else
-static int sbp2scsi_biosparam (Scsi_Disk *disk, struct block_device *dev, int geom[]) 
-#endif
 {
 	int heads, sectors, cylinders;
 
@@ -3160,12 +3140,12 @@ static int sbp2scsi_biosparam (Scsi_Disk *disk, struct block_device *dev, int ge
 
 	heads = 64;
 	sectors = 32;
-	cylinders = disk->capacity / (heads * sectors);
+	cylinders = (int)disk->capacity / (heads * sectors);
 
 	if (cylinders > 1024) {
 		heads = 255;
 		sectors = 63;
-		cylinders = disk->capacity / (heads * sectors);
+		cylinders = (int)disk->capacity / (heads * sectors);
 	}
 
 	geom[0] = heads;
@@ -3189,13 +3169,9 @@ static int sbp2scsi_detect (Scsi_Host_Template *tpnt)
 	 * we register a scsi host with the scsi stack.
 	 */
 	
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
 	spin_unlock_irq(&io_request_lock);
 	sbp2_init();
 	spin_lock_irq(&io_request_lock);
-#else
-	sbp2_init();
-#endif
 
 	/* We return the number of hosts registered. */
 	return scsi_driver_template.present;
@@ -3253,9 +3229,7 @@ static Scsi_Host_Template scsi_driver_template = {
 	.this_id =		-1,
 	.sg_tablesize =		SBP2_MAX_SG_ELEMENTS,
 	.use_clustering =	SBP2_CLUSTERING,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
 	.use_new_eh_code =	TRUE,
-#endif
 	.emulated =		1,
 	.proc_name =	SBP2_DEVICE_NAME,
 };

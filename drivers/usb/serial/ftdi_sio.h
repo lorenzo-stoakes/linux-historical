@@ -125,17 +125,9 @@ typedef enum {
  ftdi_sio_b115200 = 9
 } FTDI_SIO_baudrate_t ;
 
-#define FTDI_SIO_BASE_BAUD_TO_DIVISOR(base, baud) ( \
-((base/2/baud) >> 3) | \
-(((base/2/baud) & 2) ? 0x8000 : 0) | \
-(((base/2/baud) & 4) ? 0x4000 : 0) | \
-((((base/2/baud) & 0x7) == 1) ? 0xc000 : 0) )
-
-#define FTDI_SIO_BAUD_TO_DIVISOR(baud) FTDI_SIO_BASE_BAUD_TO_DIVISOR(48000000, baud)
-
 /*
- * The ftdi_8U232AM_xxMHz_byyy constans have been removed. Their values can
- * be calculated as follows: FTDI_SIO_BAUD_TO_DIVISOR(xx000000, yyy)
+ * The ftdi_8U232AM_xxMHz_byyy constants have been removed. The encoded divisor values
+ * are calculated internally.
  */
 
 #define FTDI_SIO_SET_DATA_REQUEST FTDI_SIO_SET_DATA

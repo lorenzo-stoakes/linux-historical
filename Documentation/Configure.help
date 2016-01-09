@@ -1122,10 +1122,10 @@ CONFIG_AMD74XX_OVERRIDE
   This effect can be also invoked by calling "idex=ata66"
   If unsure, say N.
 
-CMD64X and CMD680 chipset support
+CMD64X/CMD680 chipset support
 CONFIG_BLK_DEV_CMD64X
   Say Y here if you have an IDE controller which uses any of these
-  chipsets: CMD643, CMD646, CMD648, CMD649 or CMD680.
+  chipsets: CMD643, CMD646 and CMD648.
 
 CY82C693 chipset support
 CONFIG_BLK_DEV_CY82C693
@@ -1283,6 +1283,11 @@ CONFIG_BLK_DEV_SIS5513
   available" as well.
 
   Please read the comments at the top of <file:drivers/ide/sis5513.c>.
+
+Silicon Image chipset support
+CONFIG_BLK_DEV_SIIMAGE
+  This driver provides (U)DMA support for the SII3112 SATA controllers and
+  for the CMD/SI680 UDMA/DMA ATA controller.
 
 SLC90E66 chipset support
 CONFIG_BLK_DEV_SLC90E66
@@ -4431,7 +4436,7 @@ CONFIG_FB_TRIDENT
 
   The driver is also available as a module ( = code which can be
   inserted and removed from the running kernel whenever you want). The
-  module will be called rivafb.o. If you want to compile it as a
+  module will be called tridentfb.o. If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
 ATI Mach64 display support
@@ -7921,6 +7926,17 @@ CONFIG_SCSI_NCR53C8XX_PQS_PDS
   safe.
 
   The common answer here is N, but answering Y is safe.
+
+Workbit NinjaSCSI-32Bi/UDE support
+CONFIG_SCSI_NSP32
+  This is support for the Workbit NinjaSCSI-32Bi/UDE PCI/Cardbus
+  SCSI host adapter. Please read the SCSI-HOWTO, available from
+  <http://www.linuxdoc.org/docs.html#howto>.
+
+  If you want to compile this as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called nsp32.o.
 
 IBMMCA SCSI support
 CONFIG_SCSI_IBMMCA
@@ -14184,6 +14200,17 @@ CONFIG_USB_SERIAL_PL2303
   The module will be called pl2303.o.  If you want to compile it as
   a module, say M here and read <file:Documentation/modules.txt>.
 
+USB KOBIL chipcard reader
+CONFIG_USB_SERIAL_KOBIL_SCT
+  Say Y here if you want to use one of the following KOBIL USB chipcard 
+  readers: TWIN, KAAN Standard Plus, SecOVID Reader Plus, B1 PRO, KAAN PRO
+
+  Note that you need a current CT-API.
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called kobil_sct.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
+
 USB REINER SCT cyberJack pinpad/e-com chipcard reader
 CONFIG_USB_SERIAL_CYBERJACK
   Say Y here if you want to use a cyberJack pinpad/e-com USB chipcard
@@ -14683,6 +14710,28 @@ CONFIG_USB_TIGL
   module, say M here and read Documentation/modules.txt.
 
   If you don't know what the SilverLink cable is or what a Texas
+  Instruments graphing calculator is, then you probably don't need this
+  driver.
+
+  If unsure, say N.
+
+Texas Instruments parallel link cable support
+CONFIG_TIPAR
+  If you own a Texas Instruments graphing calculator and use a
+  parallel link cable, then you might be interested in this driver.
+
+  If you enable this driver, you will be able to communicate with
+  your calculator through a set of device nodes under /dev. The
+  main advantage of this driver is that you don't have to be root
+  to use this precise link cable (depending on the permissions on
+  the device nodes, though).
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called tipar.o. If you want to compile it as a
+  module, say M here and read <file:Documentation/modules.txt>
+
+  If you don't know what a parallel link cable is or what a Texas
   Instruments graphing calculator is, then you probably don't need this
   driver.
 
@@ -15201,6 +15250,35 @@ CONFIG_BUFFER_DEBUG
 
   Because this option adds considerably to the size of each buffer,
   most people will want to say N here.
+
+BeOS filesystem support (BeFS) (read only)
+CONFIG_BEFS_FS
+  The BeOS File System (BeFS) is the native file system of Be, Inc's
+  BeOS. Notable features include support for arbitrary attributes
+  on files and directories, and database-like indices on selected
+  attributes. (Also note that this driver doesn't make those features
+  available at this time). It is a 64 bit filesystem, so it supports
+  extremely large volumes and files.
+
+  If you use this filesystem, you should also say Y to at least one
+  of the NLS (native language support) options below.
+
+  If you don't know what this is about, say N.
+
+  If you want to compile this as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read Documentation/modules.txt. The module will be
+  called befs.o.
+
+Debug BeFS
+CONFIG_BEFS_DEBUG
+  If you say Y here, you can use the 'debug' mount option to enable
+  debugging output from the driver. This is unlike previous versions
+  of the driver, where enabling this option would turn on debugging
+  output automatically.
+  
+  Example:
+  mount -t befs /dev/hda2 /mnt -o debug
 
 BeOS filesystem support (BeFS) (read only)
 CONFIG_BEFS_FS
@@ -19091,10 +19169,11 @@ CONFIG_INPUT_CS461X
   The module will be called cs461x.o.  If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt>.
 
-Aureal Vortex and Trident 4DWave gameports
+Aureal Vortex, Trident 4DWave, and ALi 5451 gameports
 CONFIG_INPUT_PCIGAME
   Say Y here if you have a Trident 4DWave DX/NX or Aureal Vortex 1/2
-  card. For more information on how to use the driver please read
+  card or an ALi 5451 chip on your motherboard. For more information
+  on how to use the driver please read
   <file:Documentation/input/joystick.txt>.
 
   This driver is also available as a module ( = code which can be
@@ -26272,7 +26351,7 @@ CONFIG_IEEE1394_CMP
   If you want to compile this as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
   say M here and read Documentation/modules.txt.  The module
-  will be called amdtp.o.
+  will be called cmp.o.
 
 OHCI-DV I/O support
 CONFIG_IEEE1394_DV1394

@@ -1498,7 +1498,6 @@ static int uhci_submit_urb(struct urb *urb)
 
 	uhci = (struct uhci *)urb->dev->bus->hcpriv;
 
-	INIT_LIST_HEAD(&urb->urb_list);
 	usb_inc_dev_use(urb->dev);
 
 	spin_lock_irqsave(&uhci->urb_list_lock, flags);
@@ -1515,6 +1514,7 @@ static int uhci_submit_urb(struct urb *urb)
 		return ret;
 	}
 
+	INIT_LIST_HEAD(&urb->urb_list);
 	if (!uhci_alloc_urb_priv(uhci, urb)) {
 		ret = -ENOMEM;
 

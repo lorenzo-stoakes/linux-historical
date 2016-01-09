@@ -84,6 +84,8 @@ static __inline__ void ide_init_default_hwifs(void)
 #endif /* CONFIG_BLK_DEV_IDEPCI */
 }
 
+#include <asm-generic/ide_iops.h>
+
 #endif /* __KERNEL__ */
 
 #endif /* __ASMx86_64_IDE_H */

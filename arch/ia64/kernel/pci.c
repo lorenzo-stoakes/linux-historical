@@ -43,6 +43,8 @@
 extern void ia64_mca_check_errors( void );
 #endif
 
+static unsigned int acpi_root_bridges;
+
 struct pci_fixup pcibios_fixups[1];
 
 struct pci_ops *pci_root_ops;
@@ -217,7 +219,7 @@ pcibios_scan_root(void *handle, int seg, int bus)
 	struct pci_controller *controller;
 	u64 base, size, offset;
 
-	printk("PCI: Probing PCI hardware on bus (%02x:%02x)\n", seg, bus);
+	acpi_root_bridges++;
 
 	controller = alloc_pci_controller(seg);
 	if (!controller)
@@ -249,7 +251,7 @@ pcibios_config_init (void)
 void __init
 pcibios_init (void)
 {
-#	define PCI_BUSES_TO_SCAN 255
+#	define PCI_BUSES_TO_SCAN 256
 	int i = 0;
 	struct pci_controller *controller;
 
@@ -261,11 +263,14 @@ pcibios_init (void)
 
 	platform_pci_fixup(0);	/* phase 0 fixups (before buses scanned) */
 
-	printk("PCI: Probing PCI hardware\n");
-	controller = alloc_pci_controller(0);
-	if (controller)
-		for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
-			pci_scan_bus(i, pci_root_ops, controller);
+	/* Only probe blindly if ACPI didn't tell us about root bridges */
+	if (!acpi_root_bridges) {
+		printk("PCI: Probing PCI hardware\n");
+		controller = alloc_pci_controller(0);
+		if (controller)
+			for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
+				pci_scan_bus(i, pci_root_ops, controller);
+	}
 
 	platform_pci_fixup(1);	/* phase 1 fixups (after buses scanned) */
 
@@ -294,10 +299,9 @@ pcibios_fixup_device_resources(struct pci_dev *dev, struct pci_bus *bus)
 }
 
 /*
- *  Called after each bus is probed, but before its children
- *  are examined.
+ *  Called after each bus is probed, but before its children are examined.
  */
-void __init
+void __devinit
 pcibios_fixup_bus (struct pci_bus *b)
 {
 	struct list_head *ln;
@@ -306,7 +310,7 @@ pcibios_fixup_bus (struct pci_bus *b)
 		pcibios_fixup_device_resources(pci_dev_b(ln), b);
 }
 
-void __init
+void __devinit
 pcibios_update_resource (struct pci_dev *dev, struct resource *root,
 			 struct resource *res, int resource)
 {
@@ -322,7 +326,7 @@ pcibios_update_resource (struct pci_dev *dev, struct resource *root,
 	/* ??? FIXME -- record old value for shutdown.  */
 }
 
-void __init
+void __devinit
 pcibios_update_irq (struct pci_dev *dev, int irq)
 {
 	pci_write_config_byte(dev, PCI_INTERRUPT_LINE, irq);
@@ -330,7 +334,7 @@ pcibios_update_irq (struct pci_dev *dev, int irq)
 	/* ??? FIXME -- record old value for shutdown.  */
 }
 
-void __init
+void __devinit
 pcibios_fixup_pbus_ranges (struct pci_bus * bus, struct pbus_set_ranges_data * ranges)
 {
 	ranges->io_start -= bus->resource[0]->start;
@@ -339,8 +343,8 @@ pcibios_fixup_pbus_ranges (struct pci_bus * bus, struct pbus_set_ranges_data * r
 	ranges->mem_end -= bus->resource[1]->start;
 }
 
-int
-pcibios_enable_device (struct pci_dev *dev)
+static inline int
+pcibios_enable_resources (struct pci_dev *dev, int mask)
 {
 	u16 cmd, old_cmd;
 	int idx;
@@ -349,11 +353,13 @@ pcibios_enable_device (struct pci_dev *dev)
 	if (!dev)
 		return -EINVAL;
 
- 	platform_pci_enable_device(dev);
-
 	pci_read_config_word(dev, PCI_COMMAND, &cmd);
 	old_cmd = cmd;
 	for (idx=0; idx<6; idx++) {
+		/* Only set up the desired resources.  */
+		if (!(mask & (1 << idx)))
+			continue;
+
 		r = &dev->resource[idx];
 		if (!r->start && r->end) {
 			printk(KERN_ERR
@@ -372,6 +378,19 @@ pcibios_enable_device (struct pci_dev *dev)
 		printk("PCI: Enabling device %s (%04x -> %04x)\n", dev->slot_name, old_cmd, cmd);
 		pci_write_config_word(dev, PCI_COMMAND, cmd);
 	}
+	return 0;
+}
+
+int
+pcibios_enable_device (struct pci_dev *dev, int mask)
+{
+	int ret;
+
+	ret = pcibios_enable_resources(dev, mask);
+	if (ret < 0)
+		return ret;
+
+ 	platform_pci_enable_device(dev);
 
 	printk(KERN_INFO "PCI: Found IRQ %d for device %s\n", dev->irq, dev->slot_name);
 

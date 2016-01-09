@@ -35,7 +35,7 @@
  *	- GeneSys GL620USB-A
  *	- NetChip 1080 (interoperates with NetChip Win32 drivers)
  *	- Prolific PL-2301/2302 (replaces "plusb" driver)
- *	- SA-1100 (and similar) Linux PDAs like iPaq, Yopy, and Zaurus
+ *	- PXA-250 or SA-1100 Linux PDAs like iPaq, Yopy, and Zaurus
  *
  * USB devices can implement their side of this protocol at the cost
  * of two bulk endpoints; it's not restricted to "cable" applications.
@@ -63,8 +63,7 @@
  *
  * - SA-1100 PDAs ... the standard ARM Linux SA-1100 support works nicely,
  *   as found in www.handhelds.org and other kernels.  The Sharp/Lineo
- *   kernels use different drivers, which also work here, but they've made
- *   "uhci-hcd" (2.5) die.
+ *   kernels use different drivers, which also talk to this code.
  *
  * Interop with more Win32 drivers may be a good thing.
  *
@@ -118,7 +117,10 @@
  * 07-may-2002	Generalize/cleanup keventd support, handling rx stalls (mostly
  *		for USB 2.0 TTs) and memory shortages (potential) too. (db)
  *		Use "locally assigned" IEEE802 address space. (Brad Hards)
- * 18-oct-2002  Support for Zaurus (Pavel Machek), related cleanup (db).
+ * 18-oct-2002	Support for Zaurus (Pavel Machek), related cleanup (db).
+ * 15-dec-2002	Partial sync with 2.5 code: cleanups and stubbed PXA-250
+ * 		support (db), fix for framing issues on Z, net1080, and
+ * 		gl620a (Toby Milne)
  *
  *-------------------------------------------------------------------------*/
 
@@ -160,7 +162,7 @@
 #define	CONFIG_USB_GENESYS
 #define	CONFIG_USB_NET1080
 #define	CONFIG_USB_PL2301
-#define	CONFIG_USB_SA1110
+#define	CONFIG_USB_SA1100
 #define	CONFIG_USB_ZAURUS
 
 
@@ -172,6 +174,8 @@
  * Nineteen USB 1.1 max size bulk transactions per frame (ms), max.
  * Several dozen bytes of IPv4 data can fit in two such transactions.
  * One maximum size Ethernet packet takes twenty four of them.
+ * For high speed, each frame comfortably fits almost 36 max size
+ * Ethernet packets (so queues should be bigger).
  */
 #ifdef REALLY_QUEUE
 #define	RX_QLEN		4
@@ -243,6 +247,7 @@ struct driver_info {
 	int		flags;
 #define FLAG_FRAMING_NC	0x0001		/* guard against device dropouts */ 
 #define FLAG_FRAMING_GL	0x0002		/* genelink batches packets */
+#define FLAG_FRAMING_Z	0x0004		/* zaurus adds a trailer */
 #define FLAG_NO_SETINT	0x0010		/* device can't set_interface() */
 
 	/* reset device ... can sleep */
@@ -553,7 +558,7 @@ static int genelink_init (struct usbnet *dev)
 	}
 
 	// fill irq urb
-	FILL_INT_URB (priv->irq_urb, dev->udev,
+	usb_fill_int_urb (priv->irq_urb, dev->udev,
 		usb_rcvintpipe (dev->udev, GENELINK_INTERRUPT_PIPE),
 		priv->irq_buf, INTERRUPT_BUFSIZE,
 		gl_interrupt_complete, 0,
@@ -1245,13 +1250,34 @@ static const struct driver_info	prolific_info = {
 
 
 
+#ifdef	CONFIG_USB_PXA
+
+/*-------------------------------------------------------------------------
+ *
+ * PXA250 and PXA210 use XScale cores (ARM v5TE) with better USB support,
+ * and different USB endpoint numbering than the SA1100 devices.
+ *
+ *-------------------------------------------------------------------------*/
+
+static const struct driver_info	pxa_info = {
+	.description =	"PXA-250 Linux Device",
+	.check_connect = always_connected,
+
+	.in = 1, .out = 2,
+	.epsize = 64,
+};
+
+#endif	/* CONFIG_USB_PXA */
+
+
+
 #ifdef	CONFIG_USB_SA1100
 
 /*-------------------------------------------------------------------------
  *
  * Intel's SA-1100 chip integrates basic USB support, and is used
  * in PDAs like some iPaqs, the Yopy, some Zaurus models, and more.
- * When they run Linux, arch/arm/sa1100/usb-eth.c may be used to
+ * When they run Linux, arch/arm/mach-sa1100/usb-eth.c may be used to
  * network using minimal USB framing data.
  *
  * This describes the driver currently in standard ARM Linux kernels.
@@ -1283,16 +1309,17 @@ static const struct driver_info	yopy_info = {
 /*-------------------------------------------------------------------------
  *
  * Zaurus is also a SA-1110 based PDA, but one using a different driver
- * for its USB slave/target controller than the case above.
+ * (and framing) for its USB slave/gadget controller than the case above.
  *
- * The key differences are that (a) it's got a msft-friendly configuration,
- * and (b) the linux-friendly framing adds a crc32 to cope with some
- * memory corruption observed with usb-to-memory DMA in some cases.
- * (SA-1100 has a lot of nasty USB errata that need working around.)
+ * For the current version of that driver, the main way that framing is
+ * nonstandard (also from perspective of the CDC ethernet model!) is a
+ * crc32, added to help detect when some sa1100 usb-to-memory DMA errata
+ * haven't been fully worked around.
  *
  *-------------------------------------------------------------------------*/
 
-// FIXME try <linux/crc32.h> instead
+// NOTE: so far on 2.4 <linux/crc32.h> isn't for "bulk data" like this.
+// On 2.5 crc32_le() handles this for us.
 
 static const u32 crc32_table [256] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
@@ -1373,22 +1400,25 @@ done:
 
 static const struct driver_info	zaurus_sl5x00_info = {
 	.description =	"Sharp Zaurus SL-5x00",
+	.flags =	FLAG_FRAMING_Z,
 	.check_connect = always_connected,
 	.tx_fixup = 	zaurus_tx_fixup,
 
-	// SA-1100 fixed function endpoints
 	.in = 2, .out = 1,
 	.epsize = 64,
 };
 static const struct driver_info	zaurus_sla300_info = {
 	.description =	"Sharp Zaurus SL-A300",
+	.flags =	FLAG_FRAMING_Z,
 	.check_connect = always_connected,
 	.tx_fixup = 	zaurus_tx_fixup,
 
-	// two of the many PXA-250 fixed function endpoints
 	.in = 1, .out = 2,
 	.epsize = 64,
 };
+
+// SL-5600 and C-700 are PXA based; should resemble A300
+
 #endif
 
 
@@ -1431,7 +1461,7 @@ static struct net_device_stats *usbnet_get_stats (struct net_device *net)
 
 /*-------------------------------------------------------------------------*/
 
-/* urb completions are currently in_irq; avoid doing real work then. */
+/* urb completions may be in_irq; avoid doing real work then. */
 
 static void defer_bh (struct usbnet *dev, struct sk_buff *skb)
 {
@@ -1485,6 +1515,11 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, int flags)
 		size = GL_RCV_BUF_SIZE;
 	else
 #endif
+#ifdef CONFIG_USB_ZAURUS
+	if (dev->driver_info->flags & FLAG_FRAMING_Z)
+		size = 6 + (sizeof (struct ethhdr) + dev->net.mtu);
+	else
+#endif
 		size = (sizeof (struct ethhdr) + dev->net.mtu);
 
 	if ((skb = alloc_skb (size, flags)) == 0) {
@@ -1500,15 +1535,10 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, int flags)
 	entry->state = rx_start;
 	entry->length = 0;
 
-	FILL_BULK_URB (urb, dev->udev,
+	usb_fill_bulk_urb (urb, dev->udev,
 		usb_rcvbulkpipe (dev->udev, dev->driver_info->in),
 		skb->data, size, rx_complete, skb);
 	urb->transfer_flags |= USB_ASYNC_UNLINK;
-#if 0
-	// Idle-but-posted reads with UHCI really chew up
-	// PCI bandwidth unless FSBR is disabled
-	urb->transfer_flags |= USB_NO_FSBR;
-#endif
 
 	spin_lock_irqsave (&dev->rxq.lock, lockflags);
 
@@ -1551,8 +1581,6 @@ static inline void rx_process (struct usbnet *dev, struct sk_buff *skb)
 
 	if (skb->len) {
 		int	status;
-
-// FIXME: eth_copy_and_csum "small" packets to new SKB (small < ~200 bytes) ?
 
 		skb->dev = &dev->net;
 		skb->protocol = eth_type_trans (skb, &dev->net);
@@ -1932,7 +1960,7 @@ static void usbnet_tx_timeout (struct net_device *net)
 static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 {
 	struct usbnet		*dev = (struct usbnet *) net->priv;
-	int			length = skb->len;
+	int			length;
 	int			retval = NET_XMIT_SUCCESS;
 	struct urb		*urb = 0;
 	struct skb_data		*entry;
@@ -1952,6 +1980,7 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 			goto drop;
 		}
 	}
+	length = skb->len;
 
 	if (!(urb = ALLOC_URB (0, GFP_ATOMIC))) {
 		dbg ("no urb");
@@ -1966,6 +1995,7 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 
 	// FIXME: reorganize a bit, so that fixup() fills out NetChip
 	// framing too. (Packet ID update needs the spinlock...)
+	// [ BETTER:  we already own net->xmit_lock, that's enough ]
 
 #ifdef	CONFIG_USB_NET1080
 	if (info->flags & FLAG_FRAMING_NC) {
@@ -1982,11 +2012,10 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 	if ((length % EP_SIZE (dev)) == 0)
 		skb->len++;
 
-	FILL_BULK_URB (urb, dev->udev,
+	usb_fill_bulk_urb (urb, dev->udev,
 			usb_sndbulkpipe (dev->udev, info->out),
 			skb->data, skb->len, tx_complete, skb);
 	urb->transfer_flags |= USB_ASYNC_UNLINK;
-	// FIXME urb->timeout = ... jiffies ... ;
 
 	spin_lock_irqsave (&dev->txq.lock, flags);
 
@@ -2302,6 +2331,18 @@ static const struct usb_device_id	products [] = {
 },
 #endif
 
+#ifdef	CONFIG_USB_PXA
+/*
+ * PXA250 or PXA210 ...  these use a "usb-eth" driver much like
+ * the sa1100 one.
+ */
+{
+	// Compaq "Itsy" vendor/product id, version "2.0"
+	USB_DEVICE_VER (0x049F, 0x505A, 0x0200, 0x0200),
+	.driver_info =	(unsigned long) &pxa_info,
+}, 
+#endif
+
 #ifdef	CONFIG_USB_SA1100
 /*
  * SA-1100 using standard ARM Linux kernels, or compatible.
@@ -2310,7 +2351,8 @@ static const struct usb_device_id	products [] = {
  */
 {
 	// 1183 = 0x049F, both used as hex values?
-	USB_DEVICE (0x049F, 0x505A),	// iPaq: Compaq "Itsy"
+	// Compaq "Itsy" vendor/product id, version "0.0"
+	USB_DEVICE_VER (0x049F, 0x505A, 0, 0),
 	.driver_info =	(unsigned long) &linuxdev_info,
 }, {
 	USB_DEVICE (0x0E7E, 0x1001),	// G.Mate "Yopy"
@@ -2344,8 +2386,6 @@ static const struct usb_device_id	products [] = {
 	.driver_info =  (unsigned long) &zaurus_sla300_info,
 },
 #endif
-
-/* KC2190 from www.sepoong.co.kr "InstaNET" */
 
 	{ },		// END
 };

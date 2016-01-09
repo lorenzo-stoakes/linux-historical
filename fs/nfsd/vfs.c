@@ -168,11 +168,13 @@ nfsd_lookup(struct svc_rqst *rqstp, struct svc_fh *fhp, const char *name,
 			mntput(mnt);
 		}
 	}
-	/*
-	 * Note: we compose the file handle now, but as the
-	 * dentry may be negative, it may need to be updated.
-	 */
-	err = fh_compose(resfh, exp, dentry, fhp);
+
+	if (dentry->d_inode && dentry->d_inode->i_op &&
+	    dentry->d_inode->i_op->revalidate &&
+	    dentry->d_inode->i_op->revalidate(dentry))
+		err = nfserr_noent;
+	else
+		err = fh_compose(resfh, exp, dentry, fhp);
 	if (!err && !dentry->d_inode)
 		err = nfserr_noent;
 out:

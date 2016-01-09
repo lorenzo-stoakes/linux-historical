@@ -58,23 +58,22 @@ static int init_config_space (struct acpiphp_func *func)
 	int count;
 	struct acpiphp_bridge *bridge;
 	struct pci_resource *res;
-	struct pci_ops *ops;
-	int bus, device, function;
+	struct pci_bus *bus;
+	int devfn;
 
 	bridge = func->slot->bridge;
-	bus = bridge->bus;
-	device = func->slot->device;
-	function = func->function;
-	ops = bridge->pci_ops;
+	bus = bridge->pci_bus;
+	devfn = PCI_DEVFN(func->slot->device, func->function);
 
 	for (count = 0; address[count]; count++) {	/* for 6 BARs */
-		pci_write_config_dword_nodev(ops, bus, device, function, address[count], 0xFFFFFFFF);
-		pci_read_config_dword_nodev(ops, bus, device, function, address[count], &bar);
+		pci_bus_write_config_dword(bus, devfn, address[count], 0xFFFFFFFF);
+		pci_bus_read_config_dword(bus, devfn, address[count], &bar);
 
 		if (!bar)	/* This BAR is not implemented */
 			continue;
 
-		dbg("Device %02x.%02x BAR %d wants %x\n", device, function, count, bar);
+		dbg("Device %02x.%d BAR %d wants %x\n", PCI_SLOT(devfn),
+				PCI_FUNC(devfn), count, bar);
 
 		if (bar & PCI_BASE_ADDRESS_SPACE_IO) {
 			/* This is IO */
@@ -90,10 +89,10 @@ static int init_config_space (struct acpiphp_func *func)
 
 			if (!res) {
 				err("cannot allocate requested io for %02x:%02x.%d len %x\n",
-				    bus, device, function, len);
+				    bus->number, PCI_SLOT(devfn), PCI_FUNC(devfn), len);
 				return -1;
 			}
-			pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)res->base);
+			pci_bus_write_config_dword(bus, devfn, address[count], (u32)res->base);
 			res->next = func->io_head;
 			func->io_head = res;
 
@@ -113,16 +112,16 @@ static int init_config_space (struct acpiphp_func *func)
 
 				if (!res) {
 					err("cannot allocate requested pfmem for %02x:%02x.%d len %x\n",
-					    bus, device, function, len);
+					    bus->number, PCI_SLOT(devfn), PCI_FUNC(devfn), len);
 					return -1;
 				}
 
-				pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)res->base);
+				pci_bus_write_config_dword(bus, devfn, address[count], (u32)res->base);
 
 				if (bar & PCI_BASE_ADDRESS_MEM_TYPE_64) {	/* takes up another dword */
 					dbg("inside the pfmem 64 case, count %d\n", count);
 					count += 1;
-					pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)(res->base >> 32));
+					pci_bus_write_config_dword(bus, devfn, address[count], (u32)(res->base >> 32));
 				}
 
 				res->next = func->p_mem_head;
@@ -142,17 +141,17 @@ static int init_config_space (struct acpiphp_func *func)
 
 				if (!res) {
 					err("cannot allocate requested pfmem for %02x:%02x.%d len %x\n",
-					    bus, device, function, len);
+					    bus->number, PCI_SLOT(devfn), PCI_FUNC(devfn), len);
 					return -1;
 				}
 
-				pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)res->base);
+				pci_bus_write_config_dword(bus, devfn, address[count], (u32)res->base);
 
 				if (bar & PCI_BASE_ADDRESS_MEM_TYPE_64) {
 					/* takes up another dword */
 					dbg("inside mem 64 case, reg. mem, count %d\n", count);
 					count += 1;
-					pci_write_config_dword_nodev(ops, bus, device, function, address[count], (u32)(res->base >> 32));
+					pci_bus_write_config_dword(bus, devfn, address[count], (u32)(res->base >> 32));
 				}
 
 				res->next = func->mem_head;
@@ -163,7 +162,7 @@ static int init_config_space (struct acpiphp_func *func)
 	}
 
 	/* disable expansion rom */
-	pci_write_config_dword_nodev(ops, bus, device, function, PCI_ROM_ADDRESS, 0x00000000);
+	pci_bus_write_config_dword(bus, devfn, PCI_ROM_ADDRESS, 0x00000000);
 
 	return 0;
 }
@@ -556,9 +555,9 @@ int acpiphp_configure_slot (struct acpiphp_slot *slot)
 	int retval = 0;
 	int is_multi = 0;
 
-	pci_read_config_byte_nodev(slot->bridge->pci_ops,
-				   slot->bridge->bus, slot->device, 0,
-				   PCI_HEADER_TYPE, &hdr);
+	pci_bus_read_config_byte(slot->bridge->pci_bus,
+					PCI_DEVFN(slot->device, 0),
+					PCI_HEADER_TYPE, &hdr);
 
 	if (hdr & 0x80)
 		is_multi = 1;
@@ -566,10 +565,9 @@ int acpiphp_configure_slot (struct acpiphp_slot *slot)
 	list_for_each (l, &slot->funcs) {
 		func = list_entry(l, struct acpiphp_func, sibling);
 		if (is_multi || func->function == 0) {
-			pci_read_config_dword_nodev(slot->bridge->pci_ops,
-						    slot->bridge->bus,
-						    slot->device,
-						    func->function,
+			pci_bus_read_config_dword(slot->bridge->pci_bus,
+						    PCI_DEVFN(slot->device,
+								func->function),
 						    PCI_VENDOR_ID, &dvid);
 			if (dvid != 0xffffffff) {
 				retval = init_config_space(func);

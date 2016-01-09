@@ -26,6 +26,8 @@
 #define ide_default_io_base(i)		((ide_ioreg_t)0)
 #define ide_default_irq(b)		(0)
 
+#include <asm-generic/ide_iops.h>
+
 #endif /* __KERNEL__ */
 
 #endif /* __ASMARM_IDE_H */

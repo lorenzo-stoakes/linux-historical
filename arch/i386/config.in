@@ -222,7 +222,7 @@ else
       bool ' Multiquad (IBM/Sequent) NUMAQ support' CONFIG_X86_NUMAQ
       if [ "$CONFIG_X86_NUMAQ" = "y" ]; then
          define_bool CONFIG_X86_CLUSTERED_APIC y
-		 define_bool CONFIG_MULTIQUAD y
+         define_bool CONFIG_MULTIQUAD y
       fi
       bool ' IBM x440 (Summit/EXA) support' CONFIG_X86_SUMMIT
       if [ "$CONFIG_X86_SUMMIT" = "y" ]; then
@@ -231,9 +231,11 @@ else
    fi
 fi
 
-bool 'Unsynced TSC support' CONFIG_X86_TSC_DISABLE
-if [ "$CONFIG_X86_TSC_DISABLE" != "y" -a "$CONFIG_X86_HAS_TSC" = "y" ]; then
-   define_bool CONFIG_X86_TSC y
+if [ "$CONFIG_X86_NUMA" != "y" ]; then
+   bool 'Unsynced TSC support' CONFIG_X86_TSC_DISABLE
+   if [ "$CONFIG_X86_TSC_DISABLE" != "y" -a "$CONFIG_X86_HAS_TSC" = "y" ]; then
+      define_bool CONFIG_X86_TSC y
+   fi
 fi
 
 if [ "$CONFIG_SMP" = "y" -a "$CONFIG_X86_CMPXCHG" = "y" ]; then

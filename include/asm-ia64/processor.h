@@ -167,16 +167,16 @@ struct cpuinfo_ia64 {
 	__u32 ptce_count[2];
 	__u32 ptce_stride[2];
 	struct task_struct *ksoftirqd;	/* kernel softirq daemon for this CPU */
+# ifdef CONFIG_PERFMON
+	__u32 pfm_syst_wide;
+	__u32 pfm_dcr_pp;
+# endif
 #ifdef CONFIG_SMP
 	int processor;
 	__u64 loops_per_jiffy;
 	__u64 ipi_count;
 	__u64 prof_counter;
 	__u64 prof_multiplier;
-# ifdef CONFIG_PERFMON
-	__u32 pfm_syst_wide;
-	__u32 pfm_dcr_pp;
-# endif
 	union {
 		/*
 		 *  This is written to by *other* CPUs,

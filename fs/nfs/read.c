@@ -171,11 +171,16 @@ nfs_readpage_async(struct file *file, struct inode *inode, struct page *page)
 	struct nfs_page	*new;
 
 	new = nfs_create_request(nfs_file_cred(file), inode, page, 0, PAGE_CACHE_SIZE);
-	if (IS_ERR(new))
+	if (IS_ERR(new)) {
+		SetPageError(page);
+		NFS_ClearPageSync(page);
+		UnlockPage(page);
 		return PTR_ERR(new);
+	}
 	nfs_mark_request_read(new);
 
-	if (inode->u.nfs_i.nread >= NFS_SERVER(inode)->rpages ||
+	if (NFS_TestClearPageSync(page) ||
+	    inode->u.nfs_i.nread >= NFS_SERVER(inode)->rpages ||
 	    page_index(page) == (inode->i_size + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT)
 		nfs_pagein_inode(inode, 0, 0);
 	return 0;
@@ -222,6 +227,7 @@ nfs_async_read_error(struct list_head *head)
 		req = nfs_list_entry(head->next);
 		page = req->wb_page;
 		nfs_list_remove_request(req);
+		NFS_ClearPageSync(page);
 		SetPageError(page);
 		UnlockPage(page);
 		nfs_clear_request(req);
@@ -429,6 +435,7 @@ nfs_readpage_result(struct rpc_task *task)
 		} else
 			SetPageError(page);
 		flush_dcache_page(page);
+		NFS_ClearPageSync(page);
 		UnlockPage(page);
 
 		dprintk("NFS: read (%x/%Ld %d@%Ld)\n",
@@ -482,6 +489,7 @@ out:
 	return error;
 
 out_error:
+	NFS_ClearPageSync(page);
 	UnlockPage(page);
 	goto out;
 }

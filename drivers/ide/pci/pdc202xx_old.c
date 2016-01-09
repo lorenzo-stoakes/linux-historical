@@ -64,7 +64,7 @@ static char * pdc202xx_info (char *buf, struct pci_dev *dev)
 {
 	char *p = buf;
 
-	u32 bibma  = pci_resource_start(dev, 4);
+	unsigned long bibma  = pci_resource_start(dev, 4);
 	u32 reg60h = 0, reg64h = 0, reg68h = 0, reg6ch = 0;
 	u16 reg50h = 0, pmask = (1<<10), smask = (1<<11);
 	u8 hi = 0, lo = 0;
@@ -341,19 +341,14 @@ static int pdc202xx_tune_chipset (ide_drive_t *drive, u8 xferspeed)
  * 180, 120,  90,  90,  90,  60,  30
  *  11,   5,   4,   3,   2,   1,   0
  */
-static int config_chipset_for_pio (ide_drive_t *drive, u8 pio)
+static void config_chipset_for_pio (ide_drive_t *drive, u8 pio)
 {
 	u8 speed = 0;
 
-	pio = (pio == 5) ? 4 : pio;
+	if (pio == 5) pio = 4;
 	speed = XFER_PIO_0 + ide_get_best_pio_mode(drive, 255, pio, NULL);
         
-	return ((int) pdc202xx_tune_chipset(drive, speed));
-}
-
-static void pdc202xx_tune_drive (ide_drive_t *drive, u8 pio)
-{
-	(void) config_chipset_for_pio(drive, pio);
+	pdc202xx_tune_chipset(drive, speed);
 }
 
 static u8 pdc202xx_old_cable_detect (ide_hwif_t *hwif)
@@ -540,9 +535,9 @@ static int pdc202xx_old_ide_dma_begin(ide_drive_t *drive)
 		struct request *rq	= HWGROUP(drive)->rq;
 		ide_hwif_t *hwif	= HWIF(drive);
 //		struct pci_dev *dev	= hwif->pci_dev;
-//		u32 high_16	= pci_resource_start(dev, 4);
-		u32 high_16	= hwif->dma_master;
-		u32 atapi_reg	= high_16 + (hwif->channel ? 0x24 : 0x20);
+//		unsgned long high_16	= pci_resource_start(dev, 4);
+		unsigned long high_16   = hwif->dma_master;
+		unsigned long atapi_reg	= high_16 + (hwif->channel ? 0x24 : 0x20);
 		u32 word_count	= 0;
 		u8 clock = hwif->INB(high_16 + 0x11);
 
@@ -560,10 +555,10 @@ static int pdc202xx_old_ide_dma_end(ide_drive_t *drive)
 {
 	if (drive->addressing == 1) {
 		ide_hwif_t *hwif	= HWIF(drive);
-//		u32 high_16	= pci_resource_start(hwif->pci_dev, 4);
-		u32 high_16	= hwif->dma_master;
-		u32 atapi_reg	= high_16 + (hwif->channel ? 0x24 : 0x20);
-		u8 clock	= 0;
+//		unsigned long high_16	= pci_resource_start(hwif->pci_dev, 4);
+		unsigned long high_16	= hwif->dma_master;
+		unsigned long atapi_reg	= high_16 + (hwif->channel ? 0x24 : 0x20);
+		u8 clock		= 0;
 
 		hwif->OUTL(0, atapi_reg); /* zero out extra */
 		clock = hwif->INB(high_16 + 0x11);
@@ -577,7 +572,7 @@ static int pdc202xx_old_ide_dma_test_irq(ide_drive_t *drive)
 	ide_hwif_t *hwif	= HWIF(drive);
 //	struct pci_dev *dev	= hwif->pci_dev;
 //	unsigned long high_16	= pci_resource_start(dev, 4);
-	u32 high_16		= hwif->dma_master;
+	unsigned long high_16	= hwif->dma_master;
 	u8 dma_stat		= hwif->INB(hwif->dma_status);
 	u8 sc1d			= hwif->INB((high_16 + 0x001d));
 
@@ -747,7 +742,7 @@ static unsigned int __init init_chipset_pdc202xx (struct pci_dev *dev, const cha
 static void __init init_hwif_pdc202xx (ide_hwif_t *hwif)
 {
 	hwif->autodma = 0;
-	hwif->tuneproc  = &pdc202xx_tune_drive;
+	hwif->tuneproc  = &config_chipset_for_pio;
 	hwif->quirkproc = &pdc202xx_quirkproc;
 
 	if (hwif->pci_dev->device == PCI_DEVICE_ID_PROMISE_20265)

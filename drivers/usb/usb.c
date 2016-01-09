@@ -1785,17 +1785,17 @@ void usb_connect(struct usb_device *dev)
  * These are the actual routines to send
  * and receive control messages.
  */
-#ifdef CONFIG_USB_LONG_TIMEOUT
-#define GET_TIMEOUT 4
-#else
-#define GET_TIMEOUT 3
-#endif
-#define SET_TIMEOUT 3
+
+/* USB spec identifies 5 second timeouts.
+ * Some devices (MGE Ellipse UPSes, etc) need it, too.
+ */
+#define GET_TIMEOUT 5
+#define SET_TIMEOUT 5
 
 int usb_set_address(struct usb_device *dev)
 {
 	return usb_control_msg(dev, usb_snddefctrl(dev), USB_REQ_SET_ADDRESS,
-		0, dev->devnum, 0, NULL, 0, HZ * GET_TIMEOUT);
+		0, dev->devnum, 0, NULL, 0, HZ * SET_TIMEOUT);
 }
 
 int usb_get_descriptor(struct usb_device *dev, unsigned char type, unsigned char index, void *buf, int size)

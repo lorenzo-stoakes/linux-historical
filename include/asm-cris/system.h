@@ -16,7 +16,7 @@ extern struct task_struct *resume(struct task_struct *prev, struct task_struct *
 
 /* read the CPU version register */
 
-static inline unsigned long rdvr(void) { 
+extern inline unsigned long rdvr(void) { 
 	unsigned char vr;
 	__asm__ volatile ("move $vr,%0" : "=rm" (vr));
 	return vr;
@@ -24,7 +24,7 @@ static inline unsigned long rdvr(void) {
 
 /* read/write the user-mode stackpointer */
 
-static inline unsigned long rdusp(void) {
+extern inline unsigned long rdusp(void) {
 	unsigned long usp;
 	__asm__ __volatile__("move $usp,%0" : "=rm" (usp));
 	return usp;
@@ -35,13 +35,13 @@ static inline unsigned long rdusp(void) {
 
 /* read the current stackpointer */
 
-static inline unsigned long rdsp(void) {
+extern inline unsigned long rdsp(void) {
 	unsigned long sp;
 	__asm__ __volatile__("move.d $sp,%0" : "=rm" (sp));
 	return sp;
 }
 
-static inline unsigned long _get_base(char * addr)
+extern inline unsigned long _get_base(char * addr)
 {
   return 0;
 }
@@ -84,7 +84,7 @@ struct __xchg_dummy { unsigned long a[100]; };
 #define save_and_cli(x) do { save_flags(x); cli(); } while(0)
 #define save_and_sti(x) do { save_flags(x); sti(); } while(0)
 
-static inline unsigned long __xchg(unsigned long x, void * ptr, int size)
+extern inline unsigned long __xchg(unsigned long x, void * ptr, int size)
 {
   /* since Etrax doesn't have any atomic xchg instructions, we need to disable
      irq's (if enabled) and do it with move.d's */

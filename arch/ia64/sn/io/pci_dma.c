@@ -309,7 +309,6 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
 
 	int i;
 	devfs_handle_t vhdl;
-	dma_addr_t dma_addr;
 	unsigned long phys_addr;
 	struct sn_device_sysdata *device_sysdata;
 	pciio_dmamap_t dma_map;
@@ -333,34 +332,28 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
                    attempt to map scatterlists that they have
                    previously mapped.  we print a warning and
                    continue, but the driver should be fixed */
-		switch (((u64)sg->address) >> 60) {
-		case 0xa:
-		case 0xb:
 #ifdef DEBUG
+		if (sg->dma_address) {
 /* This needs to be cleaned up at some point. */
 			NAG("A PCI driver (for device at%8s) has attempted to "
 			    "map a scatterlist that was previously mapped at "
 			    "%p - this is currently being worked around.\n",
-			    hwdev->slot_name, (void *)sg->address);
+			    hwdev->slot_name, (void *)sg->dma_address);
+			phys_addr = (u64)sg->dma_address & TO_PHYS_MASK;
+		} else
 #endif
-			phys_addr = (u64)sg->address & TO_PHYS_MASK;
-			break;
-		default: /* not previously mapped, get the phys. addr */
-			phys_addr = __pa(sg->address);
-			break;
-		}
-		sg->page = NULL;
-		dma_addr = 0;
+			phys_addr = __pa(sg->address ? sg->address :
+					page_address(sg->page) + offset);
 
 		/*
 		 * Handle the most common case: 64 bit cards.  This
 		 * call should always succeed.
 		 */
 		if (IS_PCIA64(hwdev)) {
-			dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
+			sg->dma_address = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
 						       sg->length,
 						       DMA_DATA_FLAGS | PCIIO_DMA_A64 );
-			sg->address = (char *)dma_addr;
+			sg->dma_length = sg->length;
 			continue;
 		}
 
@@ -368,16 +361,14 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
 		 * Handle 32-63 bit cards via direct mapping
 		 */
 		if (IS_PCI32G(hwdev)) {
-			dma_addr = pciio_dmatrans_addr(vhdl, NULL, phys_addr,
-						       sg->length,
-						       DMA_DATA_FLAGS);
-			/*
-			 * See if we got a direct map entry
-			 */
-			if (dma_addr) {
-				sg->address = (char *)dma_addr;
+			sg->dma_address = pciio_dmatrans_addr(vhdl, NULL,
+								phys_addr,
+								sg->length,
+								DMA_DATA_FLAGS);
+			sg->dma_length = sg->length;
+
+			if (sg->dma_address)
 				continue;
-			}
 
 		}
 
@@ -393,10 +384,10 @@ sn_pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int dire
 			       "anymore 32 bit page map entries.\n");
 			BUG();
 		}
-		dma_addr = pciio_dmamap_addr(dma_map, phys_addr, sg->length);
-		sg->address = (char *)dma_addr;
+		sg->dma_address = pciio_dmamap_addr(dma_map, phys_addr, sg->length);
+		sg->dma_length = sg->length;
+#warning BADBADBAD scsi retries will die since sglist is unmapped and reused.
 		sg->page = (char *)dma_map;
-		
 	}
 
 	return nents;
@@ -418,19 +409,20 @@ void
 sn_pci_unmap_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int direction)
 {
 	int i;
-	struct sn_dma_maps_s *sn_dma_map;
 
 	/* can't go anywhere w/o a direction in life */
 	if (direction == PCI_DMA_NONE)
 		BUG();
 
 	for (i = 0; i < nents; i++, sg++)
+#warning need to derive sn_dma_map from sg->dma_address instead
 		if (sg->page) {
+			struct sn_dma_maps_s *sn_dma_map;
 			/*
 			 * We maintain the DMA Map pointer in sg->page if 
 			 * it is ever allocated.
 			 */
-			sg->address = 0;
+			sg->dma_address = 0;
 			sn_dma_map = (struct sn_dma_maps_s *)sg->page;
 			pciio_dmamap_done((pciio_dmamap_t)sn_dma_map);
 			pciio_dmamap_free((pciio_dmamap_t)sn_dma_map);
@@ -607,19 +599,6 @@ sn_pci_dma_sync_sg(struct pci_dev *hwdev, struct scatterlist *sg, int nents, int
 }
 
 /**
- * sn_dma_address - get the DMA address for the first entry of a scatterlist
- * @sg: sg to look at
- *
- * Gets the DMA address for the scatterlist @sg.  Also known as
- * platform_dma_address() by the IA64 machvec code.
- */
-unsigned long
-sn_dma_address(struct scatterlist *sg)
-{
-	return ((unsigned long)sg->address);
-}
-
-/**
  * sn_dma_supported - test a DMA mask
  * @hwdev: device to test
  * @mask: DMA mask to test
@@ -645,6 +624,5 @@ EXPORT_SYMBOL(sn_pci_map_sg);
 EXPORT_SYMBOL(sn_pci_unmap_sg);
 EXPORT_SYMBOL(sn_pci_alloc_consistent);
 EXPORT_SYMBOL(sn_pci_free_consistent);
-EXPORT_SYMBOL(sn_dma_address);
 EXPORT_SYMBOL(sn_pci_dma_supported);
 

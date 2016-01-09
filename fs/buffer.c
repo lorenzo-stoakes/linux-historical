@@ -327,9 +327,9 @@ int fsync_super(struct super_block *sb)
 	lock_super(sb);
 	if (sb->s_dirt && sb->s_op && sb->s_op->write_super)
 		sb->s_op->write_super(sb);
+	unlock_super(sb);
 	if (sb->s_op && sb->s_op->sync_fs)
 		sb->s_op->sync_fs(sb);
-	unlock_super(sb);
 	unlock_kernel();
 
 	return sync_buffers(dev, 1);
@@ -689,13 +689,13 @@ void invalidate_bdev(struct block_device *bdev, int destroy_dirty_buffers)
 			/* All buffers in the lru lists are mapped */
 			if (!buffer_mapped(bh))
 				BUG();
-			if (buffer_dirty(bh))
+			if (buffer_dirty(bh) && destroy_dirty_buffers)
 				printk("invalidate: dirty buffer\n");
 			if (!atomic_read(&bh->b_count)) {
 				if (destroy_dirty_buffers || !buffer_dirty(bh)) {
 					remove_inode_queue(bh);
 				}
-			} else
+			} else if (!bdev->bd_openers)
 				printk("invalidate: busy buffer\n");
 
 			write_unlock(&hash_table_lock);

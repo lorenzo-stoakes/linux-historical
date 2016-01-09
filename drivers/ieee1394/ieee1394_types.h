@@ -20,23 +20,6 @@
 #define __devexit_p(x) x
 #endif
 
-/* This showed up around this time */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,12)
-
-# ifndef MODULE_LICENSE
-# define MODULE_LICENSE(x)
-# endif
-
-# ifndef min
-# define min(x,y) ({ \
-	const typeof(x) _x = (x);       \
-	const typeof(y) _y = (y);       \
-	(void) (&_x == &_y);            \
-	_x < _y ? _x : _y; })
-# endif
-
-#endif /* Linux version < 2.4.12 */
-
 #include <linux/spinlock.h>
 
 #ifndef list_for_each_safe
@@ -46,9 +29,7 @@
 
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,5)
 #define pte_offset_kernel pte_offset
-#endif
 
 #ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -58,9 +39,23 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
+
+/* Use task queue */
+#include <linux/tqueue.h>
+#define hpsb_queue_struct tq_struct
+#define hpsb_queue_list list
+#define hpsb_schedule_work(x) schedule_task(x)
+#define HPSB_INIT_WORK(x,y,z) INIT_TQUEUE(x,y,z)
+#define HPSB_PREPARE_WORK(x,y,z) PREPARE_TQUEUE(x,y,z)
+
+
 typedef u32 quadlet_t;
 typedef u64 octlet_t;
 typedef u16 nodeid_t;
+
+typedef u8  byte_t;
+typedef u64 nodeaddr_t;
+typedef u16 arm_length_t;
 
 #define BUS_MASK  0xffc0
 #define NODE_MASK 0x003f

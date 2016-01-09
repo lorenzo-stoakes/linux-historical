@@ -932,14 +932,13 @@ pdev_set_mwi(struct pci_dev *dev)
 	pci_read_config_byte(dev, PCI_CACHE_LINE_SIZE, &cache_size);
 	cache_size <<= 2;
 	if (cache_size != SMP_CACHE_BYTES) {
-		printk(KERN_WARNING "PCI: %s PCI cache line size set incorrectly "
-		       "(%i bytes) by BIOS/FW, ",
+		printk(KERN_WARNING "PCI: %s PCI cache line size set incorrectly (%i bytes) by BIOS/FW.\n",
 		       dev->slot_name, cache_size);
 		if (cache_size > SMP_CACHE_BYTES) {
-			printk("expecting %i\n", SMP_CACHE_BYTES);
+			printk("PCI: %s cache line size too large - expecting %i.\n", dev->slot_name, SMP_CACHE_BYTES);
 			rc = -EINVAL;
 		} else {
-			printk("correcting to %i\n", SMP_CACHE_BYTES);
+			printk("PCI: %s PCI cache line size corrected to %i.\n", dev->slot_name, SMP_CACHE_BYTES);
 			pci_write_config_byte(dev, PCI_CACHE_LINE_SIZE,
 					      SMP_CACHE_BYTES >> 2);
 		}

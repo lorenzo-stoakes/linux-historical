@@ -486,7 +486,7 @@ int ide_revalidate_disk (kdev_t i_rdev)
 		drive->part[p].nr_sects   = 0;
 	};
 
-	if (DRIVER(drive)->revalidate)
+	if (DRIVER(drive) && DRIVER(drive)->revalidate)
 		DRIVER(drive)->revalidate(drive);
 
 	drive->busy = 0;

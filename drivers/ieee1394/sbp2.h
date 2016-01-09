@@ -23,13 +23,8 @@
 #define SBP2_H
 
 /* Some compatibility code */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
 #define SCSI_REGISTER_HOST(tmpl)	scsi_register_module(MODULE_SCSI_HA, tmpl)
 #define SCSI_UNREGISTER_HOST(tmpl)	scsi_unregister_module(MODULE_SCSI_HA, tmpl)
-#else
-#define SCSI_REGISTER_HOST(tmpl)	scsi_register_host(tmpl)
-#define SCSI_UNREGISTER_HOST(tmpl)	scsi_unregister_host(tmpl)
-#endif
 
 #define SBP2_DEVICE_NAME		"sbp2"
 #define SBP2_DEVICE_NAME_SIZE		4
@@ -324,7 +319,7 @@ struct sbp2_request_packet {
 
 	struct list_head list;
 	struct hpsb_packet *packet;
-	struct tq_struct tq;
+	struct hpsb_queue_struct tq;
 	void *hi_context;
 
 };
@@ -510,9 +505,9 @@ static void sbp2_remove_device(struct sbp2scsi_host_info *hi,
 
 #ifdef CONFIG_IEEE1394_SBP2_PHYS_DMA
 static int sbp2_handle_physdma_write(struct hpsb_host *host, int nodeid, int destid, quadlet_t *data,
-                                     u64 addr, unsigned int length);
+                                     u64 addr, unsigned int length, u16 flags);
 static int sbp2_handle_physdma_read(struct hpsb_host *host, int nodeid, quadlet_t *data,
-                                    u64 addr, unsigned int length);
+                                    u64 addr, unsigned int length, u16 flags);
 #endif
 
 /*
@@ -522,7 +517,7 @@ static int sbp2_login_device(struct sbp2scsi_host_info *hi, struct scsi_id_insta
 static int sbp2_reconnect_device(struct sbp2scsi_host_info *hi, struct scsi_id_instance_data *scsi_id); 
 static int sbp2_logout_device(struct sbp2scsi_host_info *hi, struct scsi_id_instance_data *scsi_id); 
 static int sbp2_handle_status_write(struct hpsb_host *host, int nodeid, int destid,
-				    quadlet_t *data, u64 addr, unsigned int length);
+				    quadlet_t *data, u64 addr, unsigned int length, u16 flags);
 static int sbp2_agent_reset(struct sbp2scsi_host_info *hi, struct scsi_id_instance_data *scsi_id, u32 flags);
 static int sbp2_create_command_orb(struct sbp2scsi_host_info *hi, 
 				   struct scsi_id_instance_data *scsi_id,
@@ -549,11 +544,7 @@ static int sbp2_max_speed_and_size(struct sbp2scsi_host_info *hi, struct scsi_id
 static int sbp2scsi_detect (Scsi_Host_Template *tpnt);
 static const char *sbp2scsi_info (struct Scsi_Host *host);
 void sbp2scsi_setup(char *str, int *ints);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,28)
 static int sbp2scsi_biosparam (Scsi_Disk *disk, kdev_t dev, int geom[]);
-#else
-static int sbp2scsi_biosparam (Scsi_Disk *disk, struct block_device *dev, int geom[]);
-#endif
 static int sbp2scsi_abort (Scsi_Cmnd *SCpnt); 
 static int sbp2scsi_reset (Scsi_Cmnd *SCpnt); 
 static int sbp2scsi_queuecommand (Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *));

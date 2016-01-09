@@ -50,6 +50,8 @@
 #define JOYDEV_MINORS		32
 #define JOYDEV_BUFFER_SIZE	64
 
+#define MSECS(t)	(1000 * ((t) / HZ) + 1000 * ((t) % HZ) / HZ)
+
 struct joydev {
 	int exist;
 	int open;
@@ -134,7 +136,7 @@ static void joydev_event(struct input_handle *handle, unsigned int type, unsigne
 			return;
 	}  
 
-	event.time = jiffies * (1000 / HZ);
+	event.time = MSECS(jiffies);
 
 	while (list) {
 
@@ -279,7 +281,7 @@ static ssize_t joydev_read(struct file *file, char *buf, size_t count, loff_t *p
 
 		struct js_event event;
 
-		event.time = jiffies * (1000/HZ);
+		event.time = MSECS(jiffies);
 
 		if (list->startup < joydev->nkey) {
 			event.type = JS_EVENT_BUTTON | JS_EVENT_INIT;

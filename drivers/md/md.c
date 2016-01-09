@@ -445,21 +445,22 @@ static int alloc_disk_sb(mdk_rdev_t * rdev)
 	if (rdev->sb)
 		MD_BUG();
 
-	rdev->sb = (mdp_super_t *) __get_free_page(GFP_KERNEL);
-	if (!rdev->sb) {
+	rdev->sb_page = alloc_page(GFP_KERNEL);
+	if (!rdev->sb_page) {
 		printk(OUT_OF_MEM);
 		return -EINVAL;
 	}
-	md_clear_page(rdev->sb);
+	rdev->sb = (mdp_super_t *) page_address(rdev->sb_page);
 
 	return 0;
 }
 
 static void free_disk_sb(mdk_rdev_t * rdev)
 {
-	if (rdev->sb) {
-		free_page((unsigned long) rdev->sb);
+	if (rdev->sb_page) {
+		page_cache_release(rdev->sb_page);
 		rdev->sb = NULL;
+		rdev->sb_page = NULL;
 		rdev->sb_offset = 0;
 		rdev->size = 0;
 	} else {
@@ -468,12 +469,43 @@ static void free_disk_sb(mdk_rdev_t * rdev)
 	}
 }
 
+
+static void bh_complete(struct buffer_head *bh, int uptodate)
+{
+
+	if (uptodate)
+		set_bit(BH_Uptodate, &bh->b_state);
+
+	complete((struct completion*)bh->b_private);
+}
+
+static int sync_page_io(kdev_t dev, unsigned long sector, int size,
+			struct page *page, int rw)
+{
+	struct buffer_head bh;
+	struct completion event;
+
+	init_completion(&event);
+	init_buffer(&bh, bh_complete, &event);
+	bh.b_rdev = dev;
+	bh.b_rsector = sector;
+	bh.b_state	= (1 << BH_Req) | (1 << BH_Mapped);
+	bh.b_size = size;
+	bh.b_page = page;
+	bh.b_reqnext = NULL;
+	bh.b_data = page_address(page);
+	generic_make_request(rw, &bh);
+
+	run_task_queue(&tq_disk);
+	wait_for_completion(&event);
+
+	return test_bit(BH_Uptodate, &bh.b_state);
+}
+
 static int read_disk_sb(mdk_rdev_t * rdev)
 {
 	int ret = -EINVAL;
-	struct buffer_head *bh = NULL;
 	kdev_t dev = rdev->dev;
-	mdp_super_t *sb;
 	unsigned long sb_offset;
 
 	if (!rdev->sb) {
@@ -487,22 +519,14 @@ static int read_disk_sb(mdk_rdev_t * rdev)
 	 */
 	sb_offset = calc_dev_sboffset(rdev->dev, rdev->mddev, 1);
 	rdev->sb_offset = sb_offset;
-	fsync_dev(dev);
-	set_blocksize (dev, MD_SB_BYTES);
-	bh = bread (dev, sb_offset / MD_SB_BLOCKS, MD_SB_BYTES);
 
-	if (bh) {
-		sb = (mdp_super_t *) bh->b_data;
-		memcpy (rdev->sb, sb, MD_SB_BYTES);
-	} else {
-		printk(NO_SB,partition_name(rdev->dev));
-		goto abort;
+	if (!sync_page_io(dev, sb_offset<<1, MD_SB_BYTES, rdev->sb_page, READ)) {
+		printk(NO_SB,partition_name(dev));
+		return -EINVAL;
 	}
 	printk(KERN_INFO " [events: %08lx]\n", (unsigned long)rdev->sb->events_lo);
 	ret = 0;
 abort:
-	if (bh)
-		brelse (bh);
 	return ret;
 }
 
@@ -890,10 +914,8 @@ static mdk_rdev_t * find_rdev_all(kdev_t dev)
 
 static int write_disk_sb(mdk_rdev_t * rdev)
 {
-	struct buffer_head *bh;
 	kdev_t dev;
 	unsigned long sb_offset, size;
-	mdp_super_t *sb;
 
 	if (!rdev->sb) {
 		MD_BUG();
@@ -928,23 +950,11 @@ static int write_disk_sb(mdk_rdev_t * rdev)
 	}
 
 	printk(KERN_INFO "(write) %s's sb offset: %ld\n", partition_name(dev), sb_offset);
-	fsync_dev(dev);
-	set_blocksize(dev, MD_SB_BYTES);
-	bh = getblk(dev, sb_offset / MD_SB_BLOCKS, MD_SB_BYTES);
-	if (!bh) {
-		printk(GETBLK_FAILED, partition_name(dev));
+
+	if (!sync_page_io(dev, sb_offset<<1, MD_SB_BYTES, rdev->sb_page, WRITE)) {
+		printk("md: write_disk_sb failed for device %s\n", partition_name(dev));
 		return 1;
 	}
-	memset(bh->b_data,0,bh->b_size);
-	sb = (mdp_super_t *) bh->b_data;
-	memcpy(sb, rdev->sb, MD_SB_BYTES);
-
-	mark_buffer_uptodate(bh, 1);
-	mark_buffer_dirty(bh);
-	ll_rw_block(WRITE, 1, &bh);
-	wait_on_buffer(bh);
-	brelse(bh);
-	fsync_dev(dev);
 skip:
 	return 0;
 }
@@ -1038,7 +1048,11 @@ repeat:
 			printk("(skipping faulty ");
 		if (rdev->alias_device)
 			printk("(skipping alias ");
-
+		if (disk_faulty(&rdev->sb->this_disk)) {
+			printk("(skipping new-faulty %s )\n",
+			       partition_name(rdev->dev));
+			continue;
+		}
 		printk("%s ", partition_name(rdev->dev));
 		if (!rdev->faulty && !rdev->alias_device) {
 			printk("[events: %08lx]",
@@ -1065,7 +1079,6 @@ repeat:
  *   - the device is nonexistent (zero size)
  *   - the device has no valid superblock
  *
- * a faulty rdev _never_ has rdev->sb set.
  */
 static int md_import_device(kdev_t newdev, int on_disk)
 {
@@ -1137,8 +1150,6 @@ static int md_import_device(kdev_t newdev, int on_disk)
 	md_list_add(&rdev->all, &all_raid_disks);
 	MD_INIT_LIST_HEAD(&rdev->pending);
 
-	if (rdev->faulty && rdev->sb)
-		free_disk_sb(rdev);
 	return 0;
 
 abort_free:
@@ -2337,20 +2348,16 @@ static int hot_remove_disk(mddev_t * mddev, kdev_t dev)
 		return -EINVAL;
 	}
 	disk = &mddev->sb->disks[rdev->desc_nr];
-	if (disk_active(disk)) {
-		MD_BUG();
+	if (disk_active(disk))
 		goto busy;
-	}
-	if (disk_removed(disk)) {
-		MD_BUG();
+
+	if (disk_removed(disk))
 		return -EINVAL;
-	}
 
 	err = mddev->pers->diskop(mddev, &disk, DISKOP_HOT_REMOVE_DISK);
-	if (err == -EBUSY) {
-		MD_BUG();
+	if (err == -EBUSY)
 		goto busy;
-	}
+
 	if (err) {
 		MD_BUG();
 		return -EINVAL;
@@ -3056,7 +3063,6 @@ int md_error(mddev_t *mddev, kdev_t rdev)
 		return 0;
 	if (!mddev->pers->error_handler
 			|| mddev->pers->error_handler(mddev,rdev) <= 0) {
-		free_disk_sb(rrdev);
 		rrdev->faulty = 1;
 	} else
 		return 1;

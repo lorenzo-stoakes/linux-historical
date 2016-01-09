@@ -137,7 +137,7 @@ char drive_info[4*16];
  * virt_to_page() (asm-ia64/page.h), among other things.
  */
 unsigned long
-sn_map_nr (unsigned long addr)
+sn_map_nr (void *addr)
 {
 	return MAP_NR_DISCONTIG(addr);
 }

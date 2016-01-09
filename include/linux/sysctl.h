@@ -124,6 +124,7 @@ enum
 	KERN_CORE_USES_PID=52,		/* int: use core or core.%pid */
 	KERN_TAINTED=53,	/* int: various kernel tainted flags */
 	KERN_CADPID=54,		/* int: PID of the process to notify on CAD */
+ 	KERN_CORE_PATTERN=56,	/* string: pattern for core-files */
 };
 
 

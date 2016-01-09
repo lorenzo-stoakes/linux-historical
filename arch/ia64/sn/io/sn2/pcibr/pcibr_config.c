@@ -41,7 +41,7 @@ void              do_pcibr_config_set(cfg_p, unsigned, unsigned, uint64_t);
 #ifdef LITTLE_ENDIAN
 #ifdef CONFIG_IA64_SGI_SN1
 /*
- * on sn-ia we need to twiddle the the addresses going out
+ * on sn-ia we need to twiddle the addresses going out
  * the pci bus because we use the unswizzled synergy space
  * (the alternative is to use the swizzled synergy space
  * and byte swap the data)

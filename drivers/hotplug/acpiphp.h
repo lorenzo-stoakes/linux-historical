@@ -173,8 +173,6 @@ struct acpiphp_bridge {
 	/* PCI-to-PCI bridge device */
 	struct pci_dev *pci_dev;
 
-	struct pci_ops *pci_ops;
-
 	/* ACPI 2.0 _HPP parameters */
 	struct hpp_param hpp;
 

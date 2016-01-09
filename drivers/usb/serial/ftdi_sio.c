@@ -17,6 +17,14 @@
  * See http://ftdi-usb-sio.sourceforge.net for upto date testing info
  *	and extra documentation
  *
+ * (07/Jun/2002) Kuba Ober
+ *	Changed FTDI_SIO_BASE_BAUD_TO_DIVISOR macro into ftdi_baud_to_divisor
+ *	function. It was getting too complex.
+ *	Fix the divisor calculation logic which was setting divisor of 0.125
+ *	instead of 0.5 for fractional parts of divisor equal to 5/8, 6/8, 7/8.
+ *	Also make it bump up the divisor to next integer in case of 7/8 - it's
+ *	a better approximation.
+ *
  * (25/Jul/2002) Bill Ryder inserted Dmitri's TIOCMIWAIT patch
  *      Not tested by me but it doesn't break anything I use.
  * 
@@ -203,6 +211,10 @@ static void ftdi_read_bulk_callback	(struct urb *urb);
 static void ftdi_set_termios		(struct usb_serial_port *port, struct termios * old);
 static int  ftdi_ioctl			(struct usb_serial_port *port, struct file * file, unsigned int cmd, unsigned long arg);
 static void ftdi_break_ctl		(struct usb_serial_port *port, int break_state );
+static unsigned short int ftdi_baud_base_to_divisor
+					(int baud, int base);
+static unsigned short int ftdi_baud_to_divisor
+					(int baud);
 
 static struct usb_serial_device_type ftdi_SIO_device = {
 	.owner =		THIS_MODULE,
@@ -257,6 +269,23 @@ static struct usb_serial_device_type ftdi_8U232AM_device = {
  * ***************************************************************************
  */
 
+static unsigned short int ftdi_baud_base_to_divisor(int baud, int base)
+{
+	unsigned short int divisor;
+	int divisor3 = base / 2 / baud; // divisor shifted 3 bits to the left
+	if ((divisor3 & 0x7) == 7) divisor3 ++; // round x.7/8 up to x+1
+	divisor = divisor3 >> 3;
+	divisor3 &= 0x7;
+	if (divisor3 == 1) divisor |= 0xc000; else // 0.125
+	if (divisor3 >= 4) divisor |= 0x4000; else // 0.5
+	if (divisor3 != 0) divisor |= 0x8000;      // 0.25
+	return divisor;
+}
+
+static unsigned short int ftdi_baud_to_divisor(int baud)
+{
+	 return(ftdi_baud_base_to_divisor(baud, 48000000));
+}
 
 static int set_rts(struct usb_device *dev,
 		   unsigned int pipe,
@@ -373,7 +402,7 @@ static __u16 get_ftdi_divisor(struct usb_serial_port * port)
 		break;
 	case FT8U232AM: /* 8U232AM chip */
 		if (baud <= 3000000) {
-			urb_value = FTDI_SIO_BAUD_TO_DIVISOR(baud);
+			urb_value = ftdi_baud_to_divisor(baud);
 		} else {
 	                dbg("%s - Baud rate too high!", __FUNCTION__);
 		}

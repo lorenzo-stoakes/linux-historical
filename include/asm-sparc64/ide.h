@@ -76,26 +76,16 @@ static __inline__ void ide_init_default_hwifs(void)
 #undef  HD_DATA
 #define HD_DATA ((ide_ioreg_t)0)
 
-/* From m68k code... */
+#define __ide_insl(data_reg, buffer, wcount) \
+	__ide_insw(data_reg, buffer, (wcount)<<1)
+#define __ide_outsl(data_reg, buffer, wcount) \
+	__ide_outsw(data_reg, buffer, (wcount)<<1)
 
-#ifdef insl
-#undef insl
-#endif
-#ifdef outsl
-#undef outsl
-#endif
-#ifdef insw
-#undef insw
-#endif
-#ifdef outsw
-#undef outsw
-#endif
-
-#define insl(data_reg, buffer, wcount) insw(data_reg, buffer, (wcount)<<1)
-#define outsl(data_reg, buffer, wcount) outsw(data_reg, buffer, (wcount)<<1)
-
-#define insw(port, buf, nr) ide_insw((port), (buf), (nr))
-#define outsw(port, buf, nr) ide_outsw((port), (buf), (nr))
+/* On sparc64, I/O ports and MMIO registers are accessed identically.  */
+#define __ide_mm_insw	__ide_insw
+#define __ide_mm_insl	__ide_insl
+#define __ide_mm_outsw	__ide_outsw
+#define __ide_mm_outsl	__ide_outsl
 
 static __inline__ unsigned int inw_be(unsigned long addr)
 {
@@ -108,9 +98,9 @@ static __inline__ unsigned int inw_be(unsigned long addr)
 	return ret;
 }
 
-static __inline__ void ide_insw(unsigned long port,
-				void *dst,
-				unsigned long count)
+static __inline__ void __ide_insw(unsigned long port,
+				  void *dst,
+				  u32 count)
 {
 #if (L1DCACHE_SIZE > PAGE_SIZE)		/* is there D$ aliasing problem */
 	unsigned long end = (unsigned long)dst + (count << 1);
@@ -147,9 +137,9 @@ static __inline__ void outw_be(unsigned short w, unsigned long addr)
 			     : "r" (w), "r" (addr), "i" (ASI_PHYS_BYPASS_EC_E));
 }
 
-static __inline__ void ide_outsw(unsigned long port,
-				 const void *src,
-				 unsigned long count)
+static __inline__ void __ide_outsw(unsigned long port,
+				   void *src,
+				   u32 count)
 {
 #if (L1DCACHE_SIZE > PAGE_SIZE)		/* is there D$ aliasing problem */
 	unsigned long end = (unsigned long)src + (count << 1);

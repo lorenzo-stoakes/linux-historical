@@ -204,6 +204,7 @@ dep_tristate 'UltraStor 14F/34F support' CONFIG_SCSI_U14_34F $CONFIG_SCSI
 if [ "$CONFIG_X86" = "y" ]; then
    dep_tristate 'UltraStor SCSI support' CONFIG_SCSI_ULTRASTOR $CONFIG_SCSI
 fi
+dep_tristate 'Workbit NinjaSCSI-32Bi/UDE support' CONFIG_SCSI_NSP32 $CONFIG_SCSI
 #
 # Note - this is a very special 'host' adapter that simulates the presence of some disks.
 # It can come in very handy for troubleshooting.  Anyone else is welcome to use it - all

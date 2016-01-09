@@ -35,7 +35,6 @@
 #include <linux/poll.h>
 #include <linux/smp_lock.h>
 #include <linux/proc_fs.h>
-#include <linux/tqueue.h>
 #include <linux/delay.h>
 #include <linux/devfs_fs_kernel.h>
 
@@ -65,13 +64,8 @@
 #define vmalloc_32(x) vmalloc(x)
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,3))
 #define remap_page_range_1394(vma, start, addr, size, prot) \
 	remap_page_range(start, addr, size, prot)
-#else
-#define remap_page_range_1394(vma, start, addr, size, prot) \
-	remap_page_range(vma, start, addr, size, prot)
-#endif
 
 struct it_dma_prg {
 	struct dma_cmd begin;
@@ -559,11 +553,7 @@ void wakeup_dma_ir_ctx(unsigned long l)
 		if (d->ir_prg[i][d->nb_cmd-1].status & cpu_to_le32(0xFFFF0000)) {
 			reset_ir_status(d, i);
 			d->buffer_status[i] = VIDEO1394_BUFFER_READY;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,18)
-			get_fast_time(&d->buffer_time[i]);
-#else
 			do_gettimeofday(&d->buffer_time[i]);
-#endif
 		}
 	}
 
@@ -1455,12 +1445,7 @@ static int __init video1394_init_module (void)
  		return -EIO;
  	}
 	
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
-	devfs_handle = devfs_mk_dir(NULL, VIDEO1394_DRIVER_NAME,
-			strlen(VIDEO1394_DRIVER_NAME), NULL);
-#else
 	devfs_handle = devfs_mk_dir(NULL, VIDEO1394_DRIVER_NAME, NULL);
-#endif
 
 	hl_handle = hpsb_register_highlevel (VIDEO1394_DRIVER_NAME, &hl_ops);
 	if (hl_handle == NULL) {

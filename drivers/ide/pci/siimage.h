@@ -31,61 +31,59 @@ typedef struct ide_io_ops_s siimage_iops {
 
 #define ADJREG(B,R)	((B)|(R)|((hwif->channel)<<(4+(2*(hwif->mmio)))))
 #define SELREG(R)	ADJREG((0xA0),(R))
-#define SELADDR(R)	((((u32)hwif->hwif_data)*(hwif->mmio))|SELREG((R)))
-#define HWIFADDR(R)	((((u32)hwif->hwif_data)*(hwif->mmio))|(R))
-#define DEVADDR(R)	(((u32) pci_get_drvdata(dev))|(R))
+#define SELADDR(R)	((((unsigned long)hwif->hwif_data)*(hwif->mmio))|SELREG((R)))
+#define HWIFADDR(R)	((((unsigned long)hwif->hwif_data)*(hwif->mmio))|(R))
+#define DEVADDR(R)	(((unsigned long) pci_get_drvdata(dev))|(R))
 
 
-inline u8 sii_inb (u32 port)
+inline u8 sii_inb (unsigned long port)
 {
 	return (u8) readb(port);
 }
 
-inline u16 sii_inw (u32 port)
+inline u16 sii_inw (unsigned long port)
 {
 	return (u16) readw(port);
 }
 
-inline void sii_insw (u32 port, void *addr, u32 count)
+inline void sii_insw (unsigned long port, void *addr, u32 count)
 {
-	while (count--) { *(u16 *)addr = readw(port); addr += 2; }
+	__ide_mm_insw(port, addr, count);
 }
 
-inline u32 sii_inl (u32 port)
+inline u32 sii_inl (unsigned long port)
 {
 	return (u32) readl(port);
 }
 
-inline void sii_insl (u32 port, void *addr, u32 count)
+inline void sii_insl (unsigned long port, void *addr, u32 count)
 {
-	sii_insw(port, addr, (count)<<1);
-//	while (count--) { *(u32 *)addr = readl(port); addr += 4; }
+	__ide_mm_insw(port, addr, (count)<<1);
 }
 
-inline void sii_outb (u8 value, u32 port)
+inline void sii_outb (u8 value, unsigned long port)
 {
 	writeb(value, port);
 }
 
-inline void sii_outw (u16 value, u32 port)
+inline void sii_outw (u16 value, unsigned long port)
 {
 	writew(value, port);
 }
 
-inline void sii_outsw (u32 port, void *addr, u32 count)
+inline void sii_outsw (unsigned long port, void *addr, u32 count)
 {
-	while (count--) { writew(*(u16 *)addr, port); addr += 2; }
+	__ide_mm_outsw(port, addr, count);
 }
 
-inline void sii_outl (u32 value, u32 port)
+inline void sii_outl (u32 value, unsigned long port)
 {
 	writel(value, port);
 }
 
-inline void sii_outsl (u32 port, void *addr, u32 count)
+inline void sii_outsl (unsigned long port, void *addr, u32 count)
 {
-	sii_outsw(port, addr, (count)<<1);
-//	while (count--) { writel(*(u32 *)addr, port); addr += 4; }
+	__ide_mm_outsw(port, addr, (count)<<1);
 }
 
 #if defined(DISPLAY_SIIMAGE_TIMINGS) && defined(CONFIG_PROC_FS)
@@ -99,10 +97,10 @@ static u8 siimage_proc;
 
 static ide_pci_host_proc_t siimage_procs[] __initdata = {
 	{
-		name:		"siimage",
-		set:		1,
-		get_info:	siimage_get_info,
-		parent:		NULL,
+		.name		= "siimage",
+		.set		= 1,
+		.get_info	= siimage_get_info,
+		.parent		= NULL,
 	},
 };
 #endif /* DISPLAY_SIIMAGE_TIMINGS && CONFIG_PROC_FS */	
@@ -114,36 +112,36 @@ static void init_dma_siimage(ide_hwif_t *, unsigned long);
 
 static ide_pci_device_t siimage_chipsets[] __devinitdata = {
 	{	/* 0 */
-		vendor:		PCI_VENDOR_ID_CMD,
-		device:		PCI_DEVICE_ID_SII_680,
-		name:		"SiI680",
-		init_chipset:	init_chipset_siimage,
-		init_iops:	init_iops_siimage,
-		init_hwif:	init_hwif_siimage,
-		init_dma:	init_dma_siimage,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	ON_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_CMD,
+		.device		= PCI_DEVICE_ID_SII_680,
+		.name		= "SiI680",
+		.init_chipset	= init_chipset_siimage,
+		.init_iops	= init_iops_siimage,
+		.init_hwif	= init_hwif_siimage,
+		.init_dma	= init_dma_siimage,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= ON_BOARD,
+		.extra		= 0,
 	},{	/* 1 */
-		vendor:		PCI_VENDOR_ID_CMD,
-		device:		PCI_DEVICE_ID_SII_3112,
-		name:		"SiI3112 Serial ATA",
-		init_chipset:	init_chipset_siimage,
-		init_iops:	init_iops_siimage,
-		init_hwif:	init_hwif_siimage,
-		init_dma:	init_dma_siimage,
-		channels:	2,
-		autodma:	AUTODMA,
-		enablebits:	{{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		bootable:	ON_BOARD,
-		extra:		0,
+		.vendor		= PCI_VENDOR_ID_CMD,
+		.device		= PCI_DEVICE_ID_SII_3112,
+		.name		= "SiI3112 Serial ATA",
+		.init_chipset	= init_chipset_siimage,
+		.init_iops	= init_iops_siimage,
+		.init_hwif	= init_hwif_siimage,
+		.init_dma	= init_dma_siimage,
+		.channels	= 2,
+		.autodma	= AUTODMA,
+		.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
+		.bootable	= ON_BOARD,
+		.extra		= 0,
 	},{
-		vendor:		0,
-		device:		0,
-		channels:	0,
-		bootable:	EOL,
+		.vendor		= 0,
+		.device		= 0,
+		.channels	= 0,
+		.bootable	= EOL,
 	}
 };
 

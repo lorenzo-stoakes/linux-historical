@@ -43,7 +43,6 @@ static LIST_HEAD(bridge_list);
 
 static void handle_hotplug_event_bridge (acpi_handle, u32, void *);
 static void handle_hotplug_event_func (acpi_handle, u32, void *);
-static struct pci_ops *default_ops;
 
 /*
  * initialization & terminatation routines
@@ -515,7 +514,6 @@ static void add_host_bridge (acpi_handle *handle, int seg, int bus)
 	bridge->bus = bus;
 
 	bridge->pci_bus = find_pci_bus(&pci_root_buses, bus);
-	bridge->pci_ops = bridge->pci_bus->ops;
 
 	bridge->res_lock = SPIN_LOCK_UNLOCKED;
 
@@ -592,7 +590,6 @@ static void add_p2p_bridge (acpi_handle *handle, int seg, int bus, int dev, int 
 		kfree(bridge);
 		return;
 	}
-	bridge->pci_ops = bridge->pci_bus->ops;
 
 	bridge->res_lock = SPIN_LOCK_UNLOCKED;
 
@@ -1072,11 +1069,9 @@ static unsigned int get_slot_status (struct acpiphp_slot *slot)
 			if (ACPI_SUCCESS(status) && sta)
 				break;
 		} else {
-			pci_read_config_dword_nodev(default_ops,
-						    slot->bridge->bus,
-						    slot->device,
-						    func->function,
-						    PCI_VENDOR_ID, &dvid);
+			pci_bus_read_config_dword(slot->bridge->pci_bus,
+					PCI_DEVFN(slot->device, func->function),
+					PCI_VENDOR_ID, &dvid);
 			if (dvid != 0xffffffff) {
 				sta = ACPI_STA_ALL;
 				break;
@@ -1204,11 +1199,6 @@ int acpiphp_glue_init (void)
 	acpi_status status;
 
 	if (list_empty(&pci_root_buses))
-		return -1;
-
-	/* set default pci_ops for configuration space operation */
-	default_ops = pci_bus_b(pci_root_buses.next)->ops;
-	if (!default_ops)
 		return -1;
 
 	status = acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,

@@ -2253,7 +2253,7 @@ static int lvm_do_lv_remove(int minor, char *lv_name, int l)
 
 	if (lv_ptr->lv_access & LV_SNAPSHOT) {
 		/*
-		 * Atomically make the the snapshot invisible
+		 * Atomically make the snapshot invisible
 		 * to the original lv before playing with it.
 		 */
 		lv_t * org = lv_ptr->lv_snapshot_org;

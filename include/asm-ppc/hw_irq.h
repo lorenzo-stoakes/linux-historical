@@ -21,6 +21,7 @@ extern unsigned long __sti_end, __cli_end, __restore_flags_end, __save_flags_ptr
 
 #define __save_flags(flags) __save_flags_ptr((unsigned long *)&flags)
 #define __save_and_cli(flags) ({__save_flags(flags);__cli();})
+#define __save_and_sti(flags) ({__save_flags(flags);__sti();})
 
 extern void do_lost_interrupts(unsigned long);
 

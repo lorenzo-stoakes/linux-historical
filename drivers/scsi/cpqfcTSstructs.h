@@ -35,7 +35,7 @@
 /* don't forget to also change MODULE_DESCRIPTION in cpqfcTSinit.c */
 #define VER_MAJOR 2
 #define VER_MINOR 1
-#define VER_SUBMINOR 1
+#define VER_SUBMINOR 2
 
 /*
  *	Macros for kernel (esp. SMP) tracing using a PCI analyzer
