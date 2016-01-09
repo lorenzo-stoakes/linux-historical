@@ -3,7 +3,7 @@
  *
  * Copyright 2001,2002 - Jani Monoses   <jani@astechnix.ro>
  *
- * $Id: tridentfb.c,v 1.1 2002/02/07 18:20:18 marcelo Exp $
+ * $Id: tridentfb.c,v 1.2 2002/02/13 17:44:14 marcelo Exp $
  *
  * CREDITS:(in order of appearance)
  * 	skeletonfb.c by Geert Uytterhoeven and other fb code in drivers/video
@@ -521,6 +521,7 @@ static void set_screen_start(int base)
 }
 
 
+#error "Floating point maths. This needs fixing before the driver is safe"
 #define calc_freq(n,m,k) ((NTSC * (n+8))/((m+2)*(1<<k)))
 
 /* Set dotclock frequency */

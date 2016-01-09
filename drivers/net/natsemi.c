@@ -399,7 +399,11 @@ enum register_offsets {
 	SDCFG			= 0xF8
 };
 /* the values for the 'magic' registers above (PGSEL=1) */
+#ifdef CONFIG_NATSEMI_CABLE_MAGIC
+#define PMDCSR_VAL	0x1898
+#else
 #define PMDCSR_VAL	0x189C
+#endif
 #define TSTDAT_VAL	0x0
 #define DSPCFG_VAL	0x5040
 #define SDCFG_VAL	0x008c
@@ -1465,12 +1469,8 @@ static void netdev_tx_done(struct net_device *dev)
 
 	for (; np->cur_tx - np->dirty_tx > 0; np->dirty_tx++) {
 		int entry = np->dirty_tx % TX_RING_SIZE;
-		if (np->tx_ring[entry].cmd_status & cpu_to_le32(DescOwn)) {
-			if (netif_msg_tx_err(np))
-				printk(KERN_DEBUG "%s: tx frame #%d is busy.\n",
-						dev->name, np->dirty_tx);
+		if (np->tx_ring[entry].cmd_status & cpu_to_le32(DescOwn))
 			break;
-		}
 		if (netif_msg_tx_done(np))
 			printk(KERN_DEBUG 
 				"%s: tx frame #%d finished, status %#08x.\n",
@@ -1581,11 +1581,7 @@ static void netdev_rx(struct net_device *dev)
 						np->cur_rx, desc_status);
 				np->stats.rx_length_errors++;
 			} else {
-				/* There was a error. */
-				if (netif_msg_rx_err(np))
-					printk(KERN_DEBUG 
-						"  netdev_rx() Rx error was "
-						"%#08x.\n", desc_status);
+				/* There was an error. */
 				np->stats.rx_errors++;
 				if (desc_status & (DescRxAbort|DescRxOver)) 
 					np->stats.rx_over_errors++;

@@ -16,6 +16,7 @@
 #include <asm/uaccess.h>
 #include <asm/pgalloc.h>
 #include <asm/io.h>
+#include <asm/irq.h>
 
 /*
  * Known problems:
@@ -610,6 +611,14 @@ static inline int task_valid(struct task_struct *tsk)
 	}
 	read_unlock(&tasklist_lock);
 	return ret;
+}
+
+void release_x86_irqs(struct task_struct *task)
+{
+	int i;
+	for (i=3; i<16; i++)
+	    if (vm86_irqs[i].tsk == task)
+		free_vm86_irq(i);
 }
 
 static inline void handle_irq_zombies(void)

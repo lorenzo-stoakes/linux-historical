@@ -207,6 +207,9 @@ static struct {
 #ifdef CONFIG_FB_SIS
 	{ "sisfb", sisfb_init, sisfb_setup },
 #endif
+#ifdef CONFIG_FB_TRIDENT
+	{ "trident", tridentfb_init, tridentfb_setup },
+#endif
 
 	/*
 	 * Generic drivers that are used as fallbacks
@@ -229,9 +232,6 @@ static struct {
 
 #ifdef CONFIG_FB_3DFX
 	{ "tdfx", tdfxfb_init, tdfxfb_setup },
-#endif
-#ifdef CONFIG_FB_TRIDENT
-	{ "trident", tridentfb_init, tridentfb_setup },
 #endif
 #ifdef CONFIG_FB_SGIVW
 	{ "sgivw", sgivwfb_init, sgivwfb_setup },
