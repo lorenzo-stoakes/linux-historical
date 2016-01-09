@@ -209,28 +209,11 @@ static void tg3_enable_ints(struct tg3 *tp)
 	tw32(TG3PCI_MISC_HOST_CTRL,
 	     (tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
-
-	if (tp->hw_status->status & SD_STATUS_UPDATED) {
-		tw32(GRC_LOCAL_CTRL,
-		     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
-	}
 	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
-}
 
-static inline void tg3_mask_ints(struct tg3 *tp)
-{
-	tw32(TG3PCI_MISC_HOST_CTRL,
-	     (tp->misc_host_ctrl | MISC_HOST_CTRL_MASK_PCI_INT));
-}
-
-static inline void tg3_unmask_ints(struct tg3 *tp)
-{
-	tw32(TG3PCI_MISC_HOST_CTRL,
-	     (tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
-	if (tp->hw_status->status & SD_STATUS_UPDATED) {
+	if (tp->hw_status->status & SD_STATUS_UPDATED)
 		tw32(GRC_LOCAL_CTRL,
 		     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
-	}
 }
 
 static void tg3_switch_clocks(struct tg3 *tp)
@@ -2013,9 +1996,10 @@ static int tg3_poll(struct net_device *netdev, int *budget)
 {
 	struct tg3 *tp = netdev->priv;
 	struct tg3_hw_status *sblk = tp->hw_status;
+	unsigned long flags;
 	int done;
 
-	spin_lock_irq(&tp->lock);
+	spin_lock_irqsave(&tp->lock, flags);
 
 	if (!(tp->tg3_flags &
 	      (TG3_FLAG_USE_LINKCHG_REG |
@@ -2052,18 +2036,18 @@ static int tg3_poll(struct net_device *netdev, int *budget)
 
 	if (done) {
 		netif_rx_complete(netdev);
-		tg3_unmask_ints(tp);
+		tg3_enable_ints(tp);
 	}
 
-	spin_unlock_irq(&tp->lock);
+	spin_unlock_irqrestore(&tp->lock, flags);
 
 	return (done ? 0 : 1);
 }
 
-static __inline__ void tg3_interrupt_main_work(struct net_device *dev, struct tg3 *tp)
+static inline unsigned int tg3_has_work(struct net_device *dev, struct tg3 *tp)
 {
 	struct tg3_hw_status *sblk = tp->hw_status;
-	int work_exists = 0;
+	unsigned int work_exists = 0;
 
 	if (!(tp->tg3_flags &
 	      (TG3_FLAG_USE_LINKCHG_REG |
@@ -2075,19 +2059,7 @@ static __inline__ void tg3_interrupt_main_work(struct net_device *dev, struct tg
 	    sblk->idx[0].rx_producer != tp->rx_rcb_ptr)
 		work_exists = 1;
 
-	if (!work_exists)
-		return;
-
-	if (netif_rx_schedule_prep(dev)) {
-		/* NOTE: These writes are posted by the readback of
-		 *       the mailbox register done by our caller.
-		 */
-		tg3_mask_ints(tp);
-		__netif_rx_schedule(dev);
-	} else {
-		printk(KERN_ERR PFX "%s: Error, poll already scheduled\n",
-		       dev->name);
-	}
+	return work_exists;
 }
 
 static void tg3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
@@ -2102,13 +2074,16 @@ static void tg3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	if (sblk->status & SD_STATUS_UPDATED) {
 		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
 			     0x00000001);
+		tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
 		sblk->status &= ~SD_STATUS_UPDATED;
 
-		tg3_interrupt_main_work(dev, tp);
-
-		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
-			     0x00000000);
-		tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
+		if (likely(tg3_has_work(dev, tp)))
+			netif_rx_schedule(dev);
+		else {
+			tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
+			     	0x00000000);
+			tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
+		}
 	}
 
 	spin_unlock_irqrestore(&tp->lock, flags);
@@ -2619,6 +2594,17 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 }
 
+static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
+			       int new_mtu)
+{
+	dev->mtu = new_mtu;
+
+	if (new_mtu > ETH_DATA_LEN)
+		tp->tg3_flags |= TG3_FLAG_JUMBO_ENABLE;
+	else
+		tp->tg3_flags &= ~TG3_FLAG_JUMBO_ENABLE;
+}
+
 static int tg3_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct tg3 *tp = dev->priv;
@@ -2630,7 +2616,7 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
 		/* We'll just catch it later when the
 		 * device is up'd.
 		 */
-		dev->mtu = new_mtu;
+		tg3_set_mtu(dev, tp, new_mtu);
 		return 0;
 	}
 
@@ -2639,12 +2625,7 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
 
 	tg3_halt(tp);
 
-	dev->mtu = new_mtu;
-
-	if (new_mtu > ETH_DATA_LEN)
-		tp->tg3_flags |= TG3_FLAG_JUMBO_ENABLE;
-	else
-		tp->tg3_flags &= ~TG3_FLAG_JUMBO_ENABLE;
+	tg3_set_mtu(dev, tp, new_mtu);
 
 	tg3_init_rings(tp);
 	tg3_init_hw(tp);
@@ -4321,8 +4302,9 @@ out:
 static void tg3_timer(unsigned long __opaque)
 {
 	struct tg3 *tp = (struct tg3 *) __opaque;
+	unsigned long flags;
 
-	spin_lock_irq(&tp->lock);
+	spin_lock_irqsave(&tp->lock, flags);
 	spin_lock(&tp->tx_lock);
 
 	/* All of this garbage is because when using non-tagged
@@ -4404,7 +4386,7 @@ static void tg3_timer(unsigned long __opaque)
 	}
 
 	spin_unlock(&tp->tx_lock);
-	spin_unlock_irq(&tp->lock);
+	spin_unlock_irqrestore(&tp->lock, flags);
 
 	tp->timer.expires = jiffies + tp->timer_offset;
 	add_timer(&tp->timer);
@@ -5761,7 +5743,8 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
 		tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x2aaa);
 	}
 
-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
+	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) &&
+	    (tp->pci_chip_rev_id == CHIPREV_ID_5704_A0)) {
 		tg3_writephy(tp, 0x1c, 0x8d68);
 		tg3_writephy(tp, 0x1c, 0x8d68);
 	}
@@ -5981,8 +5964,11 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 
 	/* Force the chip into D0. */
 	err = tg3_set_power_state(tp, 0);
-	if (err)
+	if (err) {
+		printk(KERN_ERR PFX "(%s) transition to D0 failed\n",
+		       tp->pdev->slot_name);
 		return err;
+	}
 
 	/* 5700 B0 chips do not support checksumming correctly due
 	 * to hardware bugs.
@@ -6090,8 +6076,12 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	    grc_misc_cfg != GRC_MISC_CFG_BOARD_ID_5703 &&
 	    grc_misc_cfg != GRC_MISC_CFG_BOARD_ID_5703S &&
 	    grc_misc_cfg != GRC_MISC_CFG_BOARD_ID_5704 &&
-	    grc_misc_cfg != GRC_MISC_CFG_BOARD_ID_AC91002A1)
+	    grc_misc_cfg != GRC_MISC_CFG_BOARD_ID_5704_A2 &&
+	    grc_misc_cfg != GRC_MISC_CFG_BOARD_ID_AC91002A1) {
+		printk(KERN_ERR PFX "(%s) unknown board id 0x%x\n",
+		       tp->pdev->slot_name, grc_misc_cfg);
 		return -ENODEV;
+	}
 
 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 &&
 	    grc_misc_cfg == GRC_MISC_CFG_BOARD_ID_5704CIOBE) {
@@ -6107,6 +6097,11 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 		tp->tg3_flags |= TG3_FLAG_10_100_ONLY;
 
 	err = tg3_phy_probe(tp);
+	if (err) {
+		printk(KERN_ERR PFX "(%s) phy probe failed, err %d\n",
+		       tp->pdev->slot_name, err);
+		/* ... but do not return immediately ... */
+	}
 
 	tg3_read_partno(tp);
 

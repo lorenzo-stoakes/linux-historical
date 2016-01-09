@@ -1572,7 +1572,7 @@ static ssize_t generic_file_direct_IO(int rw, struct file * filp, char * buf, si
 	chunk_size = KIO_MAX_ATOMIC_IO << 10;
 
 	retval = -EINVAL;
-	if ((offset & blocksize_mask) || (count & blocksize_mask))
+	if ((offset & blocksize_mask) || (count & blocksize_mask) || ((unsigned long) buf & blocksize_mask))
 		goto out_free;
 	if (!mapping->a_ops->direct_IO)
 		goto out_free;

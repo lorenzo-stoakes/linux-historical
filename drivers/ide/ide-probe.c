@@ -608,7 +608,6 @@ void probe_hwif (ide_hwif_t *hwif)
 		probe_cmos_for_drives(hwif);
 	}
 #endif
-
 	if ((hwif->chipset != ide_4drives || !hwif->mate || !hwif->mate->present) &&
 #if CONFIG_BLK_DEV_PDC4030
 	    (hwif->chipset != ide_pdc4030 || hwif->channel == 0) &&
@@ -681,11 +680,18 @@ void probe_hwif (ide_hwif_t *hwif)
 
 	for (unit = 0; unit < MAX_DRIVES; ++unit) {
 		ide_drive_t *drive = &hwif->drives[unit];
+		int enable_dma = 1;
+
 		if (drive->present) {
 			if (hwif->tuneproc != NULL && 
 				drive->autotune == IDE_TUNE_AUTO)
 				/* auto-tune PIO mode */
 				hwif->tuneproc(drive, 255);
+
+#ifdef CONFIG_IDEDMA_ONLYDISK
+			if (drive->media != ide_disk)
+				enable_dma = 0;
+#endif
 			/*
 			 * MAJOR HACK BARF :-/
 			 *
@@ -705,7 +711,8 @@ void probe_hwif (ide_hwif_t *hwif)
 				 *   PARANOIA!!!
 				 */
 				hwif->ide_dma_off_quietly(drive);
-				hwif->ide_dma_check(drive);
+				if (enable_dma)
+					hwif->ide_dma_check(drive);
 			}
 		}
 	}

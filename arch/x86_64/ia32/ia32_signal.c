@@ -7,7 +7,7 @@
  *  2000-06-20  Pentium III FXSR, SSE support by Gareth Hughes
  *  2000-12-*   x86-64 compatibility mode signal handling by Andi Kleen
  * 
- *  $Id: ia32_signal.c,v 1.22 2002/07/29 10:34:03 ak Exp $
+ *  $Id: ia32_signal.c,v 1.25 2002/11/28 06:05:28 ak Exp $
  */
 
 #include <linux/sched.h>
@@ -76,7 +76,7 @@ static int ia32_copy_siginfo_to_user(siginfo_t32 *to, siginfo_t *from)
 	}
 }
 
-asmlinkage int
+asmlinkage long
 sys32_sigsuspend(int history0, int history1, old_sigset_t mask, struct pt_regs regs)
 {
 	sigset_t saveset;
@@ -97,7 +97,7 @@ sys32_sigsuspend(int history0, int history1, old_sigset_t mask, struct pt_regs r
 	}
 }
 
-asmlinkage int
+asmlinkage long
 sys32_sigaltstack(const stack_ia32_t *uss_ptr, stack_ia32_t *uoss_ptr, 
 				  struct pt_regs regs)
 {
@@ -173,31 +173,29 @@ ia32_restore_sigcontext(struct pt_regs *regs, struct sigcontext_ia32 *sc, unsign
 	  if (pre != cur) loadsegment(seg,pre); }
 
 	/* Reload fs and gs if they have changed in the signal handler.
-	   This does not handle long fs/gs base changes in the handler, but 
-	   does not clobber them at least in the normal case. */ 
+	   This does not handle long gs base changes in the handler, but 
+	   does not clobber it at least in the normal case. */ 
 	
 	{
 		unsigned short gs; 
+		unsigned int curgs;
 		err |= __get_user(gs, &sc->gs);
-		load_gs_index(gs); 
+		asm volatile("movl %%gs,%0" : "=r" (curgs)); 		
+		if (gs != curgs) 
+			load_gs_index(gs | 3); 
 	} 
-	RELOAD_SEG(fs,0);
-	RELOAD_SEG(ds,0);
-	RELOAD_SEG(es,0);
+	RELOAD_SEG(fs,3);
+	RELOAD_SEG(ds,3);
+	RELOAD_SEG(es,3);
 
 	COPY(di); COPY(si); COPY(bp); COPY(sp); COPY(bx);
 	COPY(dx); COPY(cx); COPY(ip);
 	/* Don't touch extended registers */ 
 
-#if 1	/* not ready for this yet */ 
 	err |= __get_user(regs->cs, &sc->cs); 
-	regs->cs |= 2; 	
+	regs->cs |= 3; 	
 	err |= __get_user(regs->ss, &sc->ss); 
-	regs->ss |= 2; 
-#else
-	regs->cs = __USER32_CS;
-	regs->ss = __USER32_DS; 
-#endif
+	regs->ss |= 3; 
 	
 	{
 		unsigned int tmpflags;
@@ -213,7 +211,7 @@ ia32_restore_sigcontext(struct pt_regs *regs, struct sigcontext_ia32 *sc, unsign
 		buf = (struct _fpstate_ia32 *) (u64)tmp;
 		if (buf) {
 			if (verify_area(VERIFY_READ, buf, sizeof(*buf)))
-				goto badframe;
+				return 1;
 			err |= restore_i387_ia32(current, buf, 0);
 		}
 	}
@@ -224,12 +222,9 @@ ia32_restore_sigcontext(struct pt_regs *regs, struct sigcontext_ia32 *sc, unsign
 		*peax = tmp;
 	}
 	return err;
-
-badframe:
-	return 1;
 }
 
-asmlinkage int sys32_sigreturn(struct pt_regs regs)
+asmlinkage long sys32_sigreturn(struct pt_regs regs)
 {
 	struct sigframe *frame = (struct sigframe *)(regs.rsp - 8);
 	sigset_t set;
@@ -258,7 +253,7 @@ badframe:
 	return 0;
 }	
 
-asmlinkage int sys32_rt_sigreturn(struct pt_regs regs)
+asmlinkage long sys32_rt_sigreturn(struct pt_regs regs)
 {
 	struct rt_sigframe *frame = (struct rt_sigframe *)(regs.rsp - 4);
 	sigset_t set;

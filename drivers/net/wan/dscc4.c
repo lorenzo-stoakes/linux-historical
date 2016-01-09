@@ -467,8 +467,8 @@ static void dscc4_release_ring(struct dscc4_dev_priv *dpriv)
 	skbuff = dpriv->rx_skbuff;
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		if (*skbuff) {
-			pci_unmap_single(pdev, rx_fd->data, (*skbuff)->len,
-				PCI_DMA_FROMDEVICE);
+			pci_unmap_single(pdev, rx_fd->data,
+				RX_MAX(HDLC_MAX_MRU), PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(*skbuff);
 		}
 		skbuff++;
@@ -480,17 +480,18 @@ inline int try_get_rx_skb(struct dscc4_dev_priv *dpriv, struct net_device *dev)
 {
 	unsigned int dirty = dpriv->rx_dirty%RX_RING_SIZE;
 	struct RxFD *rx_fd = dpriv->rx_fd + dirty;
+	const int len = RX_MAX(HDLC_MAX_MRU);
 	struct sk_buff *skb;
 	int ret = 0;
 
-	skb = dev_alloc_skb(RX_MAX(HDLC_MAX_MRU));
+	skb = dev_alloc_skb(len);
 	dpriv->rx_skbuff[dirty] = skb;
 	if (skb) {
 	skb->dev = dev;
-	skb->protocol = htons(ETH_P_IP);
+		skb->protocol = htons(ETH_P_HDLC);
 	skb->mac.raw = skb->data;
 		rx_fd->data = pci_map_single(dpriv->pci_priv->pdev, skb->data,
-					       skb->len, PCI_DMA_FROMDEVICE);
+					     len, PCI_DMA_FROMDEVICE);
 	} else {
 		rx_fd->data = (u32) NULL;
 		ret = -1;
@@ -613,14 +614,11 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
 	}
 	pkt_len = TO_SIZE(rx_fd->state2);
 	pci_dma_sync_single(pdev, rx_fd->data, pkt_len, PCI_DMA_FROMDEVICE);
-	pci_unmap_single(pdev, rx_fd->data, pkt_len, PCI_DMA_FROMDEVICE);
+	pci_unmap_single(pdev, rx_fd->data, RX_MAX(HDLC_MAX_MRU), PCI_DMA_FROMDEVICE);
 	if ((skb->data[--pkt_len] & FrameOk) == FrameOk) {
 		stats->rx_packets++;
 		stats->rx_bytes += pkt_len;
-		skb->tail += pkt_len;
-		skb->len = pkt_len;
-       	if (netif_running(dev))
-			skb->protocol = htons(ETH_P_HDLC);
+		skb_put(skb, pkt_len);
 		skb->dev->last_rx = jiffies;
 		netif_rx(skb);
 	} else {
@@ -1769,7 +1767,7 @@ static int dscc4_init_ring(struct net_device *dev)
 	        rx_fd->state1 = HiDesc;
 	        rx_fd->state2 = 0x00000000;
 	        rx_fd->end = 0xbabeface;
-	        rx_fd->state1 |= (RX_MAX(HDLC_MAX_MRU) << 16);
+	        rx_fd->state1 |= TO_STATE(RX_MAX(HDLC_MAX_MRU));
 		// FIXME: return value verifiee mais traitement suspect
 		if (try_get_rx_skb(dpriv, dev) >= 0)
 			dpriv->rx_dirty++;

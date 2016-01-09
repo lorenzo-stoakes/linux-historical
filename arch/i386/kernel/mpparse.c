@@ -891,18 +891,16 @@ void __init find_intel_smp (void)
 	 * there is a real-mode segmented pointer pointing to the
 	 * 4K EBDA area at 0x40E, calculate and scan it here.
 	 *
-	 * NOTE! There are Linux loaders that will corrupt the EBDA
+	 * NOTE! There were Linux loaders that will corrupt the EBDA
 	 * area, and as such this kind of SMP config may be less
 	 * trustworthy, simply because the SMP table may have been
-	 * stomped on during early boot. These loaders are buggy and
-	 * should be fixed.
+	 * stomped on during early boot.  Thankfully the bootloaders
+	 * now honour the EBDA.
 	 */
 
 	address = *(unsigned short *)phys_to_virt(0x40E);
 	address <<= 4;
 	smp_scan_config(address, 0x1000);
-	if (smp_found_config)
-		printk(KERN_WARNING "WARNING: MP table in the EBDA can be UNSAFE, contact linux-smp@vger.kernel.org if you experience SMP problems!\n");
 }
 
 #else

@@ -5,7 +5,7 @@
  *  Copyright (C) 2000, 2001, 2002  Andi Kleen SuSE Labs
  *  Copyright (C) 2000  Pavel Machek <pavel@suse.cz>
  * 
- *  $Id: entry.S,v 1.81 2002/09/12 12:55:25 ak Exp $		
+ *  $Id: entry.S,v 1.87 2003/01/14 14:37:08 ak Exp $		
  */
 
 /*
@@ -34,6 +34,7 @@
 #include <asm/offset.h>
 #include <asm/msr.h>
 #include <asm/unistd.h>
+#include <asm/hw_irq.h>
 
 	.code64
 
@@ -187,6 +188,7 @@ tracesys_done:		/* backtrace marker */
 	jmp ret_from_sys_call
 		
 badsys:
+	movq $0,ORIG_RAX-ARGOFFSET(%rsp)
 	movq $-ENOSYS,RAX-ARGOFFSET(%rsp)
 	jmp ret_from_sys_call
 
@@ -227,6 +229,7 @@ intret_signal_test:
 	je   retint_restore_args_swapgs
 	sti
 	call schedule
+	# RED-PEN: can we lose signals here?
 	jmp  intret_signal_test
 	
 /* 
@@ -369,6 +372,48 @@ retint_reschedule:
 	cli
 	jmp retint_with_reschedule
 		
+/* IF:off, stack contains irq number on origrax */ 	
+	.macro IRQ_ENTER	
+	cld
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %rax
+	pushq %r8
+	pushq %r9
+	pushq %r10
+	pushq %r11
+	leaq -48(%rsp),%rdi
+	testl $3,136(%rdi)
+	je 1f
+	swapgs
+1:	addl $1,%gs:pda_irqcount
+	movq %gs:pda_irqstackptr,%rax
+	cmoveq %rax,%rsp
+	pushq %rdi
+	.endm	
+
+	.macro BUILD_SMP_INTERRUPT x,v
+ENTRY(\x)
+	push $\v-256
+	IRQ_ENTER
+	call smp_\x
+	jmp ret_from_intr
+	.endm
+
+#ifdef CONFIG_SMP				
+	BUILD_SMP_INTERRUPT reschedule_interrupt,RESCHEDULE_VECTOR
+	BUILD_SMP_INTERRUPT invalidate_interrupt,INVALIDATE_TLB_VECTOR
+	BUILD_SMP_INTERRUPT call_function_interrupt,CALL_FUNCTION_VECTOR
+#endif
+#ifdef CONFIG_X86_LOCAL_APIC
+	BUILD_SMP_INTERRUPT apic_timer_interrupt,LOCAL_TIMER_VECTOR
+	BUILD_SMP_INTERRUPT error_interrupt,ERROR_APIC_VECTOR
+	BUILD_SMP_INTERRUPT spurious_interrupt,SPURIOUS_APIC_VECTOR
+#endif
+		
+		
 /*
  * Exception entry points.
  */ 		
@@ -407,8 +452,8 @@ error_entry:
 	je error_kernelspace
 	swapgs	
 	movl $1,%r15d	
-error_action:		
 	sti	
+error_action:
 	movq  %rdi,RDI(%rsp) 	
 	movq %rsp,%rdi
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */ 
@@ -432,11 +477,15 @@ error_restore:
 	jmp retint_restore_args
 	
 error_reschedule:
+	cmpl $2,%r15d
+	je  error_restore_swapgs
 	sti
 	call schedule
 	jmp  error_test
 
 error_signal:	
+	cmpl $2,%r15d
+	je  error_restore_swapgs	
 	sti
 	xorq %rsi,%rsi
 	movq %rsp,%rdi
@@ -452,12 +501,37 @@ error_signal_test:
 	
 error_kernelspace:	
 	xorl %r15d,%r15d
+	/* There are two places in the kernel that can potentially fault with
+	   usergs. Handle them here. */	   
 	cmpq $iret_label,RIP(%rsp)
+	je   1f
+	cmpq $gs_change,RIP(%rsp)
 	jne  error_action
-	movl $1,%r15d
+1:	movl $2,%r15d
 	swapgs
 	jmp error_action
 
+	/* Reload gs selector with exception handling */
+	/* edi:	 new selector */ 
+ENTRY(load_gs_index)
+	pushf
+	cli
+	swapgs
+gs_change:	
+	movl %edi,%gs	
+2:	swapgs
+	popf
+	ret
+	
+	.section __ex_table,"a"
+	.align 8
+	.quad gs_change,bad_gs
+	.previous
+
+bad_gs:
+	xorl %eax,%eax
+	movl %eax,%gs
+	jmp 2b
 /*
  * Create a kernel thread.
  *

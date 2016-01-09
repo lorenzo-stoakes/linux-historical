@@ -450,8 +450,6 @@
 #include <asm/bitops.h>
 
 
-#define NO_LONGER_REQUIRED	(1)
-
 /*
  *	OnStream support
  */
@@ -2165,11 +2163,6 @@ static ide_startstop_t idetape_pc_intr (ide_drive_t *drive)
 			status.b.check = 0;
 		if (status.b.check || test_bit(PC_DMA_ERROR, &pc->flags)) {
 			/* Error detected */
-#if IDETAPE_DEBUG_LOG
-			if (tape->debug_level >= 1)
-				printk(KERN_INFO "ide-tape: %s: I/O error\n",
-					tape->name);
-#endif /* IDETAPE_DEBUG_LOG */
 			if (pc->c[0] == IDETAPE_REQUEST_SENSE_CMD) {
 				printk(KERN_ERR "ide-tape: I/O error in "
 					"request sense command\n");
@@ -2270,8 +2263,8 @@ static ide_startstop_t idetape_pc_intr (ide_drive_t *drive)
 	pc->current_position += bcount.all;
 #if IDETAPE_DEBUG_LOG
 	if (tape->debug_level >= 2)
-		printk(KERN_INFO "ide-tape: [cmd %x] transferred %d bytes "
-			"on that interrupt\n", pc->c[0], bcount.all);
+		printk(KERN_INFO "ide-tape: [cmd %x] done %d\n"
+			pc->c[0], bcount.all);
 #endif
 	if (HWGROUP(drive)->handler != NULL)
 		BUG();
@@ -2614,8 +2607,11 @@ static ide_startstop_t idetape_media_access_finished (ide_drive_t *drive)
 	if (status.b.dsc) {
 		if (status.b.check) {
 			/* Error detected */
-			printk(KERN_ERR "ide-tape: %s: I/O error, ",
-					tape->name);
+			printk(KERN_ERR "ide-tape: %s: I/O error: "
+			    "pc = %2x, key = %2x, asc = %2x, ascq = %2x\n",
+			    tape->name, pc->c[0],
+			    tape->sense_key, tape->asc, tape->ascq);
+
 			/* Retry operation */
 			return idetape_retry_pc(drive);
 		}
@@ -3486,29 +3482,10 @@ static int idetape_read_position (ide_drive_t *drive)
 		printk (KERN_INFO "ide-tape: Reached %s\n", __FUNCTION__);
 #endif /* IDETAPE_DEBUG_LOG */
 
-#ifdef NO_LONGER_REQUIRED
-	idetape_flush_tape_buffers(drive);
-#endif
 	idetape_create_read_position_cmd(&pc);
 	if (idetape_queue_pc_tail(drive, &pc))
 		return -1;
 	position = tape->first_frame_position;
-#ifdef NO_LONGER_REQUIRED
-	if (tape->onstream) {
-		if ((position != tape->last_frame_position - tape->blocks_in_buffer) &&
-		    (position != tape->last_frame_position + tape->blocks_in_buffer)) {
-			if (tape->blocks_in_buffer == 0) {
-				printk("ide-tape: %s: correcting read "
-					"position %d, %d, %d\n",
-					tape->name, position,
-					tape->last_frame_position,
-					tape->blocks_in_buffer);
-				position = tape->last_frame_position;
-				tape->first_frame_position = position;
-			}
-		}
-	}
-#endif
 	return position;
 }
 
@@ -6195,6 +6172,10 @@ static void idetape_get_mode_sense_results (ide_drive_t *drive)
 		printk(KERN_INFO "ide-tape: %s: overriding capabilities->max_speed (assuming 650KB/sec)\n", drive->name);
 		capabilities->max_speed = 650;
 	}
+	if (!capabilities->ctl) {
+		printk(KERN_INFO "ide-tape: %s: overriding capabilities->ctl (assuming 26KB)\n", drive->name);
+		capabilities->ctl = 52;
+	}
 
 	tape->capabilities = *capabilities;		/* Save us a copy */
 	if (capabilities->blk512)
@@ -6250,10 +6231,6 @@ static void idetape_get_blocksize_from_block_descriptor(ide_drive_t *drive)
 	idetape_create_mode_sense_cmd(&pc, IDETAPE_BLOCK_DESCRIPTOR);
 	if (idetape_queue_pc_tail(drive, &pc)) {
 		printk(KERN_ERR "ide-tape: Can't get block descriptor\n");
-		if (tape->tape_block_size == 0) {
-			printk(KERN_WARNING "ide-tape: Cannot deal with zero block size, assume 32k\n");
-			tape->tape_block_size =  32768;
-		}
 		return;
 	}
 	header = (idetape_mode_parameter_header_t *) pc.buffer;
@@ -6350,6 +6327,10 @@ static void idetape_setup (ide_drive_t *drive, idetape_tape_t *tape, int minor)
 	idetape_get_inquiry_results(drive);
 	idetape_get_mode_sense_results(drive);
 	idetape_get_blocksize_from_block_descriptor(drive);
+	if (tape->tape_block_size == 0) {
+		printk(KERN_WARNING "ide-tape: Zero block size, using 512\n");
+		tape->tape_block_size = 512;
+	}
 	if (tape->onstream) {
 		idetape_onstream_mode_sense_tape_parameter_page(drive, 1);
 		idetape_configure_onstream(drive);
@@ -6480,11 +6461,7 @@ static ide_driver_t idetape_driver = {
 	version:		IDETAPE_VERSION,
 	media:			ide_tape,
 	busy:			1,
-#ifdef CONFIG_IDEDMA_ONLYDISK
-	supports_dma:		0,
-#else
 	supports_dma:		1,
-#endif
 	supports_dsc_overlap: 	1,
 	cleanup:		idetape_cleanup,
 	standby:		NULL,

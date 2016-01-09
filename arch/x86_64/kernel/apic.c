@@ -31,6 +31,8 @@
 #include <asm/pgalloc.h>
 #include <asm/timex.h>
 
+extern spinlock_t i8253_lock;
+
 /* Using APIC to generate smp_local_timer_interrupt? */
 int using_apic_timer = 0;
 
@@ -766,12 +768,13 @@ void setup_APIC_timer(void * data)
 	 * Wait for timer IRQ slice:
 	 */
 
-	if (hpet.address) {
+	if (hpet_address) {
 		int trigger = hpet_readl(HPET_T0_CMP);
 		while (hpet_readl(HPET_COUNTER) >= trigger);
 		while (hpet_readl(HPET_COUNTER) <  trigger);
 	} else {
 		int c1, c2;
+		spin_lock(&i8253_lock);
 		outb_p(0x00, 0x43);
 		c2 = inb_p(0x40);
 		c2 |= inb_p(0x40) << 8;
@@ -781,6 +784,7 @@ void setup_APIC_timer(void * data)
 			c2 = inb_p(0x40);
 			c2 |= inb_p(0x40) << 8;
 		} while (c2 - c1 < 300);
+		spin_unlock(&i8253_lock);
 	}
 
 	__setup_APIC_LVTT(clocks);
@@ -1018,6 +1022,7 @@ asmlinkage void smp_spurious_interrupt(void)
 		printk(KERN_INFO "spurious APIC interrupt on CPU#%d, %ld skipped.\n",
 		       smp_processor_id(), skipped);
 		last_warning = jiffies;
+		skipped = 0;
 	} else {
 		skipped++;
 	}
@@ -1084,9 +1089,10 @@ int __init APIC_init_uniprocessor (void)
 	if (nmi_watchdog == NMI_LOCAL_APIC)
 		check_nmi_watchdog();
 #ifdef CONFIG_X86_IO_APIC
-	if (smp_found_config)
-		if (!skip_ioapic_setup && nr_ioapics)
+	if (smp_found_config && !skip_ioapic_setup && nr_ioapics)
 			setup_IO_APIC();
+	else
+		nr_ioapics = 0;
 #endif
 	setup_APIC_clocks();
 

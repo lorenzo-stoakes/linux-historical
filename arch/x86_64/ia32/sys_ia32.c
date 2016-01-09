@@ -9,13 +9,13 @@
  * Copyright (C) 1997 		David S. Miller (davem@caip.rutgers.edu)
  * Copyright (C) 2000		Hewlett-Packard Co.
  * Copyright (C) 2000		David Mosberger-Tang <davidm@hpl.hp.com>
- * Copyright (C) 2000,2001	Andi Kleen, SuSE Labs (x86-64 port) 
+ * Copyright (C) 2000,2001,2002	Andi Kleen, SuSE Labs (x86-64 port) 
  *
  * These routines maintain argument size conversion between 32bit and 64bit
  * environment. In 2.5 most of this should be moved to a generic directory. 
  *
  * This file assumes that there is a hole at the end of user address space.
- * $Id: sys_ia32.c,v 1.42 2002/09/17 15:23:41 ak Exp $
+ * $Id: sys_ia32.c,v 1.49 2003/01/14 14:29:59 ak Exp $
  */
 
 #include <linux/config.h>
@@ -61,6 +61,7 @@
 #include <asm/semaphore.h>
 #include <asm/ipc.h>
 #include <asm/atomic.h>
+#include <asm/ldt.h>
 
 #include <net/scm.h>
 #include <net/sock.h>
@@ -225,7 +226,33 @@ sys32_fstat64(unsigned int fd, struct stat64 *statbuf)
 	return ret;
 }
 
+/* Don't set O_LARGEFILE implicitely. */
+asmlinkage long sys32_open(const char * filename, int flags, int mode)
+{
+	char * tmp;
+	int fd, error;
 
+	tmp = getname(filename);
+	fd = PTR_ERR(tmp);
+	if (!IS_ERR(tmp)) {
+		fd = get_unused_fd();
+		if (fd >= 0) {
+			struct file *f = filp_open(tmp, flags, mode);
+			error = PTR_ERR(f);
+			if (IS_ERR(f))
+				goto out_error;
+			fd_install(fd, f);
+		}
+out:
+		putname(tmp);
+	}
+	return fd;
+
+out_error:
+	put_unused_fd(fd);
+	fd = error;
+	goto out;
+}
 
 /*
  * Linux/i386 didn't use to be able to handle more than
@@ -242,7 +269,7 @@ struct mmap_arg_struct {
 	unsigned int offset;
 };
 
-asmlinkage __u32
+asmlinkage long
 sys32_mmap(struct mmap_arg_struct *arg)
 {
 	struct mmap_arg_struct a;
@@ -261,10 +288,9 @@ sys32_mmap(struct mmap_arg_struct *arg)
 		if (!file)
 			return -EBADF;
 	}
+	
 	if (a.prot & PROT_READ) 
 		a.prot |= PROT_EXEC; 
-
-	a.flags |= MAP_32BIT;
 
 	mm = current->mm; 
 	down_write(&mm->mmap_sem); 
@@ -272,11 +298,6 @@ sys32_mmap(struct mmap_arg_struct *arg)
 	if (file)
 		fput(file);
 
-	/* Should not happen */
-	if (retval >= 0xFFFFFFFF && (long)retval > 0) { 
-		do_munmap(mm, retval, a.len); 
-		retval = -ENOMEM; 
-	} 
 	up_write(&mm->mmap_sem); 
 
 	return retval;
@@ -284,7 +305,7 @@ sys32_mmap(struct mmap_arg_struct *arg)
 
 extern asmlinkage long sys_mprotect(unsigned long start,size_t len,unsigned long prot);
 
-asmlinkage int sys32_mprotect(unsigned long start, size_t len, unsigned long prot)
+asmlinkage long sys32_mprotect(unsigned long start, size_t len, unsigned long prot)
 {
 	if (prot & PROT_READ) 
 		prot |= PROT_EXEC; 
@@ -503,7 +524,7 @@ struct itimerval32
     struct timeval32 it_value;
 };
 
-static inline long
+static long
 get_tv32(struct timeval *o, struct timeval32 *i)
 {
 	int err = -EFAULT; 
@@ -514,7 +535,7 @@ get_tv32(struct timeval *o, struct timeval32 *i)
 	return err; 
 }
 
-static inline long
+static long
 put_tv32(struct timeval32 *o, struct timeval *i)
 {
 	int err = -EFAULT;
@@ -525,7 +546,7 @@ put_tv32(struct timeval32 *o, struct timeval *i)
 	return err; 
 }
 
-static inline long
+static long
 get_it32(struct itimerval *o, struct itimerval32 *i)
 {
 	int err = -EFAULT; 
@@ -538,7 +559,7 @@ get_it32(struct itimerval *o, struct itimerval32 *i)
 	return err;
 }
 
-static inline long
+static long
 put_it32(struct itimerval32 *o, struct itimerval *i)
 {
 	int err = -EFAULT;
@@ -589,7 +610,8 @@ sys32_setitimer(int which, struct itimerval32 *in, struct itimerval32 *out)
 	return 0;
 
 }
-asmlinkage unsigned long 
+
+asmlinkage long 
 sys32_alarm(unsigned int seconds)
 {
 	struct itimerval it_new, it_old;
@@ -935,22 +957,24 @@ sys32_nanosleep(struct timespec32 *rqtp, struct timespec32 *rmtp)
 asmlinkage ssize_t sys_readv(unsigned long,const struct iovec *,unsigned long);
 asmlinkage ssize_t sys_writev(unsigned long,const struct iovec *,unsigned long);
 
-struct iovec *
-get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type)
+static struct iovec *
+get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type, int *errp)
 {
 	int i;
 	u32 buf, len;
 	struct iovec *ivp, *iov;
+	unsigned long totlen; 
 
 	/* Get the "struct iovec" from user memory */
 
 	if (!count)
 		return 0;
-	if(verify_area(VERIFY_READ, iov32, sizeof(struct iovec32)*count))
-		return(struct iovec *)0;
 	if (count > UIO_MAXIOV)
 		return(struct iovec *)0;
+	if(verify_area(VERIFY_READ, iov32, sizeof(struct iovec32)*count))
+		return(struct iovec *)0;
 	if (count > UIO_FASTIOV) {
+		*errp = -ENOMEM; 
 		iov = kmalloc(count*sizeof(struct iovec), GFP_KERNEL);
 		if (!iov)
 			return((struct iovec *)0);
@@ -958,24 +982,33 @@ get_iovec32(struct iovec32 *iov32, struct iovec *iov_buf, u32 count, int type)
 		iov = iov_buf;
 
 	ivp = iov;
+	totlen = 0;
 	for (i = 0; i < count; i++) {
-		if (__get_user(len, &iov32->iov_len) ||
-		    __get_user(buf, &iov32->iov_base)) {
-			if (iov != iov_buf)
-				kfree(iov);
-			return((struct iovec *)0);
-		}
-		if (verify_area(type, (void *)A(buf), len)) {
-			if (iov != iov_buf)
-				kfree(iov);
-			return((struct iovec *)0);
-		}
+		*errp = __get_user(len, &iov32->iov_len) |
+		  	__get_user(buf, &iov32->iov_base);	
+		if (*errp)
+			goto error;
+		*errp = verify_area(type, (void *)A(buf), len);
+		if (*errp) 
+			goto error;
+		/* SuS checks: */
+		*errp = -EINVAL; 
+		if ((int)len < 0)
+			goto error;
+		if ((totlen += len) >= 0x7fffffff)
+			goto error;			
 		ivp->iov_base = (void *)A(buf);
 		ivp->iov_len = (__kernel_size_t)len;
 		iov32++;
 		ivp++;
 	}
+	*errp = 0;
 	return(iov);
+
+error:
+	if (iov != iov_buf)
+		kfree(iov);
+	return NULL;
 }
 
 asmlinkage long
@@ -986,8 +1019,8 @@ sys32_readv(int fd, struct iovec32 *vector, u32 count)
 	int ret;
 	mm_segment_t old_fs = get_fs();
 
-	if ((iov = get_iovec32(vector, iovstack, count, VERIFY_WRITE)) == (struct iovec *)0)
-		return -EFAULT;
+	if ((iov = get_iovec32(vector, iovstack, count, VERIFY_WRITE, &ret)) == NULL)
+		return ret;
 	set_fs(KERNEL_DS);
 	ret = sys_readv(fd, iov, count);
 	set_fs(old_fs);
@@ -1004,8 +1037,8 @@ sys32_writev(int fd, struct iovec32 *vector, u32 count)
 	int ret;
 	mm_segment_t old_fs = get_fs();
 
-	if ((iov = get_iovec32(vector, iovstack, count, VERIFY_READ)) == (struct iovec *)0)
-		return -EFAULT;
+	if ((iov = get_iovec32(vector, iovstack, count, VERIFY_READ, &ret)) == NULL)
+		return ret;
 	set_fs(KERNEL_DS);
 	ret = sys_writev(fd, iov, count);
 	set_fs(old_fs);
@@ -1092,7 +1125,7 @@ sys32_setrlimit(unsigned int resource, struct rlimit32 *rlim)
 
 /*
  * sys_time() can be implemented in user-level using
- * sys_gettimeofday().  IA64 did this but i386 Linux did not
+ * sys_gettimeofday().  x86-64 did this but i386 Linux did not
  * so we have to implement this system call here.
  */
 asmlinkage long sys32_time(int * tloc)
@@ -1354,7 +1387,7 @@ asmlinkage long sys32_fcntl64(unsigned int fd, unsigned int cmd, unsigned long a
 	return ret; 
 }
 
-int sys32_ni_syscall(int call)
+asmlinkage long sys32_ni_syscall(int call)
 { 
 	printk(KERN_INFO "IA32 syscall %d from %s not implemented\n", call,
 	       current->comm);
@@ -1812,7 +1845,7 @@ typedef __kernel_ssize_t32 ssize_t32;
 
 
 /* warning: next two assume little endian */ 
-asmlinkage ssize_t32
+asmlinkage long
 sys32_pread(unsigned int fd, char *ubuf, __kernel_size_t32 count,
 	    u32 poslo, u32 poshi)
 {
@@ -1820,7 +1853,7 @@ sys32_pread(unsigned int fd, char *ubuf, __kernel_size_t32 count,
 			 ((loff_t)AA(poshi) << 32) | AA(poslo));
 }
 
-asmlinkage ssize_t32
+asmlinkage long
 sys32_pwrite(unsigned int fd, char *ubuf, __kernel_size_t32 count,
 	     u32 poslo, u32 poshi)
 {
@@ -1865,6 +1898,30 @@ sys32_sendfile(int out_fd, int in_fd, __kernel_off_t32 *offset, s32 count)
 		return -EFAULT;
 		
 	return ret;
+}
+
+extern long sys_modify_ldt(int,void*,unsigned long);
+
+asmlinkage long sys32_modify_ldt(int func, void *ptr, unsigned long bytecount)
+{
+        long ret;
+        if (func == 0x1 || func == 0x11) { 
+				struct modify_ldt_ldt_s info;
+                mm_segment_t old_fs = get_fs();
+                if (bytecount != sizeof(struct modify_ldt_ldt_s))
+                        return -EINVAL;
+                if (copy_from_user(&info, ptr, sizeof(struct modify_ldt_ldt_s)))
+                        return -EFAULT;
+                /* lm bit was undefined in the 32bit ABI and programs
+                   give it random values. Force it to zero here. */
+                info.lm = 0; 
+                set_fs(KERNEL_DS);
+                ret = sys_modify_ldt(func, &info, bytecount);
+                set_fs(old_fs);
+        }  else { 
+                ret = sys_modify_ldt(func, ptr, bytecount); 
+        }
+        return ret;
 }
 
 /* Handle adjtimex compatability. */
@@ -1943,40 +2000,32 @@ sys32_adjtimex(struct timex32 *utp)
 	return ret;
 }
 
-
-/* common code for old and new mmaps */
-static inline long do_mmap2(
-	unsigned long addr, unsigned long len,
+asmlinkage long sys32_mmap2(unsigned long addr, unsigned long len,
 	unsigned long prot, unsigned long flags,
 	unsigned long fd, unsigned long pgoff)
 {
-	int error = -EBADF;
+	struct mm_struct *mm = current->mm;
+	unsigned long error;
 	struct file * file = NULL;
 
 	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
 	if (!(flags & MAP_ANONYMOUS)) {
 		file = fget(fd);
 		if (!file)
-			goto out;
+			return -EBADF;
 	}
 
-	down_write(&current->mm->mmap_sem);
-	error = do_mmap_pgoff(file, addr, len, prot, flags, pgoff);
-	up_write(&current->mm->mmap_sem);
+	if (prot & PROT_READ)
+		prot |= PROT_EXEC;
+
+	down_write(&mm->mmap_sem);
+	error = do_mmap_pgoff(file, addr, len, prot, flags|MAP_32BIT, pgoff);
+	up_write(&mm->mmap_sem);
 
 	if (file)
 		fput(file);
-out:
 	return error;
 }
-
-asmlinkage long sys32_mmap2(unsigned long addr, unsigned long len,
-	unsigned long prot, unsigned long flags,
-	unsigned long fd, unsigned long pgoff)
-{
-	return do_mmap2(addr, len, prot, flags, fd, pgoff);
-}
-
 
 asmlinkage long sys32_olduname(struct oldold_utsname * name)
 {
@@ -2024,7 +2073,7 @@ asmlinkage long sys32_uname(struct old_utsname * name)
 
 extern int sys_ustat(dev_t, struct ustat *);
 
-int sys32_ustat(dev_t dev, struct ustat32 *u32p)
+asmlinkage long sys32_ustat(dev_t dev, struct ustat32 *u32p)
 {
 	struct ustat u;
 	mm_segment_t seg;
@@ -2067,7 +2116,7 @@ static int nargs(u32 src, char **dst)
 	return cnt; 
 } 
 
-int sys32_execve(char *name, u32 argv, u32 envp, struct pt_regs regs)
+asmlinkage long sys32_execve(char *name, u32 argv, u32 envp, struct pt_regs regs)
 { 
 	mm_segment_t oldseg; 
 	char **buf; 
@@ -2121,12 +2170,12 @@ free:
 	return ret; 
 } 
 
-asmlinkage int sys32_fork(struct pt_regs regs)
+asmlinkage long sys32_fork(struct pt_regs regs)
 {
 	return do_fork(SIGCHLD, regs.rsp, &regs, 0);
 }
 
-asmlinkage int sys32_clone(unsigned int clone_flags, unsigned int newsp, struct pt_regs regs)
+asmlinkage long sys32_clone(unsigned int clone_flags, unsigned int newsp, struct pt_regs regs)
 {
 	if (!newsp)
 		newsp = regs.rsp;
@@ -2143,7 +2192,7 @@ asmlinkage int sys32_clone(unsigned int clone_flags, unsigned int newsp, struct 
  * do not have enough call-clobbered registers to hold all
  * the information you need.
  */
-asmlinkage int sys32_vfork(struct pt_regs regs)
+asmlinkage long sys32_vfork(struct pt_regs regs)
 {
 	return do_fork(CLONE_VFORK | CLONE_VM | SIGCHLD, regs.rsp, &regs, 0);
 }
@@ -2154,14 +2203,14 @@ asmlinkage int sys32_vfork(struct pt_regs regs)
 
 extern off_t sys_lseek (unsigned int fd, off_t offset, unsigned int origin);
 
-int sys32_lseek (unsigned int fd, int offset, unsigned int whence)
+asmlinkage long sys32_lseek (unsigned int fd, int offset, unsigned int whence)
 {
 	return sys_lseek(fd, offset, whence);
 }
 
 extern int sys_kill(pid_t pid, int sig); 
 
-int sys32_kill(int pid, int sig)
+asmlinkage long sys32_kill(int pid, int sig)
 {
 	return sys_kill(pid, sig);
 }
@@ -2306,54 +2355,6 @@ static int nfs_exp32_trans(struct nfsctl_arg *karg, struct nfsctl_arg32 *arg32)
 	return err;
 }
 
-static int nfs_uud32_trans(struct nfsctl_arg *karg, struct nfsctl_arg32 *arg32)
-{
-	u32 uaddr;
-	int i;
-	int err;
-
-	memset(karg, 0, sizeof(*karg));
-	if(get_user(karg->ca_version, &arg32->ca32_version))
-		return -EFAULT;
-	karg->ca_umap.ug_ident = (char *)get_free_page(GFP_USER);
-	if(!karg->ca_umap.ug_ident)
-		return -ENOMEM;
-	err = get_user(uaddr, &arg32->ca32_umap.ug32_ident);
-	if(strncpy_from_user(karg->ca_umap.ug_ident,
-			     (char *)A(uaddr), PAGE_SIZE) <= 0)
-		return -EFAULT;
-	err |= __get_user(karg->ca_umap.ug_uidbase,
-		      &arg32->ca32_umap.ug32_uidbase);
-	err |= __get_user(karg->ca_umap.ug_uidlen,
-		      &arg32->ca32_umap.ug32_uidlen);
-	err |= __get_user(uaddr, &arg32->ca32_umap.ug32_udimap);
-	if (err)
-		return -EFAULT;
-	karg->ca_umap.ug_udimap = kmalloc((sizeof(uid_t) * karg->ca_umap.ug_uidlen),
-					  GFP_USER);
-	if(!karg->ca_umap.ug_udimap)
-		return -ENOMEM;
-	for(i = 0; i < karg->ca_umap.ug_uidlen; i++)
-		err |= __get_user(karg->ca_umap.ug_udimap[i],
-			      &(((__kernel_uid_t32 *)A(uaddr))[i]));
-	err |= __get_user(karg->ca_umap.ug_gidbase,
-		      &arg32->ca32_umap.ug32_gidbase);
-	err |= __get_user(karg->ca_umap.ug_uidlen,
-		      &arg32->ca32_umap.ug32_gidlen);
-	err |= __get_user(uaddr, &arg32->ca32_umap.ug32_gdimap);
-	if (err)
-		return -EFAULT;
-	karg->ca_umap.ug_gdimap = kmalloc((sizeof(gid_t) * karg->ca_umap.ug_uidlen),
-					  GFP_USER);
-	if(!karg->ca_umap.ug_gdimap)
-		return -ENOMEM;
-	for(i = 0; i < karg->ca_umap.ug_gidlen; i++)
-		err |= __get_user(karg->ca_umap.ug_gdimap[i],
-			      &(((__kernel_gid_t32 *)A(uaddr))[i]));
-
-	return err;
-}
-
 static int nfs_getfh32_trans(struct nfsctl_arg *karg, struct nfsctl_arg32 *arg32)
 {
 	int err;
@@ -2411,7 +2412,7 @@ static int nfs_getfh32_res_trans(union nfsctl_res *kres, union nfsctl_res32 *res
 	return copy_to_user(res32, kres, sizeof(*res32));
 }
 
-int asmlinkage sys32_nfsservctl(int cmd, struct nfsctl_arg32 *arg32, union nfsctl_res32 *res32)
+long asmlinkage sys32_nfsservctl(int cmd, struct nfsctl_arg32 *arg32, union nfsctl_res32 *res32)
 {
 	struct nfsctl_arg *karg = NULL;
 	union nfsctl_res *kres = NULL;
@@ -2441,10 +2442,6 @@ int asmlinkage sys32_nfsservctl(int cmd, struct nfsctl_arg32 *arg32, union nfsct
 	case NFSCTL_EXPORT:
 	case NFSCTL_UNEXPORT:
 		err = nfs_exp32_trans(karg, arg32);
-		break;
-	/* This one is unimplemented, be we're ready for it. */
-	case NFSCTL_UGIDUPDATE:
-		err = nfs_uud32_trans(karg, arg32);
 		break;
 	case NFSCTL_GETFH:
 		err = nfs_getfh32_trans(karg, arg32);
@@ -2492,13 +2489,13 @@ done:
 }
 #else /* !NFSD */
 extern asmlinkage long sys_ni_syscall(void);
-int asmlinkage sys32_nfsservctl(int cmd, void *notused, void *notused2)
+long asmlinkage sys32_nfsservctl(int cmd, void *notused, void *notused2)
 {
 	return sys_ni_syscall();
 }
 #endif
 
-int sys32_module_warning(void)
+long sys32_module_warning(void)
 { 
 	static long warn_time = -(60*HZ); 
 	if (time_before(warn_time + 60*HZ,jiffies) && strcmp(current->comm,"klogd")) { 
@@ -2509,15 +2506,27 @@ int sys32_module_warning(void)
 	return -ENOSYS ;
 } 
 
+long sys32_vm86_warning(void)
+{ 
+	static long warn_time = -(60*HZ); 
+	if (time_before(warn_time + 60*HZ,jiffies)) { 
+		printk(KERN_INFO "%s: vm86 mode not supported on 64 bit kernel\n",
+		       current->comm);
+		warn_time = jiffies;
+	} 
+	return -ENOSYS ;
+} 
+
+/* This only triggers an i686 uname */
 struct exec_domain ia32_exec_domain = { 
-	name: "linux/x86",
+	name: "linux/uname-i686",
 	pers_low: PER_LINUX32,
 	pers_high: PER_LINUX32,
 };      
 
 static int __init ia32_init (void)
 {
-	printk("IA32 emulation $Id: sys_ia32.c,v 1.42 2002/09/17 15:23:41 ak Exp $\n");  
+	printk("IA32 emulation $Id: sys_ia32.c,v 1.49 2003/01/14 14:29:59 ak Exp $\n");  
 	ia32_exec_domain.signal_map = default_exec_domain.signal_map;
 	ia32_exec_domain.signal_invmap = default_exec_domain.signal_invmap;
 	register_exec_domain(&ia32_exec_domain);

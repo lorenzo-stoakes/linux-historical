@@ -4,10 +4,13 @@
  * Driver for USB Scanners (linux-2.4.21)
  *
  * Copyright (C) 1999, 2000, 2001, 2002 David E. Nelson
+ * Copyright (C) 2002, 2003 Henning Meier-Geinitz
  *
  * Portions may be copyright Brad Keryan and Michael Gee.
  *
- * Brian Beattie <beattie@beattie-home.net>
+ * Previously maintained by Brian Beattie
+ *
+ * Current maintainer: Henning Meier-Geinitz <henning@meier-geinitz.de>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -330,12 +333,21 @@
  *    - Add locking to ioctl_scanner(). Thanks to Oliver Neukum
  *      <oliver@neukum.name>.
  *
+ * 0.4.10  01/07/2003
+ *    - Added vendor/product ids for Visioneer scanners.
+ *    - Print information about user-supplied ids only once at startup instead
+ *      of everytime any USB device is plugged in.
+ *    - Removed PV8630 ioctls. Use the standard ioctls instead.
+ *    - Made endpoint detection more generic. Basically, only one bulk-in 
+ *      endpoint is required, everything else is optional.
+ *    - Move the scanner ioctls to usb_scanner_ioctl.h to allow access by archs
+ *      that need it (by Greg KH).
+ *    - New maintainer: Henning Meier-Geinitz.
+ *      
  * TODO
- *    - Remove the 2/3 endpoint limitation
  *    - Performance
  *    - Select/poll methods
  *    - More testing
- *    - Proper registry/assignment for LM9830 ioctl's
  *    - More general usage ioctl's
  *
  *
@@ -353,7 +365,7 @@
  *    - All the developers that are working on USB SANE backends or other
  *      applications to use USB scanners.
  *    - Thanks to Greg KH <greg@kroah.com> for setting up Brian Beattie
- *      to be the new USB Scanner maintainer.
+ *      and Henning Meier-Geinitz to be the new USB Scanner maintainer.
  *
  *  Performance:
  *
@@ -361,6 +373,14 @@
  *            300 dpi scan of the entire bed
  *      24 Bit Color ~ 70 secs - 3.6 Mbit/sec
  *       8 Bit Gray ~ 17 secs - 4.2 Mbit/sec */
+
+/*
+ * For documentation, see Documentation/usb/scanner.txt.
+ * Website: http://www.meier-geinitz.de/kernel/
+ * Please contact the maintainer if your scanner is not detected by this
+ * driver automatically.
+ */
+
 
 /* 
  * Scanner definitions, macros, module info, 
@@ -718,54 +738,6 @@ ioctl_scanner(struct inode *inode, struct file *file,
 	case SCANNER_IOCTL_PRODUCT :
 		retval = (put_user(dev->descriptor.idProduct, (unsigned int *) arg));
 		break;
-#ifdef PV8630
-	case PV8630_IOCTL_INREQUEST :
-	{
-		struct {
-			__u8  data;
-			__u8  request;
-			__u16 value;
-			__u16 index;
-		} args;
-
-		if (copy_from_user(&args, (void *)arg, sizeof(args))) {
-			retval = -EFAULT;
-			break;
-		}
-
-		retval = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
-					 args.request, USB_TYPE_VENDOR|
-					 USB_RECIP_DEVICE|USB_DIR_IN,
-					 args.value, args.index, &args.data,
-					 1, HZ*5);
-
-		if (copy_to_user((void *)arg, &args, sizeof(args)))
-			retval = -EFAULT;
-
-		break;
-	}
-	case PV8630_IOCTL_OUTREQUEST :
-	{
-		struct {
-			__u8  request;
-			__u16 value;
-			__u16 index;
-		} args;
-
-		if (copy_from_user(&args, (void *)arg, sizeof(args))) {
-			retval = -EFAULT;
-			break;
-		}
-
-		retval = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
-					 args.request, USB_TYPE_VENDOR|
-					 USB_RECIP_DEVICE|USB_DIR_OUT,
-					 args.value, args.index, NULL,
-					 0, HZ*5);
-
-		break;
-	}
-#endif /* PV8630 */
  	case SCANNER_IOCTL_CTRLMSG:
  	{
  		struct ctrlmsg_ioctl {
@@ -849,10 +821,6 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	char have_bulk_in, have_bulk_out, have_intr;
 	char name[10];
 
-	if (vendor != -1 && product != -1) {
-		info("probe_scanner: User specified USB scanner -- Vendor:Product - %x:%x", vendor, product);
-	}
-
 	dbg("probe_scanner: USB dev address:%p", dev);
 	dbg("probe_scanner: ifnum:%u", ifnum);
 
@@ -907,7 +875,7 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 
 	if (interface[0].bInterfaceClass != USB_CLASS_VENDOR_SPEC &&
 	    interface[0].bInterfaceClass != USB_CLASS_PER_INTERFACE &&
-	    interface[0].bInterfaceClass != 16) {
+	    interface[0].bInterfaceClass != SCN_CLASS_SCANJET) {
 		dbg("probe_scanner: This interface doesn't look like a scanner (class=0x%x).", interface[0].bInterfaceClass);
 		return NULL;
 	}
@@ -915,38 +883,45 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	endpoint = interface[0].endpoint;
 
 /*
- * Start checking for one or two bulk endpoints and an optional
- * interrupt endpoint. If we have an interrupt endpoint go ahead and
+ * Start checking for bulk and interrupt endpoints. We are only using the first
+ * one of each type of endpoint. If we have an interrupt endpoint go ahead and
  * setup the handler. FIXME: This is a future enhancement...
  */
 
 	dbg("probe_scanner: Number of Endpoints:%d", (int) interface->bNumEndpoints);
 
-	if ((interface->bNumEndpoints < 1) || (interface->bNumEndpoints > 3)) {
-		info("probe_scanner: Only 1, 2, or 3 endpoints supported.");
-		return NULL;
-	}
-
 	ep_cnt = have_bulk_in = have_bulk_out = have_intr = 0;
 
 	while (ep_cnt < interface->bNumEndpoints) {
 
-		if (!have_bulk_in && IS_EP_BULK_IN(endpoint[ep_cnt])) {
+		if (IS_EP_BULK_IN(endpoint[ep_cnt])) {
 			ep_cnt++;
+			if (have_bulk_in) {
+				info ("probe_scanner: ignoring additional bulk_in_ep:%d", ep_cnt);
+				continue;
+			}
 			have_bulk_in = ep_cnt;
 			dbg("probe_scanner: bulk_in_ep:%d", have_bulk_in);
 			continue;
 		}
 
-		if (!have_bulk_out && IS_EP_BULK_OUT(endpoint[ep_cnt])) {
+		if (IS_EP_BULK_OUT(endpoint[ep_cnt])) {
 			ep_cnt++;
+			if (have_bulk_out) {
+				info ("probe_scanner: ignoring additional bulk_out_ep:%d", ep_cnt);
+				continue;
+			}
 			have_bulk_out = ep_cnt;
 			dbg("probe_scanner: bulk_out_ep:%d", have_bulk_out);
 			continue;
 		}
 
-		if (!have_intr && IS_EP_INTR(endpoint[ep_cnt])) {
+		if (IS_EP_INTR(endpoint[ep_cnt])) {
 			ep_cnt++;
+			if (have_intr) {
+				info ("probe_scanner: ignoring additional intr_ep:%d", ep_cnt);
+				continue;
+			}
 			have_intr = ep_cnt;
 			dbg("probe_scanner: intr_ep:%d", have_intr);
 			continue;
@@ -960,28 +935,8 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
  * Perform a quick check to make sure that everything worked as it
  * should have.
  */
-
-	switch(interface->bNumEndpoints) {
-	case 1:
-		if (!have_bulk_in) {
-			info("probe_scanner: One bulk-in endpoint required.");
-			return NULL;
-		}
-		break;
-	case 2:
-		if (!have_bulk_in || !have_bulk_out) {
-			info("probe_scanner: Two bulk endpoints required.");
-			return NULL;
-		}
-		break;
-	case 3:
-		if (!have_bulk_in || !have_bulk_out || !have_intr) {
-			info("probe_scanner: Two bulk endpoints and one interrupt endpoint required.");
-			return NULL;
-		}
-		break;
-	default:
-		info("probe_scanner: Endpoint determination failed --  consult Documentation/usb/scanner.txt");
+	if (!have_bulk_in) {
+		err("probe_scanner: One bulk-in endpoint required.");
 		return NULL;
 	}
 
@@ -1062,7 +1017,6 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 		break;
 	case 0x055f:		/* Mustek */
 	case 0x0400:		/* Another Mustek */
-	case 0x0ff5:		/* And yet another Mustek */
 		scn->rd_nak_timeout = HZ * 1;
 	default:
 		scn->rd_nak_timeout = RD_NAK_TIMEOUT;
@@ -1151,6 +1105,8 @@ usb_scanner_init (void)
                 return -1;
 
 	info(DRIVER_VERSION ":" DRIVER_DESC);
+	if (vendor != -1 && product != -1)
+		info("probe_scanner: User specified USB scanner -- Vendor:Product - %x:%x", vendor, product);
 	return 0;
 }
 

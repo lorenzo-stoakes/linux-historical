@@ -2093,11 +2093,7 @@ static ide_driver_t idefloppy_driver = {
 	version:		IDEFLOPPY_VERSION,
 	media:			ide_floppy,
 	busy:			0,
-#ifdef CONFIG_IDEDMA_ONLYDISK
-	supports_dma:		0,
-#else
 	supports_dma:		1,
-#endif
 	supports_dsc_overlap:	0,
 	cleanup:		idefloppy_cleanup,
 	standby:		NULL,

@@ -816,7 +816,7 @@ static void ad1889_codec_write(struct ac97_codec *ac97, u8 reg, u16 val)
 	ad1889_dev_t *dev = ac97->private_data;
 
 	//DBG("Writing 0x%x to 0x%lx\n", val, dev->regbase + 0x100 + reg);
-	return AD1889_WRITEW(dev, 0x100 + reg, val);
+	AD1889_WRITEW(dev, 0x100 + reg, val);
 }
 
 static u16 ad1889_codec_read(struct ac97_codec *ac97, u8 reg)

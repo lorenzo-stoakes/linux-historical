@@ -34,7 +34,7 @@ extern unsigned long numa_free_all_bootmem(void);
 extern void reserve_bootmem_generic(unsigned long phys, unsigned len);
 extern void free_bootmem_generic(unsigned long phys, unsigned len);
 
-extern unsigned long start_pfn, end_pfn; 
+extern unsigned long start_pfn, end_pfn, end_pfn_map; 
 
 extern void show_stack(unsigned long * rsp);
 

@@ -123,6 +123,9 @@ static inline void flush_dcache_page(struct page *page)
 
 #define flush_icache_page(vma,page)	do { flush_kernel_dcache_page(page_address(page)); flush_kernel_icache_page(page_address(page)); } while (0)
 
+#define flush_icache_user_range(vma, page, addr, len) \
+	flush_user_icache_range(addr, addr + len);
+
 #define flush_icache_range(s,e)		do { flush_kernel_dcache_range_asm(s,e); flush_kernel_icache_range_asm(s,e); } while (0)
 
 /* TLB flushing routines.... */

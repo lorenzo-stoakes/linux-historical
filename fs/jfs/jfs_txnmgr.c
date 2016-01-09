@@ -157,7 +157,6 @@ struct {
  * external references
  */
 extern int lmGroupCommit(struct jfs_log *, struct tblock *);
-extern int lmGCwrite(struct jfs_log *, int);
 extern void lmSync(struct jfs_log *);
 extern int jfs_commit_inode(struct inode *, int);
 extern int jfs_stop_threads;
@@ -1832,18 +1831,10 @@ void xtLog(struct jfs_log * log, struct tblock * tblk, struct lrd * lrd,
 		} else {
 			/*
 			 * xdlist will point to into inode's xtree, ensure
-			 * that transaction is not committed lazily unless
-			 * we're deleting the inode (unlink).  In that case
-			 * we have special logic for the inode to be
-			 * unlocked by the lazy commit thread.
+			 * that transaction is not committed lazily.
 			 */
 			xadlock->xdlist = &p->xad[XTENTRYSTART];
-			if ((tblk->xflag & COMMIT_LAZY) &&
-			    (tblk->xflag & COMMIT_DELETE) &&
-			    (tblk->ip == ip))
-				set_cflag(COMMIT_Holdlock, ip);
-			else
-				tblk->xflag &= ~COMMIT_LAZY;
+			tblk->xflag &= ~COMMIT_LAZY;
 		}
 		jFYI(1,
 		     ("xtLog: free ip:0x%p mp:0x%p count:%d lwm:2\n",
@@ -2375,10 +2366,6 @@ static void txUpdateMap(struct tblock * tblk)
 		ip = tblk->ip;
 		diUpdatePMap(ipimap, ip->i_ino, TRUE, tblk);
 		ipimap->i_state |= I_DIRTY;
-		if (test_and_clear_cflag(COMMIT_Holdlock, ip)) {
-			if (tblk->flag & tblkGC_LAZY)
-				IWRITE_UNLOCK(ip);
-		}
 		iput(ip);
 	}
 }
@@ -2964,12 +2951,7 @@ restart:
 	/*
 	 * We may need to kick off the group commit
 	 */
-	spin_lock_irq(&log->gclock);	// LOGGC_LOCK
-	if (log->cqueue.head && !(log->cflag & logGC_PAGEOUT)) {
-		log->cflag |= logGC_PAGEOUT;
-		lmGCwrite(log, 0);
-	}
-	spin_unlock_irq(&log->gclock);	// LOGGC_UNLOCK
+	jfs_flush_journal(log, 0);
 }
 
 /*

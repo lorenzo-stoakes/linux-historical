@@ -21,6 +21,7 @@
 //#include <linux/locks.h>
 #include "jfs_incore.h"
 #include "jfs_filsys.h"
+#include "jfs_dmap.h"
 #include "jfs_imap.h"
 #include "jfs_extent.h"
 #include "jfs_unicode.h"
@@ -49,10 +50,8 @@ void jfs_clear_inode(struct inode *inode)
 	jFYI(1, ("jfs_clear_inode called ip = 0x%p\n", inode));
 
 	if (ji->active_ag != -1) {
-		printk(KERN_ERR "jfs_clear_inode, active_ag = %d\n",
-		       ji->active_ag);
-		printk(KERN_ERR "i_ino = %ld, i_mode = %o\n",
-		       inode->i_ino, inode->i_mode);
+		struct bmap *bmap = JFS_SBI(inode->i_sb)->bmap;
+		atomic_dec(&bmap->db_active[ji->active_ag]);
 	}
 
 	ASSERT(list_empty(&ji->anon_inode_list));

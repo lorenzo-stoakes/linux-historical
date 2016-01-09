@@ -362,7 +362,7 @@ fail:
 	kmsg->msg_control = (void *) orig_cmsg_uptr;
 }
 
-asmlinkage int sys32_sendmsg(int fd, struct msghdr32 *user_msg, unsigned user_flags)
+asmlinkage long sys32_sendmsg(int fd, struct msghdr32 *user_msg, unsigned user_flags)
 {
 	struct socket *sock;
 	char address[MAX_SOCK_ADDR];
@@ -407,7 +407,7 @@ out:
 	return err;
 }
 
-asmlinkage int sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int user_flags)
+asmlinkage long sys32_recvmsg(int fd, struct msghdr32 *user_msg, unsigned int user_flags)
 {
 	struct iovec iovstack[UIO_FASTIOV];
 	struct msghdr kern_msg;
@@ -561,7 +561,7 @@ static int do_set_icmpv6_filter(int fd, int level, int optname,
 	return ret;
 }
 
-asmlinkage int sys32_setsockopt(int fd, int level, int optname,
+asmlinkage long sys32_setsockopt(int fd, int level, int optname,
 				char *optval, int optlen)
 {
 	if (optname == SO_ATTACH_FILTER)
@@ -664,7 +664,7 @@ asmlinkage long sys32_socketcall(int call, u32 *args)
 			ret = sys_shutdown(a0,a1);
 			break;
 		case SYS_SETSOCKOPT:
-			ret = sys_setsockopt(a0, a1, a[2], (char *)A(a[3]),
+			ret = sys32_setsockopt(a0, a1, a[2], (char *)A(a[3]),
 					      a[4]);
 			break;
 		case SYS_GETSOCKOPT:

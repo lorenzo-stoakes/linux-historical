@@ -36,7 +36,10 @@ extern void __no_lpq_restore_flags(unsigned long);
 #else
 
 #define __save_flags(flags)	((flags) = mfmsr())
-#define __restore_flags(flags)	mtmsrd(flags)
+#define __restore_flags(flags) do { \
+	__asm__ __volatile__("": : :"memory"); \
+	mtmsrd(flags); \
+} while(0)
 
 static inline void __cli(void)
 {

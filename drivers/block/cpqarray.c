@@ -1279,13 +1279,6 @@ static int ida_ioctl(struct inode *inode, struct file *filep, unsigned int cmd, 
 		ida_ioctl_t *io = (ida_ioctl_t*)arg;
 		return copy_to_user(&io->c.drv,&hba[ctlr]->drv[dsk],sizeof(drv_info_t));
 	}
-	case BLKGETSIZE:
-		if (!arg) 
-			return -EINVAL;
-		return put_user(hba[ctlr]->hd[MINOR(inode->i_rdev)].nr_sects, 
-			(unsigned long *)arg);
-	case BLKGETSIZE64:
-		return put_user((u64)(hba[ctlr]->hd[MINOR(inode->i_rdev)].nr_sects) << 9, (u64*)arg);
 	case BLKRRPART:
 		return revalidate_logvol(inode->i_rdev, 1);
 	case IDAPASSTHRU:
@@ -1379,6 +1372,8 @@ static int ida_ioctl(struct inode *inode, struct file *filep, unsigned int cmd, 
 		return(0);
 	}
 
+	case BLKGETSIZE:
+	case BLKGETSIZE64:
 	case BLKFLSBUF:
 	case BLKBSZSET:
 	case BLKBSZGET:

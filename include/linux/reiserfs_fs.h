@@ -1748,11 +1748,12 @@ void make_le_item_head (struct item_head * ih, const struct cpu_key * key,
 struct inode * reiserfs_iget (struct super_block * s, 
 			      const struct cpu_key * key);
 
-
-struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th, 
-				   struct inode * dir, int mode, 
-				   const char * symname, int item_len,
-				   struct dentry *dentry, struct inode *inode, int * err);
+int reiserfs_new_inode (struct reiserfs_transaction_handle *th,
+                               struct inode * dir, int mode,
+                               const char * symname,
+                               int i_size,
+                               struct dentry *dentry,
+                               struct inode *inode);
 int reiserfs_sync_inode (struct reiserfs_transaction_handle *th, struct inode * inode);
 void reiserfs_update_sd (struct reiserfs_transaction_handle *th, struct inode * inode);
 

@@ -271,7 +271,7 @@ struct IRQ_TABLE{ unsigned mask; int irq ;};
 #if 0
 static struct IRQ_TABLE iirqs[]={
   {Q40_IRQ_FRAME_MASK,Q40_IRQ_FRAME},
-  Q40_{IRQ_KEYB_MASK,Q40_IRQ_KEYBOARD},
+  {Q40_IRQ_KEYB_MASK,Q40_IRQ_KEYBOARD},
   {0,0}};
 #endif
 static struct IRQ_TABLE eirqs[]={

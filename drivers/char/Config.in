@@ -199,6 +199,12 @@ if [ "$CONFIG_QIC02_TAPE" != "n" ]; then
    fi
 fi
 
+tristate 'IPMI top-level message handler' CONFIG_IPMI_HANDLER
+dep_mbool '  Generate a panic event to all BMCs on a panic' CONFIG_IPMI_PANIC_EVENT $CONFIG_IPMI_HANDLER
+dep_tristate '  Device interface for IPMI' CONFIG_IPMI_DEVICE_INTERFACE $CONFIG_IPMI_HANDLER
+dep_tristate '  IPMI KCS handler' CONFIG_IPMI_KCS $CONFIG_IPMI_HANDLER
+dep_tristate '  IPMI Watchdog Timer' CONFIG_IPMI_WATCHDOG $CONFIG_IPMI_HANDLER
+
 mainmenu_option next_comment
 comment 'Watchdog Cards'
 bool 'Watchdog Timer Support'	CONFIG_WATCHDOG

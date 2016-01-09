@@ -22,9 +22,6 @@
 #define MAX_HWIFS	4
 #endif
 
-void ppc64_ide_fix_driveid(struct hd_driveid *id);
-#define ide_fix_driveid(id)	ppc64_ide_fix_driveid((id))
-
 static __inline__ int ide_default_irq(ide_ioreg_t base) { return 0; }
 static __inline__ ide_ioreg_t ide_default_io_base(int index) { return 0; }
 
@@ -50,6 +47,8 @@ static __inline__ void ide_init_hwif_ports(hw_regs_t *hw, ide_ioreg_t data_port,
 static __inline__ void ide_init_default_hwifs(void)
 {
 }
+
+#include <asm-generic/ide_iops.h>
 
 #endif /* __KERNEL__ */
 

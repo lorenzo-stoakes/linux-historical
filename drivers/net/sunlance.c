@@ -1502,6 +1502,7 @@ static inline struct sbus_dma *find_ledma(struct sbus_dev *sdev)
 #ifdef CONFIG_SUN4
 
 #include <asm/sun4paddr.h>
+#include <asm/machines.h>
 
 /* Find all the lance cards on the system and initialize them */
 static int __init sparc_lance_probe(void)

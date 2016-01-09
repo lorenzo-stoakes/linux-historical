@@ -231,6 +231,9 @@ static ssize_t joydev_read(struct file *file, char *buf, size_t count, loff_t *p
 
 	if (count < sizeof(struct js_event))
 		return -EINVAL;
+	
+	if (!joydev->exist)
+		return -ENODEV;
 
 	if (count == sizeof(struct JS_DATA_TYPE)) {
 
@@ -258,6 +261,10 @@ static ssize_t joydev_read(struct file *file, char *buf, size_t count, loff_t *p
 
 		while (list->head == list->tail) {
 
+			if (!joydev->exist) {
+                                retval = -ENODEV;
+                                break;
+                        }
 			if (file->f_flags & O_NONBLOCK) {
 				retval = -EAGAIN;
 				break;
@@ -329,6 +336,9 @@ static int joydev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	struct input_dev *dev = joydev->handle.dev;
 	int i;
 
+	if (!joydev->exist)
+		return -ENODEV;
+
 	switch (cmd) {
 
 		case JS_SET_CAL:
@@ -367,7 +377,7 @@ static int joydev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		case JSIOCSAXMAP:
 			if (copy_from_user(joydev->abspam, (__u8 *) arg, sizeof(__u8) * ABS_MAX))
 				return -EFAULT;
-			for (i = 0; i < ABS_MAX; i++) {
+			for (i = 0; i < joydev->nabs; i++) {
 				if (joydev->abspam[i] > ABS_MAX) return -EINVAL;
 				joydev->absmap[joydev->abspam[i]] = i;
 			}
@@ -376,11 +386,11 @@ static int joydev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 			return copy_to_user((__u8 *) arg, joydev->abspam,
 						sizeof(__u8) * ABS_MAX) ? -EFAULT : 0;
 		case JSIOCSBTNMAP:
-			if (copy_from_user(joydev->absmap, (__u16 *) arg, sizeof(__u16) * (KEY_MAX - BTN_MISC)))
+			if (copy_from_user(joydev->keypam, (__u16 *) arg, sizeof(__u16) * (KEY_MAX - BTN_MISC)))
 				return -EFAULT;
-			for (i = 0; i < KEY_MAX - BTN_MISC; i++); {
+			for (i = 0; i < joydev->nkey; i++); {
 				if (joydev->keypam[i] > KEY_MAX || joydev->keypam[i] < BTN_MISC) return -EINVAL;
-				joydev->keymap[joydev->abspam[i - BTN_MISC]] = i;
+				joydev->keymap[joydev->keypam[i] - BTN_MISC] = i;
 			}
 			return 0;
 		case JSIOCGBTNMAP:

@@ -23,7 +23,7 @@
 #ifdef CONFIG_ALPHA_LEGACY_START_ADDRESS
 #define KERNEL_START_PHYS	0x300000 /* Old bootloaders hardcoded this.  */
 #else
-#define KERNEL_START_PHYS	0x800000 /* Wildfire has a huge console */
+#define KERNEL_START_PHYS	0x1000000 /* required: Wildfire/Titan/Marvel */
 #endif
 
 #define KERNEL_START	(PAGE_OFFSET+KERNEL_START_PHYS)
@@ -61,7 +61,8 @@ struct el_common {
 	int		retry	:  1;	/* retry flag */
 	unsigned int	proc_offset;	/* processor-specific offset */
 	unsigned int	sys_offset;	/* system-specific offset */
-	unsigned long	code;		/* machine check code */
+	unsigned int	code;		/* machine check code */
+	unsigned int	frame_rev;	/* frame revision */
 };
 
 /* Machine Check Frame for uncorrectable errors (Large format)
@@ -117,11 +118,11 @@ struct el_common_EV6_mcheck {
 	unsigned long DC0_SYNDROME;
 	unsigned long C_STAT;
 	unsigned long C_STS;
-	unsigned long RESERVED0;
+	unsigned long MM_STAT;
 	unsigned long EXC_ADDR;
 	unsigned long IER_CM;
 	unsigned long ISUM;
-	unsigned long MM_STAT;
+	unsigned long RESERVED0;
 	unsigned long PAL_BASE;
 	unsigned long I_CTL;
 	unsigned long PCTX;

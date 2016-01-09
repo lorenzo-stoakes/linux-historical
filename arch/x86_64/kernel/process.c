@@ -9,7 +9,7 @@
  *  X86-64 port
  *	Andi Kleen.
  * 
- *  $Id: process.c,v 1.57 2002/09/12 12:56:36 ak Exp $
+ *  $Id: process.c,v 1.60 2003/01/10 15:16:30 ak Exp $
  */
 
 /*
@@ -275,6 +275,8 @@ void machine_power_off(void)
 		pm_power_off();
 }
 
+extern int printk_address(unsigned long); 
+
 /* Prints also some state that isn't saved in the pt_regs */ 
 void show_regs(struct pt_regs * regs)
 {
@@ -284,8 +286,9 @@ void show_regs(struct pt_regs * regs)
 
 	printk("\n");
 	printk("Pid: %d, comm: %.20s %s\n", current->pid, current->comm, print_tainted());
-	printk("RIP: %04lx:[<%016lx>]\n", regs->cs & 0xffff, regs->rip);
-	printk("RSP: %04lx:%016lx  EFLAGS: %08lx\n", regs->ss, regs->rsp, regs->eflags);
+	printk("RIP: %04lx:", regs->cs & 0xffff);
+	printk_address(regs->rip); 
+	printk("\nRSP: %04lx:%016lx  EFLAGS: %08lx\n", regs->ss, regs->rsp, regs->eflags);
 	printk("RAX: %016lx RBX: %016lx RCX: %016lx\n",
 	       regs->rax, regs->rbx, regs->rcx);
 	printk("RDX: %016lx RSI: %016lx RDI: %016lx\n",
@@ -336,37 +339,6 @@ void release_segments(struct mm_struct *mm)
 }
 
 /* 
- * Reloading %gs is a bit complicated because the kernel relies on it 
- * This includes the exception handlers, so we cannot take any exceptions
- * while doing this. Check the new gs value manually for validity and only
- * then load it. This needs locking again parallel CPUs that share the same
- * LDT. This has to be done in the context switch iff %gs changes.
- */
-void load_gs_index(unsigned gs)
-{
-	struct mm_struct *mm = current->mm;
-	int access; 
-	/* paranoia: */
-	if ((gs & 3) != 2) gs = 0;
-	if (mm) 
-		read_lock(&mm->context.ldtlock); 
-	asm volatile("pushf\n\t" 
-		     "cli\n\t"
-		     "swapgs\n\t"
-		     /* cannot take any exception until the next swapgs */
-		     "lar %1,%0\n\t"
-		     "jnz 1f\n\t"
-		     "movl %1,%%eax\n\t"
-		     "movl %%eax,%%gs\n\t"
-		     "jmp 2f\n\t"
-		     "1: movl %2,%%gs\n\t"
-		     "2: swapgs\n\t"
-		     "popf" : "=g" (access) : "g" (gs), "r" (0) : "rax"); 
-	if (mm)
-		read_unlock(&mm->context.ldtlock);
-}
-	
-/*
  * Free current thread data structures etc..
  */
 void exit_thread(void)
@@ -486,10 +458,6 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long rsp,
 /*
  *	switch_to(x,y) should switch tasks from x to y.
  *
- * We fsave/fwait so that an exception goes off at the right time
- * (as a call from the fsave or fwait in effect) rather than to
- * the wrong process. 
- * 
  * This could still be optimized: 
  * - fold all the options into a flag word and test it with a single test.
  * - could test fs/gs bitsliced
@@ -520,29 +488,33 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 
 	/* 
 	 * Switch FS and GS.
-	 * XXX Check if this is safe on SMP (!= -> |)
 	 */
 	{ 
-		unsigned int fsindex;
-
+		unsigned fsindex;
 		asm volatile("movl %%fs,%0" : "=g" (fsindex)); 
-		if (unlikely(fsindex != next->fsindex)) /* or likely? */
+		/* segment register != 0 always requires a reload. 
+		   also reload when it has changed. 
+		   when prev process used 64bit base always reload
+		   to avoid an information leak. */
+		if (unlikely((fsindex | next->fsindex) || prev->fs))
 			loadsegment(fs, next->fsindex);
+		/* check if the user changed the selector
+		   if yes clear 64bit base. */
 		if (unlikely(fsindex != prev->fsindex))
 			prev->fs = 0; 
-		if ((fsindex != prev->fsindex) || (prev->fs != next->fs))
+		/* when next process has a 64bit base use it */
+		if (next->fs) 
 			wrmsrl(MSR_FS_BASE, next->fs); 
 		prev->fsindex = fsindex;
 	}
 	{
-		unsigned int gsindex;
-
+		unsigned gsindex;
 		asm volatile("movl %%gs,%0" : "=g" (gsindex)); 
-		if (unlikely(gsindex != next->gsindex))
-			load_gs_index(next->gs); 
+		if (unlikely((gsindex | next->gsindex) || prev->gs))
+			load_gs_index(next->gsindex);
 		if (unlikely(gsindex != prev->gsindex)) 
 			prev->gs = 0;				
-		if (gsindex != prev->gsindex || prev->gs != next->gs)
+		if (next->gs)
 			wrmsrl(MSR_KERNEL_GS_BASE, next->gs); 
 		prev->gsindex = gsindex;
 	}
@@ -693,18 +665,26 @@ asmlinkage long sys_arch_prctl(int code, unsigned long addr)
 
 	switch (code) { 
 	case ARCH_SET_GS:
+#ifndef GS_SWITCH_WORKING
+		/* Disabled for now because we still have one unexplained bug
+		   in the context switch for this. */ 
+		return -EINVAL; 
+#else
 		if (addr >= TASK_SIZE) 
 			return -EPERM; 
 		asm volatile("movw %%gs,%0" : "=g" (current->thread.gsindex)); 
+		asm volatile("movl %0,%%gs" :: "r" (0)); 
 		current->thread.gs = addr;
 		ret = checking_wrmsrl(MSR_KERNEL_GS_BASE, addr); 
 		break;
+#endif
 	case ARCH_SET_FS:
 		/* Not strictly needed for fs, but do it for symmetry
-		   with gs */
+		   with gs. */
 		if (addr >= TASK_SIZE)
 			return -EPERM; 
 		asm volatile("movw %%fs,%0" : "=g" (current->thread.fsindex)); 
+		asm volatile("movl %0,%%fs" :: "r" (0)); 
 		current->thread.fs = addr;
 		ret = checking_wrmsrl(MSR_FS_BASE, addr); 
 		break;
@@ -726,4 +706,3 @@ asmlinkage long sys_arch_prctl(int code, unsigned long addr)
 	} 
 	return ret;	
 } 
-

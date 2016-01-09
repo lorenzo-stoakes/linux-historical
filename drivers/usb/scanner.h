@@ -2,8 +2,9 @@
  * Driver for USB Scanners (linux-2.4.21)
  *
  * Copyright (C) 1999, 2000, 2001, 2002 David E. Nelson
+ * Previously maintained by Brian Beattie
  *
- * Brian Beattie <beattie@beattie-home.net>
+ * Current maintainer: Henning Meier-Geinitz <henning@meier-geinitz.de>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -21,6 +22,13 @@
  *
  */ 
 
+/*
+ * For documentation, see Documentation/usb/scanner.txt.
+ * Website: http://www.meier-geinitz.de/kernel/
+ * Please contact the maintainer if your scanner is not detected by this
+ * driver automatically.
+ */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -32,23 +40,18 @@
 #include <linux/sched.h>
 #include <linux/smp_lock.h>
 #include <linux/devfs_fs_kernel.h>
+#include <linux/usb_scanner_ioctl.h>
 
 // #define DEBUG
 
-/* Enable this to support the older ioctl interfaces scanners that
- * a PV8630 Scanner-On-Chip.  The prefered method is the
- * SCANNER_IOCTL_CTRLMSG ioctl.
- */
-// #define PV8630 
-
-#define DRIVER_VERSION "0.4.9"
+#define DRIVER_VERSION "0.4.10"
 #define DRIVER_DESC "USB Scanner Driver"
 
 #include <linux/usb.h>
 
 static __s32 vendor=-1, product=-1, read_timeout=0;
 
-MODULE_AUTHOR("Brian Beattie, beattie@beattie-home.net");
+MODULE_AUTHOR("Henning Meier-Geinitz, henning@meier-geinitz.de");
 MODULE_DESCRIPTION(DRIVER_DESC" "DRIVER_VERSION);
 MODULE_LICENSE("GPL");
 
@@ -119,6 +122,7 @@ static struct usb_device_id scanner_device_ids [] = {
 	{ USB_DEVICE(0x0458, 0x2016) }, /* ColorPage-HR6X */
 	/* Hewlett Packard */
 	{ USB_DEVICE(0x03f0, 0x0505) }, /* ScanJet 2100C */
+	{ USB_DEVICE(0x03f0, 0x0605) },	/* 2200C */
 	{ USB_DEVICE(0x03f0, 0x0901) }, /* 2300C */
 	{ USB_DEVICE(0x03f0, 0x0205) },	/* 3300C */
 	{ USB_DEVICE(0x03f0, 0x0405) }, /* 3400C */
@@ -131,7 +135,6 @@ static struct usb_device_id scanner_device_ids [] = {
 	//	{ USB_DEVICE(0x03f0, 0x0701) },	/* 5300C - NOT SUPPORTED - see http://www.neatech.nl/oss/HP5300C/ */
 	{ USB_DEVICE(0x03f0, 0x0201) },	/* 6200C */
 	{ USB_DEVICE(0x03f0, 0x0601) },	/* 6300C */
-	{ USB_DEVICE(0x03f0, 0x605) },	/* 2200C */
 	/* iVina */
 	{ USB_DEVICE(0x0638, 0x0268) }, /* 1200U */
 	/* Lexmark */
@@ -239,6 +242,8 @@ static struct usb_device_id scanner_device_ids [] = {
 	{ USB_DEVICE(0x04a7, 0x0311) },	/* 6200 EPP/USB */
 	{ USB_DEVICE(0x04a7, 0x0321) },	/* OneTouch 8100 EPP/USB */
 	{ USB_DEVICE(0x04a7, 0x0331) }, /* OneTouch 8600 EPP/USB */
+	{ USB_DEVICE(0x0461, 0x0345) }, /* 6200 (actually Primax?) */
+	{ USB_DEVICE(0x0461, 0x0371) }, /* Onetouch 8920 USB (actually Primax?) */
 	{ }				/* Terminating entry */
 };
 
@@ -265,19 +270,9 @@ MODULE_DEVICE_TABLE (usb, scanner_device_ids);
 #define RD_EXPIRE 12		/* Number of attempts to wait X seconds */
 
 
-/* FIXME: These are NOT registered ioctls()'s */
-#ifdef PV8630
-#define PV8630_IOCTL_INREQUEST 69
-#define PV8630_IOCTL_OUTREQUEST 70
-#endif /* PV8630 */
-
-
-/* read vendor and product IDs from the scanner */
-#define SCANNER_IOCTL_VENDOR _IOR('U', 0x20, int)
-#define SCANNER_IOCTL_PRODUCT _IOR('U', 0x21, int)
-/* send/recv a control message to the scanner */
-#define SCANNER_IOCTL_CTRLMSG _IOWR('U', 0x22, struct usb_ctrlrequest )
-
+/* USB bInterfaceClass used by Hewlett-Packard ScanJet 3300c and Genius HR6
+   USB - Vivid III */
+#define SCN_CLASS_SCANJET 16
 
 #define SCN_MAX_MNR 16		/* We're allocated 16 minors */
 #define SCN_BASE_MNR 48		/* USB Scanners start at minor 48 */

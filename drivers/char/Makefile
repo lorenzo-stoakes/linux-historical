@@ -66,6 +66,20 @@ ifeq ($(ARCH),m68k)
    SERIAL   =
 endif
 
+ifeq ($(ARCH),parisc)
+   ifdef CONFIG_GSC_PS2
+      KEYBD   = hp_psaux.o hp_keyb.o
+   else
+      KEYBD   =
+   endif
+   ifdef CONFIG_SERIAL_MUX
+      CONSOLE += mux.o
+   endif
+   ifdef CONFIG_PDC_CONSOLE
+      CONSOLE += pdc_console.o
+   endif
+endif
+
 ifdef CONFIG_Q40
   KEYBD += q40_keyb.o
   SERIAL = serial.o
@@ -290,6 +304,11 @@ obj-$(CONFIG_AMD7XX_TCO) += amd7xx_tco.o
 subdir-$(CONFIG_MWAVE) += mwave
 ifeq ($(CONFIG_MWAVE),y)
   obj-y += mwave/mwave.o
+endif
+
+subdir-$(CONFIG_IPMI_HANDLER) += ipmi
+ifeq ($(CONFIG_IPMI_HANDLER),y)
+  obj-y += ipmi/ipmi.o
 endif
 
 include $(TOPDIR)/Rules.make

@@ -20,6 +20,7 @@
 #include <linux/config.h>
 #include <linux/fs.h>
 #include <linux/module.h>
+#include <linux/blkdev.h>
 #include <linux/completion.h>
 #include <asm/uaccess.h>
 #include "jfs_incore.h"
@@ -124,6 +125,24 @@ static void jfs_put_super(struct super_block *sb)
 	kfree(sbi);
 }
 
+s64 jfs_get_volume_size(struct super_block *sb)
+{
+	uint blocks = 0;
+	s64 bytes;
+	kdev_t dev = sb->s_dev;
+	int major = MAJOR(dev);
+	int minor = MINOR(dev);
+
+	if (blk_size[major]) {
+		blocks = blk_size[major][minor];
+		if (blocks) {
+			bytes = ((s64)blocks) << BLOCK_SIZE_BITS;
+			return bytes >> sb->s_blocksize_bits;
+		}
+	}
+	return 0;
+}
+
 static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 {
 	void *nls_map = NULL;
@@ -152,8 +171,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize)
 			}
 		} else if (!strcmp(this_char, "resize")) {
 			if (!value || !*value) {
-				*newLVSize = sb->s_bdev->bd_inode->i_size >>
-					sb->s_blocksize_bits;
+				*newLVSize = jfs_get_volume_size(sb);
 				if (*newLVSize == 0)
 					printk(KERN_ERR
 					 "JFS: Cannot determine volume size\n");
@@ -342,6 +360,17 @@ static void jfs_unlockfs(struct super_block *sb)
 }
 
 
+static int jfs_sync_fs(struct super_block *sb)
+{
+	struct jfs_log *log = JFS_SBI(sb)->log;
+
+	/* log == NULL indicates read-only mount */
+	if (log)
+		jfs_flush_journal(log, 1);
+
+	return 0;
+}
+
 static struct super_operations jfs_super_operations = {
 	.read_inode	= jfs_read_inode,
 	.dirty_inode	= jfs_dirty_inode,
@@ -349,6 +378,7 @@ static struct super_operations jfs_super_operations = {
 	.clear_inode	= jfs_clear_inode,
 	.delete_inode	= jfs_delete_inode,
 	.put_super	= jfs_put_super,
+	.sync_fs	= jfs_sync_fs,
 	.write_super_lockfs = jfs_write_super_lockfs,
 	.unlockfs       = jfs_unlockfs,
 	.statfs		= jfs_statfs,

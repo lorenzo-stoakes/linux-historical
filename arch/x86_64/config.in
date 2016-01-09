@@ -241,7 +241,7 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  Spinlock debugging' CONFIG_DEBUG_SPINLOCK
    bool '  Additional run-time checks' CONFIG_CHECKING
    bool '  Debug __init statements' CONFIG_INIT_DEBUG
-   bool '  IOMMU leak tracing' CONFIG_IOMMU_LEAK
+   bool '  IOMMU debugging' CONFIG_IOMMU_DEBUG
    bool '  Probalistic stack overflow check' CONFIG_DEBUG_STACKOVERFLOW
 fi
 endmenu

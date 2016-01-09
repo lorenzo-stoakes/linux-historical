@@ -108,7 +108,7 @@
 #endif
 #endif
 
-#if defined(__alpha__) || defined(__m68k__)
+#if defined(__alpha__) || defined(__mc68000__)
 #define READx_WORKS
 #define MEMCPYTOIO_WORKS
 #else
@@ -124,7 +124,7 @@
 #endif
 #endif
 
-#if defined(__m68k__)
+#if defined(__mc68000__)
 #define MAP_BUSTOVIRT
 #else
 #define MAP_IOREMAP

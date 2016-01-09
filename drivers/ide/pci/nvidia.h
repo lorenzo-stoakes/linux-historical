@@ -43,6 +43,21 @@ static ide_pci_device_t nvidia_chipsets[] __devinitdata = {
 		enablebits:	{{0x50,0x01,0x01}, {0x50,0x02,0x02}},
 		bootable:	ON_BOARD,
 		extra:		0,
+	},
+
+	{
+		vendor:		PCI_VENDOR_ID_NVIDIA,
+		device:		PCI_DEVICE_ID_NVIDIA_NFORCE2_IDE,
+		name:		"NFORCE2",
+		init_chipset:	init_chipset_nforce,
+		init_iops:	NULL,
+		init_hwif:	init_hwif_nforce,
+		init_dma:	init_dma_nforce,
+		channels:	2,
+		autodma:	AUTODMA,
+		enablebits:	{{0x50,0x01,0x01}, {0x50,0x02,0x02}},
+		bootable:	ON_BOARD,
+		extra:		0,
 	}
 };
 

@@ -9,6 +9,7 @@
 #define __ASM_PARISC_PROCESSOR_H
 
 #ifndef __ASSEMBLY__
+#include <linux/config.h>
 #include <linux/threads.h>
 
 #include <asm/hardware.h>
@@ -17,6 +18,9 @@
 #include <asm/ptrace.h>
 #include <asm/types.h>
 #include <asm/system.h>
+#ifdef CONFIG_SMP
+#include <asm/spinlock_t.h>
+#endif
 #endif /* __ASSEMBLY__ */
 
 /*
@@ -71,7 +75,6 @@ struct system_cpuinfo_parisc {
 */
 struct cpuinfo_parisc {
 
-	struct irq_region *region;
 	unsigned long it_value;     /* Interval Timer value at last timer Intr */
 	unsigned long it_delta;     /* Interval Timer delta (tic_10ms / HZ * 100) */
 	unsigned long irq_count;    /* number of IRQ's since boot */

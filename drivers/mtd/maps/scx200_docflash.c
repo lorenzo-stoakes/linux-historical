@@ -2,6 +2,8 @@
 
    Copyright (c) 2001,2002 Christer Weinigel <wingel@nano-system.com>
 
+   $Id: scx200_docflash.c,v 1.1 2003/01/24 13:20:40 dwmw2 Exp $ 
+
    National Semiconductor SCx200 flash mapped with DOCCS
 */
 
@@ -36,7 +38,7 @@ MODULE_PARM(flashtype, "s");
 MODULE_PARM_DESC(flashtype, "Type of MTD probe to do");
 
 static int probe = 0;		/* Don't autoprobe */
-static unsigned size = 0x1000000; /* 16 MB the whole ISA address space */
+static unsigned size = 0x1000000; /* 16 MiB the whole ISA address space */
 static unsigned width = 8;	/* Default to 8 bits wide */
 static char *flashtype = "cfi_probe";
 

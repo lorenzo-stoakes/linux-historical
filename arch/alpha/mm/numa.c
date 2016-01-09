@@ -69,8 +69,8 @@ setup_memory_node(int nid, void *kernel_end)
 	int show_init = 0;
 
 	/* Find the bounds of current node */
-	node_pfn_start = (nid * NODE_MAX_MEM_SIZE) >> PAGE_SHIFT;
-	node_pfn_end = node_pfn_start + (NODE_MAX_MEM_SIZE >> PAGE_SHIFT);
+	node_pfn_start = (NODE_MEM_START(nid)) >> PAGE_SHIFT;
+	node_pfn_end = node_pfn_start + (NODE_MEM_SIZE(nid) >> PAGE_SHIFT);
 	
 	/* Find free clusters, and init and free the bootmem accordingly.  */
 	memdesc = (struct memdesc_struct *)
@@ -110,10 +110,14 @@ setup_memory_node(int nid, void *kernel_end)
 			max_low_pfn = end;
 	}
 
-	if (mem_size_limit && max_low_pfn >= mem_size_limit) {
-		printk("setup: forcing memory size to %ldK (from %ldK).\n",
-		       mem_size_limit << (PAGE_SHIFT - 10),
-		       max_low_pfn    << (PAGE_SHIFT - 10));
+	if (mem_size_limit && max_low_pfn > mem_size_limit) {
+		static int msg_shown = 0;
+		if (!msg_shown) {
+			msg_shown = 1;
+			printk("setup: forcing memory size to %ldK (from %ldK).\n",
+			       mem_size_limit << (PAGE_SHIFT - 10),
+			       max_low_pfn    << (PAGE_SHIFT - 10));
+		}
 		max_low_pfn = mem_size_limit;
 	}
 

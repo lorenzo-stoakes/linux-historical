@@ -36,6 +36,7 @@ choice 'Processor family' \
 	 Pentium-4				CONFIG_MPENTIUM4 \
 	 K6/K6-II/K6-III			CONFIG_MK6 \
 	 Athlon/Duron/K7			CONFIG_MK7 \
+	 Opteron/Athlon64/Hammer/K8		CONFIG_MK8 \
 	 Elan					CONFIG_MELAN \
 	 Crusoe					CONFIG_MCRUSOE \
 	 Winchip-C6				CONFIG_MWINCHIPC6 \
@@ -99,7 +100,7 @@ if [ "$CONFIG_M686" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 5
    define_bool CONFIG_X86_HAS_TSC y
    define_bool CONFIG_X86_GOOD_APIC y
-   define_bool CONFIG_X86_PGE y
+   bool 'PGE extensions (not for Cyrix/Transmeta)' CONFIG_X86_PGE
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
    define_bool CONFIG_X86_PPRO_FENCE y
    define_bool CONFIG_X86_F00F_WORKS_OK y
@@ -125,6 +126,11 @@ if [ "$CONFIG_MK6" = "y" ]; then
    define_bool CONFIG_X86_ALIGNMENT_16 y
    define_bool CONFIG_X86_HAS_TSC y
    define_bool CONFIG_X86_USE_PPRO_CHECKSUM y
+fi
+if [ "$CONFIG_MK8" = "y" ]; then
+   # for now. may later want to add SSE support and optimized
+   # functions
+   define_bool CONFIG_MK7 y
 fi
 if [ "$CONFIG_MK7" = "y" ]; then
    define_int  CONFIG_X86_L1_CACHE_SHIFT 6

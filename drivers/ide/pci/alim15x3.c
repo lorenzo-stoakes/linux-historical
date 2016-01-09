@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/alim15x3.c		Version 0.15	2002/08/19
+ * linux/drivers/ide/alim15x3.c		Version 0.16	2003/01/02
  *
  *  Copyright (C) 1998-2000 Michel Aubry, Maintainer
  *  Copyright (C) 1998-2000 Andrzej Krzysztofowicz, Maintainer
@@ -854,10 +854,8 @@ static int __devinit alim15x3_init_one(struct pci_dev *dev, const struct pci_dev
 	ide_pci_device_t *d = &ali15x3_chipsets[id->driver_data];
 	
 	if(pci_find_device(PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_RADEON_IGP, NULL))
-	{
-		printk(KERN_ERR "Warning: ATI Radeon IGP Northbridge is not supported by Linux\n");
-		return 1;
-	}
+		printk(KERN_ERR "Warning: ATI Radeon IGP Northbridge is not yet fully tested.\n");
+
 #if defined(CONFIG_SPARC64)
 	d->init_hwif = init_hwif_common_ali15x3;
 #endif /* CONFIG_SPARC64 */

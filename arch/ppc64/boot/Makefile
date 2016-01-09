@@ -93,6 +93,8 @@ imagesize.c: $(TOPDIR)/vmlinux
 	ls -l $(TOPDIR)/vmlinux | awk '{printf "/* generated -- do not edit! */\nunsigned long vmlinux_filesize = %d;\n", $$5}' > imagesize.c
 	$(CROSS_COMPILE)nm -n $(TOPDIR)/vmlinux | tail -1 | awk '{printf "unsigned long vmlinux_memsize = 0x%s;\n", substr($$1,8)}' >> imagesize.c
 
+zImage.o: $(TOPDIR)/vmlinux
+
 vmlinux .config System.map: % : $(TOPDIR)/%
 	gzip -cvf9 $(TOPDIR)/$@ > kernel-$@.gz
 	$(OBJCOPY) zImage.o \

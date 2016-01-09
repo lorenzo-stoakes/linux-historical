@@ -256,7 +256,7 @@ static inline void clear_in_cr4 (unsigned long mask)
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
-#define TASK_UNMAPPED_32 0x40000000
+#define TASK_UNMAPPED_32 0xa0000000
 #define TASK_UNMAPPED_64 (TASK_SIZE/3) 
 #define TASK_UNMAPPED_BASE	\
 	((current->thread.flags & THREAD_IA32) ? TASK_UNMAPPED_32 : TASK_UNMAPPED_64)  
@@ -336,9 +336,11 @@ struct thread_struct {
 #define N_EXCEPTION_STACKS 3  /* hw limit: 7 */
 #define EXCEPTION_STKSZ 1024
 
+extern void load_gs_index(unsigned);
+
 #define start_thread(regs,new_rip,new_rsp) do { \
-	__asm__("movl %0,%%fs; movl %0,%%es; movl %0,%%ds": :"r" (0));		 \
-	wrmsrl(MSR_KERNEL_GS_BASE, 0);						 \
+	asm volatile("movl %0,%%fs; movl %0,%%es; movl %0,%%ds": :"r" (0));	 \
+	load_gs_index(0);							\
 	(regs)->rip = (new_rip);						 \
 	(regs)->rsp = (new_rsp);						 \
 	write_pda(oldrsp, (new_rsp));						 \

@@ -415,7 +415,11 @@ extern void build_valid_hpte(unsigned long vsid, unsigned long ea,
  */
 #define kern_addr_valid(addr)	(1)
 
-#define io_remap_page_range remap_page_range 
+#ifdef CONFIG_PPC_ISERIES
+#define io_remap_page_range remap_page_range
+#else
+extern int io_remap_page_range(unsigned long from, unsigned long to, unsigned long size, pgprot_t prot);
+#endif
 
 /*
  * No page table caches to initialise

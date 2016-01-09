@@ -6,7 +6,7 @@
  *  Copyright (C) 2000 Karsten Keil <kkeil@suse.de>
  *  Copyright (C) 2001,2002 Andi Kleen <ak@suse.de>
  *
- *  $Id: head.S,v 1.53 2002/07/18 09:49:42 ak Exp $
+ *  $Id: head.S,v 1.54 2002/11/14 16:26:55 ak Exp $
  */
 
 
@@ -76,13 +76,11 @@ startup_32:
 	/* Enable System Call */
 	btsl	$_EFER_SCE, %eax
 
-#if 0
 	/* No Execute supported? */	
 	btl	$20,%edi
 	jnc     1f
 	btsl	$_EFER_NX, %eax
 1:
-#endif
 	
 	/* Make changes effective */
 	wrmsr

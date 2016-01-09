@@ -611,6 +611,8 @@ static int __init detect_init_APIC (void)
 	case X86_VENDOR_AMD:
 		if (boot_cpu_data.x86 == 6 && boot_cpu_data.x86_model > 1)
 			break;
+		if (boot_cpu_data.x86 == 15 && cpu_has_apic)
+			break;
 		goto no_apic;
 	case X86_VENDOR_INTEL:
 		if (boot_cpu_data.x86 == 6 ||

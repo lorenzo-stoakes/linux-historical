@@ -70,6 +70,7 @@
 extern int sysctl_ip_dynaddr;
 extern int sysctl_ip_default_ttl;
 int sysctl_tcp_tw_reuse = 0;
+int sysctl_tcp_low_latency = 0;
 
 /* Check TCP sequence numbers in ICMP packets. */
 #define ICMP_MIN_LENGTH 8

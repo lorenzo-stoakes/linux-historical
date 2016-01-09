@@ -146,7 +146,7 @@ static inline struct TceTable *get_tce_table(struct pci_dev *dev)
 		dev = ppc64_isabridge_dev;
 	if (!dev)
 		return NULL;
-	if (naca->platform == PLATFORM_ISERIES_LPAR) {
+	if (systemcfg->platform == PLATFORM_ISERIES_LPAR) {
  		return ISERIES_DEVNODE(dev)->DevTceTable;
 	} else {
 		return PCI_GET_DN(dev)->tce_table;
@@ -735,7 +735,7 @@ void create_tce_tables(void) {
 	struct pci_dev *dev;
 	struct device_node *dn, *mydn;
 
-	if (naca->platform == PLATFORM_PSERIES_LPAR) {
+	if (systemcfg->platform == PLATFORM_PSERIES_LPAR) {
 		create_tce_tables_for_busesLP(&pci_root_buses);
 	}
 	else {
@@ -776,7 +776,7 @@ void create_pci_bus_tce_table( unsigned long token ) {
  	/* - Tce Table Share between buses,                              */
  	/* - Tce Table per logical slot.                                 */
 	/*****************************************************************/
-	if(naca->platform == PLATFORM_ISERIES_LPAR) {
+	if(systemcfg->platform == PLATFORM_ISERIES_LPAR) {
 
 		struct iSeries_Device_Node* DevNode = (struct iSeries_Device_Node*)token;
 		getTceTableParmsiSeries(DevNode,newTceTable);
@@ -800,7 +800,7 @@ void create_pci_bus_tce_table( unsigned long token ) {
 
 		dn = (struct device_node *)token;
 		phb = dn->phb;
-		if (naca->platform == PLATFORM_PSERIES)
+		if (systemcfg->platform == PLATFORM_PSERIES)
 			getTceTableParmsPSeries(phb, dn, newTceTable);
 		else
 			getTceTableParmsPSeriesLP(phb, dn, newTceTable);
@@ -1409,7 +1409,7 @@ void pci_unmap_sg( struct pci_dev *hwdev, struct scatterlist *sg, int nelms, int
  	/* Client asked for way to much space.  This is checked later anyway */
 	/* It is easier to debug here for the drivers than in the tce tables.*/
  	if(order >= NUM_TCE_LEVELS) {
-		printk("PCI_DMA: dma_start_page:0x%lx  dma_end_page:0x%lx\n",dma_start_page,dma_end_page);
+		printk("PCI_DMA: dma_start_page:0x%x  dma_end_page:0x%x\n",dma_start_page,dma_end_page);
 		printk("PCI_DMA: pci_unmap_sg size to large: 0x%x \n",(numTces << PAGE_SHIFT));
  		return;
  	}

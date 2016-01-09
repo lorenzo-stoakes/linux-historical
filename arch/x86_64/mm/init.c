@@ -189,7 +189,7 @@ static __init void *alloc_low_page(int *index, unsigned long *phys)
 	unsigned long pfn = table_end++, paddr; 
 	void *adr;
 
-	if (table_end >= end_pfn) 
+	if (table_end >= end_pfn_map) 
 		panic("alloc_low_page: ran out of page mappings"); 
 	for (i = 0; temp_mappings[i].allocated; i++) {
 		if (!temp_mappings[i].pmd) 
@@ -246,7 +246,8 @@ static void __init phys_pgd_init(pgd_t *pgd, unsigned long address, unsigned lon
 					set_pmd(pmd,  __pmd(0)); 
 				break;
 			}
-			pe = _PAGE_PSE | _KERNPG_TABLE | _PAGE_GLOBAL | paddr;
+			pe = _PAGE_PSE | _KERNPG_TABLE | _PAGE_NX | _PAGE_GLOBAL | paddr;
+			pe &= __supported_pte_mask; 
 			set_pmd(pmd, __pmd(pe));
 		}
 		unmap_low_page(map);
@@ -264,7 +265,7 @@ void __init init_memory_mapping(void)
 	unsigned long next; 
 	unsigned long pgds, pmds, tables; 
 
-	end = end_pfn << PAGE_SHIFT; 
+	end = end_pfn_map << PAGE_SHIFT; 
 
 	/* 
 	 * Find space for the kernel direct mapping tables.

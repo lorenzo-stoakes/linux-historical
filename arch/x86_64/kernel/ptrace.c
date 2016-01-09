@@ -90,6 +90,8 @@ static int putreg(struct task_struct *child,
 	unsigned long regno, unsigned long value)
 {
 	unsigned long tmp; 
+	if (child->thread.flags & THREAD_IA32)
+		value &= 0xffffffff;
 	switch (regno) {
 		case offsetof(struct user_regs_struct,fs):
 			if (value && (value & 3) != 3)
@@ -144,6 +146,7 @@ static int putreg(struct task_struct *child,
 
 static unsigned long getreg(struct task_struct *child, unsigned long regno)
 {
+	unsigned long val; 
 	switch (regno) {
 		case offsetof(struct user_regs_struct, fs):
 			return child->thread.fsindex;
@@ -159,7 +162,10 @@ static unsigned long getreg(struct task_struct *child, unsigned long regno)
 			return child->thread.gs;
 		default:
 			regno = regno - sizeof(struct pt_regs);
-			return get_stack_long(child, regno);
+			val = get_stack_long(child, regno);
+			if (child->thread.flags & THREAD_IA32) 
+				val &= 0xffffffff;
+			return val;
 	}
 
 }

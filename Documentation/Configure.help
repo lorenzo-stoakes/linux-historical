@@ -13925,8 +13925,8 @@ CONFIG_INPUT_EVDEV
 USB Scanner support
 CONFIG_USB_SCANNER
   Say Y here if you want to connect a USB scanner to your computer's
-  USB port. Please read <file:Documentation/usb/scanner.txt> and
-  <file:Documentation/usb/scanner-hp-sane.txt> for more information.
+  USB port. Please read <file:Documentation/usb/scanner.txt> for more
+  information.
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -14312,6 +14312,21 @@ CONFIG_USB_IBMCAM
   camera has several configuration options which can be specified when
   you load the module.  Read <file:Documentation/usb/ibmcam.txt> to
   learn more.
+
+CONFIG_USB_KONICAWC
+  Say Y here if you want support for webcams based on a Konica
+  chipset. This is known to work with the Intel YC76 webcam.
+
+  This driver uses the Video For Linux API.  You must enable
+  (Y or M in config) Video For Linux (under Character Devices)
+  to use this driver.  Information on this API and pointers to
+  "v4l" programs may be found on the WWW at
+  <http://roadrunner.swansea.uk.linux.org/v4l.shtml>.
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called konicawc.o. If you want to compile it as
+  a module, say M here and read <file:Documentation/modules.txt>.
 
 USB OV511 Camera support
 CONFIG_USB_OV511
@@ -14708,8 +14723,18 @@ CONFIG_USB_AUERSWALD
   The module will be called auerswald.o. If you want to compile it as
   a module, say M here and read <file:Documenatation/modules.txt>
 
+USB Auerswald ISDN modem support
+CONFIG_USB_AUERISDN
+  Say Y here if you want to enable the ISDN modem option
+  of your Auerswald ISDN devices. 
+
+  This code is also available as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want).
+  The module will be called auerswald.o. If you want to compile it as
+  a module, say M here and read <file:Documenatation/modules.txt>
+
 CONFIG_USB_TIGL
-  If you own a Texas Instruments graphing calculator and use a 
+  If you own a Texas Instruments graphing calculator and use a
   TI-GRAPH LINK USB cable (aka SilverLink), then you might be 
   interested in this driver.
 
@@ -15049,8 +15074,7 @@ USB Bluetooth support
 CONFIG_USB_BLUETOOTH
   Say Y here if you want to connect a USB Bluetooth device to your
   computer's USB port. You will need the Bluetooth stack (available
-  at <http://developer.axis.com/software/index.shtml>) to fully use
-  the device.
+  at <http://developer.axis.com/software>) to fully use the device.
 
   This code is also available as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want).
@@ -15262,35 +15286,6 @@ CONFIG_BUFFER_DEBUG
 
   Because this option adds considerably to the size of each buffer,
   most people will want to say N here.
-
-BeOS filesystem support (BeFS) (read only)
-CONFIG_BEFS_FS
-  The BeOS File System (BeFS) is the native file system of Be, Inc's
-  BeOS. Notable features include support for arbitrary attributes
-  on files and directories, and database-like indices on selected
-  attributes. (Also note that this driver doesn't make those features
-  available at this time). It is a 64 bit filesystem, so it supports
-  extremely large volumes and files.
-
-  If you use this filesystem, you should also say Y to at least one
-  of the NLS (native language support) options below.
-
-  If you don't know what this is about, say N.
-
-  If you want to compile this as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want),
-  say M here and read Documentation/modules.txt. The module will be
-  called befs.o.
-
-Debug BeFS
-CONFIG_BEFS_DEBUG
-  If you say Y here, you can use the 'debug' mount option to enable
-  debugging output from the driver. This is unlike previous versions
-  of the driver, where enabling this option would turn on debugging
-  output automatically.
-  
-  Example:
-  mount -t befs /dev/hda2 /mnt -o debug
 
 BeOS filesystem support (BeFS) (read only)
 CONFIG_BEFS_FS
@@ -25630,16 +25625,6 @@ CONFIG_IA64_HP_ZX1
   Build a kernel that runs on HP zx1-based systems.  This adds support
   for the zx1 IOMMU and makes root bus bridges appear in PCI config space
   (required for zx1 agpgart support).
-
-CONFIG_IA64_SGI_SN_SIM
-  Build a kernel that runs on both the SGI simulator AND on hardware.
-  There is a very slight performance penalty on hardware for including this
-  option.
-
-CONFIG_IA64_SGI_SN_DEBUG
-  This enables addition debug code that helps isolate
-  platform/kernel bugs. There is a small but measurable performance
-  degradation when this option is enabled.
 
 # Choice: pagesize
 Kernel page size

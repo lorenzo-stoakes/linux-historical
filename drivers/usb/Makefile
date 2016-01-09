@@ -73,6 +73,7 @@ obj-$(CONFIG_USB_AUDIO)		+= audio.o
 obj-$(CONFIG_USB_EMI26)		+= emi26.o
 obj-$(CONFIG_USB_MIDI)		+= usb-midi.o
 obj-$(CONFIG_USB_IBMCAM)	+= ibmcam.o usbvideo.o ultracam.o
+obj-$(CONFIG_USB_KONICAWC)	+= konicawc.o usbvideo.o
 obj-$(CONFIG_USB_PWC)		+= pwc.o
 obj-$(CONFIG_USB_DC2XX)		+= dc2xx.o
 obj-$(CONFIG_USB_MDC800)	+= mdc800.o

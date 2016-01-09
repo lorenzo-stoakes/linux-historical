@@ -3137,11 +3137,7 @@ static ide_driver_t ide_cdrom_driver = {
 	version:		IDECD_VERSION,
 	media:			ide_cdrom,
 	busy:			0,
-#ifdef CONFIG_IDEDMA_ONLYDISK
-	supports_dma:		0,
-#else
 	supports_dma:		1,
-#endif
 	supports_dsc_overlap:	1,
 	cleanup:		ide_cdrom_cleanup,
 	standby:		NULL,

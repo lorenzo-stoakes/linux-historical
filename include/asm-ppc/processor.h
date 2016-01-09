@@ -659,10 +659,10 @@ typedef struct {
 
 struct thread_struct {
 	unsigned long	ksp;		/* Kernel stack pointer */
-	unsigned long	wchan;		/* Event task is sleeping on */
 	struct pt_regs	*regs;		/* Pointer to saved register state */
 	mm_segment_t	fs;		/* for get_fs() validation */
 	void		*pgdir;		/* root of page-table tree */
+	int		fpexc_mode;	/* floating-point exception mode */
 	signed long     last_syscall;
 	double		fpr[32];	/* Complete floating point set */
 	unsigned long	fpscr_pad;	/* fpr ... fpscr must be contiguous */
@@ -677,13 +677,10 @@ struct thread_struct {
 #define INIT_SP		(sizeof(init_stack) + (unsigned long) &init_stack)
 
 #define INIT_THREAD  { \
-	INIT_SP, /* ksp */ \
-	0, /* wchan */ \
-	0, /* regs */ \
-	KERNEL_DS, /*fs*/ \
-	swapper_pg_dir, /* pgdir */ \
-	0, /* last_syscall */ \
-	{0}, 0, 0 \
+	.ksp = INIT_SP, \
+	.fs = KERNEL_DS, \
+	.pgdir = swapper_pg_dir, \
+	.fpexc_mode = MSR_FE0 | MSR_FE1, \
 }
 
 /*
@@ -701,6 +698,13 @@ unsigned long get_wchan(struct task_struct *p);
 
 #define KSTK_EIP(tsk)  ((tsk)->thread.regs? (tsk)->thread.regs->nip: 0)
 #define KSTK_ESP(tsk)  ((tsk)->thread.regs? (tsk)->thread.regs->gpr[1]: 0)
+
+/* Get/set floating-point exception mode */
+#define GET_FPEXC_CTL(tsk, adr)	get_fpexc_mode((tsk), (adr))
+#define SET_FPEXC_CTL(tsk, val)	set_fpexc_mode((tsk), (val))
+
+extern int get_fpexc_mode(struct task_struct *tsk, unsigned long adr);
+extern int set_fpexc_mode(struct task_struct *tsk, unsigned int val);
 
 /*
  * NOTE! The task struct and the stack go together

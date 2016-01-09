@@ -471,7 +471,7 @@ restart:
 			spin_unlock(&sb_lock);
 			down_read(&sb->s_umount);
 			write_super(sb);
-			if (wait && sb->s_op && sb->s_op->sync_fs)
+			if (wait && sb->s_root && sb->s_op && sb->s_op->sync_fs)
 				sb->s_op->sync_fs(sb);
 			drop_super(sb);
 			goto restart;

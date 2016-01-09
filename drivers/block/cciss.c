@@ -505,16 +505,12 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 			return  -EFAULT;
 		return 0;
 	}
-	case BLKGETSIZE:
-		put_user(hba[ctlr]->hd[MINOR(inode->i_rdev)].nr_sects, (unsigned long *)arg);
-		return 0;
-	case BLKGETSIZE64:
-		put_user((u64)hba[ctlr]->hd[MINOR(inode->i_rdev)].nr_sects << 9, (u64*)arg);
-		return 0;
 	case BLKRRPART:
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
 		return revalidate_logvol(inode->i_rdev, 1);
+	case BLKGETSIZE:
+	case BLKGETSIZE64:
 	case BLKFLSBUF:
 	case BLKBSZSET:
 	case BLKBSZGET:

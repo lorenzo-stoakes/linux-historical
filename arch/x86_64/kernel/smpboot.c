@@ -76,6 +76,9 @@ struct cpuinfo_x86 cpu_data[NR_CPUS] __cacheline_aligned;
 /* Set when the idlers are all forked */
 int smp_threads_ready;
 
+extern int last_tsc;
+extern void time_init_smp(void);
+
 /*
  * Setup routine for controlling SMP activation
  *
@@ -237,11 +240,15 @@ static void __init synchronize_tsc_bp (void)
 		atomic_inc(&tsc_count_start);
 
 		rdtscll(tsc_values[smp_processor_id()]);
+
 		/*
 		 * We clear the TSC in the last loop:
 		 */
-		if (i == NR_LOOPS-1)
+
+		if (i == NR_LOOPS-1) {
 			write_tsc(0, 0);
+			last_tsc = 0;
+		}
 
 		/*
 		 * Wait for all APs to leave the synchronization point:
@@ -772,7 +779,7 @@ cycles_t cacheflush_time;
 static __init void smp_tune_scheduling (void)
 {
 	unsigned long cachesize;       /* kB   */
-	unsigned long bandwidth = 350; /* MB/s */
+	unsigned long bandwidth = 2000; /* MB/s */
 	/*
 	 * Rough estimation for SMP scheduling, this is the number of
 	 * cycles it takes for a fully memory-limited process to flush
@@ -800,6 +807,8 @@ static __init void smp_tune_scheduling (void)
 
 		cacheflush_time = (cpu_khz>>10) * (cachesize<<10) / bandwidth;
 	}
+
+	cacheflush_time *= 10;  /* Add an NUMA factor */
 
 	printk("per-CPU timeslice cutoff: %ld.%02ld usecs.\n",
 		(long)cacheflush_time/(cpu_khz/1000),
@@ -989,6 +998,8 @@ void __init smp_boot_cpus(void)
 	 */
 	if (!skip_ioapic_setup && nr_ioapics)
 		setup_IO_APIC();
+	else
+		nr_ioapics = 0;
 
 	/*
 	 * Set up all local APIC timers in the system:
@@ -1003,4 +1014,5 @@ void __init smp_boot_cpus(void)
 
 smp_done:
 	zap_low_mappings();
+	time_init_smp();
 }

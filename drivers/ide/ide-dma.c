@@ -249,6 +249,7 @@ static int ide_build_sglist (ide_hwif_t *hwif, struct request *rq, int ddir)
 {
 	struct buffer_head *bh;
 	struct scatterlist *sg = hwif->sg_table;
+	unsigned long lastdataend = ~0UL;
 	int nents = 0;
 
 	if (hwif->sg_dma_active)
@@ -256,24 +257,42 @@ static int ide_build_sglist (ide_hwif_t *hwif, struct request *rq, int ddir)
 
 	bh = rq->bh;
 	do {
-		unsigned char *virt_addr = bh->b_data;
-		unsigned int size = bh->b_size;
+		int contig = 0;
+
+		if (bh->b_page) {
+			if (bh_phys(bh) == lastdataend)
+				contig = 1;
+		} else {
+			if ((unsigned long) bh->b_data == lastdataend)
+				contig = 1;
+		}
+
+		if (contig) {
+			sg[nents - 1].length += bh->b_size;
+			lastdataend += bh->b_size;
+			continue;
+		}
 
 		if (nents >= PRD_ENTRIES)
 			return 0;
 
-		while ((bh = bh->b_reqnext) != NULL) {
-			if ((virt_addr + size) != (unsigned char *) bh->b_data)
-				break;
-			size += bh->b_size;
-		}
 		memset(&sg[nents], 0, sizeof(*sg));
-		sg[nents].address = virt_addr;
-		sg[nents].length = size;
-		if(size == 0)
-			BUG();
+
+		if (bh->b_page) {
+			sg[nents].page = bh->b_page;
+			sg[nents].offset = bh_offset(bh);
+			lastdataend = bh_phys(bh) + bh->b_size;
+		} else {
+			if ((unsigned long) bh->b_data < PAGE_SIZE)
+				BUG();
+
+			sg[nents].address = bh->b_data;
+			lastdataend = (unsigned long) bh->b_data + bh->b_size;
+		}
+
+		sg[nents].length = bh->b_size;
 		nents++;
-	} while (bh != NULL);
+	} while ((bh = bh->b_reqnext) != NULL);
 
 	if(nents == 0)
 		BUG();

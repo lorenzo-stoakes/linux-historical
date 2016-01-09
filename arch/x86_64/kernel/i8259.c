@@ -40,8 +40,6 @@
  * interrupt-controller happy.
  */
 
-BUILD_COMMON_IRQ()
-
 #define BI(x,y) \
 	BUILD_IRQ(x##y)
 
@@ -76,24 +74,6 @@ BUILD_16_IRQS(0xc) BUILD_16_IRQS(0xd)
 
 #undef BUILD_16_IRQS
 #undef BI
-
-
-/*
- * The following vectors are part of the Linux architecture, there
- * is no hardware IRQ pin equivalent for them, they are triggered
- * through the ICC by us (IPIs)
- */
-#ifdef CONFIG_SMP
-BUILD_SMP_INTERRUPT(reschedule_interrupt,RESCHEDULE_VECTOR);
-BUILD_SMP_INTERRUPT(invalidate_interrupt,INVALIDATE_TLB_VECTOR);
-BUILD_SMP_INTERRUPT(call_function_interrupt,CALL_FUNCTION_VECTOR);
-#endif
-
-#ifdef CONFIG_X86_LOCAL_APIC
-BUILD_SMP_INTERRUPT(apic_timer_interrupt,LOCAL_TIMER_VECTOR);
-BUILD_SMP_INTERRUPT(error_interrupt,ERROR_APIC_VECTOR);
-BUILD_SMP_INTERRUPT(spurious_interrupt,SPURIOUS_APIC_VECTOR);
-#endif
 
 #define IRQ(x,y) \
 	IRQ##x##y##_interrupt

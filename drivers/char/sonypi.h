@@ -37,7 +37,7 @@
 #ifdef __KERNEL__
 
 #define SONYPI_DRIVER_MAJORVERSION	 1
-#define SONYPI_DRIVER_MINORVERSION	16
+#define SONYPI_DRIVER_MINORVERSION	17
 
 #define SONYPI_DEVICE_MODEL_TYPE1	1
 #define SONYPI_DEVICE_MODEL_TYPE2	2
@@ -171,6 +171,13 @@ struct sonypi_event {
 	u8	data;
 	u8	event;
 };
+
+/* The set of possible button release events */
+static struct sonypi_event sonypi_releaseev[] = {
+	{ 0x00, SONYPI_EVENT_ANYBUTTON_RELEASED },
+	{ 0, 0 }
+};
+
 /* The set of possible jogger events  */
 static struct sonypi_event sonypi_joggerev[] = {
 	{ 0x1f, SONYPI_EVENT_JOGDIAL_UP },
@@ -186,7 +193,6 @@ static struct sonypi_event sonypi_joggerev[] = {
 	{ 0x5d, SONYPI_EVENT_JOGDIAL_VFAST_UP_PRESSED },
 	{ 0x43, SONYPI_EVENT_JOGDIAL_VFAST_DOWN_PRESSED },
 	{ 0x40, SONYPI_EVENT_JOGDIAL_PRESSED },
-	{ 0x00, SONYPI_EVENT_JOGDIAL_RELEASED },
 	{ 0, 0 }
 };
 
@@ -195,7 +201,6 @@ static struct sonypi_event sonypi_captureev[] = {
 	{ 0x05, SONYPI_EVENT_CAPTURE_PARTIALPRESSED },
 	{ 0x07, SONYPI_EVENT_CAPTURE_PRESSED },
 	{ 0x01, SONYPI_EVENT_CAPTURE_PARTIALRELEASED },
-	{ 0x00, SONYPI_EVENT_CAPTURE_RELEASED },
 	{ 0, 0 }
 };
 
@@ -293,6 +298,7 @@ struct sonypi_eventtypes {
 	unsigned long		mask;
 	struct sonypi_event *	events;
 } sonypi_eventtypes[] = {
+	{ SONYPI_DEVICE_MODEL_TYPE1, 0, 0xffffffff, sonypi_releaseev },
 	{ SONYPI_DEVICE_MODEL_TYPE1, 0x70, SONYPI_MEYE_MASK, sonypi_meyeev },
 	{ SONYPI_DEVICE_MODEL_TYPE1, 0x30, SONYPI_LID_MASK, sonypi_lidev },
 	{ SONYPI_DEVICE_MODEL_TYPE1, 0x60, SONYPI_CAPTURE_MASK, sonypi_captureev },
@@ -301,6 +307,7 @@ struct sonypi_eventtypes {
 	{ SONYPI_DEVICE_MODEL_TYPE1, 0x30, SONYPI_BLUETOOTH_MASK, sonypi_blueev },
 	{ SONYPI_DEVICE_MODEL_TYPE1, 0x40, SONYPI_PKEY_MASK, sonypi_pkeyev },
 
+	{ SONYPI_DEVICE_MODEL_TYPE2, 0, 0xffffffff, sonypi_releaseev },
 	{ SONYPI_DEVICE_MODEL_TYPE2, 0x38, SONYPI_LID_MASK, sonypi_lidev },
 	{ SONYPI_DEVICE_MODEL_TYPE2, 0x08, SONYPI_JOGGER_MASK, sonypi_joggerev },
 	{ SONYPI_DEVICE_MODEL_TYPE2, 0x08, SONYPI_CAPTURE_MASK, sonypi_captureev },
@@ -356,6 +363,14 @@ struct sonypi_device {
 		printk(KERN_WARNING "sonypi command failed at %s : %s (line %d)\n", __FILE__, __FUNCTION__, __LINE__); \
 }
 
+#ifdef CONFIG_ACPI
+#include <linux/acpi.h>
+#if (ACPI_CA_VERSION > 0x20021121)
+#define USE_ACPI
+#endif
+#endif /* CONFIG_ACPI */
+
+#ifndef USE_ACPI
 extern int verbose;
 
 static inline int ec_write(u8 addr, u8 value) {
@@ -378,6 +393,7 @@ static inline int ec_read(u8 addr, u8 *value) {
 	*value = inb_p(SONYPI_DATA_IOPORT);
 	return 0;
 }
+#endif /* ! USE_ACPI */
 
 #endif /* __KERNEL__ */
 

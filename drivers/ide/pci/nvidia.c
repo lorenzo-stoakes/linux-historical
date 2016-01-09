@@ -77,6 +77,7 @@ static u8 nforce_ratemask (ide_drive_t *drive)
 
         switch(HWIF(drive)->pci_dev->device) {
 		case PCI_DEVICE_ID_NVIDIA_NFORCE_IDE:
+		case PCI_DEVICE_ID_NVIDIA_NFORCE2_IDE:
 			mode = 3;
 			break;
 		default:
@@ -286,6 +287,7 @@ static unsigned int __init ata66_nforce (ide_hwif_t *hwif)
 
 	switch(dev->device) {
 		case PCI_DEVICE_ID_NVIDIA_NFORCE_IDE:
+		case PCI_DEVICE_ID_NVIDIA_NFORCE2_IDE:
 			ata66 = (hwif->channel) ?
 				cable_80_pin[1] :
 				cable_80_pin[0];
@@ -341,6 +343,7 @@ static int __devinit nforce_init_one(struct pci_dev *dev, const struct pci_devic
 
 static struct pci_device_id nforce_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_IDE, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE2_IDE, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1},
 	{ 0, },
 };
 

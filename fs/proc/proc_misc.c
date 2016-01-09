@@ -344,7 +344,7 @@ static int kstat_read_proc(char *page, char **start, off_t off,
 			kstat.pswpout,
 			sum
 	);
-#if !defined(CONFIG_ARCH_S390)
+#if !defined(CONFIG_ARCH_S390) && !defined(CONFIG_ALPHA)
 	for (i = 0 ; i < NR_IRQS ; i++)
 		proc_sprintf(page, &off, &len,
 			     " %u", kstat_irqs(i));

@@ -8,7 +8,7 @@
  *  2000-06-20  Pentium III FXSR, SSE support by Gareth Hughes
  *  2000-2001   x86-64 support by Andi Kleen
  * 
- *  $Id: signal.c,v 1.35 2002/07/29 10:34:03 ak Exp $
+ *  $Id: signal.c,v 1.40 2002/11/28 06:06:43 ak Exp $
  */
 
 #include <linux/sched.h>
@@ -29,6 +29,7 @@
 #include <asm/ucontext.h>
 #include <asm/uaccess.h>
 #include <asm/i387.h>
+#include <asm/proto.h>
 
 #define DEBUG_SIG 0
 
@@ -63,8 +64,6 @@ int copy_siginfo_to_user(siginfo_t *to, siginfo_t *from)
 		/* First 32bits of unions are always present.  */
 		err |= __put_user(from->si_pid, &to->si_pid);
 		switch (from->si_code >> 16) {
-		case __SI_FAULT >> 16:
-			break;
 		case __SI_CHLD >> 16:
 			err |= __put_user(from->si_utime, &to->si_utime);
 			err |= __put_user(from->si_stime, &to->si_stime);
@@ -140,10 +139,15 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext *sc, unsigned long *p
 				regs->x = 0; 
 
 	{ 
-		unsigned int seg; 
+		unsigned int seg, oldseg; 
 		err |= __get_user(seg, &sc->gs); 
+		asm("movl %%gs,%0" : "=r" (oldseg)); 
+		if (oldseg != seg) {
+			seg |= 3;		       
 		load_gs_index(seg); 
+		}
 		err |= __get_user(seg, &sc->fs);
+		seg |= 3; 
 		loadsegment(fs,seg);
 	}
 
@@ -264,12 +268,6 @@ setup_sigcontext(struct sigcontext *sc, struct pt_regs *regs, unsigned long mask
 	return err;
 }
 
-/*
- * Determine which stack to use..
- */
-#define round_down(p, r) ((void *)  ((unsigned long)((p) - (r) + 1) & ~((r)-1)))
-
-
 static void * 
 get_stack(struct k_sigaction *ka, struct pt_regs *regs, unsigned long size)
 {
@@ -279,34 +277,35 @@ get_stack(struct k_sigaction *ka, struct pt_regs *regs, unsigned long size)
 	rsp = regs->rsp - 128;
 
 	/* This is the X/Open sanctioned signal stack switching.  */
+	/* may need to subtract redzone there too */
 	if (ka->sa.sa_flags & SA_ONSTACK) {
-		if (! sas_ss_flags(rsp) == 0)
+		if (sas_ss_flags(rsp) == 0)
 			rsp = current->sas_ss_sp + current->sas_ss_size;
 	}
 
-	return round_down(rsp - size, 16); 	
+	return (void *)round_down(rsp - size, 16); 	
 }
 
 static void setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 			   sigset_t *set, struct pt_regs * regs)
 {
-	struct rt_sigframe *frame = NULL;
-	struct _fpstate *fp = NULL; 
+	struct rt_sigframe *frame;
+	struct _fpstate *fp; 
 	int err = 0;
 
 	if (current->used_math) {
 		fp = get_stack(ka, regs, sizeof(struct _fpstate)); 
-		frame = round_down((char *)fp - sizeof(struct rt_sigframe), 16) - 8;
+		frame = (void *)round_down((unsigned long)fp - sizeof(struct rt_sigframe), 16) - 8;
 
 		if (!access_ok(VERIFY_WRITE, fp, sizeof(struct _fpstate))) { 
 			goto give_sigsegv;
 		}
 		if (save_i387(fp) < 0) 
 			err |= -1; 
-	}
-
-	if (!frame)
+	} else {
 		frame = get_stack(ka, regs, sizeof(struct rt_sigframe)) - 8;
+		fp = NULL;
+	}
 
 	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame))) {
 		goto give_sigsegv;
@@ -400,7 +399,7 @@ handle_signal(unsigned long sig, struct k_sigaction *ka,
 #endif
 
 	/* Are we from a system call? */
-	if (regs->orig_rax >= 0) {
+	if ((long)regs->orig_rax >= 0) {
 		/* If so, check system call restarting.. */
 		switch (regs->rax) {
 			case -ERESTARTNOHAND:
@@ -563,8 +562,7 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 		 * have been cleared if the watchpoint triggered
 		 * inside the kernel.
 		 */
-		__asm__("movq %0,%%db7"	: : "r" (current->thread.debugreg[7]));
-
+		asm volatile("movq %0,%%db7"::"r"(current->thread.debugreg[7]));
 		/* Whee!  Actually deliver the signal.  */
 		handle_signal(signr, ka, &info, oldset, regs);
 		return 1;

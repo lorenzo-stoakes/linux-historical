@@ -7,7 +7,7 @@
  *  Pentium III FXSR, SSE support
  *	Gareth Hughes <gareth@valinux.com>, May 2000
  *
- *  $Id: traps.c,v 1.51 2002/09/12 12:57:46 ak Exp $
+ *  $Id: traps.c,v 1.54 2003/01/10 15:12:03 ak Exp $
  */
 
 /*
@@ -95,7 +95,7 @@ int printk_address(unsigned long address)
 	} 
 	if (!strcmp(modname, "kernel"))
 		modname = delim = ""; 		
-        return printk("[%016lx%s%s%s%s%+ld]",
+        return printk("[<%016lx>]{%s%s%s%s%+ld}",
 		      address,delim,modname,delim,symname,address-symstart); 
 } 
 #else
@@ -165,7 +165,7 @@ void show_trace(unsigned long *stack)
 
 	printk("\nCall Trace: ");
 
-	i = 1;
+	i = 12;
 	estack_end = in_exception_stack(cpu, (unsigned long)stack); 
 	if (estack_end) { 
 		while (stack < estack_end) { 
@@ -270,11 +270,6 @@ void show_stack(unsigned long * rsp)
 	}
 	show_trace((unsigned long *)rsp);
 }
-
-void dump_stack(void)
-{
-	show_stack(0);
-} 
 
 void show_registers(struct pt_regs *regs)
 {
@@ -407,7 +402,7 @@ static void do_trap(int trapnr, int signr, char *str,
 		struct task_struct *tsk = current;
 		tsk->thread.error_code = error_code;
 		tsk->thread.trap_no = trapnr;
-		if (exception_trace)
+		if (exception_trace && trapnr != 3)
 			printk("%s[%d] trap %s rip:%lx rsp:%lx error:%lx\n",
 			       tsk->comm, tsk->pid, str,
 			       regs->rip,regs->rsp,error_code); 
@@ -609,11 +604,6 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 
 	if (notify_die(DIE_DEBUG, "debug", regs, error_code) == NOTIFY_BAD)
 		return; 
-
-	/* If the user set TF, it's simplest to clear it right away. */
-	/* AK: dubious check, likely wrong */
-	if ((regs->cs & 3) == 0 && (regs->eflags & TF_MASK))
-		goto clear_TF;
 
 	/* Mask out spurious debug traps due to lazy DR7 setting */
 	if (condition & (DR_TRAP0|DR_TRAP1|DR_TRAP2|DR_TRAP3)) {

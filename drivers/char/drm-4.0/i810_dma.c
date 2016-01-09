@@ -231,7 +231,7 @@ static int i810_unmap_buffer(drm_buf_t *buf)
 #else
         	retcode = do_munmap(current->mm, 
 				    (unsigned long)buf_priv->virtual, 
-				    (size_t) buf->total);
+				    (size_t) buf->total, 1);
 #endif
    		up_write(&current->mm->mmap_sem);
 	}
