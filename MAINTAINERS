@@ -430,26 +430,24 @@ L:	codalist@coda.cs.cmu.edu
 W:	http://www.coda.cs.cmu.edu/
 S:	Maintained
 
-HP (was COMPAQ) FIBRE CHANNEL 64-bit/66MHz PCI non-intelligent HBA
-P:      Stephen Cameron
-M:      arrays@hp.com 
-M:      steve.cameron@hp.com
-L:	cpqfc-discuss@lists.sourceforge.net
+HP FIBRE CHANNEL 64-bit/66MHz PCI non-intelligent HBA
+P:      Chase Maupin
+M:      chase.maupin@hp.com
+L:     iss_storagedev@hp.com
 S:      Odd Fixes
 
-HP (was COMPAQ) SMART2 RAID DRIVER
-P:	Stephen Cameron
-M:	arrays@hp.com
-M:	steve.cameron@hp.com
-L:	cpqarray-discuss@lists.sourceforge.net
+
+HP SMART2 RAID DRIVER
+P:     Francis Wiran
+M:     francis.wiran@hp.com
+L:     iss_storagedev@hp.com
 S:	Odd Fixes
 
-HP (was COMPAQ) SMART CISS RAID DRIVER 
-P:	Stephen Cameron
-M:	arrays@hp.com
-M:	steve.cameron@hp.com
-L:	cciss-discuss@lists.sourceforge.net
-S:	Supported 
+HP SMART CISS RAID DRIVER
+P:     Mike Miller, Michael Ni
+M:     mike.miller@hp.com
+L:     iss_storagedev@hp.com
+S:	Supported
 
 COMPUTONE INTELLIPORT MULTIPORT CARD
 P:     Michael H. Warfield

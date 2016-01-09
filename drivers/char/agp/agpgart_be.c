@@ -49,6 +49,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/page.h>
+#include <asm/msr.h>
 
 #include <linux/agp_backend.h>
 #include "agp.h"
@@ -66,6 +67,7 @@ EXPORT_SYMBOL(agp_backend_acquire);
 EXPORT_SYMBOL(agp_backend_release);
 
 static void flush_cache(void);
+static int agp_init_one(struct pci_dev *dev);
 
 static struct agp_bridge_data agp_bridge;
 static int agp_try_unsupported __initdata = 0;
@@ -4811,7 +4813,7 @@ static int nvidia_fetch_size(void)
 
 static int nvidia_configure(void)
 {
-	int i, rc, num_dirs;
+	int i, num_dirs;
 	u32 apbase, aplimit;
 	aper_size_info_8 *current_size;
 	u32 temp;
@@ -6346,6 +6348,12 @@ static struct {
 		"NVIDIA",
 		"nForce3/K8 On-CPU GART",
 		nvidia_x86_64_setup },
+	{ PCI_DEVICE_ID_NVIDIA_NFORCE3S,
+	  PCI_VENDOR_ID_NVIDIA,
+	  NVIDIA_NFORCE3,
+	  "NVIDIA",
+	  "nForce3S/K8 On-CPU GART",
+	  nvidia_x86_64_setup },
 #endif
 #ifdef CONFIG_AGP_NVIDIA
 	{ 0,
@@ -6489,15 +6497,24 @@ static int __init agp_lookup_host_bridge (struct pci_dev *pdev)
 static int __init agp_find_supported_device(void)
 {
 	struct pci_dev *dev = NULL;
-	u8 cap_ptr = 0x00;
+	int ret = -ENODEV;
 
 #ifdef CONFIG_AGP_HP_ZX1
 	if (hp_zx1_gart_init() == 0)
 		return 0;
 #endif
 
-	if ((dev = pci_find_class(PCI_CLASS_BRIDGE_HOST << 8, NULL)) == NULL)
-		return -ENODEV;
+	while ((dev = pci_find_class(PCI_CLASS_BRIDGE_HOST << 8, dev)) != NULL) {
+		ret = agp_init_one(dev);
+		if (ret != -ENODEV)
+			break;
+	} 
+	return ret;
+}	
+
+static int __init agp_init_one(struct pci_dev *dev)
+{
+	u8 cap_ptr = 0x00;
 
 	agp_bridge.dev = dev;
 

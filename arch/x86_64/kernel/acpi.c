@@ -115,7 +115,6 @@ __acpi_map_table (
 #endif
 }
 
-
 #ifdef CONFIG_X86_LOCAL_APIC
 
 int acpi_lapic;

@@ -66,7 +66,6 @@ static void e1000_standby_eeprom(struct e1000_hw *hw);
 static int32_t e1000_id_led_init(struct e1000_hw * hw);
 static int32_t e1000_set_vco_speed(struct e1000_hw *hw);
 
-
 /* IGP cable length table */
 static const
 uint16_t e1000_igp_cable_length_table[IGP01E1000_AGC_LENGTH_TABLE_SIZE] =
@@ -78,6 +77,7 @@ uint16_t e1000_igp_cable_length_table[IGP01E1000_AGC_LENGTH_TABLE_SIZE] =
       90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
       100, 100, 100, 100, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,
       110, 110, 110, 110, 110, 110, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120};
+
 
 /******************************************************************************
  * Set the phy type member in the hw struct.
@@ -836,18 +836,16 @@ e1000_setup_fiber_serdes_link(struct e1000_hw *hw)
         if(i == (LINK_UP_TIMEOUT / 10)) {
             DEBUGOUT("Never got a valid link from auto-neg!!!\n");
             hw->autoneg_failed = 1;
-            if(hw->media_type == e1000_media_type_fiber) {
-                /* AutoNeg failed to achieve a link, so we'll call
-                 * e1000_check_for_link. This routine will force the link up if
-                 * we detect a signal. This will allow us to communicate with
-                 * non-autonegotiating link partners.
-                 */
-                if((ret_val = e1000_check_for_link(hw))) {
-                    DEBUGOUT("Error while checking for link\n");
-                    return ret_val;
-                }
-                hw->autoneg_failed = 0;
+            /* AutoNeg failed to achieve a link, so we'll call
+             * e1000_check_for_link. This routine will force the link up if
+             * we detect a signal. This will allow us to communicate with
+             * non-autonegotiating link partners.
+             */
+            if((ret_val = e1000_check_for_link(hw))) {
+                DEBUGOUT("Error while checking for link\n");
+                return ret_val;
             }
+            hw->autoneg_failed = 0;
         } else {
             hw->autoneg_failed = 0;
             DEBUGOUT("Valid Link Found\n");
@@ -1456,10 +1454,10 @@ e1000_phy_force_speed_duplex(struct e1000_hw *hw)
     }
 
     /* Write back the modified PHY MII control register. */
-    udelay(1);
     if((ret_val = e1000_write_phy_reg(hw, PHY_CTRL, mii_ctrl_reg)))
         return ret_val;
 
+    udelay(1);
 
     /* The wait_autoneg_complete flag may be a little misleading here.
      * Since we are forcing speed and duplex, Auto-Neg is not enabled.
@@ -1865,11 +1863,12 @@ e1000_config_fc_after_link_up(struct e1000_hw *hw)
              * be asked to delay transmission of packets than asking
              * our link partner to pause transmission of frames.
              */
-            else if(hw->original_fc == e1000_fc_none ||
-                    hw->original_fc == e1000_fc_tx_pause) {
+            else if((hw->original_fc == e1000_fc_none ||
+                     hw->original_fc == e1000_fc_tx_pause) ||
+                    hw->fc_strict_ieee) {
                 hw->fc = e1000_fc_none;
                 DEBUGOUT("Flow Control = NONE.\r\n");
-            } else if(!hw->fc_strict_ieee) {
+            } else {
                 hw->fc = e1000_fc_rx_pause;
                 DEBUGOUT("Flow Control = RX PAUSE frames only.\r\n");
             }
@@ -2045,9 +2044,10 @@ e1000_check_for_link(struct e1000_hw *hw)
      * auto-negotiation time to complete, in case the cable was just plugged
      * in. The autoneg_failed flag does this.
      */
-    else if((hw->media_type == e1000_media_type_fiber) &&
+    else if((((hw->media_type == e1000_media_type_fiber) &&
+            ((ctrl & E1000_CTRL_SWDPIN1) == signal)) ||
+            (hw->media_type == e1000_media_type_internal_serdes)) &&
             (!(status & E1000_STATUS_LU)) &&
-            ((ctrl & E1000_CTRL_SWDPIN1) == signal) &&
             (!(rxcw & E1000_RXCW_C))) {
         if(hw->autoneg_failed == 0) {
             hw->autoneg_failed = 1;
@@ -2074,7 +2074,8 @@ e1000_check_for_link(struct e1000_hw *hw)
      * Device Control register in an attempt to auto-negotiate with our link
      * partner.
      */
-    else if((hw->media_type == e1000_media_type_fiber) &&
+    else if(((hw->media_type == e1000_media_type_fiber) ||
+             (hw->media_type == e1000_media_type_internal_serdes)) &&
               (ctrl & E1000_CTRL_SLU) &&
               (rxcw & E1000_RXCW_C)) {
         DEBUGOUT("RXing /C/, enable AutoNeg and stop forcing link.\r\n");
@@ -2480,8 +2481,8 @@ e1000_write_phy_reg_ex(struct e1000_hw *hw,
         E1000_WRITE_REG(hw, MDIC, mdic);
 
         /* Poll the ready bit to see if the MDI read completed */
-        for(i = 0; i < 64; i++) {
-            udelay(50);
+        for(i = 0; i < 640; i++) {
+            udelay(5);
             mdic = E1000_READ_REG(hw, MDIC);
             if(mdic & E1000_MDIC_READY) break;
         }
@@ -3497,10 +3498,12 @@ e1000_write_eeprom(struct e1000_hw *hw,
     if (e1000_acquire_eeprom(hw) != E1000_SUCCESS)
         return -E1000_ERR_EEPROM;
 
-    if(eeprom->type == e1000_eeprom_microwire)
+    if(eeprom->type == e1000_eeprom_microwire) {
         status = e1000_write_eeprom_microwire(hw, offset, words, data);
-    else
+    } else {
         status = e1000_write_eeprom_spi(hw, offset, words, data);
+        msec_delay(10);
+    }
 
     /* Done with writing */
     e1000_release_eeprom(hw);
@@ -3718,12 +3721,9 @@ e1000_read_mac_addr(struct e1000_hw * hw)
         hw->perm_mac_addr[i+1] = (uint8_t) (eeprom_data >> 8);
     }
     if(((hw->mac_type == e1000_82546) || (hw->mac_type == e1000_82546_rev_3)) &&
-       (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1)) {
-        if(hw->perm_mac_addr[5] & 0x01)
-            hw->perm_mac_addr[5] &= ~(0x01);
-        else
-            hw->perm_mac_addr[5] |= 0x01;
-    }
+       (E1000_READ_REG(hw, STATUS) & E1000_STATUS_FUNC_1))
+            hw->perm_mac_addr[5] ^= 0x01;
+
     for(i = 0; i < NODE_ADDRESS_SIZE; i++)
         hw->mac_addr[i] = hw->perm_mac_addr[i];
     return E1000_SUCCESS;

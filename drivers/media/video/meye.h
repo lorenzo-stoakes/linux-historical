@@ -31,13 +31,11 @@
 #define _MEYE_PRIV_H_
 
 #define MEYE_DRIVER_MAJORVERSION	1
-#define MEYE_DRIVER_MINORVERSION	7
+#define MEYE_DRIVER_MINORVERSION	8
 
 #include <linux/config.h>
 #include <linux/types.h>
 #include <linux/pci.h>
-#include <linux/sonypi.h>
-#include <linux/meye.h>
 
 /****************************************************************************/
 /* Motion JPEG chip registers                                               */

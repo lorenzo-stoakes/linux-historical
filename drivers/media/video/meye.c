@@ -862,7 +862,7 @@ static void mchip_cont_compression_start(void) {
 /* Interrupt handling                                                       */
 /****************************************************************************/
 
-static void meye_irq(int irq, void *dev_id, struct pt_regs *regs) {
+static irqreturn_t meye_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	u32 v;
 	int reqnr;
 	v = mchip_read(MCHIP_MM_INTA);
@@ -870,7 +870,7 @@ static void meye_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	while (1) {
 		v = mchip_get_frame();
 		if (!(v & MCHIP_MM_FIR_RDY))
-			return;
+			return IRQ_NONE;
 		switch (meye.mchip_mode) {
 
 		case MCHIP_HIC_MODE_CONT_OUT:
@@ -903,11 +903,12 @@ static void meye_irq(int irq, void *dev_id, struct pt_regs *regs) {
 
 		default:
 			/* do not free frame, since it can be a snap */
-			return;
+			return IRQ_NONE;
 		} /* switch */
 
 		mchip_free_frame();
 	}
+	return IRQ_HANDLED;
 }
 
 /****************************************************************************/
@@ -1252,6 +1253,7 @@ static struct video_device meye_template = {
 	.type		= VID_TYPE_CAPTURE,
 	.hardware	= VID_HARDWARE_MEYE,
 	.fops		= &meye_fops,
+	.release	= video_device_release,
 	.minor		= -1,
 };
 
@@ -1304,7 +1306,7 @@ static int __devinit meye_probe(struct pci_dev *pcidev,
 	}
 
 	meye.mchip_dev = pcidev;
-	meye.video_dev = kmalloc(sizeof(struct video_device), GFP_KERNEL);
+	meye.video_dev = video_device_alloc();
 	if (!meye.video_dev) {
 		printk(KERN_ERR "meye: video_device_alloc() failed!\n");
 		ret = -EBUSY;
@@ -1417,7 +1419,7 @@ out4:
 out3:
 	pci_disable_device(meye.mchip_dev);
 out2:
-	kfree(meye.video_dev);
+	video_device_release(meye.video_dev);
 	meye.video_dev = NULL;
 
 	sonypi_camera_command(SONYPI_COMMAND_SETCAMERA, 0);

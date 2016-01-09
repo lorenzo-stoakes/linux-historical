@@ -587,10 +587,6 @@ static int __init smp_read_mpc(struct mp_config_table *mpc)
 		++mpc_record;
 	}
 
-	if (clustered_apic_mode){
-		phys_cpu_present_map = logical_cpu_present_map;
-	}
-
 
 	printk("Enabling APIC mode: ");
 	if(clustered_apic_mode == CLUSTERED_APIC_NUMAQ)

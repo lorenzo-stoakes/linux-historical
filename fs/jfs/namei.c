@@ -772,6 +772,11 @@ int jfs_link(struct dentry *old_dentry,
 		goto out;
 	}
 
+	if (ip->i_nlink == 0) {
+		rc = -ENOENT;
+		goto out;
+	}
+
 	/*
 	 * scan parent directory for entry/freespace
 	 */

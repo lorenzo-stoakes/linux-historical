@@ -947,6 +947,37 @@ retry:
 	
 }
 
+/**
+ *	ilookup - search for an inode in the inode cache
+ *	@sb:         super block of file system to search
+ *	@ino:        inode number to search for
+ *
+ *	If the inode is in the cache, the inode is returned with an
+ *	incremented reference count.
+ *
+ *	Otherwise, %NULL is returned.
+ *
+ *	This is almost certainly not the function you are looking for.
+ *	If you think you need to use this, consult an expert first.
+ */
+struct inode *ilookup(struct super_block *sb, unsigned long ino)
+{
+	struct list_head * head = inode_hashtable + hash(sb,ino);
+	struct inode * inode;
+
+	spin_lock(&inode_lock);
+	inode = find_inode(sb, ino, head, NULL, NULL);
+	if (inode) {
+		__iget(inode);
+		spin_unlock(&inode_lock);
+		wait_on_inode(inode);
+		return inode;
+	}
+	spin_unlock(&inode_lock);
+
+	return inode;
+}
+
 struct inode *igrab(struct inode *inode)
 {
 	spin_lock(&inode_lock);

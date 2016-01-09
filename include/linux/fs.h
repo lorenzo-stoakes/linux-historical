@@ -1395,6 +1395,7 @@ extern void inode_init_once(struct inode *);
 extern void iput(struct inode *);
 extern void force_delete(struct inode *);
 extern struct inode * igrab(struct inode *);
+extern struct inode * ilookup(struct super_block *, unsigned long);
 extern ino_t iunique(struct super_block *, ino_t);
 
 typedef int (*find_inode_t)(struct inode *, unsigned long, void *);

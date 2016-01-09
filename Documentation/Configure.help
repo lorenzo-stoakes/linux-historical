@@ -4013,7 +4013,7 @@ CONFIG_AGP_AMD
   You should say Y here if you use XFree86 3.3.6 or 4.x and want to
   use GLX or DRI.  If unsure, say N.
 
-CONFIG_AGP_AMD_8151
+CONFIG_AGP_AMD_K8
   This option gives you AGP support for the GLX component of
   XFree86 on an AMD Opteron/Athlon64 using the on-CPU GART.
 
@@ -21391,10 +21391,10 @@ CONFIG_SC6600_CDROM
   DSP 16 card. Enter: 0 for Sony, 1 for Panasonic, 2 for IDE, 4 for no
   CD-ROM present.
 
-C-Media PCI (CMI8338/8378)
+C-Media PCI (CMI8338/8738)
 CONFIG_SOUND_CMPCI
   Say Y or M if you have a PCI sound card using the CMI8338
-  or the CMI8378 chipset.  Data on these chips are available at
+  or the CMI8738 chipset.  Data on these chips are available at
   <http://www.cmedia.com.tw/>.
 
   A userspace utility to control some internal registers of these

@@ -565,7 +565,9 @@ firmware_class_exit(void)
 module_init(firmware_class_init);
 module_exit(firmware_class_exit);
 
+#ifndef CONFIG_FW_LOADER
 EXPORT_SYMBOL(release_firmware);
 EXPORT_SYMBOL(request_firmware);
 EXPORT_SYMBOL(request_firmware_nowait);
 EXPORT_SYMBOL(register_firmware);
+#endif

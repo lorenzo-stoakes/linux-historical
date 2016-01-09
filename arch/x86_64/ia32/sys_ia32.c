@@ -16,7 +16,7 @@
  *
  * This file assumes that there is a hole at the end of user address space.
  *
- * $Id: sys_ia32.c,v 1.62 2003/09/22 04:25:53 ak Exp $
+ * $Id: sys_ia32.c,v 1.65 2003/10/11 15:16:35 ak Exp $
  */
 
 #include <linux/config.h>
@@ -93,6 +93,8 @@ typedef u16 old_gid_t;
 static int
 putstat(struct stat32 *ubuf, struct stat *kbuf)
 {
+	if (kbuf->st_size > 0x7fffffff)
+		return -EOVERFLOW;
 	if (verify_area(VERIFY_WRITE, ubuf, sizeof(struct stat32)) ||
 	    __put_user (kbuf->st_dev, &ubuf->st_dev) ||
 	    __put_user (kbuf->st_ino, &ubuf->st_ino) ||
@@ -123,9 +125,9 @@ sys32_newstat(char * filename, struct stat32 *statbuf)
 	set_fs (KERNEL_DS);
 	ret = sys_newstat(filename, &s);
 	set_fs (old_fs);
-	if (putstat (statbuf, &s))
-		return -EFAULT;
+	if (ret)
 	return ret;
+	return putstat(statbuf, &s);
 }
 
 extern asmlinkage long sys_newlstat(char * filename, struct stat * statbuf);
@@ -140,9 +142,9 @@ sys32_newlstat(char * filename, struct stat32 *statbuf)
 	set_fs (KERNEL_DS);
 	ret = sys_newlstat(filename, &s);
 	set_fs (old_fs);
-	if (putstat (statbuf, &s))
-		return -EFAULT;
+	if (ret) 
 	return ret;
+	return putstat(statbuf, &s);
 }
 
 extern asmlinkage long sys_newfstat(unsigned int fd, struct stat * statbuf);
@@ -157,9 +159,9 @@ sys32_newfstat(unsigned int fd, struct stat32 *statbuf)
 	set_fs (KERNEL_DS);
 	ret = sys_newfstat(fd, &s);
 	set_fs (old_fs);
-	if (putstat (statbuf, &s))
-		return -EFAULT;
+	if (ret)
 	return ret;
+	return putstat(statbuf, &s);
 }
 
 /* Another set for IA32/LFS -- x86_64 struct stat is different due to 
@@ -197,9 +199,9 @@ sys32_stat64(char * filename, struct stat64 *statbuf)
 	set_fs (KERNEL_DS);
 	ret = sys_newstat(filename, &s);
 	set_fs (old_fs);
-	if (putstat64 (statbuf, &s))
-		return -EFAULT;
+	if (ret)
 	return ret;
+	return putstat64(statbuf, &s);
 }
 
 asmlinkage long
@@ -212,9 +214,9 @@ sys32_lstat64(char * filename, struct stat64 *statbuf)
 	set_fs (KERNEL_DS);
 	ret = sys_newlstat(filename, &s);
 	set_fs (old_fs);
-	if (putstat64 (statbuf, &s))
-		return -EFAULT;
+	if (ret)
 	return ret;
+	return putstat64(statbuf, &s);
 }
 
 asmlinkage long
@@ -227,9 +229,9 @@ sys32_fstat64(unsigned int fd, struct stat64 *statbuf)
 	set_fs (KERNEL_DS);
 	ret = sys_newfstat(fd, &s);
 	set_fs (old_fs);
-	if (putstat64 (statbuf, &s))
-		return -EFAULT;
+	if (ret)
 	return ret;
+	return putstat64(statbuf, &s);
 }
 
 /* Don't set O_LARGEFILE implicitely. */
@@ -1242,7 +1244,6 @@ sys32_waitpid(__kernel_pid_t32 pid, unsigned int *stat_addr, int options)
 {
 	return sys32_wait4(pid, stat_addr, options, NULL);
 }
-
 
 extern asmlinkage long
 sys_getrusage(int who, struct rusage *ru);
@@ -2996,7 +2997,7 @@ struct exec_domain ia32_exec_domain = {
 
 static int __init ia32_init (void)
 {
-	printk("IA32 emulation $Id: sys_ia32.c,v 1.62 2003/09/22 04:25:53 ak Exp $\n");  
+	printk("IA32 emulation $Id: sys_ia32.c,v 1.65 2003/10/11 15:16:35 ak Exp $\n");  
 	ia32_exec_domain.signal_map = default_exec_domain.signal_map;
 	ia32_exec_domain.signal_invmap = default_exec_domain.signal_invmap;
 	register_exec_domain(&ia32_exec_domain);
