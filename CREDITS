@@ -1485,18 +1485,16 @@ S: Chapel Hill, North Carolina 27514-4818
 S: USA
 
 N: Dave Jones
-E: davej@suse.de
-W: http://www.suse.de/~davej
+E: davej@redhat.com
+W: http://www.codemonkey.org.uk
 D: Moved PCI bridge tuning to userspace (Powertweak).
 D: Various x86 (& clones) setup code hacking.
 D: AFFS fixes for 2.3.x
 D: Various Janitorial hacks. (kernel-janitor.sourceforge.net)
-S: c/o SuSE Linux UK Ltd
-S: The Kinetic Centre
-S: Theobald Street
-S: Borehamwood
-S: Herts, WD6 4PJ
-S: United Kingdom
+S: Red Hat
+S: 10, Technology Park
+S: Westford, MA 01863
+S: USA
 
 N: Ani Joshi
 E: ajoshi@kernel.crashing.org

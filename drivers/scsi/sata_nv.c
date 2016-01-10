@@ -203,6 +203,7 @@ static struct ata_port_operations nv_ops = {
 	.tf_read		= ata_tf_read,
 	.exec_command		= ata_exec_command,
 	.check_status		= ata_check_status,
+	.dev_select		= ata_std_dev_select,
 	.phy_reset		= sata_phy_reset,
 	.bmdma_setup		= ata_bmdma_setup,
 	.bmdma_start		= ata_bmdma_start,
@@ -311,7 +312,7 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	static int printed_version = 0;
 	struct nv_host *host;
 	struct ata_port_info *ppi;
-	struct ata_probe_ent *probe_ent = NULL;
+	struct ata_probe_ent *probe_ent;
 	int rc;
 
 	if (!printed_version++)
@@ -319,28 +320,26 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	rc = pci_enable_device(pdev);
 	if (rc)
-		return rc;
+		goto err_out;
 
 	rc = pci_request_regions(pdev, DRV_NAME);
 	if (rc)
-		goto err_out;
+		goto err_out_disable;
 
 	rc = pci_set_dma_mask(pdev, ATA_DMA_MASK);
 	if (rc)
 		goto err_out_regions;
 
+	rc = -ENOMEM;
+
 	ppi = &nv_port_info;
 	probe_ent = ata_pci_init_native_mode(pdev, &ppi);
-	if (!probe_ent) {
-		rc = -ENOMEM;
+	if (!probe_ent)
 		goto err_out_regions;
-	}
 
 	host = kmalloc(sizeof(struct nv_host), GFP_KERNEL);
-	if (!host) {
-		rc = -ENOMEM;
+	if (!host)
 		goto err_out_free_ent;
-	}
 
 	host->host_desc = &nv_device_tbl[ent->driver_data];
 
@@ -351,8 +350,10 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 		probe_ent->mmio_base = ioremap(pci_resource_start(pdev, 5),
 				pci_resource_len(pdev, 5));
-		if (probe_ent->mmio_base == NULL)
-			goto err_out_iounmap;
+		if (probe_ent->mmio_base == NULL) {
+			rc = -EIO;
+			goto err_out_free_host;
+		}
 
 		base = (unsigned long)probe_ent->mmio_base;
 
@@ -370,26 +371,26 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_master(pdev);
 
+	ata_add_to_probe_list(probe_ent);
+
 	// Enable hotplug event interrupts.
 	if (host->host_desc->enable_hotplug)
 		host->host_desc->enable_hotplug(probe_ent);
-
-	ata_add_to_probe_list(probe_ent);
 
 	return 0;
 
 err_out_iounmap:
 	if (host->host_desc->host_flags & NV_HOST_FLAGS_SCR_MMIO)
 		iounmap(probe_ent->mmio_base);
-
+err_out_free_host:
+	kfree(host);
 err_out_free_ent:
 	kfree(probe_ent);
-
 err_out_regions:
 	pci_release_regions(pdev);
-
-err_out:
+err_out_disable:
 	pci_disable_device(pdev);
+err_out:
 	return rc;
 }
 

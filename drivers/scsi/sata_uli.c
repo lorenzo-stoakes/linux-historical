@@ -1,11 +1,5 @@
 /*
- *  sata_sis.c - Silicon Integrated Systems SATA
- *
- *  Maintained by:  Uwe Koziolek
- *  		    Please ALWAYS copy linux-ide@vger.kernel.org
- *		    on emails.
- *
- *  Copyright 2004 Uwe Koziolek
+ *  sata_uli.c - ULi Electronics SATA
  *
  *  The contents of this file are subject to the Open
  *  Software License version 1.1 that can be found at
@@ -37,43 +31,38 @@
 #include <scsi/scsi_host.h>
 #include <linux/libata.h>
 
-#define DRV_NAME	"sata_sis"
-#define DRV_VERSION	"0.10"
+#define DRV_NAME	"sata_uli"
+#define DRV_VERSION	"0.11"
 
 enum {
-	sis_180			= 0,
-	SIS_SCR_PCI_BAR		= 5,
+	uli_5289		= 0,
+	uli_5287		= 1,
 
 	/* PCI configuration registers */
-	SIS_GENCTL		= 0x54, /* IDE General Control register */
-	SIS_SCR_BASE		= 0xc0, /* sata0 phy SCR registers */
-	SIS_SATA1_OFS		= 0x10, /* offset from sata0->sata1 phy regs */
+	ULI_SCR_BASE		= 0x90, /* sata0 phy SCR registers */
+	ULI_SATA1_OFS		= 0x10, /* offset from sata0->sata1 phy regs */
 
-	/* random bits */
-	SIS_FLAG_CFGSCR		= (1 << 30), /* host flag: SCRs via PCI cfg */
-
-	GENCTL_IOMAPPED_SCR	= (1 << 26), /* if set, SCRs are in IO space */
 };
 
-static int sis_init_one (struct pci_dev *pdev, const struct pci_device_id *ent);
-static u32 sis_scr_read (struct ata_port *ap, unsigned int sc_reg);
-static void sis_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val);
+static int uli_init_one (struct pci_dev *pdev, const struct pci_device_id *ent);
+static u32 uli_scr_read (struct ata_port *ap, unsigned int sc_reg);
+static void uli_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val);
 
-static struct pci_device_id sis_pci_tbl[] = {
-	{ PCI_VENDOR_ID_SI, 0x180, PCI_ANY_ID, PCI_ANY_ID, 0, 0, sis_180 },
-	{ PCI_VENDOR_ID_SI, 0x181, PCI_ANY_ID, PCI_ANY_ID, 0, 0, sis_180 },
+static struct pci_device_id uli_pci_tbl[] = {
+	{ PCI_VENDOR_ID_AL, 0x5289, PCI_ANY_ID, PCI_ANY_ID, 0, 0, uli_5289 },
+	{ PCI_VENDOR_ID_AL, 0x5287, PCI_ANY_ID, PCI_ANY_ID, 0, 0, uli_5287 },
 	{ }	/* terminate list */
 };
 
 
-static struct pci_driver sis_pci_driver = {
+static struct pci_driver uli_pci_driver = {
 	.name			= DRV_NAME,
-	.id_table		= sis_pci_tbl,
-	.probe			= sis_init_one,
+	.id_table		= uli_pci_tbl,
+	.probe			= uli_init_one,
 	.remove			= ata_pci_remove_one,
 };
 
-static Scsi_Host_Template sis_sht = {
+static Scsi_Host_Template uli_sht = {
 	.module			= THIS_MODULE,
 	.name			= DRV_NAME,
 	.detect			= ata_scsi_detect,
@@ -83,7 +72,7 @@ static Scsi_Host_Template sis_sht = {
 	.eh_strategy_handler	= ata_scsi_error,
 	.can_queue		= ATA_DEF_QUEUE,
 	.this_id		= ATA_SHT_THIS_ID,
-	.sg_tablesize		= ATA_MAX_PRD,
+	.sg_tablesize		= LIBATA_MAX_PRD,
 	.max_sectors		= ATA_MAX_SECTORS,
 	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
 	.use_new_eh_code	= ATA_SHT_NEW_EH_CODE,
@@ -93,91 +82,102 @@ static Scsi_Host_Template sis_sht = {
 	.bios_param		= ata_std_bios_param,
 };
 
-static struct ata_port_operations sis_ops = {
+static struct ata_port_operations uli_ops = {
 	.port_disable		= ata_port_disable,
+
 	.tf_load		= ata_tf_load,
 	.tf_read		= ata_tf_read,
 	.check_status		= ata_check_status,
 	.exec_command		= ata_exec_command,
 	.dev_select		= ata_std_dev_select,
+
 	.phy_reset		= sata_phy_reset,
+
 	.bmdma_setup            = ata_bmdma_setup,
 	.bmdma_start            = ata_bmdma_start,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
+
 	.eng_timeout		= ata_eng_timeout,
+
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
-	.scr_read		= sis_scr_read,
-	.scr_write		= sis_scr_write,
+
+	.scr_read		= uli_scr_read,
+	.scr_write		= uli_scr_write,
+
 	.port_start		= ata_port_start,
 	.port_stop		= ata_port_stop,
 };
 
-static struct ata_port_info sis_port_info = {
-	.sht		= &sis_sht,
-	.host_flags	= ATA_FLAG_SATA | ATA_FLAG_SATA_RESET |
+static struct ata_port_info uli_port_info = {
+	.sht            = &uli_sht,
+	.host_flags     = ATA_FLAG_SATA | ATA_FLAG_SATA_RESET |
 			  ATA_FLAG_NO_LEGACY,
-	.pio_mask	= 0x1f,
-	.mwdma_mask	= 0x7,
-	.udma_mask	= 0x7f,
-	.port_ops	= &sis_ops,
+	.pio_mask       = 0x03,		//support pio mode 4 (FIXME)
+	.udma_mask      = 0x7f,		//support udma mode 6
+	.port_ops       = &uli_ops,
 };
 
 
-MODULE_AUTHOR("Uwe Koziolek");
-MODULE_DESCRIPTION("low-level driver for Silicon Integratad Systems SATA controller");
+MODULE_AUTHOR("Peer Chen");
+MODULE_DESCRIPTION("low-level driver for ULi Electronics SATA controller");
 MODULE_LICENSE("GPL");
-MODULE_DEVICE_TABLE(pci, sis_pci_tbl);
+MODULE_DEVICE_TABLE(pci, uli_pci_tbl);
 
 static unsigned int get_scr_cfg_addr(unsigned int port_no, unsigned int sc_reg)
 {
-	unsigned int addr = SIS_SCR_BASE + (4 * sc_reg);
+	unsigned int addr = ULI_SCR_BASE + (4 * sc_reg);
 
-	if (port_no)
-		addr += SIS_SATA1_OFS;
+	switch (port_no) {
+	case 0:
+		break;
+	case 1:
+		addr += ULI_SATA1_OFS;
+		break;
+	case 2:
+		addr += ULI_SATA1_OFS*4;
+		break;
+	case 3:
+		addr += ULI_SATA1_OFS*5;
+		break;
+	default:
+		BUG();
+		break;
+	}
 	return addr;
 }
 
-static u32 sis_scr_cfg_read (struct ata_port *ap, unsigned int sc_reg)
+static u32 uli_scr_cfg_read (struct ata_port *ap, unsigned int sc_reg)
 {
 	unsigned int cfg_addr = get_scr_cfg_addr(ap->port_no, sc_reg);
 	u32 val;
 
-	if (sc_reg == SCR_ERROR) /* doesn't exist in PCI cfg space */
-		return 0xffffffff;
 	pci_read_config_dword(ap->host_set->pdev, cfg_addr, &val);
 	return val;
 }
 
-static void sis_scr_cfg_write (struct ata_port *ap, unsigned int scr, u32 val)
+static void uli_scr_cfg_write (struct ata_port *ap, unsigned int scr, u32 val)
 {
 	unsigned int cfg_addr = get_scr_cfg_addr(ap->port_no, scr);
 
-	if (scr == SCR_ERROR) /* doesn't exist in PCI cfg space */
-		return;
 	pci_write_config_dword(ap->host_set->pdev, cfg_addr, val);
 }
 
-static u32 sis_scr_read (struct ata_port *ap, unsigned int sc_reg)
+static u32 uli_scr_read (struct ata_port *ap, unsigned int sc_reg)
 {
 	if (sc_reg > SCR_CONTROL)
 		return 0xffffffffU;
 
-	if (ap->flags & SIS_FLAG_CFGSCR)
-		return sis_scr_cfg_read(ap, sc_reg);
-	return inl(ap->ioaddr.scr_addr + (sc_reg * 4));
+	return uli_scr_cfg_read(ap, sc_reg);
 }
 
-static void sis_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val)
+static void uli_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val)
 {
-	if (sc_reg > SCR_CONTROL)
+	if (sc_reg > SCR_CONTROL)	//SCR_CONTROL=2, SCR_ERROR=1, SCR_STATUS=0
 		return;
 
-	if (ap->flags & SIS_FLAG_CFGSCR)
-		sis_scr_cfg_write(ap, sc_reg, val);
-	else
-		outl(val, ap->ioaddr.scr_addr + (sc_reg * 4));
+	uli_scr_cfg_write(ap, sc_reg, val);
 }
 
 /* move to PCI layer, integrate w/ MSI stuff */
@@ -192,12 +192,12 @@ static void pci_enable_intx(struct pci_dev *pdev)
 	}
 }
 
-static int sis_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+static int uli_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 {
-	struct ata_probe_ent *probe_ent = NULL;
-	int rc;
-	u32 genctl;
+	struct ata_probe_ent *probe_ent;
 	struct ata_port_info *ppi;
+	int rc;
+	unsigned int board_idx = (unsigned int) ent->driver_data;
 
 	rc = pci_enable_device(pdev);
 	if (rc)
@@ -211,34 +211,40 @@ static int sis_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (rc)
 		goto err_out_regions;
 
-	ppi = &sis_port_info;
+	ppi = &uli_port_info;
 	probe_ent = ata_pci_init_native_mode(pdev, &ppi);
 	if (!probe_ent) {
 		rc = -ENOMEM;
 		goto err_out_regions;
 	}
 
-	/* check and see if the SCRs are in IO space or PCI cfg space */
-	pci_read_config_dword(pdev, SIS_GENCTL, &genctl);
-	if ((genctl & GENCTL_IOMAPPED_SCR) == 0)
-		probe_ent->host_flags |= SIS_FLAG_CFGSCR;
-	
-	/* if hardware thinks SCRs are in IO space, but there are
-	 * no IO resources assigned, change to PCI cfg space.
-	 */
-	if ((!(probe_ent->host_flags & SIS_FLAG_CFGSCR)) &&
-	    ((pci_resource_start(pdev, SIS_SCR_PCI_BAR) == 0) ||
-	     (pci_resource_len(pdev, SIS_SCR_PCI_BAR) < 128))) {
-		genctl &= ~GENCTL_IOMAPPED_SCR;
-		pci_write_config_dword(pdev, SIS_GENCTL, genctl);
-		probe_ent->host_flags |= SIS_FLAG_CFGSCR;
-	}
+	switch (board_idx) {
+	case uli_5287:
+       		probe_ent->n_ports = 4;
 
-	if (!(probe_ent->host_flags & SIS_FLAG_CFGSCR)) {
-		probe_ent->port[0].scr_addr =
-			pci_resource_start(pdev, SIS_SCR_PCI_BAR);
-		probe_ent->port[1].scr_addr =
-			pci_resource_start(pdev, SIS_SCR_PCI_BAR) + 64;
+       		probe_ent->port[2].cmd_addr = pci_resource_start(pdev, 0) + 8;
+		probe_ent->port[2].altstatus_addr =
+		probe_ent->port[2].ctl_addr =
+			(pci_resource_start(pdev, 1) | ATA_PCI_CTL_OFS) + 4;
+		probe_ent->port[2].bmdma_addr = pci_resource_start(pdev, 4) + 16;
+
+		probe_ent->port[3].cmd_addr = pci_resource_start(pdev, 2) + 8;
+		probe_ent->port[3].altstatus_addr =
+		probe_ent->port[3].ctl_addr =
+			(pci_resource_start(pdev, 3) | ATA_PCI_CTL_OFS) + 4;
+		probe_ent->port[3].bmdma_addr = pci_resource_start(pdev, 4) + 24;
+
+		ata_std_ports(&probe_ent->port[2]);
+		ata_std_ports(&probe_ent->port[3]);
+		break;
+
+	case uli_5289:
+		/* do nothing; ata_pci_init_native_mode did it all */
+		break;
+
+	default:
+		BUG();
+		break;
 	}
 
 	pci_set_master(pdev);
@@ -257,27 +263,30 @@ err_out:
 
 }
 
-static int __init sis_init(void)
+static int __init uli_init(void)
 {
-	int rc = pci_module_init(&sis_pci_driver);
+	int rc;
+
+	rc = pci_module_init(&uli_pci_driver);
 	if (rc)
 		return rc;
-
-	rc = scsi_register_module(MODULE_SCSI_HA, &sis_sht);
+	
+	rc = scsi_register_module(MODULE_SCSI_HA, &uli_sht);
 	if (rc) {
-		pci_unregister_driver(&sis_pci_driver);
+		pci_unregister_driver(&uli_pci_driver);
+		/* TODO: does scsi_register_module return errno val? */
 		return -ENODEV;
 	}
 
 	return 0;
 }
 
-static void __exit sis_exit(void)
+static void __exit uli_exit(void)
 {
-	scsi_unregister_module(MODULE_SCSI_HA, &sis_sht);
-	pci_unregister_driver(&sis_pci_driver);
+	scsi_unregister_module(MODULE_SCSI_HA, &uli_sht);
+	pci_unregister_driver(&uli_pci_driver);
 }
 
-module_init(sis_init);
-module_exit(sis_exit);
 
+module_init(uli_init);
+module_exit(uli_exit);

@@ -1536,6 +1536,13 @@ P:	Michal Ostrowski
 M:	mostrows@styx.uwaterloo.ca
 S:	Maintained
 
+PRISM54 WIRELESS DRIVER
+P:	Prism54 Development Team
+M:	prism54-private@prism54.org
+L:	netdev@oss.sgi.com
+W:	http://prism54.org
+S:	Maintained
+
 PROMISE DC4030 CACHING DISK CONTROLLER DRIVER
 P:	Peter Denison
 M:	promise@pnd-pc.demon.co.uk

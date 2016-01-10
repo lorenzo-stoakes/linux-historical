@@ -552,9 +552,13 @@ static ssize_t usb_device_dump(char **buffer, size_t *nbytes, loff_t *skip_bytes
 	
 	/* Now look at all of this device's children. */
 	for (chix = 0; chix < usbdev->maxchild; chix++) {
-		if (usbdev->children[chix]) {
-			ret = usb_device_dump(buffer, nbytes, skip_bytes, file_offset, usbdev->children[chix],
+		struct usb_device *childdev = usbdev->children[chix];
+		if (childdev) {
+			usb_inc_dev_use(childdev);
+			ret = usb_device_dump(buffer, nbytes, skip_bytes,
+					file_offset, childdev,
 					bus, level + 1, chix, ++cnt);
+			usb_dec_dev_use(childdev);
 			if (ret == -EFAULT)
 				return total_written;
 			total_written += ret;
