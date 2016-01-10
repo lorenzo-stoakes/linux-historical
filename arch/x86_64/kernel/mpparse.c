@@ -35,6 +35,9 @@
 
 /* Have we found an MP table */
 int smp_found_config = 0;
+#ifdef	CONFIG_SMP
+extern unsigned int max_cpus;
+#endif
 
 /*
  * Various Linux-internal data structures created from the
@@ -111,6 +114,20 @@ static void __init MP_processor_info (struct mpc_config_processor *m)
 		Dprintk("    Bootup CPU\n");
 		boot_cpu_id = m->mpc_apicid;
 	}
+
+#ifdef	CONFIG_SMP
+	if (num_processors >= NR_CPUS) {
+		printk(KERN_WARNING "WARNING: NR_CPUS limit of %i reached."
+			" Processor ignored.\n", NR_CPUS);
+		return;
+	}
+	if (num_processors >= max_cpus) {
+		printk(KERN_WARNING "WARNING: maxcpus limit of %i reached."
+			" Processor ignored.\n", max_cpus);
+		return;
+	}
+#endif
+
 	num_processors++;
 
 	if (m->mpc_apicid > MAX_APICS) {
@@ -888,63 +905,6 @@ void __init mp_config_acpi_legacy_irqs (void)
 #ifndef CONFIG_ACPI_HT_ONLY
 
 extern FADT_DESCRIPTOR acpi_fadt;
-
-void __init mp_config_ioapic_for_sci(int irq)
-{
-	int ioapic;
-	int ioapic_pin;
-	struct acpi_table_madt* madt;
-	struct acpi_table_int_src_ovr *entry = NULL;
-	acpi_interrupt_flags flags;
-	void *madt_end;
-	acpi_status status;
-
-	/*
-	 * Ensure that if there is an interrupt source override entry
-	 * for the ACPI SCI, we leave it as is. Unfortunately this involves
-	 * walking the MADT again.
-	 */
-	status = acpi_get_firmware_table("APIC", 1, ACPI_LOGICAL_ADDRESSING,
-		(struct acpi_table_header **) &madt);
-	if (ACPI_SUCCESS(status)) {
-		madt_end = (void *) (unsigned long)madt + madt->header.length;
-
-		entry = (struct acpi_table_int_src_ovr *)
-                ((unsigned long) madt + sizeof(struct acpi_table_madt));
-
-		while ((void *) entry < madt_end) {
-                	if (entry->header.type == ACPI_MADT_INT_SRC_OVR &&
- 			    acpi_fadt.sci_int == entry->bus_irq)
- 				goto found;
-
-                	entry = (struct acpi_table_int_src_ovr *)
-                	        ((unsigned long) entry + entry->header.length);
-        	}
-	}
- 	/*
- 	 * Although the ACPI spec says that the SCI should be level/low
- 	 * don't reprogram it unless there is an explicit MADT OVR entry
- 	 * instructing us to do so -- otherwise we break Tyan boards which
- 	 * have the SCI wired edge/high but no MADT OVR.
- 	 */
- 	return;
-
-found:
- 	/*
- 	 * See the note at the end of ACPI 2.0b section
- 	 * 5.2.10.8 for what this is about.
- 	 */
- 	flags = entry->flags;
- 	acpi_fadt.sci_int = entry->global_irq;
- 	irq = entry->global_irq;
-
-	ioapic = mp_find_ioapic(irq);
-
-	ioapic_pin = irq - mp_ioapic_routing[ioapic].irq_start;
-
- 	io_apic_set_pci_routing(ioapic, ioapic_pin, irq, 
- 				(flags.trigger >> 1) , (flags.polarity >> 1));
-}
 
 #endif /*CONFIG_ACPI_HT_ONLY*/
 

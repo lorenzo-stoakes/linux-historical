@@ -53,6 +53,8 @@ int acpi_lapic;
 int acpi_ioapic;
 int acpi_strict;
 
+acpi_interrupt_flags acpi_sci_flags __initdata;
+int acpi_sci_override_gsi __initdata;
 /* --------------------------------------------------------------------------
                               Boot-time Configuration
    -------------------------------------------------------------------------- */
@@ -214,6 +216,54 @@ acpi_parse_ioapic (
 	return 0;
 }
 
+/*
+ * Parse Interrupt Source Override for the ACPI SCI
+ */
+static void
+acpi_parse_sci_int_src_ovr(u8 bus_irq, u16 polarity, u16 trigger, u32 global_irq)
+{
+	if (trigger == 0)	/* compatible SCI trigger is level */
+		trigger = 3;
+
+	if (polarity == 0)	/* compatible SCI polarity is low */
+		polarity = 3;
+
+	/* Command-line over-ride via acpi_sci= */
+	if (acpi_sci_flags.trigger)
+		trigger = acpi_sci_flags.trigger;
+
+	if (acpi_sci_flags.polarity)
+		polarity = acpi_sci_flags.polarity;
+
+	mp_override_legacy_irq(bus_irq, polarity, trigger, global_irq);
+
+	/*
+	 * stash over-ride to indicate we've been here
+	 * and for later update of acpi_fadt
+	 */
+	acpi_sci_override_gsi = global_irq;
+	return;
+}
+
+static int __init
+acpi_parse_fadt(unsigned long phys, unsigned long size)
+{
+        struct fadt_descriptor_rev2 *fadt =0;
+
+        fadt = (struct fadt_descriptor_rev2*) __acpi_map_table(phys,size);
+        if (!fadt) {
+                printk(KERN_WARNING PREFIX "Unable to map FADT\n");
+                return 0;
+        }
+
+#ifdef  CONFIG_ACPI_INTERPRETER
+        /* initialize sci_int early for INT_SRC_OVR MADT parsing */
+        acpi_fadt.sci_int = fadt->sci_int;
+#endif
+
+        return 0;
+}
+
 
 static int __init
 acpi_parse_int_src_ovr (
@@ -226,6 +276,13 @@ acpi_parse_int_src_ovr (
 		return -EINVAL;
 
 	acpi_table_print_madt_entry(header);
+
+	if (intsrc->bus_irq == acpi_fadt.sci_int) {
+		acpi_parse_sci_int_src_ovr(intsrc->bus_irq,
+			intsrc->flags.polarity, intsrc->flags.trigger,
+			intsrc->global_irq);
+		return 0;
+	}
 
 	mp_override_legacy_irq (
 		intsrc->bus_irq,
@@ -307,7 +364,7 @@ acpi_find_rsdp (void)
  * 	acpi_lapic = 1 if LAPIC found
  *	acpi_ioapic = 1 if IOAPIC found
  *	if (acpi_lapic && acpi_ioapic) smp_found_config = 1;
- *	if acpi_blacklisted() acpi_disabled = 1;
+ *	if acpi_blacklisted() disable_acpi()
  *	acpi_irq_model=...
  *	...
  *
@@ -334,14 +391,14 @@ acpi_boot_init (void)
 	 */
 	result = acpi_table_init();
 	if (result) {
-		acpi_disabled = 1;
+		disable_acpi();
 		return result;
 	}
 
 	result = acpi_blacklisted();
 	if (result) {
 		printk(KERN_NOTICE PREFIX "BIOS listed in blacklist, disabling ACPI support\n");
-		acpi_disabled = 1;
+		disable_acpi();
 		return result;
 	}
 
@@ -444,12 +501,22 @@ acpi_boot_init (void)
 	/* Build a default routing table for legacy (ISA) interrupts. */
 	mp_config_acpi_legacy_irqs();
 
+	/* Record sci_int for use when looking for MADT sci_int override */
+	acpi_table_parse(ACPI_FADT, acpi_parse_fadt);
+
 	result = acpi_table_parse_madt(ACPI_MADT_INT_SRC_OVR, acpi_parse_int_src_ovr);
 	if (result < 0) {
 		printk(KERN_ERR PREFIX "Error parsing interrupt source overrides entry\n");
 		/* TBD: Cleanup to allow fallback to MPS */
 		return result;
 	}
+
+	/*
+	 * If BIOS did not supply an INT_SRC_OVR for the SCI
+	 * pretend we got one so we can set the SCI flags.
+	 */
+	if (!acpi_sci_override_gsi)
+		acpi_parse_sci_int_src_ovr(acpi_fadt.sci_int, 0, 0, acpi_fadt.sci_int);
 
 	result = acpi_table_parse_madt(ACPI_MADT_NMI_SRC, acpi_parse_nmi_src);
 	if (result < 0) {
@@ -475,13 +542,12 @@ acpi_boot_init (void)
 
 #ifdef	CONFIG_ACPI_BUS
 /*
- * "acpi_pic_sci=level" (current default)
- * programs the PIC-mode SCI to Level Trigger.
- * (NO-OP if the BIOS set Level Trigger already)
+ * acpi_pic_sci_set_trigger()
+ *
+ * use ELCR to set PIC-mode trigger type for SCI
  *
  * If a PIC-mode SCI is not recognized or gives spurious IRQ7's
- * it may require Edge Trigger -- use "acpi_pic_sci=edge"
- * (NO-OP if the BIOS set Edge Trigger already)
+ * it may require Edge Trigger -- use "acpi_sci=edge"
  *
  * Port 0x4d0-4d1 are ECLR1 and ECLR2, the Edge/Level Control Registers
  * for the 8259 PIC.  bit[n] = 1 means irq[n] is Level, otherwise Edge.
@@ -489,51 +555,32 @@ acpi_boot_init (void)
  * ECLR2 is IRQ's 8-15 (IRQ 8, 13 must be 0)
  */
 
-static __initdata int	acpi_pic_sci_trigger;	/* 0: level, 1: edge */
-
 void __init
-acpi_pic_sci_set_trigger(unsigned int irq)
+acpi_pic_sci_set_trigger(unsigned int irq, u16 trigger)
 {
 	unsigned char mask = 1 << (irq & 7);
 	unsigned int port = 0x4d0 + (irq >> 3);
 	unsigned char val = inb(port);
 
-	
+
 	printk(PREFIX "IRQ%d SCI:", irq);
 	if (!(val & mask)) {
 		printk(" Edge");
 
-		if (!acpi_pic_sci_trigger) {
+		if (trigger == 3) {
 			printk(" set to Level");
 			outb(val | mask, port);
 		}
 	} else {
 		printk(" Level");
 
-		if (acpi_pic_sci_trigger) {
+		if (trigger == 1) {
 			printk(" set to Edge");
-			outb(val | mask, port);
+			outb(val & ~mask, port);
 		}
 	}
 	printk(" Trigger.\n");
 }
-
-int __init
-acpi_pic_sci_setup(char *str)
-{
-	while (str && *str) {
-		if (strncmp(str, "level", 5) == 0)
-			acpi_pic_sci_trigger = 0;	/* force level trigger */
-		if (strncmp(str, "edge", 4) == 0)
-			acpi_pic_sci_trigger = 1;	/* force edge trigger */
-		str = strchr(str, ',');
-		if (str)
-			str += strspn(str, ", \t");
-	}
-	return 1;
-}
-
-__setup("acpi_pic_sci=", acpi_pic_sci_setup);
 
 #endif /* CONFIG_ACPI_BUS */
 

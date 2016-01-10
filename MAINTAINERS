@@ -2110,7 +2110,6 @@ S:	Maintained
 
 VIA 82Cxxx AUDIO DRIVER
 P:	Jeff Garzik
-L:	linux-via@gtf.org
 S:	Odd fixes
 
 VIA RHINE NETWORK DRIVER

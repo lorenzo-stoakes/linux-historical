@@ -277,6 +277,10 @@ acpi_pci_irq_lookup (
 	return_VALUE(entry->irq);
 }
 
+/*
+ * current thinking is that acpi_pci_irq_derive() adds no value
+ * and should be deleted, so warn if it actually does something.
+ */
 
 static int
 acpi_pci_irq_derive (
@@ -306,7 +310,8 @@ acpi_pci_irq_derive (
 		return_VALUE(0);
 	}
 
-	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Derived IRQ %d\n", irq));
+	ACPI_DEBUG_PRINT((ACPI_DB_WARN, "Derive IRQ %d for device %s from %s\n",
+		irq, pci_name(dev), pci_name(bridge)));
 
 	return_VALUE(irq);
 }
@@ -342,6 +347,13 @@ acpi_pci_irq_enable (
 	 */
  	irq = acpi_pci_irq_lookup(0, dev->bus->number, PCI_SLOT(dev->devfn), pin);
  
+	/*
+	 * Check if the device has an IRQ,
+	 * Hotplug devices may get IRQs by scanning
+	 */
+	if (!irq && dev->irq)
+		irq = dev->irq;
+
 	/*
 	 * If no PRT entry was found, we'll try to derive an IRQ from the
 	 * device's parent bridge.

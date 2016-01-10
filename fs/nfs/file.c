@@ -81,7 +81,7 @@ nfs_file_flush(struct file *file)
 	if (file->f_mode & FMODE_READ)
 		nfs_pagein_inode(inode, 0, 0);
 
-	status = nfs_wb_file(inode, file);
+	status = nfs_wb_all(inode);
 	if (!status) {
 		status = file->f_error;
 		file->f_error = 0;
@@ -136,7 +136,7 @@ nfs_fsync(struct file *file, struct dentry *dentry, int datasync)
 	dfprintk(VFS, "nfs: fsync(%x/%ld)\n", inode->i_dev, inode->i_ino);
 
 	lock_kernel();
-	status = nfs_wb_file(inode, file);
+	status = nfs_wb_all(inode);
 	if (!status) {
 		status = file->f_error;
 		file->f_error = 0;

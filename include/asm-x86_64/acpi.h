@@ -104,6 +104,9 @@ extern int acpi_lapic;
 extern int acpi_ioapic;
 extern int acpi_noirq;
 extern int acpi_strict;
+extern int acpi_disabled;
+extern int acpi_ht;
+static inline void disable_acpi(void) { acpi_disabled = 1; acpi_ht = 0; }
 
 /* Fixmap pages to reserve for ACPI boot-time tables (see fixmap.h) */
 #define FIX_ACPI_PAGES 4
@@ -137,8 +140,6 @@ extern void acpi_reserve_bootmem(void);
 #endif /*CONFIG_ACPI_SLEEP*/
 
 #define boot_cpu_physical_apicid boot_cpu_id
-
-extern void mp_config_ioapic_for_sci(int irq);
 
 #endif /*__KERNEL__*/
 

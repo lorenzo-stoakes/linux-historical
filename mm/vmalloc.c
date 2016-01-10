@@ -184,7 +184,7 @@ err:
 	spin_unlock(&init_mm.page_table_lock);
 	flush_cache_all();
 	if (address > start)
-		vmfree_area_pages(address, address - start);
+		vmfree_area_pages(start, address - start);
 	return -ENOMEM;
 }
 
