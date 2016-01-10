@@ -45,7 +45,6 @@
  *
  */
 
-#include <linux/module.h>
 #include <linux/stddef.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -59,9 +58,12 @@
 
 #include <support/ktrace.h>
 #include <support/debug.h>
-#include <support/kmem.h>
+#include "kmem.h"
 
-#include "page_buf.h"
+#include "xfs_types.h"
+#include "xfs_cred.h"
+#include "xfs_lrw.h"
+#include "xfs_buf.h"
 
 #define NBBY		8
 #define BBSHIFT		9
@@ -209,7 +211,6 @@ pagebuf_trace(
 		NULL, NULL, NULL, NULL, NULL);
 }
 ktrace_t *pagebuf_trace_buf;
-EXPORT_SYMBOL(pagebuf_trace_buf);
 #define PAGEBUF_TRACE_SIZE	4096
 #define PB_TRACE(pb, id, data)	\
 	pagebuf_trace(pb, id, (void *)data, (void *)__builtin_return_address(0))
@@ -235,10 +236,14 @@ EXPORT_SYMBOL(pagebuf_trace_buf);
 	(((flags) & PBF_READ_AHEAD) ? GFP_READAHEAD : \
 	 ((flags) & PBF_DONT_BLOCK) ? GFP_NOFS : GFP_KERNEL)
 
+#define pb_to_km(flags) \
+	 (((flags) & PBF_DONT_BLOCK) ? KM_NOFS : KM_SLEEP)
+
+
 #define pagebuf_allocate(flags) \
-	kmem_cache_alloc(pagebuf_cache, pb_to_gfp(flags))
+	kmem_zone_alloc(pagebuf_cache, pb_to_km(flags))
 #define pagebuf_deallocate(pb) \
-	kmem_cache_free(pagebuf_cache, (pb));
+	kmem_zone_free(pagebuf_cache, (pb));
 
 /*
  * Pagebuf hashing
@@ -2538,6 +2543,10 @@ pagebuf_terminate(void)
 {
 	pagebuf_daemon_stop();
 
+#ifdef PAGEBUF_TRACE
+	ktrace_free(pagebuf_trace_buf);
+#endif
+
 	kmem_cache_destroy(pagebuf_cache);
 	kmem_shake_deregister(pagebuf_shaker);
 
@@ -2547,12 +2556,3 @@ pagebuf_terminate(void)
 	remove_proc_entry("fs/pagebuf", NULL);
 #endif
 }
-
-
-/*
- *	Module management (for kernel debugger module)
- */
-EXPORT_SYMBOL(pagebuf_offset);
-#ifdef DEBUG
-EXPORT_SYMBOL(pbd_delwrite_queue);
-#endif

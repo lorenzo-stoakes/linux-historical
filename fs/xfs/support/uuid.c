@@ -31,11 +31,6 @@
  */
 
 #include <xfs.h>
-#include "time.h"
-#include "uuid.h"
-#include "kmem.h"
-#include "debug.h"
-#include "mutex.h"
 
 static mutex_t	uuid_monitor;
 static int	uuid_table_size;

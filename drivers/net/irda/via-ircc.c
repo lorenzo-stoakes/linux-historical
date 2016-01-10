@@ -146,7 +146,7 @@ static struct pci_driver via_driver = {
  *
  *    Initialize chip. Just find out chip type and resource.
  */
-int __devinit via_ircc_init(void)
+static int __devinit via_ircc_init(void)
 {
 	int rc;
 

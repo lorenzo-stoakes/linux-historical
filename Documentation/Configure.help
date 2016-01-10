@@ -10647,6 +10647,15 @@ CONFIG_NET_SCH_HTB
   whenever you want).  If you want to compile it as a module, say M
   here and read <file:Documentation/modules.txt>.
 
+CONFIG_NET_SCH_HFSC
+  Say Y here if you want to use the Hierarchical Fair Service Curve
+  (HFSC) packet scheduling algorithm for some of your network devices.
+
+  This code is also available as a module called sch_hfsc.o ( = code
+  which can be inserted in and removed from the running kernel
+  whenever you want).  If you want to compile it as a module, say M
+  here and read <file:Documentation/modules.txt>.
+
 CSZ packet scheduler
 CONFIG_NET_SCH_CSZ
   Say Y here if you want to use the Clark-Shenker-Zhang (CSZ) packet

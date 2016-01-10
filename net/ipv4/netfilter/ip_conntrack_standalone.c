@@ -37,7 +37,6 @@
 #define DEBUGP(format, args...)
 #endif
 
-struct module *ip_conntrack_module = THIS_MODULE;
 MODULE_LICENSE("GPL");
 
 static int kill_proto(const struct ip_conntrack *i, void *data)
@@ -465,7 +464,6 @@ EXPORT_SYMBOL(invert_tuplepr);
 EXPORT_SYMBOL(ip_conntrack_alter_reply);
 EXPORT_SYMBOL(ip_conntrack_destroyed);
 EXPORT_SYMBOL(ip_conntrack_get);
-EXPORT_SYMBOL(ip_conntrack_module);
 EXPORT_SYMBOL(ip_conntrack_helper_register);
 EXPORT_SYMBOL(ip_conntrack_helper_unregister);
 EXPORT_SYMBOL(ip_ct_selective_cleanup);

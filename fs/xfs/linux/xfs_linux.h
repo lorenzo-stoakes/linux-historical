@@ -47,18 +47,19 @@
 #include <xfs_types.h>
 #include <xfs_arch.h>
 
-#include <support/kmem.h>
-#include <support/mrlock.h>
+#include <kmem.h>
+#include <mrlock.h>
+#include <spin.h>
+#include <sv.h>
+#include <mutex.h>
+#include <sema.h>
+#include <time.h>
+
 #include <support/qsort.h>
-#include <support/spin.h>
-#include <support/sv.h>
 #include <support/ktrace.h>
-#include <support/mutex.h>
-#include <support/sema.h>
 #include <support/debug.h>
 #include <support/move.h>
 #include <support/uuid.h>
-#include <support/time.h>
 
 #include <linux/mm.h>
 #include <linux/kernel.h>
@@ -83,19 +84,18 @@
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 
-#include <linux/xfs_behavior.h>
-#include <linux/xfs_vfs.h>
-#include <linux/xfs_cred.h>
-#include <linux/xfs_vnode.h>
-#include <linux/xfs_stats.h>
-#include <linux/xfs_sysctl.h>
-#include <linux/xfs_iops.h>
-#include <linux/xfs_super.h>
-#include <linux/xfs_globals.h>
-#include <linux/xfs_fs_subr.h>
-#include <linux/xfs_lrw.h>
-
-#include <pagebuf/page_buf.h>
+#include <xfs_behavior.h>
+#include <xfs_vfs.h>
+#include <xfs_cred.h>
+#include <xfs_vnode.h>
+#include <xfs_stats.h>
+#include <xfs_sysctl.h>
+#include <xfs_iops.h>
+#include <xfs_super.h>
+#include <xfs_globals.h>
+#include <xfs_fs_subr.h>
+#include <xfs_lrw.h>
+#include <xfs_buf.h>
 
 /*
  * Feature macros (disable/enable)

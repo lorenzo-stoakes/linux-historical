@@ -45,7 +45,7 @@
  *	use of the codec after the probe function.
  */
  
-static void ad1980_remove(struct ac97_codec *codec)
+static void ad1980_remove(struct ac97_codec *codec, struct ac97_driver *driver)
 {
 	/* Nothing to do in the simple example */
 }

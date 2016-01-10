@@ -31,14 +31,14 @@
 #
 # Makefile for XFS on Linux.
 
-EXTRA_CFLAGS += -I.. -funsigned-char
+EXTRA_CFLAGS += -I.. -I. -funsigned-char
 
 ifeq ($(CONFIG_XFS_DEBUG),y)
 	EXTRA_CFLAGS += -g -DSTATIC="" -DDEBUG -DXFSDEBUG
 	EXTRA_CFLAGS += -DPAGEBUF_LOCK_TRACKING
 endif
 ifeq ($(CONFIG_XFS_TRACE),y)
-	EXTRA_CFLAGS += -DXFS_RW_TRACE
+	EXTRA_CFLAGS += -DXFS_RW_TRACE -DPAGEBUF_TRACE
 	# EXTRA_CFLAGS += -DXFS_VNODE_TRACE
 endif
 
@@ -47,21 +47,20 @@ ifneq ($(MAKECMDGOALS),modules_install)
   obj-m				:= $(O_TARGET)
 endif
 
-export-objs			:= xfs_globals.o
-
 obj-$(CONFIG_PROC_FS)		+= xfs_stats.o
 obj-$(CONFIG_SYSCTL)		+= xfs_sysctl.o
 obj-y				+= xfs_aops.o \
-				   xfs_behavior.o \
 				   xfs_file.o \
 				   xfs_fs_subr.o \
 				   xfs_globals.o \
 				   xfs_ioctl.o \
-				   xfs_iomap.o \
 				   xfs_iops.o \
 				   xfs_lrw.o \
 				   xfs_super.o \
 				   xfs_vfs.o \
-				   xfs_vnode.o
+				   xfs_vnode.o	\
+				   xfs_buf.o \
+				   mrlock.o \
+				   kmem.o
 
 include $(TOPDIR)/Rules.make

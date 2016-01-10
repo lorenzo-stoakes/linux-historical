@@ -5644,7 +5644,7 @@ static int ati_create_gatt_pages(int nr_tables)
 #define GET_PAGE_DIR_IDX(addr) (GET_PAGE_DIR_OFF(addr) - \
 	GET_PAGE_DIR_OFF(agp_bridge.gart_bus_addr))
 #define GET_GATT_OFF(addr) ((addr & 0x003ff000) >> 12)
-#undef  GET_GATT(addr)
+#undef  GET_GATT
 #define GET_GATT(addr) (ati_generic_private.gatt_pages[\
 	GET_PAGE_DIR_IDX(addr)]->remapped)
 

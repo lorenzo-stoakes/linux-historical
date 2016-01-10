@@ -30,7 +30,7 @@
 # http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
 #
 
-EXTRA_CFLAGS += -I $(TOPDIR)/fs/xfs
+EXTRA_CFLAGS += -I $(TOPDIR)/fs/xfs -I $(TOPDIR)/fs/xfs/linux
 
 ifeq ($(CONFIG_XFS_DEBUG),y)
 	EXTRA_CFLAGS += -g -DDEBUG -DXFSDEBUG
@@ -53,7 +53,5 @@ obj-y				+= xfs_dquot.o \
 				   xfs_qm_syscalls.o \
 				   xfs_qm_bhv.o \
 				   xfs_qm.o
-
-export-objs			+= xfs_qm.o
 
 include $(TOPDIR)/Rules.make

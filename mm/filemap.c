@@ -1965,7 +1965,7 @@ static ssize_t do_readahead(struct file *file, unsigned long index, unsigned lon
 		nr = max;
 
 	/* And limit it to a sane percentage of the inactive list.. */
-	max = nr_inactive_pages / 2;
+	max = (nr_free_pages() + nr_inactive_pages) / 2;
 	if (nr > max)
 		nr = max;
 

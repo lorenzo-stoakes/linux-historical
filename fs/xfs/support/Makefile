@@ -30,7 +30,7 @@
 # http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
 #
 
-EXTRA_CFLAGS += -I..
+EXTRA_CFLAGS += -I.. -I $(TOPDIR)/fs/xfs/linux
 
 ifeq ($(CONFIG_XFS_DEBUG),y)
 	EXTRA_CFLAGS += -DDEBUG
@@ -41,12 +41,8 @@ ifneq ($(MAKECMDGOALS),modules_install)
   obj-m				:= $(O_TARGET)
 endif
 
-export-objs			:= ktrace.o
-
 obj-y				:= debug.o \
-				   kmem.o \
 				   move.o \
-				   mrlock.o \
 				   qsort.o \
 				   uuid.o
 

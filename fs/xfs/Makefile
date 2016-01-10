@@ -30,7 +30,7 @@
 # http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
 #
 
-EXTRA_CFLAGS +=  -I. -funsigned-char
+EXTRA_CFLAGS +=  -I. -I linux -funsigned-char
 
 ifeq ($(CONFIG_XFS_DEBUG),y)
 	EXTRA_CFLAGS += -g -DSTATIC="" -DDEBUG -DXFSDEBUG
@@ -52,21 +52,8 @@ ifeq ($(CONFIG_XFS_TRACE),y)
 	# EXTRA_CFLAGS += -DXFS_VNODE_TRACE
 endif
 
-# fs/Makefile enters fs/xfs twice if CONFIG_XFS_FS is y, once for kernel and
-# once for modules.  This is necessary because xfsidbg can be built as a module
-# even if xfs is in kernel.  Alas the shorthand form
-#   O_TARGET := xfs.o
-#   obj-m := $(O_TARGET)
-# fails when the makefile is run more than once, code gets compiled as both
-# kernel and as module, which one gets linked depends on the phase of the moon.
-# I just love these layer violations where a makefile behaves differently
-# depending on changes to its parent.  Work around by only setting obj-m when
-# xfs is selected as a module.  Keith Owens.
-
 O_TARGET			:= xfs.o
-ifeq ($(CONFIG_XFS_FS),m)
-  obj-m				:= $(O_TARGET)
-endif
+obj-m				:= $(O_TARGET)
 
 obj-$(CONFIG_XFS_RT)		+= xfs_rtalloc.o
 obj-$(CONFIG_XFS_POSIX_ACL)	+= xfs_acl.o
@@ -79,6 +66,7 @@ obj-y				+= xfs_alloc.o \
 				   xfs_alloc_btree.o \
 				   xfs_attr.o \
 				   xfs_attr_leaf.o \
+				   xfs_behavior.o \
 				   xfs_bit.o \
 				   xfs_bmap.o \
 				   xfs_bmap_btree.o \
@@ -102,6 +90,7 @@ obj-y				+= xfs_alloc.o \
 				   xfs_inode.o \
 				   xfs_inode_item.o \
 				   xfs_iocore.o \
+				   xfs_iomap.o \
 				   xfs_itable.o \
 				   xfs_dfrag.o \
 				   xfs_log.o \
@@ -122,11 +111,10 @@ obj-y				+= xfs_alloc.o \
 				   xfs_rw.o
 
 # Objects not built in this directory
-obj-y				+= pagebuf/pagebuf.o \
-				   linux/linux_xfs.o \
+obj-y				+= linux/linux_xfs.o \
 				   support/support_xfs.o
 
-subdir-$(CONFIG_XFS_FS)		+= pagebuf linux support
+subdir-$(CONFIG_XFS_FS)		+= linux support
 
 ifeq ($(CONFIG_XFS_DMAPI),y)
   subdir-$(CONFIG_XFS_FS)	+= dmapi
@@ -141,21 +129,6 @@ ifeq ($(CONFIG_XFS_QUOTA),y)
 else
   obj-y				+= xfs_qmops.o
 endif
-
-# If both xfs and kdb modules are built in then xfsidbg is built in.  If xfs is
-# a module and kdb modules are being compiled then xfsidbg must be a module, to
-# follow xfs.  If xfs is built in then xfsidbg tracks the kdb module state.
-# This must come after the main xfs code so xfs initialises before xfsidbg.
-# KAO
-ifneq ($(CONFIG_KDB_MODULES),)
-  ifeq ($(CONFIG_XFS_FS),y)
-    obj-$(CONFIG_KDB_MODULES)	+= xfsidbg.o
-  else
-    obj-$(CONFIG_XFS_FS)	+= xfsidbg.o
-  endif
-endif
-
-CFLAGS_xfsidbg.o += -I $(TOPDIR)/arch/$(ARCH)/kdb
 
 include $(TOPDIR)/Rules.make
 
