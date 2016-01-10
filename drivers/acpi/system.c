@@ -95,6 +95,7 @@ acpi_power_off (void)
 {
 	if (unlikely(in_interrupt())) 
 		BUG();
+	acpi_system_save_state(ACPI_STATE_S5);
 	acpi_enter_sleep_state_prep(ACPI_STATE_S5);
 	ACPI_DISABLE_IRQS();
 	acpi_enter_sleep_state(ACPI_STATE_S5);

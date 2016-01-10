@@ -20,12 +20,9 @@
  *
  */
 
-#include <linux/config.h>
-#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/types.h>
-#include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
@@ -1694,7 +1691,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 	 * len > 128000 is a sanity check.
 	 */
 	if (len < sizeof(struct ip_vs_rule_user)) {
-		IP_VS_ERR("set_ctl: len %u < %u\n",
+		IP_VS_ERR("set_ctl: len %u < %Zu\n",
 			  len, sizeof(struct ip_vs_rule_user));
 		return -EINVAL;
 	} else if (len > 128000) {
@@ -1972,7 +1969,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 		struct ip_vs_get_services get;
 
 		if (*len < sizeof(get)) {
-			IP_VS_ERR("length: %u < %u\n", *len, sizeof(get));
+			IP_VS_ERR("length: %u < %Zu\n", *len, sizeof(get));
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1981,7 +1978,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 			goto out;
 		}
 		if (*len != (sizeof(get)+sizeof(struct ip_vs_service_user)*get.num_services)) {
-			IP_VS_ERR("length: %u != %u\n", *len,
+			IP_VS_ERR("length: %u != %Zu\n", *len,
 				  sizeof(get)+sizeof(struct ip_vs_service_user)*get.num_services);
 			ret = -EINVAL;
 			goto out;
@@ -1996,7 +1993,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 		struct ip_vs_service *svc;
 
 		if (*len != sizeof(get)) {
-			IP_VS_ERR("length: %u != %u\n", *len, sizeof(get));
+			IP_VS_ERR("length: %u != %Zu\n", *len, sizeof(get));
 			ret = -EINVAL;
 			goto out;
 		}
@@ -2030,7 +2027,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 		struct ip_vs_get_dests get;
 
 		if (*len < sizeof(get)) {
-			IP_VS_ERR("length: %u < %u\n", *len, sizeof(get));
+			IP_VS_ERR("length: %u < %Zu\n", *len, sizeof(get));
 			ret = -EINVAL;
 			goto out;
 		}
@@ -2040,7 +2037,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 		}
 		if (*len != (sizeof(get) +
 			     sizeof(struct ip_vs_dest_user)*get.num_dests)) {
-			IP_VS_ERR("length: %u != %u\n", *len,
+			IP_VS_ERR("length: %u != %Zu\n", *len,
 				  sizeof(get)+sizeof(struct ip_vs_dest_user)*get.num_dests);
 			ret = -EINVAL;
 			goto out;
@@ -2054,7 +2051,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 		struct ip_vs_timeout_user u;
 
 		if (*len < sizeof(u)) {
-			IP_VS_ERR("length: %u < %u\n", *len, sizeof(u));
+			IP_VS_ERR("length: %u < %Zu\n", *len, sizeof(u));
 			ret = -EINVAL;
 			goto out;
 		}
@@ -2069,7 +2066,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 		struct ip_vs_daemon_user u;
 
 		if (*len < sizeof(u)) {
-			IP_VS_ERR("length: %u < %u\n", *len, sizeof(u));
+			IP_VS_ERR("length: %u < %Zu\n", *len, sizeof(u));
 			ret = -EINVAL;
 			goto out;
 		}

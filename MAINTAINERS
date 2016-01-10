@@ -1626,6 +1626,12 @@ M:	Kai.Makisara@kolumbus.fi
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 
+SCTP PROTOCOL
+P:	Sridhar Samudrala	
+M:	sri@us.ibm.com
+L:	lksctp-developers@lists.sourceforge.net
+S:	Supported
+
 SCx200 CPU SUPPORT
 P:	Christer Weinigel
 M:	christer@weinigel.se

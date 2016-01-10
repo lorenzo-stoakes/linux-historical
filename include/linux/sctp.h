@@ -1,7 +1,7 @@
 /* SCTP kernel reference Implementation
+ * (C) Copyright IBM Corp. 2001, 2003
  * Copyright (c) 1999-2000 Cisco, Inc.
  * Copyright (c) 1999-2001 Motorola, Inc.
- * Copyright (c) 2001-2002 International Business Machines, Corp.
  * Copyright (c) 2001 Intel Corp.
  * Copyright (c) 2001 Nokia, Inc.
  * Copyright (c) 2001 La Monte H.P. Yarroll
@@ -42,6 +42,8 @@
  *    randall@sctp.chicago.il.us
  *    kmorneau@cisco.com
  *    qxie1@email.mot.com
+ *    Sridhar Samudrala <sri@us.ibm.com>
+ *    Kevin Gao <kevin.gao@intel.com>
  *
  * Any bugs reported given to us we will try to fix... any fixes shared will
  * be incorporated into the next SCTP release.
@@ -437,12 +439,13 @@ typedef enum {
 	 * 0x0101          Operation Refused Due to Resource Shortage.
 	 * 0x0102          Request to Delete Source IP Address.
 	 * 0x0103          Association Aborted due to illegal ASCONF-ACK
+	 * 0x0104          Request refused - no authorization.
 	 */
 	SCTP_ERROR_DEL_LAST_IP	= __constant_htons(0x0100),
 	SCTP_ERROR_RSRC_LOW	= __constant_htons(0x0101),
 	SCTP_ERROR_DEL_SRC_IP	= __constant_htons(0x0102),
 	SCTP_ERROR_ASCONF_ACK   = __constant_htons(0x0103),
-
+	SCTP_ERROR_REQ_REFUSED	= __constant_htons(0x0104)
 } sctp_error_t;
 
 
@@ -471,118 +474,55 @@ typedef struct sctp_cwr_chunk {
 	sctp_cwrhdr_t cwr_hdr;
 } sctp_cwr_chunk_t __attribute__((packed));
 
-
-/* FIXME:  Cleanup needs to continue below this line. */
-
 /*
  * ADDIP Section 3.1 New Chunk Types
  */
 
-
-/* ADDIP Section 3.1.1
- *
- * ASCONF-Request Correlation ID: 32 bits (unsigned integer)
- *
- * This is an opaque integer assigned by the sender to identify each
- * request parameter. It is in host byte order and is only meaningful
- * to the sender. The receiver of the ASCONF Chunk will copy this 32
- * bit value into the ASCONF Correlation ID field of the
- * ASCONF-ACK. The sender of the ASCONF can use this same value in the
- * ASCONF-ACK to find which request the response is for.
- *
- * ASCONF Parameter: TLV format
- *
- * Each Address configuration change is represented by a TLV parameter
- * as defined in Section 3.2. One or more requests may be present in
- * an ASCONF Chunk.
- */
-typedef struct {
-	__u32	correlation;
-	sctp_paramhdr_t p;
-	__u8		payload[0];
-} sctpAsconfReq_t;
-
 /* ADDIP
- * 3.1.1  Address/Stream Configuration Change Chunk (ASCONF)
+ * Section 3.1.1 Address Configuration Change Chunk (ASCONF)
  *
- * This chunk is used to communicate to the remote endpoint one of the
- * configuration change requests that MUST be acknowledged.  The
- * information carried in the ASCONF Chunk uses the form of a
- * Tag-Length-Value (TLV), as described in "3.2.1
- * Optional/Variable-length Parameter Format" in [RFC2960], for all
- * variable parameters.
+ * 	Serial Number: 32 bits (unsigned integer)
+ *	This value represents a Serial Number for the ASCONF Chunk. The
+ *	valid range of Serial Number is from 0 to 2^32-1.
+ *	Serial Numbers wrap back to 0 after reaching 2^32 -1.
+ *
+ *	Address Parameter: 8 or 20 bytes (depending on type)
+ *	The address is an address of the sender of the ASCONF chunk,
+ *	the address MUST be considered part of the association by the
+ *	peer endpoint. This field may be used by the receiver of the 
+ *	ASCONF to help in finding the association. This parameter MUST
+ *	be present in every ASCONF message i.e. it is a mandatory TLV
+ *	parameter.
+ *
+ *	ASCONF Parameter: TLV format
+ *	Each Address configuration change is represented by a TLV
+ *	parameter as defined in Section 3.2. One or more requests may
+ *	be present in an ASCONF Chunk.
+ *
+ * Section 3.1.2 Address Configuration Acknowledgement Chunk (ASCONF-ACK)
+ * 
+ *	Serial Number: 32 bits (unsigned integer)
+ *	This value represents the Serial Number for the received ASCONF
+ *	Chunk that is acknowledged by this chunk. This value is copied
+ *	from the received ASCONF Chunk. 
+ *
+ *	ASCONF Parameter Response: TLV format
+ *	The ASCONF Parameter Response is used in the ASCONF-ACK to
+ *	report status of ASCONF processing.
  */
-typedef struct {
+typedef struct sctp_addip_param {
+	sctp_paramhdr_t	param_hdr;
+	__u32		crr_id;	
+}sctp_addip_param_t __attribute__((packed));
+
+typedef struct sctp_addiphdr {
 	__u32	serial;
-	__u8	reserved[3];
-	__u8	addr_type;
-	__u32	addr[4];
-	sctpAsconfReq_t requests[0];
-} sctpAsconf_t;
+	__u8	params[0];
+} sctp_addiphdr_t __attribute__((packed));
 
-/* ADDIP
- * 3.1.2 Address/Stream Configuration Acknowledgment Chunk (ASCONF-ACK)
- *
- * ASCONF-Request Correlation ID: 32 bits (unsigned integer)
- *
- * This value is copied from the ASCONF Correlation ID received in the
- * ASCONF Chunk. It is used by the receiver of the ASCONF-ACK to identify
- * which ASCONF parameter this response is associated with.
- *
- * ASCONF Parameter Response : TLV format
- *
- * The ASCONF Parameter Response is used in the ASCONF-ACK to report
- * status of ASCONF processing. By default, if a responding endpoint
- * does not include any Error Cause, a success is indicated. Thus a
- * sender of an ASCONF-ACK MAY indicate complete success of all TLVs in
- * an ASCONF by returning only the Chunk Type, Chunk Flags, Chunk Length
- * (set to 8) and the Serial Number.
- */
-typedef union {
-	struct {
-		__u32		correlation;
-		sctp_paramhdr_t header;	/* success report */
-	} success;
-	struct {
-		__u32		correlation;
-		sctp_paramhdr_t header;	/* error cause indication */
-		sctp_paramhdr_t errcause;
-		uint8_t request[0];	/* original request from ASCONF */
-	} error;
-#define __correlation	success.correlation
-#define __header	success.header
-#define __cause		error.errcause
-#define __request	error.request
-}  sctpAsconfAckRsp_t;
-
-/* ADDIP
- * 3.1.2 Address/Stream Configuration Acknowledgment Chunk (ASCONF-ACK)
- *
- * This chunk is used by the receiver of an ASCONF Chunk to
- * acknowledge the reception. It carries zero or more results for any
- * ASCONF Parameters that were processed by the receiver.
- */
-typedef struct {
-	__u32	serial;
-	sctpAsconfAckRsp_t responses[0];
-} sctpAsconfAck_t;
-
-/*********************************************************************
- * Internal structures
- *
- * These are data structures which never go out on the wire.
- *********************************************************************/
-
-/* What is this data structure for?  The TLV isn't one--it is just a
- * value.  Perhaps this data structure ought to have a type--otherwise
- * it is not unambigiously parseable.  --piggy
- */
-typedef struct {
-	struct list_head hook;
-	int length;	/* length of the TLV */
-
-	/* the actually TLV to be copied into ASCONF_ACK */
-	sctpAsconfAckRsp_t TLV;
-} sctpAsconfAckRspNode_t;
+typedef struct sctp_addip_chunk {
+	sctp_chunkhdr_t chunk_hdr;
+	sctp_addiphdr_t addip_hdr;
+} sctp_addip_chunk_t __attribute__((packed));
 
 #endif /* __LINUX_SCTP_H__ */

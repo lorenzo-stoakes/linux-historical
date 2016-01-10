@@ -52,6 +52,9 @@ static int ip_local_port_range_min[] = { 1, 1 };
 static int ip_local_port_range_max[] = { 65535, 65535 };
 #endif
 
+/* From tcp_input.c */
+extern int sysctl_tcp_westwood;
+
 struct ipv4_config ipv4_config;
 
 extern ctl_table ipv4_route_table[];
@@ -68,7 +71,7 @@ int ipv4_sysctl_forward(ctl_table *ctl, int write, struct file * filp,
 	ret = proc_dointvec(ctl, write, filp, buffer, lenp);
 
 	if (write && ipv4_devconf.forwarding != val)
-		inet_forward_change();
+		inet_forward_change(ipv4_devconf.forwarding);
 
 	return ret;
 }
@@ -84,7 +87,7 @@ static int ipv4_sysctl_forward_strategy(ctl_table *table, int *name, int nlen,
 	if (get_user(new,(int *)newval))
 		return -EFAULT; 
 	if (new != ipv4_devconf.forwarding) 
-		inet_forward_change(); 
+		inet_forward_change(new); 
 	return 0; /* caller does change again and handles handles oldval */ 
 }
 
@@ -229,6 +232,9 @@ ctl_table ipv4_table[] = {
 	{NET_IPV4_IPFRAG_SECRET_INTERVAL, "ipfrag_secret_interval",
 	 &sysctl_ipfrag_secret_interval, sizeof(int), 0644, NULL, &proc_dointvec_jiffies, 
 	 &sysctl_jiffies},
+        {NET_TCP_WESTWOOD, "tcp_westwood",
+         &sysctl_tcp_westwood, sizeof(int), 0644, NULL,
+         &proc_dointvec},
 	{0}
 };
 

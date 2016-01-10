@@ -6206,17 +6206,6 @@ CONFIG_IP_SCTP
 
   If in doubt, say N.
 
-SCTP: Use old checksum (Adler-32)
-CONFIG_SCTP_ADLER32
-  RCF2960 currently specifies the Adler-32 checksum algorithm for SCTP.
-  This has been deprecated and replaced by an algorithm now referred
-  to as crc32c.
-
-  If you say Y, this will use the Adler-32 algorithm, this might be 
-  useful for interoperation with downlevel peers. 
-
-  If unsure, say N.  
-
 SCTP: Debug messages
 CONFIG_SCTP_DBG_MSG
   If you say Y, this will enable verbose debugging messages. 
@@ -6233,6 +6222,29 @@ CONFIG_SCTP_DBG_OBJCNT
   'cat /proc/net/sctp/sctp_dbg_objcnt'
 
   If unsure, say N
+
+#choice
+SCTP: HMAC algorithm
+CONFIG_SCTP_HMAC_NONE
+  Choose an HMAC algorithm to be used during association establishment.
+  It can be one of SHA1, MD5 or NONE. It is advised to use either HMAC-MD5
+  or HMAC-SHA1.
+  See configuration for Cryptographic API and enable these algorithms
+  to make usable by SCTP.
+
+SCTP: SHA1 HMAC algorithm
+CONFIG_SCTP_HMAC_SHA1
+  Enable the use of HMAC-SHA1 during association establishment.  It 
+  is advised to use either HMAC-MD5 or HMAC-SHA1.
+  See configuration for Cryptographic API and enable these algorithms
+  to make usable by SCTP.
+
+SCTP: MD5 HMAC algorithm
+config SCTP_HMAC_MD5
+  Enable the use of HMAC-MD5 during association establishment.  It is 
+  advised to use either HMAC-MD5 or HMAC-SHA1.
+  See configuration for Cryptographic API and enable these algorithms
+  to make usable by SCTP.
 
 Kernel httpd acceleration
 CONFIG_KHTTPD
@@ -10237,6 +10249,19 @@ CONFIG_AIRO_CS
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called airo_cs.o.
 
+Atmel at76c502/at76c504 PCMCIA cards
+CONFIG_PCMCIA_ATMEL
+  A driver for PCMCIA 802.11 wireless cards based on the 
+  Atmel fast-vnet chips. This driver supports standard
+  Linux wireless extensions. 
+
+  Many  cards based on this chipset do not have flash memory
+  and need their firmware loaded at start-up. If yours is 
+  one of these, you will need to provide a firmware image
+  to be loaded into the card by the driver. The Atmel
+  firmware package can be downloaded from
+  http://www.thekelleys.org.uk/atmel/atmel_firmware.tar.gz
+
 Aviator/Raytheon 2.4MHz wireless support
 CONFIG_PCMCIA_RAYCS
   Say Y here if you intend to attach an Aviator/Raytheon PCMCIA
@@ -12357,6 +12382,16 @@ CONFIG_B44
   say M here and read <file:Documentation/modules.txt> as well as
   <file:Documentation/networking/net-modules.txt>.  The module will be
   called b44.
+
+nForce Ethernet support (EXPERIMENTAL)
+CONFIG_FORCEDETH
+  If you have a network (Ethernet) controller of this type, say Y and
+  read the Ethernet-HOWTO, available from
+  <http://www.tldp.org/docs.html#howto>.
+
+  To compile this driver as a module, choose M here and read
+  <file:Documentation/networking/net-modules.txt>.  The module will be
+  called forcedeth.o.
 
 CS89x0 support (Daynaport CS and LC cards)
 CONFIG_CS89x0

@@ -312,6 +312,7 @@ enum
 	NET_TCP_FRTO=92,
 	NET_TCP_LOW_LATENCY=93,
 	NET_IPV4_IPFRAG_SECRET_INTERVAL=94,
+	NET_TCP_WESTWOOD=95,
 };
 
 enum {
@@ -360,6 +361,8 @@ enum
 	NET_IPV4_CONF_ARPFILTER=13,
 	NET_IPV4_CONF_MEDIUM_ID=14,
 	NET_IPV4_CONF_FORCE_IGMP_VERSION=17,
+	NET_IPV4_CONF_ARP_ANNOUNCE=18,
+	NET_IPV4_CONF_ARP_IGNORE=19,
 };
 
 /* /proc/sys/net/ipv4/netfilter */
@@ -548,6 +551,7 @@ enum {
 	NET_SCTP_HB_INTERVAL             = 10,
 	NET_SCTP_PRESERVE_ENABLE         = 11,
 	NET_SCTP_MAX_BURST               = 12,
+	NET_SCTP_ADDIP_ENABLE            = 13,
 };
 /* /proc/sys/net/khttpd/ */
 enum {
