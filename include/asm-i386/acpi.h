@@ -121,6 +121,8 @@ extern int acpi_ioapic;
 extern int acpi_strict;
 extern int acpi_disabled;
 extern int acpi_ht;
+extern int acpi_skip_timer_override;
+void __init check_acpi_pci(void);
 static inline void disable_acpi(void) 
 { 
 	acpi_disabled = 1;

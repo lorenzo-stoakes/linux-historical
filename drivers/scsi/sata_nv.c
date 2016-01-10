@@ -99,7 +99,8 @@
 #define NV_MCP_SATA_CFG_20_SATA_SPACE_EN	0x04
 
 static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent);
-irqreturn_t nv_interrupt (int irq, void *dev_instance, struct pt_regs *regs);
+static irqreturn_t nv_interrupt (int irq, void *dev_instance,
+				 struct pt_regs *regs);
 static u32 nv_scr_read (struct ata_port *ap, unsigned int sc_reg);
 static void nv_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val);
 static void nv_host_stop (struct ata_host_set *host_set);
@@ -218,6 +219,8 @@ static struct ata_port_operations nv_ops = {
 	.phy_reset		= sata_phy_reset,
 	.bmdma_setup		= ata_bmdma_setup,
 	.bmdma_start		= ata_bmdma_start,
+	.bmdma_stop		= ata_bmdma_stop,
+	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
 	.eng_timeout		= ata_eng_timeout,
@@ -256,7 +259,8 @@ MODULE_LICENSE("GPL");
 MODULE_DEVICE_TABLE(pci, nv_pci_tbl);
 MODULE_VERSION(DRV_VERSION);
 
-irqreturn_t nv_interrupt (int irq, void *dev_instance, struct pt_regs *regs)
+static irqreturn_t nv_interrupt (int irq, void *dev_instance,
+				 struct pt_regs *regs)
 {
 	struct ata_host_set *host_set = dev_instance;
 	struct nv_host *host = host_set->private_data;
@@ -333,6 +337,7 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct nv_host *host;
 	struct ata_port_info *ppi;
 	struct ata_probe_ent *probe_ent;
+	int pci_dev_busy = 0;
 	int rc;
 	u32 bar;
 
@@ -351,8 +356,10 @@ static int nv_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_out;
 
 	rc = pci_request_regions(pdev, DRV_NAME);
-	if (rc)
+	if (rc) {
+		pci_dev_busy = 1;
 		goto err_out_disable;
+	}
 
 	rc = pci_set_dma_mask(pdev, ATA_DMA_MASK);
 	if (rc)
@@ -418,7 +425,8 @@ err_out_free_ent:
 err_out_regions:
 	pci_release_regions(pdev);
 err_out_disable:
-	pci_disable_device(pdev);
+	if (!pci_dev_busy)
+		pci_disable_device(pdev);
 err_out:
 	return rc;
 }

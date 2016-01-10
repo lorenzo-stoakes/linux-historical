@@ -505,25 +505,32 @@ out:
 	return err;
 }
 
-static int do_sys32_msgsnd (int first, int second, int third, void *uptr)
+static int do_sys32_msgsnd(int first, int second, int third, void *uptr)
 {
-	struct msgbuf *p = kmalloc (second + sizeof (struct msgbuf), GFP_USER);
-	struct msgbuf32 *up = (struct msgbuf32 *)uptr;
+	struct msgbuf *p;
+	struct msgbuf32 *up;
 	mm_segment_t old_fs;
 	int err;
 
+	if (second < 0)
+		return -EINVAL;
+
+	p = kmalloc(second + sizeof (struct msgbuf), GFP_USER);
 	if (!p)
 		return -ENOMEM;
+
+	up = (struct msgbuf32 *)uptr;
 	err = -EFAULT;
-	if (get_user (p->mtype, &up->mtype) ||
-	    __copy_from_user (p->mtext, &up->mtext, second))
+	if (get_user(p->mtype, &up->mtype) ||
+	    __copy_from_user(p->mtext, up->mtext, second))
 		goto out;
-	old_fs = get_fs ();
-	set_fs (KERNEL_DS);
-	err = sys_msgsnd (first, p, second, third);
-	set_fs (old_fs);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	err = sys_msgsnd(first, p, second, third);
+	set_fs(old_fs);
 out:
-	kfree (p);
+	kfree(p);
 	return err;
 }
 
@@ -534,6 +541,9 @@ static int do_sys32_msgrcv (int first, int second, int msgtyp, int third,
 	struct msgbuf *p;
 	mm_segment_t old_fs;
 	int err;
+
+	if (second < 0)
+		return -EINVAL;
 
 	if (!version) {
 		struct ipc_kludge *uipck = (struct ipc_kludge *)uptr;
@@ -560,7 +570,7 @@ static int do_sys32_msgrcv (int first, int second, int msgtyp, int third,
 		goto free_then_out;
 	up = (struct msgbuf32 *)uptr;
 	if (put_user (p->mtype, &up->mtype) ||
-	    __copy_to_user (&up->mtext, p->mtext, err))
+	    __copy_to_user (up->mtext, p->mtext, err))
 		err = -EFAULT;
 free_then_out:
 	kfree (p);
@@ -647,18 +657,18 @@ out:
 	return err;
 }
 
-static int do_sys32_shmat (int first, int second, int third, int version, void *uptr)
+static int do_sys32_shmat(int first, int second, u32 third, int version, void *uptr)
 {
 	unsigned long raddr;
-	u32 *uaddr = (u32 *)A((u32)third);
+	u32 *uaddr = (u32 *)A(third);
 	int err = -EINVAL;
 
 	if (version == 1)
 		goto out;
-	err = sys_shmat (first, uptr, second, &raddr);
+	err = sys_shmat(first, uptr, second, &raddr);
 	if (err)
 		goto out;
-	err = put_user (raddr, uaddr);
+	err = put_user(raddr, uaddr);
 out:
 	return err;
 }
@@ -797,9 +807,11 @@ static int sys32_semtimedop(int semid, struct sembuf *tsems, int nsems,
 	return sys_semtimedop(semid, tsems, nsems, t64);
 }
 
-asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u32 fifth)
+asmlinkage int sys32_ipc (u32 call, u32 first, u32 second, u32 third, s32 __ptr, s32 __fifth)
 {
 	int version, err;
+	u32 ptr = (u32) __ptr;
+	u32 fifth = (u32) __fifth;
 
 	version = call >> 16; /* hack for backward compatibility */
 	call &= 0xffff;
@@ -808,15 +820,23 @@ asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u
 		switch (call) {
 		case SEMOP:
 			/* struct sembuf is the same on 32 and 64bit :)) */
-			err = sys_semtimedop (first, (struct sembuf *)AA(ptr), second, NULL);
+			err = sys_semtimedop((int)first,
+					     (struct sembuf *)A(ptr),
+					     second, NULL);
 			goto out;
 		case SEMTIMEDOP:
-			err = sys32_semtimedop (first, (struct sembuf *)AA(ptr), second, (const struct timespec32 *) AA(fifth));
+			err = sys32_semtimedop((int)first,
+					       (struct sembuf *)A(ptr),
+					       second,
+					       (const struct timespec32 *)
+					       A(third));
 		case SEMGET:
-			err = sys_semget (first, second, third);
+			err = sys_semget((key_t)first, (int)second,
+					 (int)third);
 			goto out;
 		case SEMCTL:
-			err = do_sys32_semctl (first, second, third, (void *)AA(ptr));
+			err = do_sys32_semctl((int)first, (int)second,
+					      (int)third, (void *) A(ptr));
 			goto out;
 		default:
 			err = -ENOSYS;
@@ -825,17 +845,20 @@ asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u
 	if (call <= MSGCTL) 
 		switch (call) {
 		case MSGSND:
-			err = do_sys32_msgsnd (first, second, third, (void *)AA(ptr));
+			err = do_sys32_msgsnd((int)first, (int)second,
+					      (int)third, (void *)A(ptr));
 			goto out;
 		case MSGRCV:
-			err = do_sys32_msgrcv (first, second, fifth, third,
-					       version, (void *)AA(ptr));
+			err = do_sys32_msgrcv((int)first, (int)second,
+					      (int)fifth, (int)third,
+					      version, (void *)A(ptr));
 			goto out;
 		case MSGGET:
-			err = sys_msgget ((key_t) first, second);
+			err = sys_msgget((key_t)first, (int)second);
 			goto out;
 		case MSGCTL:
-			err = do_sys32_msgctl (first, second, (void *)AA(ptr));
+			err = do_sys32_msgctl((int)first, (int)second,
+					      (void *)A(ptr));
 			goto out;
 		default:
 			err = -ENOSYS;
@@ -844,17 +867,18 @@ asmlinkage int sys32_ipc (u32 call, int first, int second, int third, u32 ptr, u
 	if (call <= SHMCTL) 
 		switch (call) {
 		case SHMAT:
-			err = do_sys32_shmat (first, second, third,
-					      version, (void *)AA(ptr));
+			err = do_sys32_shmat((int)first, (int)second, third,
+					     version, (void *)A(ptr));
 			goto out;
 		case SHMDT: 
-			err = sys_shmdt ((char *)AA(ptr));
+			err = sys_shmdt((char *)A(ptr));
 			goto out;
 		case SHMGET:
-			err = sys_shmget (first, second, third);
+			err = sys_shmget((key_t)first, second, (int)third);
 			goto out;
 		case SHMCTL:
-			err = do_sys32_shmctl (first, second, (void *)AA(ptr));
+			err = do_sys32_shmctl((int)first, (int)second,
+					      (void *)A(ptr));
 			goto out;
 		default:
 			err = -ENOSYS;
@@ -2158,9 +2182,6 @@ sys32_rt_sigtimedwait(sigset_t32 *uthese, siginfo_t32 *uinfo,
 		if (uts)
 			timeout = (timespec_to_jiffies(&ts)
 				   + (ts.tv_sec || ts.tv_nsec));
-
-		current->state = TASK_INTERRUPTIBLE;
-		timeout = schedule_timeout(timeout);
 
 		if (timeout) {
 			/* None ready -- temporarily unblock those we're

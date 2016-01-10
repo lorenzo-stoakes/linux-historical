@@ -3261,7 +3261,12 @@ done:
 			status = generic_osync_inode(inode, OSYNC_METADATA|OSYNC_DATA);
 	}
 	
-	err = written ? written : status;
+	/*
+	 * generic_osync_inode always returns 0 or negative value.
+	 * So 'status < written' is always true, and written should
+	 * be returned if status >= 0.
+	 */
+	err = (status < 0) ? status : written;
 out:
 
 	return err;

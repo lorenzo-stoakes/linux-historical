@@ -92,7 +92,7 @@ void journal_commit_transaction(journal_t *journal)
 	struct buffer_head *wbuf[64];
 	int bufs;
 	int flags;
-	int err;
+	int err = 0;
 	unsigned long blocknr;
 	char *tagp = NULL;
 	journal_header_t *header;
@@ -299,6 +299,8 @@ write_out_data_locked:
 			spin_unlock(&journal_datalist_lock);
 			unlock_journal(journal);
 			wait_on_buffer(bh);
+			if (unlikely(!buffer_uptodate(bh)))
+				err = -EIO;
 			/* the journal_head may have been removed now */
 			lock_journal(journal);
 			goto write_out_data;
@@ -326,6 +328,8 @@ sync_datalist_empty:
 			spin_unlock(&journal_datalist_lock);
 			unlock_journal(journal);
 			wait_on_buffer(bh);
+			if (unlikely(!buffer_uptodate(bh)))
+				err = -EIO;
 			lock_journal(journal);
 			spin_lock(&journal_datalist_lock);
 			continue;	/* List may have changed */
@@ -350,6 +354,9 @@ sync_datalist_empty:
 		}
 	}
 	spin_unlock(&journal_datalist_lock);
+
+	if (err)
+		__journal_abort_hard(journal);
 
 	/*
 	 * If we found any dirty or locked buffers, then we should have
@@ -541,6 +548,8 @@ start_journal_io:
 		if (buffer_locked(bh)) {
 			unlock_journal(journal);
 			wait_on_buffer(bh);
+			if (unlikely(!buffer_uptodate(bh)))
+				err = -EIO;
 			lock_journal(journal);
 			goto wait_for_iobuf;
 		}
@@ -602,6 +611,8 @@ start_journal_io:
 		if (buffer_locked(bh)) {
 			unlock_journal(journal);
 			wait_on_buffer(bh);
+			if (unlikely(!buffer_uptodate(bh)))
+				err = -EIO;
 			lock_journal(journal);
 			goto wait_for_ctlbuf;
 		}
@@ -650,6 +661,8 @@ start_journal_io:
 		bh->b_end_io = journal_end_buffer_io_sync;
 		submit_bh(WRITE, bh);
 		wait_on_buffer(bh);
+		if (unlikely(!buffer_uptodate(bh)))
+			err = -EIO;
 		put_bh(bh);		/* One for getblk() */
 		journal_unlock_journal_head(descriptor);
 	}
@@ -661,6 +674,9 @@ start_journal_io:
 
 skip_commit: /* The journal should be unlocked by now. */
 
+	if (err)
+		__journal_abort_hard(journal);
+	
 	/* Call any callbacks that had been registered for handles in this
 	 * transaction.  It is up to the callback to free any allocated
 	 * memory.

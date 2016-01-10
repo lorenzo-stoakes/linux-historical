@@ -1608,12 +1608,13 @@ void ext3_write_super (struct super_block * sb)
 
 static int ext3_sync_fs(struct super_block *sb)
 {
+	int err;
 	tid_t target;
 	
 	sb->s_dirt = 0;
 	target = log_start_commit(EXT3_SB(sb)->s_journal, NULL);
-	log_wait_commit(EXT3_SB(sb)->s_journal, target);
-	return 0;
+	err = log_wait_commit(EXT3_SB(sb)->s_journal, target);
+	return err;
 }
 
 /*
