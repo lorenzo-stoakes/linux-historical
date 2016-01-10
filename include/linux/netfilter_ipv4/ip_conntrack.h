@@ -249,10 +249,9 @@ extern void ip_ct_refresh(struct ip_conntrack *ct,
 /* Call me when a conntrack is destroyed. */
 extern void (*ip_conntrack_destroyed)(struct ip_conntrack *conntrack);
 
-extern int ip_ct_no_defrag;
 /* Returns new sk_buff, or NULL */
 struct sk_buff *
-ip_ct_gather_frags(struct sk_buff *skb);
+ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user);
 
 /* Delete all conntracks which match. */
 extern void

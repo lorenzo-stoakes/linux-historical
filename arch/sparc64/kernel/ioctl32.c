@@ -562,6 +562,8 @@ static __inline__ void *alloc_user_space(long len)
 
 	if (!(current->thread.flags & SPARC_FLAG_32BIT))
 		usp += STACK_BIAS;
+	else
+		usp &= 0xffffffffUL;
 
 	return (void *) (usp - len);
 }

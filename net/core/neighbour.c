@@ -1469,6 +1469,7 @@ static int neigh_fill_info(struct sk_buff *skb, struct neighbour *n,
 
 	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ndm));
 	ndm = NLMSG_DATA(nlh);
+	nlh->nlmsg_flags = pid ? NLM_F_MULTI : 0;
 	ndm->ndm_family = n->ops->family;
 	ndm->ndm_flags = n->flags;
 	ndm->ndm_type = n->type;
