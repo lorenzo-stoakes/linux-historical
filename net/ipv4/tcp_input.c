@@ -107,6 +107,7 @@ int sysctl_tcp_vegas_gamma = 1<<V_PARAM_SHIFT;
 int sysctl_tcp_bic;
 int sysctl_tcp_bic_fast_convergence = 1;
 int sysctl_tcp_bic_low_window = 14;
+int sysctl_tcp_bic_beta = 819;		/* = 819/1024 (BICTCP_BETA_SCALE) */
 
 #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
 #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
@@ -3647,8 +3648,7 @@ tcp_collapse(struct sock *sk, struct sk_buff *head,
 	while (before(start, end)) {
 		struct sk_buff *nskb;
 		int header = skb_headroom(skb);
-		int copy = (PAGE_SIZE - sizeof(struct sk_buff) -
-			    sizeof(struct skb_shared_info) - header - 31)&~15;
+		int copy = SKB_MAX_ORDER(header, 0);
 
 		/* Too big header? This can happen with IPv6. */
 		if (copy < 0)

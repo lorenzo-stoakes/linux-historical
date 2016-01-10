@@ -59,8 +59,8 @@
 
 #define DRV_MODULE_NAME		"tg3"
 #define PFX DRV_MODULE_NAME	": "
-#define DRV_MODULE_VERSION	"3.21"
-#define DRV_MODULE_RELDATE	"February 8, 2005"
+#define DRV_MODULE_VERSION	"3.23"
+#define DRV_MODULE_RELDATE	"February 15, 2005"
 
 #define TG3_DEF_MAC_MODE	0
 #define TG3_DEF_RX_MODE		0
@@ -575,9 +575,10 @@ static void tg3_phy_set_wirespeed(struct tg3 *tp)
 	if (tp->tg3_flags2 & TG3_FLG2_NO_ETH_WIRE_SPEED)
 		return;
 
-	tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x7007);
-	tg3_readphy(tp, MII_TG3_AUX_CTRL, &val);
-	tg3_writephy(tp, MII_TG3_AUX_CTRL, (val | (1 << 15) | (1 << 4)));
+	if (!tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x7007) &&
+	    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &val))
+		tg3_writephy(tp, MII_TG3_AUX_CTRL,
+			     (val | (1 << 15) | (1 << 4)));
 }
 
 static int tg3_bmcr_reset(struct tg3 *tp)
@@ -618,9 +619,10 @@ static int tg3_wait_macro_done(struct tg3 *tp)
 	while (limit--) {
 		u32 tmp32;
 
-		tg3_readphy(tp, 0x16, &tmp32);
-		if ((tmp32 & 0x1000) == 0)
-			break;
+		if (!tg3_readphy(tp, 0x16, &tmp32)) {
+			if ((tmp32 & 0x1000) == 0)
+				break;
+		}
 	}
 	if (limit <= 0)
 		return -EBUSY;
@@ -672,9 +674,9 @@ static int tg3_phy_write_and_check_testpat(struct tg3 *tp, int *resetp)
 		for (i = 0; i < 6; i += 2) {
 			u32 low, high;
 
-			tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &low);
-			tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &high);
-			if (tg3_wait_macro_done(tp)) {
+			if (tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &low) ||
+			    tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &high) ||
+			    tg3_wait_macro_done(tp)) {
 				*resetp = 1;
 				return -EBUSY;
 			}
@@ -730,7 +732,9 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
 		}
 
 		/* Disable transmitter and interrupt.  */
-		tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32);
+		if (tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32))
+			continue;
+
 		reg32 |= 0x3000;
 		tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
 
@@ -739,7 +743,9 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
 			     BMCR_FULLDPLX | TG3_BMCR_SPEED1000);
 
 		/* Set to master mode.  */
-		tg3_readphy(tp, MII_TG3_CTRL, &phy9_orig);
+		if (tg3_readphy(tp, MII_TG3_CTRL, &phy9_orig))
+			continue;
+
 		tg3_writephy(tp, MII_TG3_CTRL,
 			     (MII_TG3_CTRL_AS_MASTER |
 			      MII_TG3_CTRL_ENABLE_AS_MASTER));
@@ -777,9 +783,11 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
 
 	tg3_writephy(tp, MII_TG3_CTRL, phy9_orig);
 
-	tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32);
-	reg32 &= ~0x3000;
-	tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
+	if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
+		reg32 &= ~0x3000;
+		tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
+	} else if (!err)
+		err = -EBUSY;
 
 	return err;
 }
@@ -843,9 +851,9 @@ out:
 		u32 phy_reg;
 
 		/* Set bit 14 with read-modify-write to preserve other bits */
-		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0007);
-		tg3_readphy(tp, MII_TG3_AUX_CTRL, &phy_reg);
-		tg3_writephy(tp, MII_TG3_AUX_CTRL, phy_reg | 0x4000);
+		if (!tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0007) &&
+		    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &phy_reg))
+			tg3_writephy(tp, MII_TG3_AUX_CTRL, phy_reg | 0x4000);
 	}
 	tg3_phy_set_wirespeed(tp);
 	return 0;
@@ -1228,7 +1236,7 @@ static void tg3_aux_stat_to_speed_duplex(struct tg3 *tp, u32 val, u16 *speed, u8
 	};
 }
 
-static int tg3_phy_copper_begin(struct tg3 *tp)
+static void tg3_phy_copper_begin(struct tg3 *tp)
 {
 	u32 new_adv;
 	int i;
@@ -1343,15 +1351,16 @@ static int tg3_phy_copper_begin(struct tg3 *tp)
 		if (tp->link_config.duplex == DUPLEX_FULL)
 			bmcr |= BMCR_FULLDPLX;
 
-		tg3_readphy(tp, MII_BMCR, &orig_bmcr);
-		if (bmcr != orig_bmcr) {
+		if (!tg3_readphy(tp, MII_BMCR, &orig_bmcr) &&
+		    (bmcr != orig_bmcr)) {
 			tg3_writephy(tp, MII_BMCR, BMCR_LOOPBACK);
 			for (i = 0; i < 1500; i++) {
 				u32 tmp;
 
 				udelay(10);
-				tg3_readphy(tp, MII_BMSR, &tmp);
-				tg3_readphy(tp, MII_BMSR, &tmp);
+				if (tg3_readphy(tp, MII_BMSR, &tmp) ||
+				    tg3_readphy(tp, MII_BMSR, &tmp))
+					continue;
 				if (!(tmp & BMSR_LSTATUS)) {
 					udelay(40);
 					break;
@@ -1364,8 +1373,6 @@ static int tg3_phy_copper_begin(struct tg3 *tp)
 		tg3_writephy(tp, MII_BMCR,
 			     BMCR_ANENABLE | BMCR_ANRESTART);
 	}
-
-	return 0;
 }
 
 static int tg3_init_5401phy_dsp(struct tg3 *tp)
@@ -1400,7 +1407,9 @@ static int tg3_copper_is_advertising_all(struct tg3 *tp)
 {
 	u32 adv_reg, all_mask;
 
-	tg3_readphy(tp, MII_ADVERTISE, &adv_reg);
+	if (tg3_readphy(tp, MII_ADVERTISE, &adv_reg))
+		return 0;
+
 	all_mask = (ADVERTISE_10HALF | ADVERTISE_10FULL |
 		    ADVERTISE_100HALF | ADVERTISE_100FULL);
 	if ((adv_reg & all_mask) != all_mask)
@@ -1408,7 +1417,9 @@ static int tg3_copper_is_advertising_all(struct tg3 *tp)
 	if (!(tp->tg3_flags & TG3_FLAG_10_100_ONLY)) {
 		u32 tg3_ctrl;
 
-		tg3_readphy(tp, MII_TG3_CTRL, &tg3_ctrl);
+		if (tg3_readphy(tp, MII_TG3_CTRL, &tg3_ctrl))
+			return 0;
+
 		all_mask = (MII_TG3_CTRL_ADV_1000_HALF |
 			    MII_TG3_CTRL_ADV_1000_FULL);
 		if ((tg3_ctrl & all_mask) != all_mask)
@@ -1448,8 +1459,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) &&
 	    netif_carrier_ok(tp->dev)) {
 		tg3_readphy(tp, MII_BMSR, &bmsr);
-		tg3_readphy(tp, MII_BMSR, &bmsr);
-		if (!(bmsr & BMSR_LSTATUS))
+		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
+		    !(bmsr & BMSR_LSTATUS))
 			force_reset = 1;
 	}
 	if (force_reset)
@@ -1457,9 +1468,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 
 	if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401) {
 		tg3_readphy(tp, MII_BMSR, &bmsr);
-		tg3_readphy(tp, MII_BMSR, &bmsr);
-
-		if (!(tp->tg3_flags & TG3_FLAG_INIT_COMPLETE))
+		if (tg3_readphy(tp, MII_BMSR, &bmsr) ||
+		    !(tp->tg3_flags & TG3_FLAG_INIT_COMPLETE))
 			bmsr = 0;
 
 		if (!(bmsr & BMSR_LSTATUS)) {
@@ -1470,8 +1480,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 			tg3_readphy(tp, MII_BMSR, &bmsr);
 			for (i = 0; i < 1000; i++) {
 				udelay(10);
-				tg3_readphy(tp, MII_BMSR, &bmsr);
-				if (bmsr & BMSR_LSTATUS) {
+				if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
+				    (bmsr & BMSR_LSTATUS)) {
 					udelay(40);
 					break;
 				}
@@ -1533,8 +1543,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 	bmsr = 0;
 	for (i = 0; i < 100; i++) {
 		tg3_readphy(tp, MII_BMSR, &bmsr);
-		tg3_readphy(tp, MII_BMSR, &bmsr);
-		if (bmsr & BMSR_LSTATUS)
+		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
+		    (bmsr & BMSR_LSTATUS))
 			break;
 		udelay(40);
 	}
@@ -1545,8 +1555,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 		tg3_readphy(tp, MII_TG3_AUX_STAT, &aux_stat);
 		for (i = 0; i < 2000; i++) {
 			udelay(10);
-			tg3_readphy(tp, MII_TG3_AUX_STAT, &aux_stat);
-			if (aux_stat)
+			if (!tg3_readphy(tp, MII_TG3_AUX_STAT, &aux_stat) &&
+			    aux_stat)
 				break;
 		}
 
@@ -1557,7 +1567,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 		bmcr = 0;
 		for (i = 0; i < 200; i++) {
 			tg3_readphy(tp, MII_BMCR, &bmcr);
-			tg3_readphy(tp, MII_BMCR, &bmcr);
+			if (tg3_readphy(tp, MII_BMCR, &bmcr))
+				continue;
 			if (bmcr && bmcr != 0x7fff)
 				break;
 			udelay(10);
@@ -1594,10 +1605,13 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
 	    (tp->link_config.autoneg == AUTONEG_ENABLE)) {
 		u32 local_adv, remote_adv;
 
-		tg3_readphy(tp, MII_ADVERTISE, &local_adv);
+		if (tg3_readphy(tp, MII_ADVERTISE, &local_adv))
+			local_adv = 0;
 		local_adv &= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
 
-		tg3_readphy(tp, MII_LPA, &remote_adv);
+		if (tg3_readphy(tp, MII_LPA, &remote_adv))
+			remote_adv = 0;
+
 		remote_adv &= (LPA_PAUSE_CAP | LPA_PAUSE_ASYM);
 
 		/* If we are not advertising full pause capability,
@@ -1616,8 +1630,8 @@ relink:
 		tg3_phy_copper_begin(tp);
 
 		tg3_readphy(tp, MII_BMSR, &tmp);
-		tg3_readphy(tp, MII_BMSR, &tmp);
-		if (tmp & BMSR_LSTATUS)
+		if (!tg3_readphy(tp, MII_BMSR, &tmp) &&
+		    (tmp & BMSR_LSTATUS))
 			current_link_up = 1;
 	}
 
@@ -5418,9 +5432,10 @@ static int tg3_reset_hw(struct tg3 *tp)
 		u32 tmp;
 
 		/* Clear CRC stats. */
-		tg3_readphy(tp, 0x1e, &tmp);
-		tg3_writephy(tp, 0x1e, tmp | 0x8000);
-		tg3_readphy(tp, 0x14, &tmp);
+		if (!tg3_readphy(tp, 0x1e, &tmp)) {
+			tg3_writephy(tp, 0x1e, tmp | 0x8000);
+			tg3_readphy(tp, 0x14, &tmp);
+		}
 	}
 
 	__tg3_set_rx_mode(tp->dev);
@@ -6010,9 +6025,11 @@ static unsigned long calc_crc_errors(struct tg3 *tp)
 		u32 val;
 
 		spin_lock_irqsave(&tp->lock, flags);
-		tg3_readphy(tp, 0x1e, &val);
-		tg3_writephy(tp, 0x1e, val | 0x8000);
-		tg3_readphy(tp, 0x14, &val);
+		if (!tg3_readphy(tp, 0x1e, &val)) {
+			tg3_writephy(tp, 0x1e, val | 0x8000);
+			tg3_readphy(tp, 0x14, &val);
+		} else
+			val = 0;
 		spin_unlock_irqrestore(&tp->lock, flags);
 
 		tp->phy_crc_errors += val;
@@ -6626,10 +6643,10 @@ static int tg3_nway_reset(struct net_device *dev)
 	int r;
   
 	spin_lock_irq(&tp->lock);
-	tg3_readphy(tp, MII_BMCR, &bmcr);
-	tg3_readphy(tp, MII_BMCR, &bmcr);
 	r = -EINVAL;
-	if (bmcr & BMCR_ANENABLE) {
+	tg3_readphy(tp, MII_BMCR, &bmcr);
+	if (!tg3_readphy(tp, MII_BMCR, &bmcr) &&
+	    (bmcr & BMCR_ANENABLE)) {
 		tg3_writephy(tp, MII_BMCR, bmcr | BMCR_ANRESTART);
 		r = 0;
 	}
@@ -7478,12 +7495,18 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
 	tg3_read_mem(tp, NIC_SRAM_DATA_SIG, &val);
 	if (val == NIC_SRAM_DATA_SIG_MAGIC) {
 		u32 nic_cfg, led_cfg;
-		u32 nic_phy_id, cfg2;
+		u32 nic_phy_id, ver, cfg2 = 0;
 
 		tg3_read_mem(tp, NIC_SRAM_DATA_CFG, &nic_cfg);
 		tp->nic_sram_data_cfg = nic_cfg;
 
-		tg3_read_mem(tp, NIC_SRAM_DATA_CFG_2, &cfg2);
+		tg3_read_mem(tp, NIC_SRAM_DATA_VER, &ver);
+		ver >>= NIC_SRAM_DATA_VER_SHIFT;
+		if ((GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700) &&
+		    (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701) &&
+		    (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5703) &&
+		    (ver > 0) && (ver < 0x100))
+			tg3_read_mem(tp, NIC_SRAM_DATA_CFG_2, &cfg2);
 
 		eeprom_signature_found = 1;
 
@@ -7623,9 +7646,8 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
 		u32 bmsr, adv_reg, tg3_ctrl;
 
 		tg3_readphy(tp, MII_BMSR, &bmsr);
-		tg3_readphy(tp, MII_BMSR, &bmsr);
-
-		if (bmsr & BMSR_LSTATUS)
+		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
+		    (bmsr & BMSR_LSTATUS))
 			goto skip_phy_reset;
 		    
 		err = tg3_phy_reset(tp);
