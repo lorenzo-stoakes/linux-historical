@@ -249,7 +249,7 @@ UNUSUAL_DEV(  0x054c, 0x0010, 0x0106, 0x0450,
 UNUSUAL_DEV(  0x054c, 0x0025, 0x0100, 0x0100, 
 		"Sony",
 		"Memorystick NW-MS7",
-		US_SC_UFI, US_PR_CB, NULL,
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_SINGLE_LUN ),
 
 #ifdef CONFIG_USB_STORAGE_ISD200
@@ -360,7 +360,7 @@ UNUSUAL_DEV(  0x05dc, 0x0001, 0x0000, 0x0001,
 UNUSUAL_DEV(  0x05dc, 0xb002, 0x0000, 0x0113,
 		"Lexar",
 		"USB CF Reader",
-		US_SC_SCSI, US_PR_BULK, NULL,
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 
 /* Reported by Carlos Villegas <cav@uniscope.co.jp>
