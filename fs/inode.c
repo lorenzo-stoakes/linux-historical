@@ -127,6 +127,10 @@ static void destroy_inode(struct inode *inode)
 {
 	if (inode_has_buffers(inode))
 		BUG();
+	/* Reinitialise the waitqueue head because __wait_on_freeing_inode()
+	   may have left stale entries on it which it can't remove (since
+	   it knows we're freeing the inode right now */
+	init_waitqueue_head(&inode->i_wait);
 	if (inode->i_sb->s_op->destroy_inode)
 		inode->i_sb->s_op->destroy_inode(inode);
 	else

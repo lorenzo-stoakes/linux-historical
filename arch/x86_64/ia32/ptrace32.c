@@ -25,6 +25,10 @@
 #include <asm/fpu32.h>
 #include <linux/mm.h>
 
+/* determines which flags the user has access to. */
+/* 1 = access 0 = no access */
+#define FLAG_MASK 0x44dd5UL
+
 #define R32(l,q) \
 	case offsetof(struct user32, regs.l): stack[offsetof(struct pt_regs, q)/8] = val; break
 
@@ -69,9 +73,12 @@ static int putreg32(struct task_struct *child, unsigned regno, u32 val)
 	R32(eip, rip);
 	R32(esp, rsp);
 
-	case offsetof(struct user32, regs.eflags): 
-		stack[offsetof(struct pt_regs, eflags)/8] = val & 0x44dd5; 
+	case offsetof(struct user32, regs.eflags): { 
+		__u64 *flags = &stack[offsetof(struct pt_regs, eflags)/8];
+		val &= FLAG_MASK;
+		*flags = val | (*flags & ~FLAG_MASK);
 		break;
+	}
 
 	case offsetof(struct user32, u_debugreg[4]): 
 	case offsetof(struct user32, u_debugreg[5]):

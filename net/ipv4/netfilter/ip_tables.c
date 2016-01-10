@@ -259,7 +259,7 @@ ipt_do_table(struct sk_buff **pskb,
 	     struct ipt_table *table,
 	     void *userdata)
 {
-	static const char nulldevname[IFNAMSIZ] = { 0 };
+	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long)))) = { 0 };
 	u_int16_t offset;
 	struct iphdr *ip;
 	void *protohdr;

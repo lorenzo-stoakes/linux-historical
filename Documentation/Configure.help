@@ -3253,10 +3253,31 @@ CONFIG_IP6_NF_TARGET_MARK
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+ARP tables support
+CONFIG_IP_NF_ARPTABLES
+  arptables is a general, extensible packet identification framework.
+  The ARP packet filtering and mangling (manipulation)subsystems
+  use this: say Y or M here if you want to use either of those.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+ARP packet filtering
+CONFIG_IP_NF_ARPFILTER
+  ARP packet filtering defines a table `filter', which has a series of
+  rules for simple ARP packet filtering at local input and
+  local output.  See the man page for arptables(8).
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
 ARP payload mangling
 CONFIG_IP_NF_ARP_MANGLE
   Allows altering the ARP packet payload: source and destination
   hardware and network addresses.
+
+  If you want to compile it as a module, say M here and read
+  <file:Documentation/modules.txt>.  If unsure, say `N'.
 
 TCP Explicit Congestion Notification support
 CONFIG_INET_ECN
@@ -26315,6 +26336,14 @@ CONFIG_SMC_IRCC_FIR
   here and read <file:Documentation/modules.txt>.  The module will be
   called smc-ircc.o.
 
+VIA IrCC
+CONFIG_VIA_IRCC_FIR
+  Say Y here if you want to build support for the VIA Fast Infrared
+  Communications Controller.  It is used in all sorts of VIA686a- and
+  VT1211-based notebooks. If you want to compile it as a module, say M
+  here and read <file:Documentation/modules.txt>.  The module will be
+  called via-ircc.o.
+
 ALi M5123 FIR controller driver
 CONFIG_ALI_FIR
   Say Y here if you want to build support for the ALi M5123 FIR
@@ -28653,6 +28682,12 @@ CONFIG_CRYPTO_CAST5
 
   The CAST5 encryption algorithm (synonymous with CAST-128) is
   described in RFC2144.
+
+CONFIG_CRYPTO_CAST6
+  CAST6 (CAST-256) cipher algorithm.
+  
+  The CAST6 encryption algorithm (synonymous with CAST-256) is
+  described in RFC2612.
 
 CONFIG_CRYPTO_DEFLATE
   This is the Deflate algorithm (RFC1951), specified for use in

@@ -322,18 +322,25 @@ L:	linux-kernel@vger.kernel.org
 S:	Maintained
 
 BLUETOOTH SUBSYSTEM
+P:	Marcel Holtmann
+M:	marcel@holtmann.org
 P:	Maxim Krasnyansky
 M:	maxk@qualcomm.com
+L:	bluez-devel@lists.sf.net
 W:	http://bluez.sf.net
 S:	Maintained
 
 BLUETOOTH RFCOMM LAYER
+P:	Marcel Holtmann
+M:	marcel@holtmann.org
 P:	Maxim Krasnyansky
 M:	maxk@qualcomm.com
 W:	http://bluez.sf.net
 S:	Maintained
 
 BLUETOOTH BNEP LAYER
+P:	Marcel Holtmann
+M:	marcel@holtmann.org
 P:	Maxim Krasnyansky
 M:	maxk@qualcomm.com
 W:	http://bluez.sf.net
@@ -346,12 +353,16 @@ W:	http://www.holtmann.org/linux/bluetooth/
 S:	Maintained
 
 BLUETOOTH HCI USB DRIVER
+P:	Marcel Holtmann
+M:	marcel@holtmann.org
 P:	Maxim Krasnyansky
 M:	maxk@qualcomm.com
 W:	http://bluez.sf.net
 S:	Maintained
 
 BLUETOOTH HCI UART DRIVER
+P:	Marcel Holtmann
+M:	marcel@holtmann.org
 P:	Maxim Krasnyansky
 M:	maxk@qualcomm.com
 W:	http://bluez.sf.net
@@ -2093,6 +2104,11 @@ S:	Odd fixes
 VIA RHINE NETWORK DRIVER
 P:	Roger Luethi
 M:	rl@hellgate.ch
+S:	Maintained
+
+VIA-IRCC IRDA DRIVER
+P:	Jens David
+M:	dg1kjd@afthd.tu-darmstadt.de
 S:	Maintained
 
 USB DIAMOND RIO500 DRIVER
