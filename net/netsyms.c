@@ -179,9 +179,13 @@ EXPORT_SYMBOL(neigh_connected_output);
 EXPORT_SYMBOL(neigh_update);
 EXPORT_SYMBOL(neigh_create);
 EXPORT_SYMBOL(neigh_lookup);
+EXPORT_SYMBOL(neigh_lookup_nodev);
 EXPORT_SYMBOL(__neigh_event_send);
 EXPORT_SYMBOL(neigh_event_ns);
 EXPORT_SYMBOL(neigh_ifdown);
+EXPORT_SYMBOL(neigh_seq_start);
+EXPORT_SYMBOL(neigh_seq_next);
+EXPORT_SYMBOL(neigh_seq_stop);
 #ifdef CONFIG_ARPD
 EXPORT_SYMBOL(neigh_app_ns);
 #endif

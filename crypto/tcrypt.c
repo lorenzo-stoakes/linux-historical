@@ -63,8 +63,8 @@ static char *tvmem;
 static char *check[] = {
 	"des", "md5", "des3_ede", "rot13", "sha1", "sha256", "blowfish",
 	"twofish", "serpent", "sha384", "sha512", "md4", "aes", "cast6", 
-	"arc4", "michael_mic", "deflate", "tea", "xtea", "wp512", 
-	"wp384", "wp256", NULL
+	"arc4", "michael_mic", "deflate", "tea", "xtea", "khazad", 
+	"wp512", "wp384", "wp256", "tnepres", NULL
 };
 
 static void
@@ -551,6 +551,10 @@ do_test(void)
 		test_cipher ("serpent", MODE_ECB, ENCRYPT, serpent_enc_tv_template, SERPENT_ENC_TEST_VECTORS);
 		test_cipher ("serpent", MODE_ECB, DECRYPT, serpent_dec_tv_template, SERPENT_DEC_TEST_VECTORS);
 		
+		//TNEPRES
+		test_cipher ("tnepres", MODE_ECB, ENCRYPT, tnepres_enc_tv_template, TNEPRES_ENC_TEST_VECTORS);
+		test_cipher ("tnepres", MODE_ECB, DECRYPT, tnepres_dec_tv_template, TNEPRES_DEC_TEST_VECTORS);
+
 		//AES
 		test_cipher ("aes", MODE_ECB, ENCRYPT, aes_enc_tv_template, AES_ENC_TEST_VECTORS);
 		test_cipher ("aes", MODE_ECB, DECRYPT, aes_dec_tv_template, AES_DEC_TEST_VECTORS);
@@ -638,6 +642,8 @@ do_test(void)
 		break;
 		
 	case 9:
+		test_cipher ("serpent", MODE_ECB, ENCRYPT, serpent_enc_tv_template, SERPENT_ENC_TEST_VECTORS);
+		test_cipher ("serpent", MODE_ECB, DECRYPT, serpent_dec_tv_template, SERPENT_DEC_TEST_VECTORS);
 		break;
 
 	case 10:
@@ -699,6 +705,11 @@ do_test(void)
 
 	case 24:
 		test_hash("wp256", wp256_tv_template, WP256_TEST_VECTORS);
+		break;
+
+	case 25:
+		test_cipher ("tnepres", MODE_ECB, ENCRYPT, tnepres_enc_tv_template, TNEPRES_ENC_TEST_VECTORS);
+		test_cipher ("tnepres", MODE_ECB, DECRYPT, tnepres_dec_tv_template, TNEPRES_DEC_TEST_VECTORS);
 		break;
 
 #ifdef CONFIG_CRYPTO_HMAC

@@ -1287,8 +1287,6 @@ static int htb_dump(struct Qdisc *sch, struct sk_buff *skb)
 	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
 	RTA_PUT(skb, TCA_HTB_INIT, sizeof(gopt), &gopt);
 	rta->rta_len = skb->tail - b;
-	sch->stats.qlen = sch->q.qlen;
-	RTA_PUT(skb, TCA_STATS, sizeof(sch->stats), &sch->stats);
 	HTB_QUNLOCK(sch);
 	return skb->len;
 rtattr_failure:

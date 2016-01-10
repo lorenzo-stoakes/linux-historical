@@ -573,9 +573,9 @@ W:	http://www.garloff.de/kurt/linux/dc390/
 S:	Maintained
 
 DECnet NETWORK LAYER
-P:	Steven Whitehouse
-M:	SteveW@ACM.org
-W:	http://www.sucs.swan.ac.uk/~rohan/DECnet/index.html
+P:	Patrick Caulfield
+M:	patrick@tykepenguin.com
+W:	http://linux-decnet.sourceforge.net
 L:	linux-decnet-user@lists.sourceforge.net
 S:	Maintained
 
@@ -1707,10 +1707,8 @@ S:	Maintained
 
 SMB FILESYSTEM
 P:	Urban Widmark
-M:	urban@teststation.com
-W:	http://samba.org/
-L:	samba@samba.org
-S:	Maintained
+M:	Urban.Widmark@enlight.net
+S:	Odd Fixes
 
 SNA NETWORK LAYER
 P:	Jay Schulist

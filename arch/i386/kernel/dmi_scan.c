@@ -328,26 +328,6 @@ static __init int apm_likes_to_melt(struct dmi_blacklist *d)
 }
 
 /*
- * Some machines, usually laptops, can't handle an enabled local APIC.
- * The symptoms include hangs or reboots when suspending or resuming,
- * attaching or detaching the power cord, or entering BIOS setup screens
- * through magic key sequences.
- */
-static int __init local_apic_kills_bios(struct dmi_blacklist *d)
-{
-#ifdef CONFIG_X86_LOCAL_APIC
-	extern int enable_local_apic;
-	if (enable_local_apic == 0) {
-		enable_local_apic = -1;
-		printk(KERN_WARNING "%s with broken BIOS detected. "
-		       "Refusing to enable the local APIC.\n",
-		       d->ident);
-	}
-#endif
-	return 0;
-}
-
-/*
  *  Check for clue free BIOS implementations who use
  *  the following QA technique
  *
@@ -790,26 +770,6 @@ static __initdata struct dmi_blacklist dmi_blacklist[]={
 			MATCH(DMI_BIOS_VERSION, "07.00T"),
 			MATCH(DMI_SYS_VENDOR, "Higraded"),
 			MATCH(DMI_PRODUCT_NAME, "P14H")
-			} },
-
-	/* Machines which have problems handling enabled local APICs */
-
-	{ local_apic_kills_bios, "Dell Inspiron", {
-			MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
-			MATCH(DMI_PRODUCT_NAME, "Inspiron"),
-			NO_MATCH, NO_MATCH
-			} },
-
-	{ local_apic_kills_bios, "Dell Latitude", {
-			MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
-			MATCH(DMI_PRODUCT_NAME, "Latitude"),
-			NO_MATCH, NO_MATCH
-			} },
-
-	{ local_apic_kills_bios, "IBM Thinkpad T20", {
-			MATCH(DMI_BOARD_VENDOR, "IBM"),
-			MATCH(DMI_BOARD_NAME, "264741U"),
-			NO_MATCH, NO_MATCH
 			} },
 
 	{ init_ints_after_s1, "Toshiba Satellite 4030cdt", { /* Reinitialization of 8259 is needed after S1 resume */

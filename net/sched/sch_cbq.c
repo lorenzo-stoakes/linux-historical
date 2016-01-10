@@ -1641,7 +1641,6 @@ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
 	cl->xstats.undertime = 0;
 	if (!PSCHED_IS_PASTPERFECT(cl->undertime))
 		cl->xstats.undertime = PSCHED_TDIFF(cl->undertime, q->now);
-	q->link.xstats.avgidle = q->link.avgidle;
 	if (cbq_copy_xstats(skb, &cl->xstats)) {
 		spin_unlock_bh(&sch->dev->queue_lock);
 		goto rtattr_failure;
@@ -1716,6 +1715,8 @@ static void cbq_destroy_class(struct Qdisc *sch, struct cbq_class *cl)
 {
 	struct cbq_sched_data *q = (struct cbq_sched_data *)sch->data;
 
+	BUG_TRAP(!cl->filters);
+
 	cbq_destroy_filters(cl);
 	qdisc_destroy(cl->q);
 	qdisc_put_rtab(cl->R_tab);
@@ -1736,6 +1737,14 @@ cbq_destroy(struct Qdisc* sch)
 #ifdef CONFIG_NET_CLS_POLICE
 	q->rx_class = NULL;
 #endif
+	/*
+	 * Filters must be destroyed first because we don't destroy the
+	 * classes from root to leafs which means that filters can still
+	 * be bound to classes which have been destroyed already. --TGR '04
+	 */
+	for (h = 0; h < 16; h++)
+		for (cl = q->classes[h]; cl; cl = cl->next)
+			cbq_destroy_filters(cl);
 
 	for (h = 0; h < 16; h++) {
 		struct cbq_class *next;

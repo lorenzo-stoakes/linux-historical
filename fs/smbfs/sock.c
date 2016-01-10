@@ -625,6 +625,9 @@ smb_receive_trans2(struct smb_sb_info *server,
 		server->packet = rcv_buf;
 		rcv_buf = inbuf;
 	} else {
+		if (parm_len + data_len > buf_len)
+			goto out_data_grew;
+
 		PARANOIA("copying data, old size=%d, new size=%u\n",
 			 server->packet_size, buf_len);
 		memcpy(inbuf, rcv_buf, parm_len + data_len);

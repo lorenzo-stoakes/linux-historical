@@ -145,19 +145,23 @@ static int delay_skb(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct netem_sched_data *q = qdisc_priv(sch);
 	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
-	psched_time_t now;
-	
-	PSCHED_GET_TIME(now);
-	PSCHED_TADD2(now, tabledist(q->latency, q->jitter, 
-				    &q->delay_cor, q->delay_dist),
-		     cb->time_to_send);
+ 	psched_tdiff_t td;
+  	psched_time_t now;
+  	
+  	PSCHED_GET_TIME(now);
+	td = tabledist(q->latency, q->jitter, &q->delay_cor, q->delay_dist);
+	PSCHED_TADD2(now, td, cb->time_to_send);
 	
 	/* Always queue at tail to keep packets in order */
 	if (likely(q->delayed.qlen < q->limit)) {
 		__skb_queue_tail(&q->delayed, skb);
-		sch->q.qlen++;
 		sch->stats.bytes += skb->len;
 		sch->stats.packets++;
+ 
+		if (!timer_pending(&q->timer)) {
+			q->timer.expires = jiffies + PSCHED_US2JIFFIE(td);
+			add_timer(&q->timer);
+		}
 		return NET_XMIT_SUCCESS;
 	}
 
@@ -198,7 +202,11 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 
 		++q->counter;
 		ret = q->qdisc->enqueue(skb, q->qdisc);
-		if (ret)
+		if (likely(ret == NET_XMIT_SUCCESS)) {
+			sch->q.qlen++;
+			sch->stats.bytes += skb->len;
+			sch->stats.packets++;
+		} else
 			sch->stats.drops++;
 		return ret;
 	}
@@ -240,15 +248,31 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
 {
 	struct netem_sched_data *q = qdisc_priv(sch);
 	struct sk_buff *skb;
+
+	skb = q->qdisc->dequeue(q->qdisc);
+	if (skb) 
+		sch->q.qlen--;
+	return skb;
+}
+
+static void netem_watchdog(unsigned long arg)
+{
+	struct Qdisc *sch = (struct Qdisc *)arg;
+	struct netem_sched_data *q = qdisc_priv(sch);
+	struct sk_buff *skb;
 	psched_time_t now;
 
+	pr_debug("netem_watchdog: fired @%lu\n", jiffies);
+
+	spin_lock_bh(&sch->dev->queue_lock);
 	PSCHED_GET_TIME(now);
+
 	while ((skb = skb_peek(&q->delayed)) != NULL) {
 		const struct netem_skb_cb *cb
 			= (const struct netem_skb_cb *)skb->cb;
 		long delay 
 			= PSCHED_US2JIFFIE(PSCHED_TDIFF(cb->time_to_send, now));
-		pr_debug("netem_dequeue: delay queue %p@%lu %ld\n",
+		pr_debug("netem_watchdog: skb %p@%lu %ld\n",
 			 skb, jiffies, delay);
 
 		/* if more time remaining? */
@@ -261,19 +285,7 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
 		if (q->qdisc->enqueue(skb, q->qdisc))
 			sch->stats.drops++;
 	}
-
-	skb = q->qdisc->dequeue(q->qdisc);
-	if (skb) 
-		sch->q.qlen--;
-	return skb;
-}
-
-static void netem_watchdog(unsigned long arg)
-{
-	struct Qdisc *sch = (struct Qdisc *)arg;
-
-	pr_debug("netem_watchdog: fired @%lu\n", jiffies);
-	netif_schedule(sch->dev);
+	spin_unlock_bh(&sch->dev->queue_lock);
 }
 
 static void netem_reset(struct Qdisc *sch)
@@ -493,7 +505,7 @@ static int netem_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
 	sch_tree_lock(sch);
 	*old = xchg(&q->qdisc, new);
 	qdisc_reset(*old);
-	sch->q.qlen = 0;
+	sch->q.qlen = q->delayed.qlen;
 	sch_tree_unlock(sch);
 
 	return 0;

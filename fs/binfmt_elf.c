@@ -375,7 +375,6 @@ static unsigned long load_aout_interp(struct exec * interp_ex,
 	unsigned long text_data, elf_entry = ~0UL;
 	char * addr;
 	loff_t offset;
-	int retval;
 
 	current->mm->end_code = interp_ex->a_text;
 	text_data = interp_ex->a_text + interp_ex->a_data;
@@ -397,11 +396,9 @@ static unsigned long load_aout_interp(struct exec * interp_ex,
 	}
 
 	do_brk(0, text_data);
-	retval = -ENOEXEC;
 	if (!interpreter->f_op || !interpreter->f_op->read)
 		goto out;
-	retval = interpreter->f_op->read(interpreter, addr, text_data, &offset);
-	if (retval < 0)
+	if (interpreter->f_op->read(interpreter, addr, text_data, &offset) < 0)
 		goto out;
 	flush_icache_range((unsigned long)addr,
 	                   (unsigned long)addr + text_data);

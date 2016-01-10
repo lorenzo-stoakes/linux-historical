@@ -1639,8 +1639,9 @@ static inline int do_call_directIO(int rw, struct file *filp, struct kiobuf *iob
 
 static ssize_t generic_file_direct_IO(int rw, struct file * filp, char * buf, size_t count, loff_t offset)
 {
-	ssize_t retval;
-	int new_iobuf, chunk_size, blocksize_mask, blocksize, blocksize_bits, iosize, progress;
+	ssize_t retval, progress;
+	int new_iobuf, chunk_size, blocksize_mask, blocksize, blocksize_bits;
+	ssize_t iosize;
 	struct kiobuf * iobuf;
 	struct address_space * mapping = filp->f_dentry->d_inode->i_mapping;
 	struct inode * inode = mapping->host;

@@ -781,6 +781,13 @@ CONFIG_BLK_DEV_IDECS
   <file:Documentation/modules.txt>. The module will be called
   ide-cs.o
 
+Cardbus IDE support (Delkin/ASKA/Workbit)
+CONFIG_BLK_DEV_DELKIN
+  Support for Delkin/ASKA/Workbit cardbus CompactFlash Adapters.
+  This may also work for similar SD and XD adapters.  If you want
+  to be able to use one of these, then say M here.  The module will
+  be called delkin_cb.o
+
 Include IDE/ATAPI CD-ROM support
 CONFIG_BLK_DEV_IDECD
   If you have a CD-ROM drive using the ATAPI protocol, say Y. ATAPI is
@@ -9351,6 +9358,11 @@ CONFIG_SCSI_SATA_SIL
 
 CONFIG_SCSI_SATA_SIS
   This option enables support for SiS Serial ATA 964/180.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_ULI
+  This option enables support for ULi Electronics SATA.
 
   If unsure, say N.
 
@@ -28964,7 +28976,7 @@ CONFIG_CRYPTO_SHA512
 CONFIG_CRYPTO_WP512
   Whirlpool hash algorithm 512, 384 and 256-bit hashes
 
-  Whirlpool-512 is part of the NESSIE cryptographic primtives.
+  Whirlpool-512 is part of the NESSIE cryptographic primitives.
   Whirlpool will be part of the ISO/IEC 10118-3:2003(E) standard
 
   See also:
@@ -28997,7 +29009,8 @@ CONFIG_CRYPTO_SERPENT
   Serpent cipher algorithm, by Anderson, Biham & Knudsen.
 
   Keys are allowed to be from 0 to 256 bits in length, in steps
-  of 8 bits.
+  of 8 bits. Also includes the 'Tnepres' algorithm, a reversed
+  variant of Serpent for compatibility with old kerneli code.
 
   See also:
   http://www.cl.cam.ac.uk/~rja14/serpent.html

@@ -18,6 +18,7 @@ if [ "$CONFIG_BLK_DEV_IDE" != "n" ]; then
    dep_mbool '    Auto-Geometry Resizing support' CONFIG_IDEDISK_STROKE $CONFIG_BLK_DEV_IDEDISK
 
    dep_tristate '  PCMCIA IDE support' CONFIG_BLK_DEV_IDECS $CONFIG_BLK_DEV_IDE $CONFIG_PCMCIA
+   dep_tristate '  Cardbus IDE support (Delkin/ASKA/Workbit)' CONFIG_BLK_DEV_DELKIN $CONFIG_BLK_DEV_IDE $CONFIG_PCMCIA $CONFIG_PCI
    dep_tristate '  Include IDE/ATAPI CDROM support' CONFIG_BLK_DEV_IDECD $CONFIG_BLK_DEV_IDE
    dep_tristate '  Include IDE/ATAPI TAPE support' CONFIG_BLK_DEV_IDETAPE $CONFIG_BLK_DEV_IDE
    dep_tristate '  Include IDE/ATAPI FLOPPY support' CONFIG_BLK_DEV_IDEFLOPPY $CONFIG_BLK_DEV_IDE
