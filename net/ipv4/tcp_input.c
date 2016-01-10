@@ -2038,8 +2038,7 @@ static void tcp_process_frto(struct sock *sk, u32 prior_snd_una)
 }
 
 /*
- * TCP Westwood
- * Functions needed for estimating bandwidth.
+ * TCP Westwood+
  */
 
 /*
@@ -2055,14 +2054,13 @@ static inline __u32 westwood_do_filter(__u32 a, __u32 b)
 static void westwood_filter(struct sock *sk, __u32 delta)
 {
 	struct tcp_opt *tp = &(sk->tp_pinfo.af_tcp);
-	__u32 sample = (tp->westwood.bk) / delta;
 
 	tp->westwood.bw_ns_est =
-		westwood_do_filter(tp->westwood.bw_ns_est, sample);
+		westwood_do_filter(tp->westwood.bw_ns_est, 
+				   tp->westwood.bk / delta);
 	tp->westwood.bw_est =
 		westwood_do_filter(tp->westwood.bw_est,
 				   tp->westwood.bw_ns_est);
-	tp->westwood.bw_sample = sample;
 }
 
 /* @westwood_update_rttmin
@@ -2086,8 +2084,7 @@ static inline __u32 westwood_update_rttmin(struct sock *sk)
 
 /*
  * @westwood_acked
- * Evaluate increases for dk. It requires no lock since when it is
- * called lock should already be held. Be careful about it!
+ * Evaluate increases for dk. 
  */
 
 static __u32 westwood_acked(struct sock *sk)
@@ -2134,10 +2131,7 @@ static int westwood_new_window(struct sock *sk)
 /*
  * @westwood_update_window
  * It updates RTT evaluation window if it is the right moment to do
- * it. If so it calls filter for evaluating bandwidth. Be careful
- * about __westwood_update_window() since it is called without
- * any form of lock. It should be used only for internal purposes.
- * Call westwood_update_window() instead.
+ * it. If so it calls filter for evaluating bandwidth. 
  */
  
 static void __westwood_update_window(struct sock *sk, __u32 now)
@@ -2162,7 +2156,7 @@ static void westwood_update_window(struct sock *sk, __u32 now)
 }
 
 /*
- * @__westwood_fast_bw
+ * @__tcp_westwood_fast_bw
  * It is called when we are in fast path. In particular it is called when
  * header prediction is successfull. In such case infact update is
  * straight forward and doesn't need any particular care.
@@ -2253,7 +2247,7 @@ static __u32 westwood_acked_count(struct sock *sk)
 }
 
 /*
- * @__westwood_slow_bw
+ * @__tcp_westwood_slow_bw
  * It is called when something is going wrong..even if there could
  * be no problems! Infact a simple delayed packet may trigger a
  * dupack. But we need to be careful in such case.
@@ -2269,7 +2263,7 @@ void __tcp_westwood_slow_bw(struct sock *sk, struct sk_buff *skb)
 	tp->westwood.rtt_min = westwood_update_rttmin(sk);
 }
 
-/* TCP Westwood routines end here */
+/* TCP Westwood+ routines end here */
 
 /* This routine deals with incoming acks, but not outgoing ones. */
 static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)

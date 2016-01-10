@@ -1880,16 +1880,18 @@ void __tcp_westwood_fast_bw(struct sock *, struct sk_buff *);
 void __tcp_westwood_slow_bw(struct sock *, struct sk_buff *);
 
 /*
- * This function initializes fields used in TCP Westwood.
- * We can't get no information about RTT at this time so
- * we are forced to set it to 0.
+ * This function initializes fields used in TCP Westwood+. We can't
+ * get no information about RTTmin at this time so we simply set it to
+ * TCP_WESTWOOD_INIT_RTT. This value was chosen to be too conservative
+ * since in this way we're sure it will be updated in a consistent
+ * way as soon as possible. It will reasonably happen within the first
+ * RTT period of the connection lifetime.
  */
 
 static inline void __tcp_init_westwood(struct sock *sk)
 {
 	struct tcp_opt *tp = &(sk->tp_pinfo.af_tcp);
 
-	tp->westwood.bw_sample = 0;
 	tp->westwood.bw_ns_est = 0;
 	tp->westwood.bw_est = 0;
 	tp->westwood.accounted = 0;
