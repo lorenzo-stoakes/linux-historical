@@ -69,7 +69,7 @@ int ext3_sync_file(struct file * file, struct dentry *dentry, int datasync)
 	if (test_opt(inode->i_sb, DATA_FLAGS) == EXT3_MOUNT_WRITEBACK_DATA)
 		ret |= fsync_inode_data_buffers(inode);
 
-	ret |= ext3_force_commit(inode->i_sb);
+	ext3_force_commit(inode->i_sb);
 
 	return ret;
 }
