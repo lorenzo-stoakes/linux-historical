@@ -569,6 +569,19 @@ CONFIG_BLK_DEV_UMEM
   The umem driver has been allocated block major number 116.
   See Documentation/devices.txt for recommended device naming.
 
+Promise SATA SX8 (carmel) support
+CONFIG_BLK_DEV_CARMEL
+   Saying Y or M here will enable support for the 
+   Promise SATA SX8 (carmel) controllers.
+
+  If you want to compile this driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read Documentation/modules.txt. The module will be
+  called carmel.o.
+
+  The carmel driver has been allocated block major numbers 160, 161.
+  See Documentation/devices.txt for recommended device naming.
+
 Network block device support
 CONFIG_BLK_DEV_NBD
   Saying Y here will allow your computer to be a client for network

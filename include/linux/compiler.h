@@ -27,4 +27,12 @@
 #define __attribute_used__	/* not implemented */
 #endif /* __GNUC__ */
 
+#if __GNUC__ == 3
+#if __GNUC_MINOR__ >= 1
+# define inline         __inline__ __attribute__((always_inline))
+# define __inline__     __inline__ __attribute__((always_inline))
+# define __inline       __inline__ __attribute__((always_inline))
+#endif
+#endif
+
 #endif /* __LINUX_COMPILER_H */

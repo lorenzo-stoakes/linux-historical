@@ -353,6 +353,7 @@ e1000_ethtool_geeprom(struct e1000_adapter *adapter,
 	struct e1000_hw *hw = &adapter->hw;
 	int first_word, last_word;
 	int ret_val = 0;
+	uint16_t i;
 
 	if(eeprom->len == 0) {
 		ret_val = -EINVAL;
@@ -377,12 +378,16 @@ e1000_ethtool_geeprom(struct e1000_adapter *adapter,
 					    last_word - first_word + 1,
 					    eeprom_buff);
 	else {
-		uint16_t i;
 		for (i = 0; i < last_word - first_word + 1; i++)
 			if((ret_val = e1000_read_eeprom(hw, first_word + i, 1,
 							&eeprom_buff[i])))
 				break;
 	}
+
+	/* Device's eeprom is always little-endian, word addressable */
+	for (i = 0; i < last_word - first_word + 1; i++)
+		le16_to_cpus(&eeprom_buff[i]);
+
 geeprom_error:
 	return ret_val;
 }
@@ -395,6 +400,7 @@ e1000_ethtool_seeprom(struct e1000_adapter *adapter,
 	uint16_t *eeprom_buff;
 	void *ptr;
 	int max_len, first_word, last_word, ret_val = 0;
+	uint16_t i;
 
 	if(eeprom->len == 0)
 		return -EOPNOTSUPP;
@@ -428,10 +434,18 @@ e1000_ethtool_seeprom(struct e1000_adapter *adapter,
 		ret_val = e1000_read_eeprom(hw, last_word, 1,
 		                  &eeprom_buff[last_word - first_word]);
 	}
+
+	/* Device's eeprom is always little-endian, word addressable */
+	for (i = 0; i < last_word - first_word + 1; i++)
+		le16_to_cpus(&eeprom_buff[i]);
+
 	if((ret_val != 0) || copy_from_user(ptr, user_data, eeprom->len)) {
 		ret_val = -EFAULT;
 		goto seeprom_error;
 	}
+
+	for (i = 0; i < last_word - first_word + 1; i++)
+		eeprom_buff[i] = cpu_to_le16(eeprom_buff[i]);
 
 	ret_val = e1000_write_eeprom(hw, first_word,
 				     last_word - first_word + 1, eeprom_buff);
@@ -443,6 +457,85 @@ e1000_ethtool_seeprom(struct e1000_adapter *adapter,
 seeprom_error:
 	kfree(eeprom_buff);
 	return ret_val;
+}
+
+static int
+e1000_ethtool_gring(struct e1000_adapter *adapter,
+                    struct ethtool_ringparam *ring)
+{
+	e1000_mac_type mac_type = adapter->hw.mac_type;
+	struct e1000_desc_ring *txdr = &adapter->tx_ring;
+	struct e1000_desc_ring *rxdr = &adapter->rx_ring;
+
+	ring->rx_max_pending = (mac_type < e1000_82544) ? E1000_MAX_RXD :
+		E1000_MAX_82544_RXD;
+	ring->tx_max_pending = (mac_type < e1000_82544) ? E1000_MAX_TXD :
+		E1000_MAX_82544_TXD;
+	ring->rx_mini_max_pending = 0;
+	ring->rx_jumbo_max_pending = 0;
+	ring->rx_pending = rxdr->count;
+	ring->tx_pending = txdr->count;
+	ring->rx_mini_pending = 0;
+	ring->rx_jumbo_pending = 0;
+
+	return 0;
+}
+static int 
+e1000_ethtool_sring(struct e1000_adapter *adapter,
+                    struct ethtool_ringparam *ring)
+{
+	int err;
+	e1000_mac_type mac_type = adapter->hw.mac_type;
+	struct e1000_desc_ring *txdr = &adapter->tx_ring;
+	struct e1000_desc_ring *rxdr = &adapter->rx_ring;
+	struct e1000_desc_ring tx_old, tx_new;
+	struct e1000_desc_ring rx_old, rx_new;
+
+	tx_old = adapter->tx_ring;
+	rx_old = adapter->rx_ring;
+	
+	if(netif_running(adapter->netdev))
+		e1000_down(adapter);
+
+	rxdr->count = max(ring->rx_pending,(uint32_t)E1000_MIN_RXD);
+	rxdr->count = min(rxdr->count,(uint32_t)(mac_type < e1000_82544 ?
+		E1000_MAX_RXD : E1000_MAX_82544_RXD));
+	E1000_ROUNDUP(rxdr->count, REQ_RX_DESCRIPTOR_MULTIPLE); 
+
+	txdr->count = max(ring->tx_pending,(uint32_t)E1000_MIN_TXD);
+	txdr->count = min(txdr->count,(uint32_t)(mac_type < e1000_82544 ?
+		E1000_MAX_TXD : E1000_MAX_82544_TXD));
+	E1000_ROUNDUP(txdr->count, REQ_TX_DESCRIPTOR_MULTIPLE); 
+
+	if(netif_running(adapter->netdev)) {
+		/* try to get new resources before deleting old */
+		if((err = e1000_setup_rx_resources(adapter)))
+			goto err_setup_rx;
+		if((err = e1000_setup_tx_resources(adapter)))
+			goto err_setup_tx;
+
+		/* save the new, restore the old in order to free it,
+		 * then restore the new back again */	
+	
+		rx_new = adapter->rx_ring;
+		tx_new = adapter->tx_ring;
+		adapter->rx_ring = rx_old;
+		adapter->tx_ring = tx_old;
+		e1000_free_rx_resources(adapter);
+		e1000_free_tx_resources(adapter);
+		adapter->rx_ring = rx_new;
+		adapter->tx_ring = tx_new;
+		if((err = e1000_up(adapter)))
+			return err;
+	}
+	return 0;
+err_setup_tx:
+	e1000_free_rx_resources(adapter);
+err_setup_rx:
+	adapter->rx_ring = rx_old;
+	adapter->tx_ring = tx_old;
+	e1000_up(adapter);
+	return err;
 }
 
 #define REG_PATTERN_TEST(R, M, W)                                              \
@@ -1421,6 +1514,9 @@ e1000_ethtool_ioctl(struct net_device *netdev, struct ifreq *ifr)
 
 		if(copy_from_user(&regs, addr, sizeof(regs)))
 			return -EFAULT;
+		memset(regs_buff, 0, sizeof(regs_buff));
+		if (regs.len > E1000_REGS_LEN)
+			regs.len = E1000_REGS_LEN;
 		e1000_ethtool_gregs(adapter, &regs, regs_buff);
 		if(copy_to_user(addr, &regs, sizeof(regs)))
 			return -EFAULT;
@@ -1506,6 +1602,19 @@ err_geeprom_ioctl:
 
 		addr += offsetof(struct ethtool_eeprom, data);
 		return e1000_ethtool_seeprom(adapter, &eeprom, addr);
+	}
+	case ETHTOOL_GRINGPARAM: {
+		struct ethtool_ringparam ering = {ETHTOOL_GRINGPARAM};
+		e1000_ethtool_gring(adapter, &ering);
+		if(copy_to_user(addr, &ering, sizeof(ering)))
+			return -EFAULT;
+		return 0;
+	}
+	case ETHTOOL_SRINGPARAM: {
+		struct ethtool_ringparam ering;
+		if(copy_from_user(&ering, addr, sizeof(ering)))
+			return -EFAULT;
+		return e1000_ethtool_sring(adapter, &ering);
 	}
 	case ETHTOOL_GPAUSEPARAM: {
 		struct ethtool_pauseparam epause = {ETHTOOL_GPAUSEPARAM};

@@ -883,8 +883,8 @@ static struct dentry *proc_lookupfd(struct inode * dir, struct dentry * dentry)
 	return NULL;
 
 out_unlock2:
-	put_files_struct(files);
 	read_unlock(&files->file_lock);
+	put_files_struct(files);
 out_unlock:
 	iput(inode);
 out:

@@ -476,6 +476,7 @@
 	700f  PCI Bridge [IGP 320M]
 	7010  PCI Bridge [IGP 340M]
 	cab2  RS200/RS200M AGP Bridge [IGP 340M]
+	cbb2  RS200/RS200M AGP Bridge [IGP 345M]
 1003  ULSI Systems
 	0201  US201
 1004  VLSI Technology Inc
