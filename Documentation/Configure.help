@@ -19954,14 +19954,6 @@ CONFIG_ACPI_DEBUG
   of verbosity. Saying Y enables these statements. This will increase
   your kernel size by around 50K.
 
-ACPI Relaxed AML Checking
-CONFIG_ACPI_RELAXED_AML
-  If you say `Y' here, the ACPI interpreter will relax its checking
-  for valid AML and will ignore some AML mistakes, such as off-by-one
-  errors in region sizes.  Some laptops may require this option.  In
-  particular, many Toshiba laptops require this for correct operation
-  of the AC module.
-
 ACPI Button
 CONFIG_ACPI_BUTTON
   This driver registers for events based on buttons, such as the
@@ -28735,6 +28727,13 @@ CONFIG_CRYPTO_CAST6
   
   The CAST6 encryption algorithm (synonymous with CAST-256) is
   described in RFC2612.
+
+CONFIG_CRYPTO_ARC4
+  ARC4 cipher algorithm.
+  
+  This is a stream cipher using keys ranging from 8 bits to 2048
+  bits in length.  ARC4 is commonly used in protocols such as WEP 
+  and SSL.
 
 CONFIG_CRYPTO_DEFLATE
   This is the Deflate algorithm (RFC1951), specified for use in

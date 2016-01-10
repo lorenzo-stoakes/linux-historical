@@ -184,7 +184,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
 	if (sinfo->sinfo_timetolive) {
 		/* sinfo_timetolive is in milliseconds */
 		msg->expires_at = jiffies +
-				     MSECS_TO_JIFFIES(sinfo->sinfo_timetolive);
+				     SCTP_MSECS_TO_JIFFIES(sinfo->sinfo_timetolive);
 		msg->can_expire = 1;
 	}
 

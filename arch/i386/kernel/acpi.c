@@ -49,14 +49,14 @@
 
 #define PREFIX			"ACPI: "
 
-int acpi_lapic = 0;
-int acpi_ioapic = 0;
+int acpi_lapic;
+int acpi_ioapic;
+int acpi_strict;
 
 /* --------------------------------------------------------------------------
                               Boot-time Configuration
    -------------------------------------------------------------------------- */
 
-#ifdef CONFIG_ACPI_BOOT
 int acpi_noirq __initdata = 0;  /* skip ACPI IRQ initialization */
 int acpi_ht __initdata = 1;     /* enable HT */
 
@@ -472,7 +472,6 @@ acpi_boot_init (void)
 	return 0;
 }
 
-#endif /*CONFIG_ACPI_BOOT*/
 
 #ifdef	CONFIG_ACPI_BUS
 /*
@@ -480,7 +479,7 @@ acpi_boot_init (void)
  * programs the PIC-mode SCI to Level Trigger.
  * (NO-OP if the BIOS set Level Trigger already)
  *
- * If a PIC-mode SCI is not recogznied or gives spurious IRQ7's
+ * If a PIC-mode SCI is not recognized or gives spurious IRQ7's
  * it may require Edge Trigger -- use "acpi_pic_sci=edge"
  * (NO-OP if the BIOS set Edge Trigger already)
  *

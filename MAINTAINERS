@@ -166,7 +166,7 @@ ACPI
 P:	Len Brown
 M:	len.brown@intel.com
 L:	acpi-devel@lists.sourceforge.net
-W:	http://sf.net/projects/acpi/
+W:	http://acpi.sourceforge.net/
 S:	Maintained
 
 AD1816 SOUND DRIVER
@@ -1456,9 +1456,9 @@ S:	Maintained
 
 PERMEDIA 3 FRAMEBUFFER DRIVER
 P:	Romain Dolbeau
-M:	dolbeau@irisa.fr
+M:	dolbeau@caps-entreprise.com
 L:	linux-fbdev-devel@lists.sourceforge.net
-W:	http://www.irisa.fr/prive/dolbeau/pm3fb/pm3fb.html
+W:	http://www.caps-entreprise.com/private/dolbeau/pm3fb/pm3fb.html
 S:	Maintained
 
 PHILIPS NINO PALM PC

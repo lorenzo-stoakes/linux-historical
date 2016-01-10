@@ -1216,7 +1216,7 @@ SCTP_STATIC int sctp_sendmsg(struct sock *sk, struct msghdr *msg, int msg_len)
 			}
 			if (sinit->sinit_max_init_timeo) {
 				asoc->max_init_timeo = 
-				 MSECS_TO_JIFFIES(sinit->sinit_max_init_timeo);
+				 SCTP_MSECS_TO_JIFFIES(sinit->sinit_max_init_timeo);
 			}
 		}
 
@@ -1654,7 +1654,7 @@ static int sctp_setsockopt_peer_addr_params(struct sock *sk,
 		if (params.spp_hbinterval) {
 			trans->hb_allowed = 1;
 			trans->hb_interval = 
-				MSECS_TO_JIFFIES(params.spp_hbinterval);
+				SCTP_MSECS_TO_JIFFIES(params.spp_hbinterval);
 		} else
 			trans->hb_allowed = 0;
 	}
@@ -1827,11 +1827,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char *optval, int optlen) {
 	if (asoc) {
 		if (rtoinfo.srto_initial != 0)
 			asoc->rto_initial = 
-				MSECS_TO_JIFFIES(rtoinfo.srto_initial);
+				SCTP_MSECS_TO_JIFFIES(rtoinfo.srto_initial);
 		if (rtoinfo.srto_max != 0)
-			asoc->rto_max = MSECS_TO_JIFFIES(rtoinfo.srto_max);
+			asoc->rto_max = SCTP_MSECS_TO_JIFFIES(rtoinfo.srto_max);
 		if (rtoinfo.srto_min != 0)
-			asoc->rto_min = MSECS_TO_JIFFIES(rtoinfo.srto_min);
+			asoc->rto_min = SCTP_MSECS_TO_JIFFIES(rtoinfo.srto_min);
 	} else {
 		/* If there is no association or the association-id = 0
 		 * set the values to the endpoint.

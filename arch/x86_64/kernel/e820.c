@@ -544,6 +544,12 @@ void __init parse_mem_cmdline (char ** cmdline_p)
 #ifdef	CONFIG_ACPI_BOOT
  		else if (!memcmp(from, "acpi=off", 8))
   			acpi_disabled = 1;
+
+		/* acpi=strict disables out-of-spec workarounds */
+		else if (!memcmp(from, "acpi=strict", 11)) {
+			acpi_strict = 1;
+		}
+
 		else if (!memcmp(from, "pci=noacpi", 10)) {
 			acpi_noirq_set();
 		}

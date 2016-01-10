@@ -73,6 +73,8 @@ running once the system is up.
 		off	Disable ACPI
 		ht	Limit ACPI to boot-time LAPIC enumeration for HT,
 			disabling the run-time AML interpreter.
+		strict	Be less tolerant of platforms that are not
+			strictly ACPI specification compliant.
 
 	acpi_pic_sci=	[HW,ACPI] ACPI System Conrol Interrupt trigger mode
 		level	Force PIC-mode SCI to Level Trigger (default)

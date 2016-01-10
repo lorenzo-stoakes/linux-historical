@@ -852,6 +852,11 @@ static void __init parse_cmdline_early (char ** cmdline_p)
 			if (!acpi_force) acpi_disabled = 1; 
 		} 
 
+		/* acpi=strict disables out-of-spec workarounds */
+		else if (!memcmp(from, "acpi=strict", 11)) {
+			acpi_strict = 1;
+		}
+
 		else if (!memcmp(from, "pci=noacpi", 10)) { 
 			acpi_noirq_set();
 		}

@@ -82,14 +82,14 @@ extern struct notifier_block sctp_inetaddr_notifier;
 
 /* FIXME: This macro needs to be moved to a common header file. */
 #define NIP6(addr) \
-	ntohs((addr).s6_addr16[0]), \
-	ntohs((addr).s6_addr16[1]), \
-	ntohs((addr).s6_addr16[2]), \
-	ntohs((addr).s6_addr16[3]), \
-	ntohs((addr).s6_addr16[4]), \
-	ntohs((addr).s6_addr16[5]), \
-	ntohs((addr).s6_addr16[6]), \
-	ntohs((addr).s6_addr16[7])
+	ntohs((addr)->s6_addr16[0]), \
+	ntohs((addr)->s6_addr16[1]), \
+	ntohs((addr)->s6_addr16[2]), \
+	ntohs((addr)->s6_addr16[3]), \
+	ntohs((addr)->s6_addr16[4]), \
+	ntohs((addr)->s6_addr16[5]), \
+	ntohs((addr)->s6_addr16[6]), \
+	ntohs((addr)->s6_addr16[7])
 
 /* ICMP error handler. */
 void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
@@ -226,7 +226,7 @@ struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
 		SCTP_DEBUG_PRINTK(
 			"rt6_dst:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x "
 			"rt6_src:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
-			NIP6(rt->rt6i_dst.addr), NIP6(rt->rt6i_src.addr));
+			NIP6(&rt->rt6i_dst.addr), NIP6(&rt->rt6i_src.addr));
 	} else {
 		SCTP_DEBUG_PRINTK("NO ROUTE\n");
 	}
@@ -273,13 +273,13 @@ void sctp_v6_get_saddr(struct sctp_association *asoc, struct dst_entry *dst,
 
 	SCTP_DEBUG_PRINTK("%s: asoc:%p dst:%p "
 			  "daddr:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x ",
-			  __FUNCTION__, asoc, dst, NIP6(daddr->v6.sin6_addr));
+			  __FUNCTION__, asoc, dst, NIP6(&daddr->v6.sin6_addr));
 
 	if (!asoc) {
 		ipv6_get_saddr(dst, &daddr->v6.sin6_addr,&saddr->v6.sin6_addr);
 		SCTP_DEBUG_PRINTK("saddr from ipv6_get_saddr: "
 				  "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
-				  NIP6(saddr->v6.sin6_addr));
+				  NIP6(&saddr->v6.sin6_addr));
 		return;
 	}
 
@@ -308,12 +308,12 @@ void sctp_v6_get_saddr(struct sctp_association *asoc, struct dst_entry *dst,
 		memcpy(saddr, baddr, sizeof(union sctp_addr));
 		SCTP_DEBUG_PRINTK("saddr: "
 				  "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
-				  NIP6(saddr->v6.sin6_addr));
+				  NIP6(&saddr->v6.sin6_addr));
 	} else {
 		printk(KERN_ERR "%s: asoc:%p Could not find a valid source "
 		       "address for the "
 		       "dest:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
-		       __FUNCTION__, asoc, NIP6(daddr->v6.sin6_addr));
+		       __FUNCTION__, asoc, NIP6(&daddr->v6.sin6_addr));
 	}
 
 	sctp_read_unlock(addr_lock);
@@ -678,7 +678,7 @@ static int sctp_v6_is_ce(const struct sk_buff *skb)
 static void sctp_v6_seq_dump_addr(struct seq_file *seq, union sctp_addr *addr)
 {
 	seq_printf(seq, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x ",
-		   NIP6(addr->v6.sin6_addr));
+		   NIP6(&addr->v6.sin6_addr));
 }
 
 /* Initialize a PF_INET6 socket msg_name. */

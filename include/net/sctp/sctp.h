@@ -115,7 +115,7 @@
 #define SCTP_STATIC static
 #endif
 
-#define MSECS_TO_JIFFIES(msec) \
+#define SCTP_MSECS_TO_JIFFIES(msec) \
 	(((msec / 1000) * HZ) + ((msec % 1000) * HZ) / 1000)
 #define JIFFIES_TO_MSECS(jiff) \
 	(((jiff / HZ) * 1000) + ((jiff % HZ) * 1000) / HZ)
