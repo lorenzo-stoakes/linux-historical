@@ -376,7 +376,6 @@ setup_arch (char **cmdline_p)
 	saved_command_line[COMMAND_LINE_SIZE-1] = '\0';		/* for safety */
 
 	efi_init();
-	find_memory();
 
 #ifdef CONFIG_ACPI_BOOT
 	/* Initialize the ACPI boot-time table parser */
@@ -392,6 +391,7 @@ setup_arch (char **cmdline_p)
 #endif /* CONFIG_APCI_BOOT */
 
 	iomem_resource.end = ~0UL;	/* FIXME probably belongs elsewhere */
+	find_memory();
 
 #if 0
 	/* XXX fix me */

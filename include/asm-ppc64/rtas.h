@@ -62,11 +62,11 @@ struct rtas_t {
 };
 
 /* Event classes */
-#define INTERNAL_ERROR		0x80000000 /* set bit 0 */
-#define EPOW_WARNING		0x40000000 /* set bit 1 */
-#define POWERMGM_EVENTS		0x20000000 /* set bit 2 */
-#define HOTPLUG_EVENTS		0x10000000 /* set bit 3 */
-#define EVENT_SCAN_ALL_EVENTS	0xf0000000
+#define RTAS_INTERNAL_ERROR		0x80000000 /* set bit 0 */
+#define RTAS_EPOW_WARNING		0x40000000 /* set bit 1 */
+#define RTAS_POWERMGM_EVENTS		0x20000000 /* set bit 2 */
+#define RTAS_HOTPLUG_EVENTS		0x10000000 /* set bit 3 */
+#define RTAS_EVENT_SCAN_ALL_EVENTS	0xf0000000
 
 /* event-scan returns */
 #define SEVERITY_FATAL		0x5
@@ -181,6 +181,15 @@ extern int rtas_errinjct_close(unsigned int);
 
 extern struct proc_dir_entry *rtas_proc_dir;
 extern struct errinjct_token ei_token_list[MAX_ERRINJCT_TOKENS];
+
+#define RTAS_ERROR_LOG_MAX 1024
+
+/* Given an RTAS status code of 9900..9905 compute the hinted delay */
+unsigned int rtas_extended_busy_delay_time(int status);
+static inline int rtas_is_extended_busy(int status)
+{
+	return status >= 9900 && status <= 9909;
+}
 
 /* Some RTAS ops require a data buffer and that buffer must be < 4G.
  * Rather than having a memory allocator, just use this buffer

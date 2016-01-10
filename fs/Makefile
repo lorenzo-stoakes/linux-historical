@@ -8,7 +8,7 @@
 O_TARGET := fs.o
 
 export-objs :=	filesystems.o open.o dcache.o buffer.o dquot.o
-mod-subdirs :=	nls
+mod-subdirs :=	nls xfs
 
 obj-y :=	open.o read_write.o devices.o file_table.o buffer.o \
 		super.o block_dev.o char_dev.o stat.o exec.o pipe.o namei.o \
@@ -66,7 +66,7 @@ subdir-$(CONFIG_DEVPTS_FS)	+= devpts
 subdir-$(CONFIG_SUN_OPENPROMFS)	+= openpromfs
 subdir-$(CONFIG_BEFS_FS)	+= befs
 subdir-$(CONFIG_JFS_FS)		+= jfs
-
+subdir-$(CONFIG_XFS_FS)		+= xfs
 
 obj-$(CONFIG_BINFMT_AOUT)	+= binfmt_aout.o
 obj-$(CONFIG_BINFMT_EM86)	+= binfmt_em86.o

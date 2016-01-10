@@ -27,6 +27,13 @@
 #include <asm/system.h>
 #include <asm/fpu.h>
 
+/*
+ * Including <asm/unistd.h> would give use the 64-bit syscall numbers ...
+ */
+#define __NR_O32_sigreturn		4119
+#define __NR_O32_rt_sigreturn		4193
+#define __NR_O32_restart_syscall	4253
+
 #define DEBUG_SIG 0
 
 #define _BLOCKABLE (~(sigmask(SIGKILL) | sigmask(SIGSTOP)))
@@ -234,7 +241,7 @@ asmlinkage int sys32_sigaltstack(abi64_no_regargs, struct pt_regs regs)
 		if (!access_ok(VERIFY_READ, uss, sizeof(*uss)))
 			return -EFAULT;
 		err |= __get_user(sp, &uss->ss_sp);
-		kss.ss_size = (long) sp;
+		kss.ss_sp = (void *) (long) sp;
 		err |= __get_user(kss.ss_size, &uss->ss_size);
 		err |= __get_user(kss.ss_flags, &uss->ss_flags);
 		if (err)
