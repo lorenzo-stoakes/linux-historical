@@ -569,17 +569,17 @@ CONFIG_BLK_DEV_UMEM
   The umem driver has been allocated block major number 116.
   See Documentation/devices.txt for recommended device naming.
 
-Promise SATA SX8 (carmel) support
-CONFIG_BLK_DEV_CARMEL
+Promise SATA SX8 support
+CONFIG_BLK_DEV_SX8
    Saying Y or M here will enable support for the 
-   Promise SATA SX8 (carmel) controllers.
+   Promise SATA SX8 controllers.
 
   If you want to compile this driver as a module ( = code which can be
   inserted in and removed from the running kernel whenever you want),
   say M here and read Documentation/modules.txt. The module will be
-  called carmel.o.
+  called sx8.o.
 
-  The carmel driver has been allocated block major numbers 160, 161.
+  The sx8 driver has been allocated block major numbers 160, 161.
   See Documentation/devices.txt for recommended device naming.
 
 Network block device support
@@ -7584,6 +7584,11 @@ CONFIG_ATM_FORE200E_SBA_FW
   not have to supply an alternative one. They just say Y to "Use
   default SBA-200E firmware", above.
 
+CONFIG_ATM_FORE200E_USE_TASKLET
+  This defers work to be done by the interrupt handler to a
+  tasklet instead of handling everything at interrupt time.  This
+  may improve the responsiveness of the host.
+
 Maximum number of tx retries
 CONFIG_ATM_FORE200E_TX_RETRY
   Specifies the number of times the driver attempts to transmit
@@ -9264,6 +9269,48 @@ CONFIG_SCSI_MEGARAID2
   inserted in and removed from the running kernel whenever you want),
   say M here and read <file:Documentation/modules.txt>.  The module
   will be called megaraid2.o.
+
+CONFIG_SCSI_SATA
+  This driver family supports Serial ATA host controllers
+  and devices.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_SVW
+  This option enables support for Broadcom/Serverworks/Apple K2
+  SATA support.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_PROMISE
+  This option enables support for Promise Serial ATA TX2/TX4.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_SX4
+  This option enables support for Promise Serial ATA SX4.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_SIL
+  This option enables support for Silicon Image Serial ATA.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_SIS
+  This option enables support for SiS Serial ATA 964/180.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_VIA
+  This option enables support for VIA Serial ATA.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_VITESSE
+  This option enables support for Vitesse VSC7174 Serial ATA.
+
+  If unsure, say N.
 
 Intel/ICP (former GDT SCSI Disk Array) RAID Controller support
 CONFIG_SCSI_GDTH
@@ -12163,6 +12210,20 @@ CONFIG_E1000
   The module will be called e1000.o.  If you want to compile it as a
   module, say M here and read <file:Documentation/modules.txt> as well
   as <file:Documentation/networking/net-modules.txt>.
+
+CONFIG_E1000_NAPI
+  NAPI is a new driver API designed to reduce CPU and interrupt load
+  when the driver is receiving lots of packets from the card. It is
+  still somewhat experimental and thus not yet enabled by default.
+
+  If your estimated Rx load is 10kpps or more, or if the card will be
+  deployed on potentially unfriendly networks (e.g. in a firewall),
+  then say Y here.
+
+  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
+  information.
+
+  If in doubt, say N.
 
 AMD LANCE and PCnet (AT1500 and NE2100) support
 CONFIG_LANCE
@@ -23071,22 +23132,20 @@ CONFIG_BLUEZ
 
   Linux Bluetooth subsystem consist of several layers:
                BlueZ Core (HCI device and connection manager, scheduler)
-               HCI Device drivers (interface to the hardware)
-               L2CAP Module (L2CAP protocol)
-               SCO Module (SCO links)
-               RFCOMM Module (RFCOMM protocol)
-               BNEP Module (BNEP protocol)
-               CMTP Module (CMTP protocol)
+               HCI Device drivers (Interface to the hardware)
+               SCO Module (SCO audio links)
+               L2CAP Module (Logical Link Control and Adaptation Protocol)
+               RFCOMM Module (RFCOMM Protocol)
+               BNEP Module (Bluetooth Network Encapsulation Protocol)
+               CMTP Module (CAPI Message Transport Protocol)
 
-  Say Y here to enable Linux Bluetooth support and to build BlueZ Core
-  layer.
+  Say Y here to compile Bluetooth support into the kernel or say M to
+  compile it as module (bluez.o).
 
   To use Linux Bluetooth subsystem, you will need several user-space
   utilities like hciconfig and hcid.  These utilities and updates to
   Bluetooth kernel modules are provided in the BlueZ package.
-  For more information, see <http://bluez.sourceforge.net/>.
-
-  If you want to compile BlueZ Core as module (bluez.o) say M here.
+  For more information, see <http://www.bluez.org/>.
 
 L2CAP protocol support
 CONFIG_BLUEZ_L2CAP
@@ -23099,7 +23158,7 @@ CONFIG_BLUEZ_L2CAP
 
 SCO links support
 CONFIG_BLUEZ_SCO
-  SCO link provides voice transport over Bluetooth. SCO support is
+  SCO link provides voice transport over Bluetooth.  SCO support is
   required for voice applications like Headset and Audio.
 
   Say Y here to compile SCO support into the kernel or say M to
@@ -23107,7 +23166,7 @@ CONFIG_BLUEZ_SCO
 
 RFCOMM protocol support
 CONFIG_BLUEZ_RFCOMM
-  RFCOMM provides connection oriented stream transport. RFCOMM
+  RFCOMM provides connection oriented stream transport.  RFCOMM
   support is required for Dialup Networking, OBEX and other Bluetooth
   applications.
 
@@ -23121,24 +23180,11 @@ CONFIG_BLUEZ_RFCOMM_TTY
 BNEP protocol support
 CONFIG_BLUEZ_BNEP
   BNEP (Bluetooth Network Encapsulation Protocol) is Ethernet
-  emulation layer on top of Bluetooth. BNEP is required for Bluetooth
-  PAN (Personal Area Network).
-
-  To use BNEP, you will need user-space utilities provided in the 
-  BlueZ-PAN package.
-  For more information, see <http://bluez.sourceforge.net>.
+  emulation layer on top of Bluetooth.  BNEP is required for
+  Bluetooth PAN (Personal Area Network).
 
   Say Y here to compile BNEP support into the kernel or say M to
   compile it as module (bnep.o).
-
-CMTP protocol support
-CONFIG_BLUEZ_CMTP
-  CMTP (CAPI Message Transport Protocol) is a transport layer
-  for CAPI messages. CMTP is required for the Bluetooth Common
-  ISDN Access Profile.
-
-  Say Y here to compile CMTP support into the kernel or say M to
-  compile it as module (cmtp.o).
 
 BNEP multicast filter support
 CONFIG_BLUEZ_BNEP_MC_FILTER
@@ -23147,6 +23193,15 @@ CONFIG_BLUEZ_BNEP_MC_FILTER
 BNEP protocol filter support
 CONFIG_BLUEZ_BNEP_PROTO_FILTER
   This option enables the protocol filter support for BNEP.
+
+CMTP protocol support
+CONFIG_BLUEZ_CMTP
+  CMTP (CAPI Message Transport Protocol) is a transport layer
+  for CAPI messages.  CMTP is required for the Bluetooth Common
+  ISDN Access Profile.
+
+  Say Y here to compile CMTP support into the kernel or say M to
+  compile it as module (cmtp.o).
 
 HCI UART driver
 CONFIG_BLUEZ_HCIUART

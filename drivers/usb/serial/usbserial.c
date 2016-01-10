@@ -297,7 +297,6 @@
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/smp_lock.h>
-#include <linux/spinlock.h>
 #include <linux/usb.h>
 
 #ifdef CONFIG_USB_SERIAL_DEBUG

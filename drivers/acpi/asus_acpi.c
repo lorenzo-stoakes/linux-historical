@@ -40,6 +40,7 @@
 #include <linux/proc_fs.h>
 #include <acpi/acpi_drivers.h>
 #include <acpi/acpi_bus.h>
+#include <asm/uaccess.h>
 
 #define ASUS_ACPI_VERSION "0.28"
 
@@ -455,6 +456,21 @@ proc_read_info(char *page, char **start, off_t off, int count, int *eof,
 
 	return len;
 }
+ 
+static int parse_arg(const char *buf, unsigned long count, int *val)
+{
+	char s[32];
+	if (!count)
+		return 0;
+	if (count > 31)
+		return -EINVAL;
+	if (copy_from_user(s, buf, count))
+		return -EFAULT;
+	s[count] = 0;
+	if (sscanf(s, "%i", val) != 1)
+		return -EINVAL;
+	return count;
+}
 
 
 /*
@@ -486,11 +502,14 @@ static int
 write_led(const char *buffer, unsigned long count, struct asus_hotk *hotk, 
           char *ledname, int ledmask, int invert)
 {
-	int value;
+	int value, retval;
 	int led_out = 0;
 
-	if (sscanf(buffer, "%i", &value) == 1)
-		led_out = value ? 1 : 0;
+	retval = parse_arg(buffer, count, &value);
+	if (retval <= 0)
+		return retval;
+	count = retval;
+	led_out = value ? 1 : 0;
 
 	hotk->status =
 	    (led_out) ? (hotk->status | ledmask) : (hotk->status & ~ledmask);
@@ -643,12 +662,13 @@ static int
 proc_write_lcd(struct file *file, const char *buffer,
 	       unsigned long count, void *data)
 {
-	int value;
+	int value, retval;
 	struct asus_hotk *hotk = (struct asus_hotk *) data;
 	
-	if (sscanf(buffer, "%i", &value) == 1)
+	retval = parse_arg(buffer, count, &value);
+	if (retval > 0)
 		set_lcd_state(hotk, value);
-	return count;
+	return retval;
 }
 
 
@@ -710,10 +730,11 @@ static int
 proc_write_brn(struct file *file, const char *buffer,
 	       unsigned long count, void *data)
 {
-	int value;
+	int value, retval;
 	struct asus_hotk *hotk = (struct asus_hotk *) data;
 
-	if (sscanf(buffer, "%d", &value) == 1) {
+	retval = parse_arg(buffer, count, &value);
+	if (retval > 0) {
 		value = (0 < value) ? ((15 < value) ? 15 : value) : 0;
 			/* 0 <= value <= 15 */
 		set_brightness(value, hotk);
@@ -721,7 +742,7 @@ proc_write_brn(struct file *file, const char *buffer,
 		printk(KERN_WARNING "Asus ACPI: Error reading user input\n");
 	}
 
-	return count;
+	return retval;
 }
 
 static void set_display(int value, struct asus_hotk *hotk)
@@ -759,16 +780,17 @@ static int
 proc_write_disp(struct file *file, const char *buffer,
 	       unsigned long count, void *data)
 {
-	int value;
+	int value, retval;
 	struct asus_hotk *hotk = (struct asus_hotk *) data;
 
-	if (sscanf(buffer, "%d", &value) == 1)
+	retval = parse_arg(buffer, count, &value);
+	if (retval > 0)
 		set_display(value, hotk);
 	else {
 		printk(KERN_WARNING "Asus ACPI: Error reading user input\n");
 	}
 
-	return count;
+	return retval;
 }
 
 

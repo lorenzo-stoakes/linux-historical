@@ -1700,11 +1700,11 @@ void debug_page(struct page *p)
 
 	bh = p->buffers;
 
-	printk(KERN_ERR "%s: page index:%u count:%d flags:%x\n", __FUNCTION__,
+	printk(KERN_ERR "%s: page index:%lu count:%d flags:%lx\n", __FUNCTION__,
 		 p->index, atomic_read(&p->count), p->flags);
 
 	while (bh) {
-		printk(KERN_ERR "%s: bh b_next:%p blocknr:%u b_list:%u state:%x\n",
+		printk(KERN_ERR "%s: bh b_next:%p blocknr:%lu b_list:%u state:%lx\n",
 			__FUNCTION__, bh->b_next, bh->b_blocknr, bh->b_list,
 				bh->b_state);
 		bh = bh->b_this_page;
@@ -1769,7 +1769,7 @@ int journal_try_to_free_buffers(journal_t *journal,
 	do {
 		struct buffer_head *p = tmp;
 
-		if (!unlikely(tmp)) {
+		if (unlikely(!tmp)) {
 			debug_page(page);
 			BUG();
 		}

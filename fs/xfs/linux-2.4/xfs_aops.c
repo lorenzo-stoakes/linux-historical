@@ -153,22 +153,9 @@ xfs_map_blocks(
 	vnode_t			*vp = LINVFS_GET_VP(inode);
 	int			error, niomaps = 1;
 
-	if (((flags & (BMAPI_DIRECT|BMAPI_SYNC)) == BMAPI_DIRECT) &&
-	    (offset >= i_size_read(inode)))
-		count = max_t(ssize_t, count, XFS_WRITE_IO_LOG);
-retry:
 	VOP_BMAP(vp, offset, count, flags, iomapp, &niomaps, error);
-	if ((error == EAGAIN) || (error == EIO))
-		return -error;
-	if (unlikely((flags & (BMAPI_WRITE|BMAPI_DIRECT)) ==
-					(BMAPI_WRITE|BMAPI_DIRECT) && niomaps &&
-					(iomapp->iomap_flags & IOMAP_DELAY))) {
-		flags = BMAPI_ALLOCATE;
-		goto retry;
-	}
-	if (flags & (BMAPI_WRITE|BMAPI_ALLOCATE)) {
+	if (!error && (flags & (BMAPI_WRITE|BMAPI_ALLOCATE)))
 		VMODIFY(vp);
-	}
 	return -error;
 }
 
@@ -192,7 +179,7 @@ xfs_offset_to_map(
 
 	if (full_offset < iomapp->iomap_offset)
 		return NULL;
-	if (iomapp->iomap_offset + iomapp->iomap_bsize > full_offset)
+	if (iomapp->iomap_offset + (iomapp->iomap_bsize -1) >= full_offset)
 		return iomapp;
 	return NULL;
 }
@@ -261,7 +248,7 @@ xfs_probe_unwritten_page(
 		*fsbs = 0;
 		bh = head = page_buffers(page);
 		do {
-			if (!buffer_unwritten(bh))
+			if (!buffer_unwritten(bh) || !buffer_uptodate(bh))
 				break;
 			if (!xfs_offset_to_map(page, iomapp, p_offset))
 				break;
@@ -639,13 +626,12 @@ xfs_cluster_write(
 	pgoff_t			tindex,
 	xfs_iomap_t		*iomapp,
 	int			startio,
-	int			all_bh)
+	int			all_bh,
+	pgoff_t			tlast)
 {
-	pgoff_t			tlast;
 	struct page		*page;
 
-	tlast = (iomapp->iomap_offset + iomapp->iomap_bsize) >> PAGE_CACHE_SHIFT;
-	for (; tindex < tlast; tindex++) {
+	for (; tindex <= tlast; tindex++) {
 		page = xfs_probe_delalloc_page(inode, tindex);
 		if (!page)
 			break;
@@ -681,16 +667,20 @@ xfs_page_state_convert(
 {
 	struct buffer_head	*bh_arr[MAX_BUF_PER_PAGE], *bh, *head;
 	xfs_iomap_t		*iomp, iomap;
-	unsigned long		p_offset = 0, end_index;
 	loff_t			offset;
-	unsigned long long	end_offset;
+	unsigned long           p_offset = 0;
+	__uint64_t              end_offset;
+	pgoff_t                 end_index, last_index, tlast;
 	int			len, err, i, cnt = 0, uptodate = 1;
 	int			flags = startio ? 0 : BMAPI_TRYLOCK;
 	int			page_dirty = 1;
+	int                     delalloc = 0;
 
 
 	/* Are we off the end of the file ? */
-	end_index = i_size_read(inode) >> PAGE_CACHE_SHIFT;
+	offset = i_size_read(inode);
+	end_index = offset >> PAGE_CACHE_SHIFT;
+	last_index = (offset - 1) >> PAGE_CACHE_SHIFT;
 	if (page->index >= end_index) {
 		if ((page->index >= end_index + 1) ||
 		    !(i_size_read(inode) & (PAGE_CACHE_SIZE - 1))) {
@@ -724,6 +714,8 @@ xfs_page_state_convert(
 		 * extent state conversion transaction on completion.
 		 */
 		if (buffer_unwritten(bh)) {
+			if (!startio)
+				continue;
 			if (!iomp) {
 				err = xfs_map_blocks(inode, offset, len, &iomap,
 						BMAPI_READ|BMAPI_IGNSTATE);
@@ -733,7 +725,7 @@ xfs_page_state_convert(
 				iomp = xfs_offset_to_map(page, &iomap,
 								p_offset);
 			}
-			if (iomp && startio) {
+			if (iomp) {
 				if (!bh->b_end_io) {
 					err = xfs_map_unwritten(inode, page,
 							head, bh, p_offset,
@@ -742,7 +734,10 @@ xfs_page_state_convert(
 					if (err) {
 						goto error;
 					}
+				} else {
+					set_bit(BH_Lock, &bh->b_state);
 				}
+				BUG_ON(!buffer_locked(bh));
 				bh_arr[cnt++] = bh;
 				page_dirty = 0;
 			}
@@ -752,6 +747,7 @@ xfs_page_state_convert(
 		 */
 		} else if (buffer_delay(bh)) {
 			if (!iomp) {
+				delalloc = 1;
 				err = xfs_map_blocks(inode, offset, len, &iomap,
 						BMAPI_ALLOCATE | flags);
 				if (err) {
@@ -823,8 +819,14 @@ xfs_page_state_convert(
 	if (startio)
 		xfs_submit_page(page, bh_arr, cnt);
 
-	if (iomp)
-		xfs_cluster_write(inode, page->index + 1, iomp, startio, unmapped);
+	if (iomp) {
+		tlast = (iomp->iomap_offset + iomp->iomap_bsize - 1) >>
+					PAGE_CACHE_SHIFT;
+		if (delalloc && (tlast > last_index))
+			tlast = last_index;
+		xfs_cluster_write(inode, page->index + 1, iomp,
+					startio, unmapped, tlast);
+	}
 
 	return page_dirty;
 
@@ -1177,7 +1179,7 @@ linvfs_direct_IO(
 	size_t			page_offset;
 	xfs_buf_t		*pb;
 	xfs_iomap_t		iomap;
-	int			error = 0;
+	int			niomap, error = 0;
 	int			pb_flags, map_flags, pg_index = 0;
 	size_t			length, total;
 	loff_t			offset, map_size;
@@ -1198,9 +1200,26 @@ linvfs_direct_IO(
 	map_flags = (rw ? BMAPI_WRITE : BMAPI_READ) | BMAPI_DIRECT;
 	pb_flags = (rw ? PBF_WRITE : PBF_READ) | PBF_FORCEIO | PBF_DIRECTIO;
 	while (length) {
-		error = xfs_map_blocks(inode, offset, length, &iomap, map_flags);
+		niomap = 1;
+		VOP_BMAP(vp, offset, length, map_flags, &iomap, &niomap, error);
+		if (unlikely(!error && niomap &&
+				(iomap.iomap_flags & IOMAP_DELAY))) {
+#ifdef DEBUG
+			printk(
+	"XFS: %s - direct IO (%lld:%ld) into a delayed allocate extent?\n",
+				__FUNCTION__, (long long)offset, (long)length);
+			xfs_stack_trace();
+#endif
+			VOP_BMAP(vp, offset, length, BMAPI_ALLOCATE,
+					&iomap, &niomap, error);
+		}
 		if (error)
 			break;
+
+		if (rw == WRITE)
+			VMODIFY(vp);
+
+		BUG_ON(niomap != 1);
 		BUG_ON(iomap.iomap_flags & IOMAP_DELAY);
 
 		map_size = iomap.iomap_bsize - iomap.iomap_delta;
@@ -1244,7 +1263,7 @@ linvfs_direct_IO(
 					>> PAGE_CACHE_SHIFT;
 			if ((pb = pagebuf_lookup(iomap.iomap_target, offset,
 						size, pb_flags)) == NULL) {
-				error = -ENOMEM;
+				error = ENOMEM;
 				break;
 			}
 			/* Need to hook up pagebuf to kiobuf pages */
@@ -1262,11 +1281,8 @@ linvfs_direct_IO(
 
 			pagebuf_rele(pb);
 
-			if (error) {
-				if (error > 0)
-					error = -error;
+			if (error)
 				break;
-			}
 
 			page_offset = (page_offset + size) & ~PAGE_CACHE_MASK;
 			if (page_offset)
@@ -1278,7 +1294,9 @@ linvfs_direct_IO(
 		length -= size;
 	}
 
-	return (error ? error : (int)(total - length));
+	if (error)
+		return -error;
+	return (int)(total - length);
 }
 
 

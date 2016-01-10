@@ -30,7 +30,7 @@
  *
  * $Id: hci_usb.c,v 1.8 2002/07/18 17:23:09 maxk Exp $    
  */
-#define VERSION "2.5"
+#define VERSION "2.6"
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -99,6 +99,9 @@ static struct usb_device_id blacklist_ids[] = {
 
 	/* Digianswer device */
 	{ USB_DEVICE(0x08fd, 0x0001), driver_info: HCI_DIGIANSWER },
+
+	/* RTX Telecom based adapter with buggy SCO support */
+	{ USB_DEVICE(0x0400, 0x0807), driver_info: HCI_BROKEN_ISOC },
 
 	{ }	/* Terminating entry */
 };
@@ -878,7 +881,7 @@ static void *hci_usb_probe(struct usb_device *udev, unsigned int ifnum, const st
 	}
 
 #ifdef CONFIG_BLUEZ_HCIUSB_SCO
-	if (!isoc_in_ep[1] || !isoc_out_ep[1]) {
+	if (id->driver_info & HCI_BROKEN_ISOC || !isoc_in_ep[1] || !isoc_out_ep[1]) {
 		BT_DBG("Isoc endpoints not found");
 		isoc_iface = NULL;
 	}

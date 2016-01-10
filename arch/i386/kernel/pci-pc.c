@@ -1349,8 +1349,8 @@ static void __devinit pci_fixup_nforce2(struct pci_dev *dev)
 
 	/*
 	* Chip 	Old value   	New value
-	* C17  	0x1F01FF01  	0x1F0FFF01
-	* C18D 	0x9F01FF01  	0x9F0FFF01
+	* C17  	0x1F0FFF01  	0x1F01FF01
+	* C18D 	0x9F0FFF01  	0x9F01FF01
 	*/
 	fixed_val = rev < 0xC1 ? 0x1F01FF01 : 0x9F01FF01;
 

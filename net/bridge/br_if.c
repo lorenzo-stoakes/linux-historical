@@ -19,6 +19,7 @@
 #include <linux/inetdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/brlock.h>
+#include <linux/etherdevice.h>
 #include <asm/uaccess.h>
 #include "br_private.h"
 
@@ -44,7 +45,7 @@ static int __br_del_if(struct net_bridge *br, struct net_device *dev)
 	struct net_bridge_port *p;
 	struct net_bridge_port **pptr;
 
-	if ((p = dev->br_port) == NULL)
+	if ((p = dev->br_port) == NULL || p->br != br)
 		return -EINVAL;
 
 	br_stp_disable_port(p);
@@ -231,6 +232,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
 
 	if (dev->hard_start_xmit == br_dev_xmit)
 		return -ELOOP;
+
+	if (!is_valid_ether_addr(dev->dev_addr))
+		return -EADDRNOTAVAIL;
 
 	dev_hold(dev);
 	write_lock_bh(&br->lock);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -54,6 +54,7 @@
 #include <linux/iobuf.h>
 
 #include <linux/dcache.h>
+#include <linux/smp_lock.h>
 #include <linux/mman.h> /* for PROT_WRITE */
 
 static struct vm_operations_struct linvfs_file_vm_ops;
@@ -346,9 +347,10 @@ linvfs_ioctl(
 	int		error;
 	vnode_t		*vp = LINVFS_GET_VP(inode);
 
-	ASSERT(vp);
+	unlock_kernel();
 	VOP_IOCTL(vp, inode, filp, 0, cmd, arg, error);
 	VMODIFY(vp);
+	lock_kernel();
 
 	/* NOTE:  some of the ioctl's return positive #'s as a
 	 *	  byte count indicating success, such as
@@ -369,9 +371,10 @@ linvfs_ioctl_invis(
 	int		error;
 	vnode_t		*vp = LINVFS_GET_VP(inode);
 
-	ASSERT(vp);
+	unlock_kernel();
 	VOP_IOCTL(vp, inode, filp, IO_INVIS, cmd, arg, error);
 	VMODIFY(vp);
+	lock_kernel();
 
 	/* NOTE:  some of the ioctl's return positive #'s as a
 	 *	  byte count indicating success, such as

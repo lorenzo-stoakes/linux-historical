@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -83,7 +83,7 @@ static __inline unsigned int kmem_flags_convert(int flags)
 {
         int lflags;
         
-#if DEBUG
+#ifdef DEBUG
 	if (unlikely(flags & ~(KM_SLEEP|KM_NOSLEEP|KM_NOFS|KM_MAYFAIL))) {
 		printk(KERN_WARNING
 		    "XFS: memory allocation with wrong flags (%x)\n", flags);
@@ -104,10 +104,33 @@ static __inline unsigned int kmem_flags_convert(int flags)
         return lflags;
 }
 
-extern kmem_zone_t  *kmem_zone_init(int, char *);
+static __inline kmem_zone_t *
+kmem_zone_init(int size, char *zone_name)
+{
+	return kmem_cache_create(zone_name, size, 0, 0, NULL, NULL);
+}
+
+static __inline void
+kmem_zone_free(kmem_zone_t *zone, void *ptr)
+{
+	kmem_cache_free(zone, ptr);
+}
+
+static __inline void
+kmem_zone_destroy(kmem_zone_t *zone)
+{
+	if (zone && kmem_cache_destroy(zone))
+		BUG();
+}
+
+static __inline int
+kmem_zone_shrink(kmem_zone_t *zone)
+{
+	return kmem_cache_shrink(zone);
+}
+
 extern void	    *kmem_zone_zalloc(kmem_zone_t *, int);
 extern void	    *kmem_zone_alloc(kmem_zone_t *, int);
-extern void         kmem_zone_free(kmem_zone_t *, void *);
 
 extern void	    *kmem_alloc(size_t, int);
 extern void	    *kmem_realloc(void *, size_t, size_t, int);
@@ -119,6 +142,11 @@ typedef int	    (*kmem_shake_func_t)(int, unsigned int);
 
 extern kmem_shaker_t	kmem_shake_register(kmem_shake_func_t);
 extern void	    kmem_shake_deregister(kmem_shaker_t);
-static __inline int	kmem_shake_allow(unsigned int mask) { return 1; }
+
+static __inline int
+kmem_shake_allow(unsigned int gfp_mask)
+{
+	return (gfp_mask & __GFP_WAIT);
+}
 
 #endif /* __XFS_SUPPORT_KMEM_H__ */

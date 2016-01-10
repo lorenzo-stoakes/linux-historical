@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -33,17 +33,22 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
-#include <linux/slab.h>
+#include <linux/swap.h>
 
 #include "time.h"
 #include "kmem.h"
 
-#define DEF_PRIORITY	(6)
+#define MAX_VMALLOCS	6
 #define MAX_SLAB_SIZE	0x20000
 #define MAX_SHAKE	8
 
 static kmem_shake_func_t	shake_list[MAX_SHAKE];
 static DECLARE_MUTEX(shake_sem);
+
+/*
+ * Old-school memory shaking for vanilla 2.4 kernels (which
+ * have no VM shake callback/registration infrastructure).
+ */
 
 kmem_shaker_t
 kmem_shake_register(kmem_shake_func_t sfunc)
@@ -97,37 +102,21 @@ static __inline__ void kmem_shake(void)
 void *
 kmem_alloc(size_t size, int flags)
 {
-	int	shrink  = DEF_PRIORITY;	/* # times to try to shrink cache */
-        int     lflags  = kmem_flags_convert(flags);
-        int     nosleep = flags & KM_NOSLEEP;
-	void	*rval;
+	int	retries = 0, lflags = kmem_flags_convert(flags);
+	void	*ptr;
 
-repeat:
-	if (MAX_SLAB_SIZE < size) {
-		/* Avoid doing filesystem sensitive stuff to get this */
-		rval = __vmalloc(size, lflags, PAGE_KERNEL);
-	} else {
-		rval = kmalloc(size, lflags);
-	}
-
-	if (rval || nosleep)
-		return rval;
-
-	/*
-	 * KM_SLEEP callers don't expect a failure
-	 */
-	if (shrink) {
+	do {
+		if (size < MAX_SLAB_SIZE || retries > MAX_VMALLOCS)
+			ptr = kmalloc(size, lflags);
+		else
+			ptr = __vmalloc(size, lflags, PAGE_KERNEL);
+		if (ptr || (flags & (KM_MAYFAIL|KM_NOSLEEP)))
+			return ptr;
 		kmem_shake();
-
-		shrink--;
-		goto repeat;
-	}
-
-	rval = __vmalloc(size, lflags, PAGE_KERNEL);
-	if (!rval && !(flags & KM_MAYFAIL))
-		panic("kmem_alloc: NULL memory on KM_SLEEP request!");
-
-	return rval;
+		if (!(++retries % 100))
+			printk(KERN_ERR "possible deadlock in %s (mode:0x%x)\n",
+					__FUNCTION__, lflags);
+	} while (1);
 }
 
 void *
@@ -136,11 +125,9 @@ kmem_zalloc(size_t size, int flags)
 	void	*ptr;
 
 	ptr = kmem_alloc(size, flags);
-
 	if (ptr)
 		memset((char *)ptr, 0, (int)size);
-
-	return (ptr);
+	return ptr;
 }
 
 void
@@ -157,7 +144,7 @@ kmem_free(void *ptr, size_t size)
 void *
 kmem_realloc(void *ptr, size_t newsize, size_t oldsize, int flags)
 {
-	void *new;
+	void	*new;
 
 	new = kmem_alloc(newsize, flags);
 	if (ptr) {
@@ -166,79 +153,33 @@ kmem_realloc(void *ptr, size_t newsize, size_t oldsize, int flags)
 				((oldsize < newsize) ? oldsize : newsize));
 		kmem_free(ptr, oldsize);
 	}
-
 	return new;
-}
-
-kmem_zone_t *
-kmem_zone_init(int size, char *zone_name)
-{
-	return kmem_cache_create(zone_name, size, 0, 0, NULL, NULL);
 }
 
 void *
 kmem_zone_alloc(kmem_zone_t *zone, int flags)
 {
-	int	shrink = DEF_PRIORITY;	/* # times to try to shrink cache */
-	void	*ptr = NULL;
+	int	retries = 0, lflags = kmem_flags_convert(flags);
+	void	*ptr;
 
-repeat:
-	ptr = kmem_cache_alloc(zone, kmem_flags_convert(flags));
-
-	if (ptr || (flags & KM_NOSLEEP))
-		return ptr;
-
-	/*
-	 * KM_SLEEP callers don't expect a failure
-	 */
-	if (shrink) {
+	do {
+		ptr = kmem_cache_alloc(zone, lflags);
+		if (ptr || (flags & (KM_MAYFAIL|KM_NOSLEEP)))
+			return ptr;
 		kmem_shake();
-
-		shrink--;
-		goto repeat;
-	}
-
-	if (flags & KM_SLEEP)
-		panic("kmem_zone_alloc: NULL memory on KM_SLEEP request!");
-
-	return NULL;
+		if (!(++retries % 100))
+			printk(KERN_ERR "possible deadlock in %s (mode:0x%x)\n",
+					__FUNCTION__, lflags);
+	} while (1);
 }
 
 void *
 kmem_zone_zalloc(kmem_zone_t *zone, int flags)
 {
-	int	shrink = DEF_PRIORITY;	/* # times to try to shrink cache */
-	void	*ptr = NULL;
+	void	*ptr;
 
-repeat:
-	ptr = kmem_cache_alloc(zone, kmem_flags_convert(flags));
-
-	if (ptr) {
-		memset(ptr, 0, kmem_cache_size(zone));
-		return ptr;
-	}
-
-	if (flags & KM_NOSLEEP)
-		return ptr;
-
-	/*
-	 * KM_SLEEP callers don't expect a failure
-	 */
-	if (shrink) {
-		kmem_shake();
-
-		shrink--;
-		goto repeat;
-	}
-
-	if (flags & KM_SLEEP)
-		panic("kmem_zone_zalloc: NULL memory on KM_SLEEP request!");
-
-	return NULL;
-}
-
-void
-kmem_zone_free(kmem_zone_t *zone, void *ptr)
-{
-	kmem_cache_free(zone, ptr);
+	ptr = kmem_zone_alloc(zone, flags);
+	if (ptr)
+		memset((char *)ptr, 0, kmem_cache_size(zone));
+	return ptr;
 }

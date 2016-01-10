@@ -52,7 +52,7 @@
 
 char e1000_driver_name[] = "e1000";
 char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
-char e1000_driver_version[] = "5.2.52-k1";
+char e1000_driver_version[] = "5.2.52-k3";
 char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
 
 /* e1000_pci_tbl - PCI Device ID Table
@@ -299,7 +299,7 @@ e1000_down(struct e1000_adapter *adapter)
 void
 e1000_reset(struct e1000_adapter *adapter)
 {
-	uint32_t pba;
+	uint32_t pba, manc;
 	/* Repartition Pba for greater than 9k mtu
 	 * To take effect CTRL.RST is required.
 	 */
@@ -341,6 +341,12 @@ e1000_reset(struct e1000_adapter *adapter)
 
 	e1000_reset_adaptive(&adapter->hw);
 	e1000_phy_get_info(&adapter->hw, &adapter->phy_info);
+
+	if(adapter->en_mng_pt) {
+		manc = E1000_READ_REG(&adapter->hw, MANC);
+		manc |= (E1000_MANC_ARP_EN | E1000_MANC_EN_MNG2HOST);
+		E1000_WRITE_REG(&adapter->hw, MANC, manc);
+	}
 }
 
 /**
@@ -482,6 +488,8 @@ e1000_probe(struct pci_dev *pdev,
 
 	if(pci_using_dac)
 		netdev->features |= NETIF_F_HIGHDMA;
+
+	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
 
 	/* before reading the EEPROM, reset the controller to 
 	 * put the device in a known good starting state */
@@ -2143,6 +2151,7 @@ e1000_clean(struct net_device *netdev, int *budget)
 	if(work_done < work_to_do || !netif_running(netdev)) {
 		netif_rx_complete(netdev);
 		e1000_irq_enable(adapter);
+		return 0;
 	}
 
 	return (work_done >= work_to_do);

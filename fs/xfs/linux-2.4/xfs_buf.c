@@ -98,6 +98,7 @@
  */
 
 STATIC kmem_cache_t *pagebuf_cache;
+STATIC kmem_shaker_t pagebuf_shake;
 
 #define MAX_IO_DAEMONS		NR_CPUS
 #define CPU_TO_DAEMON(cpu)	(cpu)
@@ -118,8 +119,8 @@ static spinlock_t		pb_resv_bh_lock = SPIN_LOCK_UNLOCKED;
 struct buffer_head		*pb_resv_bh = NULL;	/* list of bh */
 int				pb_resv_bh_cnt = 0;	/* # of bh available */
 
-STATIC void pagebuf_daemon_wakeup(void);
 STATIC void _pagebuf_ioapply(xfs_buf_t *);
+STATIC int pagebuf_daemon_wakeup(int, unsigned int);
 STATIC void pagebuf_delwri_queue(xfs_buf_t *, int);
 STATIC void pagebuf_runall_queues(struct list_head[]);
 
@@ -409,6 +410,7 @@ _pagebuf_lookup_pages(
 	error = _pagebuf_get_pages(bp, page_count, flags);
 	if (unlikely(error))
 		return error;
+	bp->pb_flags |= _PBF_PAGE_CACHE;
 
 	first = bp->pb_file_offset >> PAGE_CACHE_SHIFT;
 
@@ -419,8 +421,12 @@ _pagebuf_lookup_pages(
 	      retry:
 		page = find_or_create_page(mapping, first + i, gfp_mask);
 		if (unlikely(page == NULL)) {
-			if (flags & PBF_READ_AHEAD)
+			if (flags & PBF_READ_AHEAD) {
+				bp->pb_page_count = i;
+				for (i = 0; i < bp->pb_page_count; i++)
+					unlock_page(bp->pb_pages[i]);
 				return -ENOMEM;
+			}
 
 			/*
 			 * This could deadlock.
@@ -428,13 +434,13 @@ _pagebuf_lookup_pages(
 			 * But until all the XFS lowlevel code is revamped to
 			 * handle buffer allocation failures we can't do much.
 			 */
-			if (!(++retries % 100)) {
-				printk(KERN_ERR "possibly deadlocking in %s\n",
-						__FUNCTION__);
-			}
+			if (!(++retries % 100))
+				printk(KERN_ERR
+					"possible deadlock in %s (mode:0x%x)\n",
+					__FUNCTION__, gfp_mask);
 
 			XFS_STATS_INC(pb_page_retries);
-			pagebuf_daemon_wakeup();
+			pagebuf_daemon_wakeup(0, gfp_mask);
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout(10);
 			goto retry;
@@ -456,8 +462,6 @@ _pagebuf_lookup_pages(
 		for (i = 0; i < bp->pb_page_count; i++)
 			unlock_page(bp->pb_pages[i]);
 	}
-
-	bp->pb_flags |= _PBF_PAGE_CACHE;
 
 	if (page_count) {
 		/* if we have any uptodate pages, mark that in the buffer */
@@ -550,7 +554,7 @@ _pagebuf_get_prealloc_bh(void)
 		do {
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			spin_unlock_irqrestore(&pb_resv_bh_lock, flags);
-			blk_run_queues();
+			run_task_queue(&tq_disk);
 			schedule();
 			spin_lock_irqsave(&pb_resv_bh_lock, flags);
 		} while (pb_resv_bh_cnt < 1);
@@ -1103,7 +1107,7 @@ pagebuf_lock(
 {
 	PB_TRACE(pb, "lock", 0);
 	if (atomic_read(&pb->pb_io_remaining))
-		blk_run_queues();
+		run_task_queue(&tq_disk);
 	down(&pb->pb_sema);
 	PB_SET_OWNER(pb);
 	PB_TRACE(pb, "locked", 0);
@@ -1199,7 +1203,7 @@ _pagebuf_wait_unpin(
 		if (atomic_read(&pb->pb_pin_count) == 0)
 			break;
 		if (atomic_read(&pb->pb_io_remaining))
-			blk_run_queues();
+			run_task_queue(&tq_disk);
 		schedule();
 	}
 	remove_wait_queue(&pb->pb_waiters, &wait);
@@ -1746,7 +1750,7 @@ pagebuf_iowait(
 {
 	PB_TRACE(pb, "iowait", 0);
 	if (atomic_read(&pb->pb_io_remaining))
-		blk_run_queues();
+		run_task_queue(&tq_disk);
 	if ((pb->pb_flags & PBF_FS_DATAIOD))
 		pagebuf_runall_queues(pagebuf_dataiodone_tq);
 	down(&pb->pb_iodonesema);
@@ -1863,7 +1867,7 @@ _pagebuf_ioapply(			/* apply function to pages	*/
 	if (pb->pb_flags & _PBF_RUN_QUEUES) {
 		pb->pb_flags &= ~_PBF_RUN_QUEUES;
 		if (atomic_read(&pb->pb_io_remaining) > 1)
-			blk_run_queues();
+			run_task_queue(&tq_disk);
 	}
 }
 
@@ -1903,13 +1907,20 @@ void
 pagebuf_delwri_dequeue(
 	xfs_buf_t		*pb)
 {
-	PB_TRACE(pb, "delwri_uq", 0);
-	ASSERT(pb->pb_flags & PBF_DELWRI);
+	int			dequeued = 0;
 
 	spin_lock(&pbd_delwrite_lock);
-	list_del_init(&pb->pb_list);
+	if ((pb->pb_flags & PBF_DELWRI) && !list_empty(&pb->pb_list)) {
+		list_del_init(&pb->pb_list);
+		dequeued = 1;
+	}
 	pb->pb_flags &= ~PBF_DELWRI;
 	spin_unlock(&pbd_delwrite_lock);
+
+	if (dequeued)
+		pagebuf_rele(pb);
+
+	PB_TRACE(pb, "delwri_dq", (long)dequeued);
 }
 
 
@@ -2012,12 +2023,16 @@ STATIC struct task_struct *pagebuf_daemon_task;
 STATIC int pagebuf_daemon_active;
 STATIC int force_flush;
 
-STATIC void
-pagebuf_daemon_wakeup(void)
+
+STATIC int
+pagebuf_daemon_wakeup(
+	int			priority,
+	unsigned int		mask)
 {
 	force_flush = 1;
 	barrier();
 	wake_up_process(pagebuf_daemon_task);
+	return 0;
 }
 
 STATIC int
@@ -2083,7 +2098,7 @@ pagebuf_daemon(
 		if (as_list_len > 0)
 			purge_addresses();
 		if (count)
-			blk_run_queues();
+			run_task_queue(&tq_disk);
 
 		force_flush = 0;
 	} while (pagebuf_daemon_active);
@@ -2143,12 +2158,12 @@ xfs_flush_buftarg(
 		pagebuf_iostrategy(pb);
 
 		if (++flush_cnt > 32) {
-			blk_run_queues();
+			run_task_queue(&tq_disk);
 			flush_cnt = 0;
 		}
 	}
 
-	blk_run_queues();
+	run_task_queue(&tq_disk);
 
 	/*
 	 * Remaining list items must be flushed before returning
@@ -2228,15 +2243,6 @@ pagebuf_daemon_stop(void)
 	}
 }
 
-
-STATIC int
-pagebuf_shaker(int number, unsigned int mask)
-{
-	pagebuf_daemon_wakeup();
-	return 0;
-}
-
-
 /*
  *	Initialization and Termination
  */
@@ -2249,31 +2255,35 @@ pagebuf_init(void)
 	pagebuf_cache = kmem_cache_create("xfs_buf_t", sizeof(xfs_buf_t), 0,
 			SLAB_HWCACHE_ALIGN, NULL, NULL);
 	if (pagebuf_cache == NULL) {
-		printk("pagebuf: couldn't init pagebuf cache\n");
-		pagebuf_terminate();
+		printk("XFS: couldn't init xfs_buf_t cache\n");
 		return -ENOMEM;
 	}
 
 	if (_pagebuf_prealloc_bh(NR_RESERVED_BH) < NR_RESERVED_BH) {
-		printk("pagebuf: couldn't pre-allocate %d buffer heads\n",
+		printk("XFS: couldn't allocate %d reserved buffers\n",
 			NR_RESERVED_BH);
-		pagebuf_terminate();
+		kmem_zone_destroy(pagebuf_cache);
 		return -ENOMEM;
 	}
-
 	init_waitqueue_head(&pb_resv_bh_wait);
-
-	for (i = 0; i < NHASH; i++) {
-		spin_lock_init(&pbhash[i].pb_hash_lock);
-		INIT_LIST_HEAD(&pbhash[i].pb_hash);
-	}
 
 #ifdef PAGEBUF_TRACE
 	pagebuf_trace_buf = ktrace_alloc(PAGEBUF_TRACE_SIZE, KM_SLEEP);
 #endif
 
 	pagebuf_daemon_start();
-	kmem_shake_register(pagebuf_shaker);
+
+	pagebuf_shake = kmem_shake_register(pagebuf_daemon_wakeup);
+	if (pagebuf_shake == NULL) {
+		pagebuf_terminate();
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < NHASH; i++) {
+		spin_lock_init(&pbhash[i].pb_hash_lock);
+		INIT_LIST_HEAD(&pbhash[i].pb_hash);
+	}
+
 	return 0;
 }
 
@@ -2291,6 +2301,6 @@ pagebuf_terminate(void)
 	ktrace_free(pagebuf_trace_buf);
 #endif
 
-	kmem_cache_destroy(pagebuf_cache);
-	kmem_shake_deregister(pagebuf_shaker);
+	kmem_zone_destroy(pagebuf_cache);
+	kmem_shake_deregister(pagebuf_shake);
 }
