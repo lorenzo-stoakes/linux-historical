@@ -1268,15 +1268,14 @@ int nfs_flush_file(struct inode *inode, struct file *file, unsigned long idx_sta
 }
 
 #ifdef CONFIG_NFS_V3
-int nfs_commit_file(struct inode *inode, struct file *file, unsigned long idx_start,
-		    unsigned int npages, int how)
+int nfs_commit_file(struct inode *inode, struct file *file, int how)
 {
 	LIST_HEAD(head);
 	int			res,
 				error = 0;
 
 	spin_lock(&nfs_wreq_lock);
-	res = nfs_scan_commit(inode, &head, file, idx_start, npages);
+	res = nfs_scan_commit(inode, &head, file, 0, 0);
 	spin_unlock(&nfs_wreq_lock);
 	if (res)
 		error = nfs_commit_list(&head, how);
@@ -1306,7 +1305,7 @@ int nfs_sync_file(struct inode *inode, struct file *file, unsigned long idx_star
 			error = nfs_flush_file(inode, file, idx_start, npages, how);
 #ifdef CONFIG_NFS_V3
 		if (error == 0)
-			error = nfs_commit_file(inode, file, idx_start, npages, how);
+			error = nfs_commit_file(inode, file, how);
 #endif
 	} while (error > 0);
 	return error;

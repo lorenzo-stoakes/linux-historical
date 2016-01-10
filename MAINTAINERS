@@ -1081,8 +1081,8 @@ LANMEDIA WAN CARD DRIVER
 P:      Andrew Stanley-Jones
 M:      asj@lanmedia.com
 W:      http://www.lanmedia.com/
-S:      Supported
- 
+S:      Orphan
+
 LAPB module
 P:	Henner Eisen
 M:	eis@baty.hanse.de

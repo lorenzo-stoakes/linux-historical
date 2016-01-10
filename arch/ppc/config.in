@@ -57,7 +57,16 @@ fi
 
 if [ "$CONFIG_8260" = "y" ]; then
   define_bool CONFIG_SERIAL_CONSOLE y
-  bool 'Support for EST8260' CONFIG_EST8260
+  define_bool CONFIG_CPM2 y
+  bool '  MPC8272 Family Support' CONFIG_8272
+  choice 'Machine Type'	\
+	"ADS8272	CONFIG_ADS8272	\
+	 EST8260	CONFIG_EST8260 \
+	 RPX8260	CONFIG_RPX6"	RPX8260
+fi
+
+if [ "$CONFIG_ADS8272" = "y" ]; then
+  define_bool CONFIG_PQ2ADS y
 fi
 
 if [ "$CONFIG_40x" = "y" ]; then
@@ -572,8 +581,8 @@ if [ "$CONFIG_8xx" = "y" ]; then
 source arch/ppc/8xx_io/Config.in
 fi
 
-if [ "$CONFIG_8260" = "y" ]; then
-source arch/ppc/8260_io/Config.in
+if [ "$CONFIG_CPM2" = "y" ]; then
+source arch/ppc/cpm2_io/Config.in
 fi
 
 source drivers/usb/Config.in

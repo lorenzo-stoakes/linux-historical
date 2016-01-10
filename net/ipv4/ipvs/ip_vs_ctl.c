@@ -1737,9 +1737,9 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 	 * Check for valid protocol: TCP or UDP. Even for fwmark!=0
 	 */
 	if (urule->protocol!=IPPROTO_TCP && urule->protocol!=IPPROTO_UDP) {
-		IP_VS_INFO("vs_ctl: invalid protocol: %d %d.%d.%d.%d:%d %s",
-			   ntohs(urule->protocol), NIPQUAD(urule->vaddr),
-			   ntohs(urule->vport), urule->sched_name);
+		IP_VS_ERR("set_ctl: invalid protocol %d %d.%d.%d.%d:%d %s\n",
+			  urule->protocol, NIPQUAD(urule->vaddr),
+			  ntohs(urule->vport), urule->sched_name);
 		ret = -EFAULT;
 		goto out_unlock;
 	}
