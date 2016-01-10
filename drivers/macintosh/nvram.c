@@ -37,7 +37,7 @@ static loff_t nvram_llseek(struct file *file, loff_t offset, int origin)
 static ssize_t read_nvram(struct file *file, char *buf,
 			  size_t count, loff_t *ppos)
 {
-	loff_t n = *ppos
+	loff_t n = *ppos;
 	unsigned int i = n;
 	char *p = buf;
 

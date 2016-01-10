@@ -736,8 +736,9 @@ static ssize_t br2684_proc_read(struct file *file, char *buf, size_t count,
 {
 	unsigned long page;
 	int len = 0, x, left;
-	page = get_free_page(GFP_KERNEL);
 	loff_t n = *pos;
+
+	page = get_free_page(GFP_KERNEL);
 	if (!page)
 		return -ENOMEM;
 	left = PAGE_SIZE - 256;
