@@ -1104,6 +1104,20 @@ void __init mp_register_ioapic (
 }
 
 
+/* allocate mp_irqs[] for ACPI parsing table parsing */
+int __init mp_irqs_alloc()
+{
+	int size = (MAX_IRQ_SOURCES * sizeof(int)) * 4;
+
+	mp_irqs = (struct mpc_config_intsrc *)alloc_bootmem(size);
+	if (!mp_irqs) {
+		printk(KERN_ERR "mp_irqs_alloc(): alloc_bootmem(%d) failed!\n", size);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+
 void __init mp_override_legacy_irq (
 	u8			bus_irq,
 	u8			polarity, 
@@ -1163,7 +1177,6 @@ void __init mp_config_acpi_legacy_irqs (void)
 	int count;
 
 	count = (MAX_MP_BUSSES * sizeof(int)) * 4;
-	count += (MAX_IRQ_SOURCES * sizeof(int)) * 4;
 	bus_data = alloc_bootmem(count);
 	if (!bus_data) {
 		panic("Fatal: can't allocate bus memory for ACPI legacy IRQ!");
@@ -1172,7 +1185,7 @@ void __init mp_config_acpi_legacy_irqs (void)
 	mp_bus_id_to_node = (int *)&bus_data[(MAX_MP_BUSSES * sizeof(int))];
 	mp_bus_id_to_local = (int *)&bus_data[(MAX_MP_BUSSES * sizeof(int)) * 2];
 	mp_bus_id_to_pci_bus = (int *)&bus_data[(MAX_MP_BUSSES * sizeof(int)) * 3];
-	mp_irqs = (struct mpc_config_intsrc *)&bus_data[(MAX_MP_BUSSES * sizeof(int)) * 4];
+
 	for (i = 0; i < MAX_MP_BUSSES; ++i)
 	  mp_bus_id_to_pci_bus[i] = -1;
 
@@ -1198,6 +1211,7 @@ void __init mp_config_acpi_legacy_irqs (void)
 
 		for (idx = 0; idx < mp_irq_entries; idx++)
 			if (mp_irqs[idx].mpc_srcbus == MP_ISA_BUS &&
+				(mp_irqs[idx].mpc_dstapic == ioapic) &&
 				(mp_irqs[idx].mpc_srcbusirq == i ||
 				mp_irqs[idx].mpc_dstirq == i))
 					break;

@@ -890,13 +890,12 @@ static int clie_5_startup (struct usb_serial *serial)
 {
 	int response;
 	unsigned char *transfer_buffer;
+	struct palm_ext_connection_info *connection_info;
 
 	dbg("%s", __FUNCTION__);
 
 	dbg("%s - Set config to 1", __FUNCTION__);
 	usb_set_configuration(serial->dev, 1);
-
-	struct palm_ext_connection_info *connection_info;
 
 	transfer_buffer = kmalloc(sizeof (*connection_info),
 					GFP_KERNEL);

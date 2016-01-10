@@ -532,6 +532,11 @@ acpi_boot_init (void)
 		return 1;
         }
 
+	result = mp_irqs_alloc();	/* Dynamically allocate mp_irqs[] */
+	if (result < 0)  {
+		acpi_noirq = 1;
+		return result;
+	}
 
 	result = acpi_table_parse_madt(ACPI_MADT_IOAPIC, acpi_parse_ioapic);
 	if (!result) { 

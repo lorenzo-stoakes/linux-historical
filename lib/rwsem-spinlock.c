@@ -102,6 +102,7 @@ static inline struct rw_semaphore *__rwsem_do_wake(struct rw_semaphore *sem)
 static inline struct rw_semaphore *__rwsem_wake_one_writer(struct rw_semaphore *sem)
 {
 	struct rwsem_waiter *waiter;
+	struct task_struct *tsk;
 
 	sem->activity = -1;
 

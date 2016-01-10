@@ -19,6 +19,7 @@
 #include <asm/processor.h> 
 #include <asm/msr.h>
 #include <asm/kdebug.h>
+#include <asm/smp.h>
 
 static int mce_disabled __initdata;
 static unsigned long mce_cpus; 
@@ -30,13 +31,6 @@ static unsigned long mce_cpus;
 static int banks;
 static unsigned long ignored_banks, disabled_banks;
 
-/* Machine Check on everything dubious. This is a good setting
-   for device driver testing. */
-#define K8_DRIVER_DEBUG ((1<<13)-1)
-/* Report RAM errors and Hyper Transport Problems, but ignore Device
-   aborts and GART errors. */
-#define K8_NORMAL_OP    0xff
-static u32 k8_nb_flags __initdata = K8_NORMAL_OP;
 struct notifier_block *mc_notifier_list = NULL;
 EXPORT_SYMBOL(mc_notifier_list);
 
@@ -525,8 +519,6 @@ static void __init k8_mcheck_init(struct cpuinfo_x86 *c)
 	banks = cap&0xff; 
 	for (i = 0; i < banks; i++) { 
 		u64 val = ((1UL<<i) & disabled_banks) ? 0 : ~0UL; 
-		if (val && i == 4)
-			val = k8_nb_flags;
 		wrmsrl(MSR_IA32_MC0_STATUS+4*i,0UL);
 		wrmsrl(MSR_IA32_MC0_ADDR+4*i,0UL);
 		wrmsrl(MSR_IA32_MC0_CTL+4*i, val);
@@ -637,7 +629,6 @@ static int __init mcheck_disable(char *str)
    mce=nok8 disable k8 specific features
    mce=disable<NUMBER> disable bank NUMBER
    mce=enable<NUMBER> enable bank number
-   mce=device	Enable device driver test reporting in NB
    mce=NUMBER mcheck timer interval number seconds. 
    Can be also comma separated in a single mce= */
 static int __init mcheck_enable(char *str)
@@ -654,8 +645,6 @@ static int __init mcheck_enable(char *str)
 			disabled_banks |= 1UL << simple_strtol(p+7,NULL,0);
 		else if (!strcmp(p,"nok8"))
 			nok8 = 1;
-		else if (!strcmp(p,"device"))
-			k8_nb_flags = K8_DRIVER_DEBUG;
 	}
 	return 0;
 }
