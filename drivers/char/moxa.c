@@ -995,7 +995,8 @@ static void moxa_poll(unsigned long ignored)
 		return;
 	}
 	for (card = 0; card < MAX_BOARDS; card++) {
-		if ((ports = MoxaPortsOfCard(card)) <= 0)
+		if ((ports = MoxaPortsOfCard(card)) <= 0
+				|| moxaIntPend[card] == 0)
 			continue;
 		ch = &moxaChannels[card * MAX_PORTS_PER_BOARD];
 		for (i = 0; i < ports; i++, ch++) {

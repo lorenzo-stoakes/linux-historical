@@ -269,7 +269,7 @@ void fastcall __up_read(struct rw_semaphore *sem)
 	if (--sem->activity==0 && !list_empty(&sem->wait_list))
 		sem = __rwsem_wake_one_writer(sem);
 
-	spin_unlock_restore(&sem->wait_lock, flags);
+	spin_unlock_irqrestore(&sem->wait_lock, flags);
 
 	rwsemtrace(sem,"Leaving __up_read");
 }
