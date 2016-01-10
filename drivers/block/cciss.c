@@ -168,6 +168,35 @@ static int cciss_proc_get_info(char *buffer, char **start, off_t offset,
 static void cciss_procinit(int i) {}
 #endif /* CONFIG_PROC_FS */
 
+/*
+ * Enqueuing and dequeuing functions for cmdlists.
+ */
+static inline void addQ(CommandList_struct **Qptr, CommandList_struct *c)
+{
+        if (*Qptr == NULL) {
+                *Qptr = c;
+                c->next = c->prev = c;
+        } else {
+                c->prev = (*Qptr)->prev;
+                c->next = (*Qptr);
+                (*Qptr)->prev->next = c;
+                (*Qptr)->prev = c;
+        }
+}
+
+static inline CommandList_struct *removeQ(CommandList_struct **Qptr, 
+						CommandList_struct *c)
+{
+        if (c && c->next != c) {
+                if (*Qptr == c) *Qptr = c->next;
+                c->prev->next = c->next;
+                c->next->prev = c->prev;
+        } else {
+                *Qptr = NULL;
+        }
+        return c;
+}
+
 static struct block_device_operations cciss_fops  = {
 	owner:			THIS_MODULE,
 	open:			cciss_open, 
@@ -629,6 +658,7 @@ int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg,
 static inline void register_cciss_ioctl32(void) {}
 static inline void unregister_cciss_ioctl32(void) {}
 #endif
+
 /*
  * ioctl 
  */
@@ -2132,35 +2162,6 @@ static ulong remap_pci_mem(ulong base, ulong size)
         ulong page_remapped    = (ulong) ioremap(page_base, page_offs+size);
 
         return (ulong) (page_remapped ? (page_remapped + page_offs) : 0UL);
-}
-
-/*
- * Enqueuing and dequeuing functions for cmdlists.
- */
-static inline void addQ(CommandList_struct **Qptr, CommandList_struct *c)
-{
-        if (*Qptr == NULL) {
-                *Qptr = c;
-                c->next = c->prev = c;
-        } else {
-                c->prev = (*Qptr)->prev;
-                c->next = (*Qptr);
-                (*Qptr)->prev->next = c;
-                (*Qptr)->prev = c;
-        }
-}
-
-static inline CommandList_struct *removeQ(CommandList_struct **Qptr, 
-						CommandList_struct *c)
-{
-        if (c && c->next != c) {
-                if (*Qptr == c) *Qptr = c->next;
-                c->prev->next = c->next;
-                c->next->prev = c->prev;
-        } else {
-                *Qptr = NULL;
-        }
-        return c;
 }
 
 /* 

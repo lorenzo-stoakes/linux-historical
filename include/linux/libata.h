@@ -371,6 +371,7 @@ extern int ata_pci_init_one (struct pci_dev *pdev, struct ata_port_info **port_i
 extern void ata_pci_remove_one (struct pci_dev *pdev);
 extern int ata_device_add(struct ata_probe_ent *ent);
 extern int ata_scsi_detect(Scsi_Host_Template *sht);
+extern int ata_scsi_ioctl(struct scsi_device *dev, int cmd, void __user *arg);
 extern int ata_scsi_queuecmd(struct scsi_cmnd *cmd, void (*done)(struct scsi_cmnd *));
 extern int ata_scsi_error(struct Scsi_Host *host);
 extern int ata_scsi_release(struct Scsi_Host *host);
@@ -609,6 +610,13 @@ static inline u8 ata_bmdma_status(struct ata_port *ap)
 	} else
 		host_stat = inb(ap->ioaddr.bmdma_addr + ATA_DMA_STATUS);
 	return host_stat;
+}
+
+static inline int ata_try_flush_cache(struct ata_device *dev)
+{
+	return ata_id_wcache_enabled(dev) ||
+	       ata_id_has_flush(dev) ||
+	       ata_id_has_flush_ext(dev);
 }
 
 #endif /* __LINUX_LIBATA_H__ */

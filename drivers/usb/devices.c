@@ -387,22 +387,31 @@ static char *usb_dump_desc(char *start, char *end, struct usb_device *dev)
 
 	if (start > end)
 		return start;
-		
+
+	/*
+	 * Grab device's exclusive_access mutex to prevent its driver or
+	 * devio from using this device while we are accessing it.
+	 */
+	down (&dev->exclusive_access);
+
 	start = usb_dump_device_descriptor(start, end, &dev->descriptor);
 
 	if (start > end)
-		return start;
-	
+		goto out;
+
 	start = usb_dump_device_strings (start, end, dev);
 	
 	for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
 		if (start > end)
-			return start;
+			goto out;
 		start = usb_dump_config(dev->speed,
 				start, end, dev->config + i,
 				/* active ? */
 				(dev->config + i) == dev->actconfig);
 	}
+
+out:
+	up (&dev->exclusive_access);
 	return start;
 }
 

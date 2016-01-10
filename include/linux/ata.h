@@ -182,12 +182,17 @@ enum ata_tf_protocols {
 	ATA_PROT_ATAPI_DMA,	/* packet command with special DMA sauce */
 };
 
+enum ata_ioctls {
+	ATA_IOC_GET_IO32	= 0x309,
+	ATA_IOC_SET_IO32	= 0x324,
+};
+
 /* core structures */
 
 struct ata_prd {
 	u32			addr;
 	u32			flags_len;
-} __attribute__((packed));
+};
 
 struct ata_taskfile {
 	unsigned long		flags;		/* ATA_TFLAG_xxx */
@@ -215,6 +220,8 @@ struct ata_taskfile {
 #define ata_id_is_ata(dev)	(((dev)->id[0] & (1 << 15)) == 0)
 #define ata_id_rahead_enabled(dev) ((dev)->id[85] & (1 << 6))
 #define ata_id_wcache_enabled(dev) ((dev)->id[85] & (1 << 5))
+#define ata_id_has_flush(dev) ((dev)->id[83] & (1 << 12))
+#define ata_id_has_flush_ext(dev) ((dev)->id[83] & (1 << 13))
 #define ata_id_has_lba48(dev)	((dev)->id[83] & (1 << 10))
 #define ata_id_has_wcache(dev)	((dev)->id[82] & (1 << 5))
 #define ata_id_has_pm(dev)	((dev)->id[82] & (1 << 3))

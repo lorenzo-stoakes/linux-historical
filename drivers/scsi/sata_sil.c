@@ -6,7 +6,7 @@
  *		    on emails.
  *
  *  Copyright 2003 Red Hat, Inc.
- *  Copyright 2003 Benjamin Herrenschmidt <benh@kernel.crashing.org>
+ *  Copyright 2003 Benjamin Herrenschmidt
  *
  *  The contents of this file are subject to the Open
  *  Software License version 1.1 that can be found at
@@ -108,6 +108,7 @@ static Scsi_Host_Template sil_sht = {
 	.name			= DRV_NAME,
 	.detect			= ata_scsi_detect,
 	.release		= ata_scsi_release,
+	.ioctl                  = ata_scsi_ioctl,
 	.queuecommand		= ata_scsi_queuecmd,
 	.eh_strategy_handler	= ata_scsi_error,
 	.can_queue		= ATA_DEF_QUEUE,

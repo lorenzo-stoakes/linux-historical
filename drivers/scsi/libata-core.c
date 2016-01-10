@@ -42,6 +42,7 @@
 #include <linux/libata.h>
 #include <asm/io.h>
 #include <asm/semaphore.h>
+#include <asm/byteorder.h>
 
 #include "libata.h"
 
@@ -1053,6 +1054,8 @@ retry:
 		}
 		goto err_out;
 	}
+
+	swap_buf_le16(dev->id, ATA_ID_WORDS);
 
 	/* print device capabilities */
 	printk(KERN_DEBUG "ata%u: dev %u cfg "
@@ -2082,6 +2085,16 @@ static void ata_pio_complete (struct ata_port *ap)
 	ata_qc_complete(qc, drv_stat);
 }
 
+void swap_buf_le16(u16 *buf, unsigned int buf_words)
+{
+#ifdef __BIG_ENDIAN
+	unsigned int i;
+
+	for (i = 0; i < buf_words; i++)
+		buf[i] = le16_to_cpu(buf[i]);
+#endif /* __BIG_ENDIAN */
+}
+
 static void ata_mmio_data_xfer(struct ata_port *ap, unsigned char *buf,
 			       unsigned int buflen, int write_data)
 {
@@ -2092,22 +2105,22 @@ static void ata_mmio_data_xfer(struct ata_port *ap, unsigned char *buf,
 
 	if (write_data) {
 		for (i = 0; i < words; i++)
-			writew(buf16[i], mmio);
+			writew(le16_to_cpu(buf16[i]), mmio);
 	} else {
 		for (i = 0; i < words; i++)
-			buf16[i] = readw(mmio);
+			buf16[i] = cpu_to_le16(readw(mmio));
 	}
 }
 
 static void ata_pio_data_xfer(struct ata_port *ap, unsigned char *buf,
 			      unsigned int buflen, int write_data)
 {
-	unsigned int dwords = buflen >> 2;
+	unsigned int dwords = buflen >> 1;
 
 	if (write_data)
-		outsl(ap->ioaddr.data_addr, buf, dwords);
+		outsw(ap->ioaddr.data_addr, buf, dwords);
 	else
-		insl(ap->ioaddr.data_addr, buf, dwords);
+		insw(ap->ioaddr.data_addr, buf, dwords);
 }
 
 static void ata_data_xfer(struct ata_port *ap, unsigned char *buf,
@@ -2119,6 +2132,81 @@ static void ata_data_xfer(struct ata_port *ap, unsigned char *buf,
 		ata_pio_data_xfer(ap, buf, buflen, do_write);
 }
 
+static void ata_pio_sector(struct ata_queued_cmd *qc)
+{
+	int do_write = (qc->tf.flags & ATA_TFLAG_WRITE);
+	struct scatterlist *sg = qc->sg;
+	struct ata_port *ap = qc->ap;
+	struct page *page;
+	unsigned char *buf;
+
+	if (qc->cursect == (qc->nsect - 1))
+		ap->pio_task_state = PIO_ST_LAST;
+
+	page = sg[qc->cursg].page;
+	buf = kmap(page) +
+	      sg[qc->cursg].offset + (qc->cursg_ofs * ATA_SECT_SIZE);
+
+	qc->cursect++;
+	qc->cursg_ofs++;
+
+	if ((qc->cursg_ofs * ATA_SECT_SIZE) == sg_dma_len(&sg[qc->cursg])) {
+		qc->cursg++;
+		qc->cursg_ofs = 0;
+	}
+
+	DPRINTK("data %s, drv_stat 0x%X\n",
+		qc->tf.flags & ATA_TFLAG_WRITE ? "write" : "read",
+		status);
+
+	/* do the actual data transfer */
+	do_write = (qc->tf.flags & ATA_TFLAG_WRITE);
+	ata_data_xfer(ap, buf, ATA_SECT_SIZE, do_write);
+
+	kunmap(page);
+}
+
+static void atapi_pio_sector(struct ata_queued_cmd *qc)
+{
+	struct ata_port *ap = qc->ap;
+	struct ata_device *dev = qc->dev;
+	unsigned int i, ireason, bc_lo, bc_hi, bytes;
+	int i_write, do_write = (qc->tf.flags & ATA_TFLAG_WRITE) ? 1 : 0;
+
+	ap->ops->tf_read(ap, &qc->tf);
+	ireason = qc->tf.nsect;
+	bc_lo = qc->tf.lbam;
+	bc_hi = qc->tf.lbah;
+	bytes = (bc_hi << 8) | bc_lo;
+
+	/* shall be cleared to zero, indicating xfer of data */
+	if (ireason & (1 << 0))
+		goto err_out;
+	
+	/* make sure transfer direction matches expected */
+	i_write = ((ireason & (1 << 1)) == 0) ? 1 : 0;
+	if (do_write != i_write)
+		goto err_out;
+
+	/* make sure byte count is multiple of sector size; not
+	* required by standard (warning! warning!), but IDE driver
+	* does this to simplify things a bit.  We are lazy, and
+	* follow suit.
+	*/
+	if (bytes & (ATA_SECT_SIZE - 1))
+		goto err_out;
+
+	for (i = 0; i < (bytes >> 9); i++)
+		ata_pio_sector(qc);
+	
+	return;
+
+err_out:
+	printk(KERN_INFO "ata%u: dev %u: ATAPI check failed\n",
+	      ap->id, dev->devno);
+	ap->pio_task_state = PIO_ST_ERR;
+}
+
 /**
  *	ata_pio_sector -
  *	@ap:
@@ -2126,14 +2214,10 @@ static void ata_data_xfer(struct ata_port *ap, unsigned char *buf,
  *	LOCKING:
  */
 
-static void ata_pio_sector(struct ata_port *ap)
+static void ata_pio_block(struct ata_port *ap)
 {
 	struct ata_queued_cmd *qc;
-	struct scatterlist *sg;
-	struct page *page;
-	unsigned char *buf;
 	u8 status;
-	int do_write;
 
 	/*
 	 * This is purely hueristic.  This is a fast path.
@@ -2163,32 +2247,10 @@ static void ata_pio_sector(struct ata_port *ap)
 	qc = ata_qc_from_tag(ap, ap->active_tag);
 	assert(qc != NULL);
 
-	sg = qc->sg;
-
-	if (qc->cursect == (qc->nsect - 1))
-		ap->pio_task_state = PIO_ST_LAST;
-
-	page = sg[qc->cursg].page;
-	buf = kmap(page) +
-	      sg[qc->cursg].offset + (qc->cursg_ofs * ATA_SECT_SIZE);
-
-	qc->cursect++;
-	qc->cursg_ofs++;
-
-	if ((qc->cursg_ofs * ATA_SECT_SIZE) == sg_dma_len(&sg[qc->cursg])) {
-		qc->cursg++;
-		qc->cursg_ofs = 0;
-	}
-
-	DPRINTK("data %s, drv_stat 0x%X\n",
-		qc->tf.flags & ATA_TFLAG_WRITE ? "write" : "read",
-		status);
-
-	/* do the actual data transfer */
-	do_write = (qc->tf.flags & ATA_TFLAG_WRITE);
-	ata_data_xfer(ap, buf, ATA_SECT_SIZE, do_write);
-
-	kunmap(page);
+	if (is_atapi_taskfile(&qc->tf))
+		atapi_pio_sector(qc);
+	else
+		ata_pio_sector(qc);
 }
 
 static void ata_pio_error(struct ata_port *ap)
@@ -2217,7 +2279,7 @@ static void ata_pio_task(void *_data)
 
 	switch (ap->pio_task_state) {
 	case PIO_ST:
-		ata_pio_sector(ap);
+		ata_pio_block(ap);
 		break;
 
 	case PIO_ST_LAST:
@@ -2556,6 +2618,7 @@ int ata_qc_issue_prot(struct ata_queued_cmd *qc)
 		break;
 
 	default:
+		WARN_ON(1);
 		return -1;
 	}
 
@@ -3528,6 +3591,7 @@ EXPORT_SYMBOL_GPL(ata_bus_reset);
 EXPORT_SYMBOL_GPL(ata_port_disable);
 EXPORT_SYMBOL_GPL(ata_pci_init_one);
 EXPORT_SYMBOL_GPL(ata_pci_remove_one);
+EXPORT_SYMBOL_GPL(ata_scsi_ioctl);
 EXPORT_SYMBOL_GPL(ata_scsi_queuecmd);
 EXPORT_SYMBOL_GPL(ata_scsi_error);
 EXPORT_SYMBOL_GPL(ata_scsi_detect);

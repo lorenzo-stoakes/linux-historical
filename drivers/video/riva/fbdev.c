@@ -117,7 +117,7 @@
 static void rivafb_blank(int blank, struct fb_info *info);
 
 extern void riva_setup_accel(struct rivafb_info *rinfo);
-extern inline void wait_for_idle(struct rivafb_info *rinfo);
+extern void wait_for_idle(struct rivafb_info *rinfo);
 
 
 

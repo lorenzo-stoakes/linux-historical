@@ -177,10 +177,8 @@ S:	Maintained
 
 AD1816 SOUND DRIVER
 P:	Thorsten Knabe
-M:	Thorsten Knabe <tek@rbg.informatik.tu-darmstadt.de>
-M:	Thorsten Knabe <tek01@hrzpub.tu-darmstadt.de>
-W:	http://www.student.informatik.tu-darmstadt.de/~tek/projects/linux.html
-W:	http://www.tu-darmstadt.de/~tek01/projects/linux.html
+M:	Thorsten Knabe <linux@thorsten-knabe.de>
+W:	http://linux.thorsten-knabe.de
 S:	Maintained
 
 ADVANSYS SCSI DRIVER
@@ -1454,9 +1452,8 @@ L:	linux-kernel@vger.kernel.org
 S:	Odd Fixes
 
 PCI HOTPLUG CORE
-P:	Greg Kroah-Hartman
-M:	greg@kroah.com
-M:	gregkh@us.ibm.com
+P:	Gary Hade
+M:	garyhade@us.ibm.com
 S:	Supported
 
 PCI HOTPLUG COMPAQ DRIVER

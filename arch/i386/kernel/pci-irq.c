@@ -1112,10 +1112,6 @@ void pcibios_enable_irq(struct pci_dev *dev)
 				}
 				dev = temp_dev;
 				if (irq >= 0) {
-#ifdef CONFIG_PCI_USE_VECTOR
-					if (!platform_legacy_irq(irq))
-						irq = IO_APIC_VECTOR(irq);
-#endif
 					printk(KERN_INFO "PCI->APIC IRQ transform: (B%d,I%d,P%d) -> %d\n",
 						dev->bus->number, PCI_SLOT(dev->devfn), pin, irq);
 					dev->irq = irq;

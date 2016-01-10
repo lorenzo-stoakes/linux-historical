@@ -1122,7 +1122,7 @@ void set_buffer_flushtime(struct buffer_head *bh)
 }
 EXPORT_SYMBOL(set_buffer_flushtime);
 
-inline int get_buffer_flushtime(void)
+int get_buffer_flushtime(void)
 {
 	return bdf_prm.b_un.interval;
 }

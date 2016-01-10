@@ -44,6 +44,7 @@
 	 sethi		%hi(_PAGE_EXEC), %g4		! Delay-slot
 	andcc		%g5, %g4, %g0			! Executable?
 	be,pn		%xcc, 3f			! Nope, branch.
+	 nop						! Delay-slot
 2:	stxa		%g5, [%g0] ASI_ITLB_DATA_IN	! Load PTE into TLB
 	retry						! Trap return
 3:	rdpr		%pstate, %g4			! Move into alternate globals

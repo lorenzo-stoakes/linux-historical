@@ -2,6 +2,10 @@
 
     ata_piix.c - Intel PATA/SATA controllers
 
+    Maintained by:  Jeff Garzik <jgarzik@pobox.com>
+    		    Please ALWAYS copy linux-ide@vger.kernel.org
+		    on emails.
+
 
 	Copyright 2003-2004 Red Hat Inc
 	Copyright 2003-2004 Jeff Garzik
@@ -102,6 +106,7 @@ static Scsi_Host_Template piix_sht = {
 	.name			= DRV_NAME,
 	.detect			= ata_scsi_detect,
 	.release		= ata_scsi_release,
+	.ioctl                  = ata_scsi_ioctl,
 	.queuecommand		= ata_scsi_queuecmd,
 	.eh_strategy_handler	= ata_scsi_error,
 	.can_queue		= ATA_DEF_QUEUE,

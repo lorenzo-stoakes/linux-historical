@@ -430,6 +430,13 @@ UNUSUAL_DEV(  0x066b, 0x0105, 0x0100, 0x0100,
 		US_FL_SINGLE_LUN ),
 #endif
 
+/* Reported by Darsen Lu <darsen@micro.ee.nthu.edu.tw> */
+UNUSUAL_DEV( 0x066f, 0x8000, 0x0001, 0x0001,
+		"SigmaTel",
+		"USBMSC Audio Player",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY ),
+
 /* Submitted by Benny Sjostrand <benny@hostmobility.com> */
 UNUSUAL_DEV( 0x0686, 0x4011, 0x0001, 0x0001,
 		"Minolta",
@@ -679,7 +686,7 @@ UNUSUAL_DEV( 0x090c, 0x1132, 0x0000, 0xffff,
 UNUSUAL_DEV(  0x097a, 0x0001, 0x0000, 0x0001,
 		"Minds@Work",
 		"Digital Wallet",
- 		US_SC_SCSI, US_PR_CB, NULL,
+ 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_MODE_XLATE ),
 
 UNUSUAL_DEV(  0x0a16, 0x8888, 0x0100, 0x0100,

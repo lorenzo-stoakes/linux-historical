@@ -2214,7 +2214,6 @@ EXPORT_SYMBOL(pcibios_find_device);
 
 EXPORT_SYMBOL(isa_dma_bridge_buggy);
 EXPORT_SYMBOL(pci_pci_problems);
-EXPORT_SYMBOL(pciehp_msi_quirk);
 
 /* Pool allocator */
 

@@ -4696,12 +4696,6 @@ CONFIG_BINFMT_ELF
   ld.so (check the file <file:Documentation/Changes> for location and
   latest version).
 
-  If you want to compile this as a module ( = code which can be
-  inserted in and removed from the running kernel whenever you want),
-  say M here and read <file:Documentation/modules.txt>.  The module
-  will be called binfmt_elf.o. Saying M or N here is dangerous because
-  some crucial programs on your system might be in ELF format.
-
 Kernel support for a.out binaries
 CONFIG_BINFMT_AOUT
   A.out (Assembler.OUTput) is a set of formats for libraries and
@@ -7971,7 +7965,7 @@ CONFIG_SCSI_LOGGING
 QDIO base support for IBM S/390 and zSeries
 CONFIG_QDIO
   This driver provides the Queued Direct I/O base support for the
-  IBM S/390 (G5 and G6) and eServer zSeries (z800 and z900).
+  IBM S/390 (G5 and G6) and eServer zSeries (z800, z900 and z990).
 
   For details please refer to the documentation provided by IBM at
   <http://www10.software.ibm.com/developerworks/opensource/linux390>
@@ -7988,6 +7982,37 @@ CONFIG_QDIO_PERF_STATS
   Say Y here to get performance statistics in /proc/qdio_perf
 
   If unsure, say N.
+
+IBM S/390 and zSeries OSA-Express and HiperSockets device driver
+CONFIG_QETH
+  This driver supports the IBM S/390 and zSeries OSA Express adapters
+  in QDIO mode (all media types), HiperSockets interfaces and VM GuestLAN
+  interfaces in QDIO and HIPER mode.
+
+  For details please refer to the documentation provided by IBM at
+  <http://www10.software.ibm.com/developerworks/opensource/linux390>
+
+  This driver is also available as a module (code which can be
+  inserted in and removed from the running kernel whenever you
+  want). If you want to compile it as a module, say 'M' here and
+  read file Documentation/modules.txt.
+
+IPv6 support for qeth
+CONFIG_QETH_IPV6
+  If CONFIG_QETH is switched on, this option will include IPv6
+  support in the qeth device driver.
+
+IEEE 802.1q VLAN support for qeth
+CONFIG_QETH_VLAN
+  If CONFIG_QETH is switched on, this option will include IEEE
+  802.1q VLAN support in the qeth device driver.
+
+Performance statistics for the qeth drivers
+CONFIG_QETH_PERF_STATS
+  When switched on, this option will add a file in the proc-fs
+  (/proc/qeth_perf_stats) containing performance statistics. It
+  may slightly impact performance, so this is only recommended for
+  internal tuning of the device driver.
 
 SGI WD93C93 SCSI Driver
 CONFIG_SCSI_SGIWD93
@@ -9296,6 +9321,16 @@ CONFIG_SCSI_SATA
 CONFIG_SCSI_SATA_SVW
   This option enables support for Broadcom/Serverworks/Apple K2
   SATA support.
+
+  If unsure, say N.
+
+CONFIG_SCSI_ATA_PIIX
+  This option enables support for ICH5 Serial ATA.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_NV
+  This option enables support for NVIDIA Serial ATA.
 
   If unsure, say N.
 
@@ -17272,10 +17307,11 @@ CONFIG_NFSD_V3
   If you would like to include the NFSv3 server as well as the NFSv2
   server, say Y here.  If unsure, say Y.
 
-Provide NFS over TCP server support EXPERIMENTAL
+Provide NFS over TCP server support
 CONFIG_NFSD_TCP
-  Enable NFS service over TCP connections.  This the officially
-  still experimental, but seems to work well.
+  If you want your NFS server to support TCP connections, say Y here.
+  TCP connections usually perform better than the default UDP when
+  the network is lossy or congested.  If unsure, say Y.
 
 OS/2 HPFS file system support
 CONFIG_HPFS_FS
@@ -25405,13 +25441,13 @@ CONFIG_S390_PARTITION
 Support for DASD hard disks
 CONFIG_DASD
   Enable this option if you want to access DASDs directly utilizing
-  S/390s channel subsystem commands. This is necessary for running
+  S/390's or zSeries' channel subsystem commands. This is necessary for running
   natively on a single image or an LPAR.
 
 Support for ECKD hard disks
 CONFIG_DASD_ECKD
   ECKD (Extended Count Key Data) devices are the most commonly used 
-  devices on S/390s. You should enable this option unless you are 
+  devices on zSeries and S/390. You should enable this option unless you are
   very sure you have no ECKD device.
 
 ECKD demand loading
