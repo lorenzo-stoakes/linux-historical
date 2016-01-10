@@ -829,7 +829,7 @@ asmlinkage int sys32_ipc (u32 call, u32 first, u32 second, u32 third, s32 __ptr,
 					       (struct sembuf *)A(ptr),
 					       second,
 					       (const struct timespec32 *)
-					       A(third));
+					       A(fifth));
 		case SEMGET:
 			err = sys_semget((key_t)first, (int)second,
 					 (int)third);

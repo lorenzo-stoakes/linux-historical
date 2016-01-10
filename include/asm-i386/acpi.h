@@ -28,6 +28,8 @@
 
 #ifdef __KERNEL__
 
+#include <linux/init.h>
+
 #define COMPILER_DEPENDENT_INT64   long long
 #define COMPILER_DEPENDENT_UINT64  unsigned long long
 

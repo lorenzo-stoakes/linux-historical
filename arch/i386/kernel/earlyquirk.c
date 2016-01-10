@@ -8,7 +8,7 @@
 #include <asm/pci-direct.h>
 #include <asm/acpi.h>
 
-#ifdef CONFIG_ACPI
+#ifdef CONFIG_ACPI_BOOT
 static int __init check_bridge(int vendor, int device) 
 {
 	/* According to Nvidia all timer overrides are bogus. Just ignore
