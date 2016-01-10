@@ -218,20 +218,6 @@ int bluez_sock_recvmsg(struct socket *sock, struct msghdr *msg, int len, int fla
 	return err ? : copied;
 }
 
-static inline unsigned int bluez_accept_poll(struct sock *parent)
-{
-	struct list_head *p, *n;
-	struct sock *sk;
-
-	list_for_each_safe(p, n, &bluez_pi(parent)->accept_q) {
-		sk = (struct sock *) list_entry(p, struct bluez_pinfo, accept_q);
-		if (sk->state == BT_CONNECTED)
-			return POLLIN | POLLRDNORM;
-	}
-
-	return 0;
-}
-
 unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table *wait)
 {
 	struct sock *sk = sock->sk;
@@ -241,9 +227,6 @@ unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table
 
 	poll_wait(file, sk->sleep, wait);
 
-	if (sk->state == BT_LISTEN)
-		return bluez_accept_poll(sk);
-
 	if (sk->err || !skb_queue_empty(&sk->error_queue))
 		mask |= POLLERR;
 
@@ -251,6 +234,7 @@ unsigned int bluez_sock_poll(struct file * file, struct socket *sock, poll_table
 		mask |= POLLHUP;
 
 	if (!skb_queue_empty(&sk->receive_queue) || 
+			!list_empty(&bluez_pi(sk)->accept_q) ||
 			(sk->shutdown & RCV_SHUTDOWN))
 		mask |= POLLIN | POLLRDNORM;
 
