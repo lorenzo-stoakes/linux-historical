@@ -965,7 +965,7 @@ static int load_elf_library(struct file *file)
 	if (j != 1)
 		goto out_free_ph;
 
-	while (elf_phdata->p_type != PT_LOAD) 
+	while (eppnt->p_type != PT_LOAD) 
 		eppnt++;
 
 	/* Now use mmap to map the library into memory. */
