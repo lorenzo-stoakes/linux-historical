@@ -2215,8 +2215,7 @@ int jfsIOWait(void *arg)
 	} while (!jfs_stop_threads);
 
 	jfs_info("jfsIOWait being killed!");
-	complete(&jfsIOwait);
-	return 0;
+	complete_and_exit(&jfsIOwait, 0);
 }
 
 /*

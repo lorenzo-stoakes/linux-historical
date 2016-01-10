@@ -636,6 +636,7 @@ static void yenta_clear_maps(pci_socket_t *socket)
  */
 static void yenta_config_init(pci_socket_t *socket)
 {
+	u32 state;
 	u16 bridge;
 	struct pci_dev *dev = socket->dev;
 
@@ -675,6 +676,10 @@ static void yenta_config_init(pci_socket_t *socket)
 	exca_writeb(socket, I365_GENCTL, 0x00);
 
 	/* Redo card voltage interrogation */
+	state = cb_readl(socket, CB_SOCKET_STATE);
+	if (!(state & (CB_CDETECT1 | CB_CDETECT2 | CB_5VCARD |
+			CB_3VCARD | CB_XVCARD | CB_YVCARD)))
+		
 	cb_writel(socket, CB_SOCKET_FORCE, CB_CVSTEST);
 }
 

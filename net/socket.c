@@ -42,7 +42,7 @@
  *		Andi Kleen	:	Some small cleanups, optimizations,
  *					and fixed a copy_from_user() bug.
  *		Tigran Aivazian	:	sys_send(args) calls sys_sendto(args, NULL, 0)
-o *		Tigran Aivazian	:	Made listen(2) backlog sanity checks 
+ *		Tigran Aivazian	:	Made listen(2) backlog sanity checks 
  *					protocol-independent
  *
  *

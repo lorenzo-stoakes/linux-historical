@@ -61,7 +61,7 @@
 #include <linux/interrupt.h>
 #include <linux/init.h>
 
-static WORD initAMD[] __devinit = {
+static WORD initAMD[] __devinitdata = {
 	0x0100,
 
 	0x00A5, 3, 0x01, 0x40, 0x58,				// LPR, LMR1, LMR2

@@ -790,7 +790,10 @@ void prune_icache(int goal)
 {
 	LIST_HEAD(list);
 	struct list_head *entry, *freeable = &list;
-	int count, avg_pages;
+	int count;
+#ifdef CONFIG_HIGHMEM
+	int avg_pages;
+#endif
 	struct inode * inode;
 
 	spin_lock(&inode_lock);
