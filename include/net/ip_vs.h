@@ -97,6 +97,7 @@ struct ip_vs_rule_user {
 	int             state;          /* sync daemon state */
 	char            mcast_ifn[IP_VS_IFNAME_MAXLEN];
 					/* multicast interface name */
+	int		syncid;
 
 	/* virtual service options */
 	u_int16_t	protocol;
@@ -213,8 +214,9 @@ struct ip_vs_timeout_user {
 
 /* The argument to IP_VS_SO_GET_DAEMON */
 struct ip_vs_daemon_user {
-	int	state;				/* sync daemon state */
-	char	mcast_ifn[IP_VS_IFNAME_MAXLEN];	/* multicast interface name */
+	int	state;					/* sync daemon state */
+	char	mcast_master_ifn[IP_VS_IFNAME_MAXLEN];	/* mcast master interface name */
+	char	mcast_backup_ifn[IP_VS_IFNAME_MAXLEN];	/* mcast backup interface name */
 };
 
 
@@ -726,9 +728,10 @@ extern void ip_vs_control_cleanup(void);
  *      (from ip_vs_sync.c)
  */
 extern volatile int ip_vs_sync_state;
-extern char ip_vs_mcast_ifn[IP_VS_IFNAME_MAXLEN];
-extern int start_sync_thread(int state, char *mcast_ifn);
-extern int stop_sync_thread(void);
+extern char ip_vs_mcast_master_ifn[IP_VS_IFNAME_MAXLEN];
+extern char ip_vs_mcast_backup_ifn[IP_VS_IFNAME_MAXLEN];
+extern int start_sync_thread(int state, char *mcast_ifn, __u8 syncid);
+extern int stop_sync_thread(int state);
 extern void ip_vs_sync_conn(struct ip_vs_conn *cp);
 
 

@@ -1731,10 +1731,11 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void *user, unsigned int len)
 		ret = ip_vs_set_timeouts(urule);
 		goto out_unlock;
 	} else if (cmd == IP_VS_SO_SET_STARTDAEMON) {
-		ret = start_sync_thread(urule->state, urule->mcast_ifn);
+		ret = start_sync_thread(urule->state, urule->mcast_ifn,
+					urule->syncid);
 		goto out_unlock;
 	} else if (cmd == IP_VS_SO_SET_STOPDAEMON) {
-		ret = stop_sync_thread();
+		ret = stop_sync_thread(urule->state);
 		goto out_unlock;
 	} else if (cmd == IP_VS_SO_SET_ZERO) {
 		/* if no service address is set, zero counters in all */
@@ -2082,7 +2083,10 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 			goto out;
 		}
 		u.state = ip_vs_sync_state;
-		strcpy(u.mcast_ifn, ip_vs_mcast_ifn);
+		if (ip_vs_sync_state & IP_VS_STATE_MASTER)
+			strcpy(u.mcast_master_ifn, ip_vs_mcast_master_ifn);
+		if (ip_vs_sync_state & IP_VS_STATE_BACKUP)
+			strcpy(u.mcast_backup_ifn, ip_vs_mcast_backup_ifn);
 		if (copy_to_user(user, &u, sizeof(u)) != 0)
 			ret = -EFAULT;
 	}

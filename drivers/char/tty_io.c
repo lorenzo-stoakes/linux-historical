@@ -718,7 +718,12 @@ void tty_wakeup(struct tty_struct *tty)
 	wake_up_interruptible(&tty->write_wait);
 }
 
-EXPORT_SYMBOL_GPL(tty_wakeup);
+/*
+ * tty_wakeup/tty_ldisc_flush are actually _GPL exports but we can't do 
+ * that in 2.4 for modutils compat reasons.
+ */
+EXPORT_SYMBOL(tty_wakeup);
+
 
 void tty_ldisc_flush(struct tty_struct *tty)
 {
@@ -730,7 +735,12 @@ void tty_ldisc_flush(struct tty_struct *tty)
 	}
 }
 
-EXPORT_SYMBOL_GPL(tty_ldisc_flush);
+
+/*
+ * tty_wakeup/tty_ldisc_flush are actually _GPL exports but we can't do 
+ * that in 2.4 for modutils compat reasons.
+ */
+EXPORT_SYMBOL(tty_ldisc_flush);
 
 void do_tty_hangup(void *data)
 {

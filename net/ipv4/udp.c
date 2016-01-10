@@ -389,7 +389,8 @@ struct udpfakehdr
  *	Copy and checksum a UDP packet from user space into a buffer.
  */
  
-static int udp_getfrag(const void *p, char * to, unsigned int offset, unsigned int fraglen) 
+static int udp_getfrag(const void *p, char * to, unsigned int offset,
+                       unsigned int fraglen, struct sk_buff *skb)
 {
 	struct udpfakehdr *ufh = (struct udpfakehdr *)p;
 	if (offset==0) {
@@ -416,7 +417,8 @@ static int udp_getfrag(const void *p, char * to, unsigned int offset, unsigned i
  *	Copy a UDP packet from user space into a buffer without checksumming.
  */
  
-static int udp_getfrag_nosum(const void *p, char * to, unsigned int offset, unsigned int fraglen) 
+static int udp_getfrag_nosum(const void *p, char * to, unsigned int offset,
+                             unsigned int fraglen, struct sk_buff *skb) 
 {
 	struct udpfakehdr *ufh = (struct udpfakehdr *)p;
 
