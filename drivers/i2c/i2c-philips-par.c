@@ -212,8 +212,8 @@ static void i2c_parport_attach (struct parport *port)
 
 	/* reset hardware to sane state */
 	parport_claim_or_block(adapter->pdev);
-	bit_lp_setsda(port, 1);
-	bit_lp_setscl(port, 1);
+	adapter->bit_lp_data.setsda(port, 1);
+	adapter->bit_lp_data.setscl(port, 1);
 	parport_release(adapter->pdev);
 
 	if (i2c_bit_add_bus(&adapter->adapter) < 0)

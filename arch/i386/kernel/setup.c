@@ -3191,7 +3191,7 @@ void __init cpu_init (void)
 	set_tss_desc(nr,t);
 	gdt_table[__TSS(nr)].b &= 0xfffffdff;
 	load_TR(nr);
-	load_LDT(&init_mm);
+	load_LDT(&init_mm.context);
 
 	/*
 	 * Clear all 6 debug registers:

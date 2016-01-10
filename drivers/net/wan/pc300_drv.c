@@ -2427,7 +2427,8 @@ int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					       sizeof(struct net_device_stats));
 					if (card->hw.type == PC300_TE)
 						memcpy(&pc300stats.te_stats,&chan->falc,sizeof(falc_t));
-				    copy_to_user(arg, &pc300stats, sizeof(pc300stats_t));
+					if (copy_to_user(arg, &pc300stats, sizeof(pc300stats_t)))
+						return -EFAULT;
 				}
 				return 0;
 			}
@@ -3459,12 +3460,10 @@ static void __devexit cpc_remove_one(struct pci_dev *pdev)
 }
 
 static struct pci_driver cpc_driver = {
-	name:"pc300",
-	id_table:cpc_pci_dev_id,
-	probe:cpc_init_one,
-	remove:cpc_remove_one,
-	suspend:NULL,
-	resume:NULL,
+	.name		= "pc300",
+	.id_table	= cpc_pci_dev_id,
+	.probe		= cpc_init_one,
+	.remove		= __devexit_p(cpc_remove_one),
 };
 
 static int __init cpc_init(void)

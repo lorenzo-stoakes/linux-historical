@@ -45,13 +45,6 @@
  *
  */
 
-/* Patch submitted by Martin Berentsen <berentsen at sent5 dot uni-duisburg dot de> */
-#define US_FL_START_STOP  0x00000004   /* ignore START_STOP commands     */
-UNUSUAL_DEV(  0x0686, 0x4014, 0x0001, 0x0001, 
-		"Minolta",
-		"Dimage S414",
-		US_SC_SCSI, US_PR_BULK, NULL, US_FL_START_STOP), 
-
 UNUSUAL_DEV(  0x03ee, 0x0000, 0x0000, 0x0245, 
 		"Mitsumi",
 		"CD-R/RW Drive",
@@ -296,7 +289,7 @@ UNUSUAL_DEV(  0x054c, 0x0069, 0x0000, 0x9999,
 UNUSUAL_DEV(  0x054c, 0x006d, 0x0000, 0x9999,
 		"Sony",
 		"PEG Mass Storage",
-		US_SC_8070, US_PR_CBI, NULL,
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 		
 UNUSUAL_DEV(  0x057b, 0x0000, 0x0000, 0x0299, 
@@ -377,7 +370,7 @@ UNUSUAL_DEV(  0x05e3, 0x0700, 0x0000, 0xffff,
 UNUSUAL_DEV(  0x05e3, 0x0701, 0x0000, 0xffff, 
 		"", 
 		"USB TO IDE",
-		US_SC_SCSI, US_PR_BULK, NULL,
+		US_SC_SCSI, US_PR_DEVICE, NULL,
 		US_FL_MODE_XLATE ), 
 
 /* Reported by Peter Marks <peter.marks@turner.com>
@@ -488,11 +481,6 @@ UNUSUAL_DEV(  0x0781, 0x0200, 0x0000, 0x9999,
 UNUSUAL_DEV(  0x07ab, 0xfc01, 0x0000, 0x9999,
 		"Freecom",
 		"USB-IDE",
-		US_SC_QIC, US_PR_FREECOM, freecom_init, 0),
-
-UNUSUAL_DEV(  0x07ab, 0xfc84, 0x0000, 0x9999,
-		"Freecom",
-		"FX-5/FX-50",
 		US_SC_QIC, US_PR_FREECOM, freecom_init, 0),
 #endif
 
@@ -639,11 +627,19 @@ UNUSUAL_DEV( 0x08ca, 0x2011, 0x0001, 0x0001,
 		"3MegaCam",
 		US_SC_DEVICE, US_PR_BULK, NULL,
 		US_FL_MODE_XLATE ),
+
+/* Trumpion Microelectronics MP3 player (felipe_alfaro@linuxmail.org) */
+UNUSUAL_DEV( 0x090a, 0x1200, 0x0000, 0x9999,
+		"Trumpion",
+		"MP3 player",
+		US_SC_RBC, US_PR_BULK, NULL,
+		US_FL_MODE_XLATE),
+
 /* aeb */
 UNUSUAL_DEV( 0x090c, 0x1132, 0x0000, 0xffff,
 		"Feiya",
 		"5-in-1 Card Reader",
-		US_SC_SCSI, US_PR_BULK, NULL,
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY ),
 
 UNUSUAL_DEV(  0x097a, 0x0001, 0x0000, 0x0001,
@@ -670,6 +666,13 @@ UNUSUAL_DEV( 0x0a17, 0x0004, 0x1000, 0x1000,
                 "Optio 2/3/400",
                 US_SC_DEVICE, US_PR_DEVICE, NULL,
                 US_FL_FIX_INQUIRY ),
+
+/* This entry from <matthias@ma-c.de> in the Debian mailing list */
+UNUSUAL_DEV( 0x0a17, 0x0006, 0x0000, 0xffff,
+		"Pentax",
+		"Optio 330GS",
+		US_SC_8070, US_PR_CB, NULL,
+		US_FL_MODE_XLATE | US_FL_FIX_INQUIRY ),
 
 /* Submitted by Per Winkvist <per.winkvist@uk.com> */
 UNUSUAL_DEV( 0x0a17, 0x006, 0x1000, 0x9009,
@@ -702,6 +705,17 @@ UNUSUAL_DEV(  0x0d96, 0x5200, 0x0001, 0x0200,
 		"Jenoptik",
 		"JD 5200 z3",
 		US_SC_DEVICE, US_PR_DEVICE, NULL, US_FL_FIX_INQUIRY),
+
+/* Reported by Lubomir Blaha <tritol@trilogic.cz>
+ * I _REALLY_ don't know what 3rd, 4th number and all defines mean, but this
+ * works for me. Can anybody correct these values? (I able to test corrected
+ * version.)
+ */
+UNUSUAL_DEV( 0x0dd8, 0x1060, 0x0000, 0xffff,
+		"Netac",
+		"USB-CF-Card",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_INQUIRY ),
 
 /* Submitted by Antoine Mairesse <antoine.mairesse@free.fr> */
 UNUSUAL_DEV( 0x0ed1, 0x6660, 0x0100, 0x0300,
@@ -738,3 +752,12 @@ UNUSUAL_DEV(  0x55aa, 0xa103, 0x0000, 0x9999,
 		US_SC_SCSI, US_PR_SDDR55, NULL,
 		US_FL_SINGLE_LUN),
 #endif
+
+/* Patch for Kyocera Finecam L3
+ * Submitted by Michael Krauth <michael.krauth@web.de>
+ */
+UNUSUAL_DEV(  0x0482, 0x0105, 0x0100, 0x0100,
+		"Kyocera",
+		"Finecam L3",
+		US_SC_SCSI, US_PR_BULK, NULL,
+		US_FL_FIX_INQUIRY),

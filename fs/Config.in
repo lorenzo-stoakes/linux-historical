@@ -145,6 +145,7 @@ if [ "$CONFIG_NET" = "y" ]; then
       if [ "$CONFIG_SMB_NLS_DEFAULT" = "y" ]; then
          string '    Default Remote NLS Option' CONFIG_SMB_NLS_REMOTE "cp437"
       fi
+      bool '  Enable Unix Extensions' CONFIG_SMB_UNIX
    fi
    if [ "$CONFIG_IPX" != "n" -o "$CONFIG_INET" != "n" ]; then
       tristate 'NCP file system support (to mount NetWare volumes)' CONFIG_NCP_FS

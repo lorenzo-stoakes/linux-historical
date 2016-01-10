@@ -79,7 +79,7 @@ static struct via_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL };
 
 /* Some prototypes */
 static int via_ircc_open(int i, chipio_t * info, unsigned int id);
-static int __exit via_ircc_close(struct via_ircc_cb *self);
+static int via_ircc_close(struct via_ircc_cb *self);
 static int via_ircc_setup(chipio_t * info, unsigned int id);
 static int via_ircc_dma_receive(struct via_ircc_cb *self);
 static int via_ircc_dma_receive_complete(struct via_ircc_cb *self,
@@ -107,8 +107,8 @@ static int RxTimerHandler(struct via_ircc_cb *self, int iobase);
 void hwreset(struct via_ircc_cb *self);
 static int via_ircc_dma_xmit(struct via_ircc_cb *self, u16 iobase);
 static int upload_rxdata(struct via_ircc_cb *self, int iobase);
-static int __init via_init_one (struct pci_dev *pcidev, const struct pci_device_id *id);
-static void __exit via_remove_one (struct pci_dev *pdev);
+static int via_init_one (struct pci_dev *pcidev, const struct pci_device_id *id);
+static void via_remove_one (struct pci_dev *pdev);
 
 /* Should use udelay() instead, even if we are x86 only - Jean II */
 void iodelay(int udelay)
@@ -137,7 +137,7 @@ static struct pci_driver via_driver = {
 	.name		= VIA_MODULE_NAME,
 	.id_table	= via_pci_tbl,
 	.probe		= via_init_one,
-	.remove		= via_remove_one,
+	.remove		= __devexit_p(via_remove_one),
 };
 
 
@@ -146,7 +146,7 @@ static struct pci_driver via_driver = {
  *
  *    Initialize chip. Just find out chip type and resource.
  */
-int __init via_ircc_init(void)
+int __devinit via_ircc_init(void)
 {
 	int rc;
 
@@ -168,7 +168,7 @@ int __init via_ircc_init(void)
 
 }
 
-static int __init via_init_one (struct pci_dev *pcidev, const struct pci_device_id *id)
+static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_device_id *id)
 {
 	int rc;
         u8 temp,oldPCI_40,oldPCI_44,bTmp,bTmp1;
@@ -288,7 +288,7 @@ static int __init via_init_one (struct pci_dev *pcidev, const struct pci_device_
  *    Close all configured chips
  *
  */
-static void __exit via_ircc_clean(void)
+static void __devexit via_ircc_clean(void)
 {
 	int i;
 
@@ -301,7 +301,7 @@ static void __exit via_ircc_clean(void)
 	}
 }
 
-static void __exit via_remove_one (struct pci_dev *pdev)
+static void __devexit via_remove_one (struct pci_dev *pdev)
 {
 #ifdef	HEADMSG
         DBG(printk(KERN_INFO "via_remove_one :  ......\n"));
@@ -310,7 +310,7 @@ static void __exit via_remove_one (struct pci_dev *pdev)
 
 }
 
-static void __exit via_ircc_cleanup(void)
+static void __devexit via_ircc_cleanup(void)
 {
 
 #ifdef	HEADMSG
@@ -326,7 +326,7 @@ static void __exit via_ircc_cleanup(void)
  *    Open driver instance
  *
  */
-static __init int via_ircc_open(int i, chipio_t * info, unsigned int id)
+static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
 {
 	struct net_device *dev;
 	struct via_ircc_cb *self;
@@ -460,7 +460,7 @@ static __init int via_ircc_open(int i, chipio_t * info, unsigned int id)
  *    Close driver instance
  *
  */
-static int __exit via_ircc_close(struct via_ircc_cb *self)
+static int __devexit via_ircc_close(struct via_ircc_cb *self)
 {
 	int iobase;
 

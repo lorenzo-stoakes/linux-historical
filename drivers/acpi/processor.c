@@ -214,7 +214,7 @@ struct acpi_processor_errata {
 
 static struct acpi_processor	*processors[NR_CPUS];
 static struct acpi_processor_errata errata;
-static void (*pm_idle_save)(void) = NULL;
+static void (*pm_idle_save)(void);
 
 
 /* --------------------------------------------------------------------------

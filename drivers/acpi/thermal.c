@@ -50,7 +50,7 @@ MODULE_AUTHOR("Paul Diefenbaugh");
 MODULE_DESCRIPTION(ACPI_THERMAL_DRIVER_NAME);
 MODULE_LICENSE("GPL");
 
-static int tzp = 0;
+static int tzp;
 MODULE_PARM(tzp, "i");
 MODULE_PARM_DESC(tzp, "Thermal zone polling frequency, in 1/10 seconds.\n");
 
@@ -704,7 +704,7 @@ acpi_thermal_check (
                               FS Interface (/proc)
    -------------------------------------------------------------------------- */
 
-struct proc_dir_entry		*acpi_thermal_dir = NULL;
+struct proc_dir_entry		*acpi_thermal_dir;
 
 
 static int

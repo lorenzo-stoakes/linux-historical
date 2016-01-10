@@ -8,7 +8,7 @@
  * This allows to access 64bit processes too; but there is no way to see the extended 
  * register contents.
  *
- * $Id: ptrace32.c,v 1.17 2003/03/24 09:25:15 ak Exp $
+ * $Id: ptrace32.c,v 1.18 2004/01/29 00:50:29 ak Exp $
  */ 
 
 #include <linux/kernel.h>
@@ -73,12 +73,9 @@ static int putreg32(struct task_struct *child, unsigned regno, u32 val)
 	R32(eip, rip);
 	R32(esp, rsp);
 
-	case offsetof(struct user32, regs.eflags): { 
-		__u64 *flags = &stack[offsetof(struct pt_regs, eflags)/8];
-		val &= FLAG_MASK;
-		*flags = val | (*flags & ~FLAG_MASK);
+	case offsetof(struct user32, regs.eflags): 
+		stack[offsetof(struct pt_regs, eflags)/8] = val & 0x44dd5; 
 		break;
-	}
 
 	case offsetof(struct user32, u_debugreg[4]): 
 	case offsetof(struct user32, u_debugreg[5]):
