@@ -1884,11 +1884,11 @@ static void __devexit tulip_remove_one (struct pci_dev *pdev)
 		return;
 
 	tp = dev->priv;
+	unregister_netdev (dev);
 	pci_free_consistent (pdev,
 			     sizeof (struct tulip_rx_desc) * RX_RING_SIZE +
 			     sizeof (struct tulip_tx_desc) * TX_RING_SIZE,
 			     tp->rx_ring, tp->rx_ring_dma);
-	unregister_netdev (dev);
 	if (tp->mtable)
 		kfree (tp->mtable);
 #ifndef USE_IO_OPS

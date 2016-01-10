@@ -13420,6 +13420,16 @@ CONFIG_HIPPI
   under Linux, say Y here (you must also remember to enable the driver
   for your HIPPI card below). Most people will say N here.
 
+IBM PowerPC Virtual Ethernet driver support
+CONFIG_IBMVETH
+  This driver supports virtual ethernet adapters on newer IBM iSeries
+  and pSeries systems.
+
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called ibmveth.o.
+
 Essential RoadRunner HIPPI PCI adapter support
 CONFIG_ROADRUNNER
   Say Y here if this is your PCI HIPPI network card.

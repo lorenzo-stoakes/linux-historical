@@ -35,4 +35,7 @@
 #endif
 #endif
 
+/* no checker support, so we unconditionally define this as (null) */
+#define __user
+
 #endif /* __LINUX_COMPILER_H */

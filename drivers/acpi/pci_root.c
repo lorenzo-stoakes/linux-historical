@@ -118,6 +118,7 @@ acpi_pci_root_add (
 {
 	int			result = 0;
 	struct acpi_pci_root	*root = NULL;
+	struct acpi_pci_root	*tmp;
 	acpi_status		status = AE_OK;
 	unsigned long		value = 0;
 	acpi_handle		handle = NULL;
@@ -152,8 +153,6 @@ acpi_pci_root_add (
 	switch (status) {
 	case AE_OK:
 		root->id.segment = (u16) value;
-		printk("_SEG exists! Unsupported. Abort.\n");
-		BUG();
 		break;
 	case AE_NOT_FOUND:
 		ACPI_DEBUG_PRINT((ACPI_DB_INFO, 
@@ -187,6 +186,14 @@ acpi_pci_root_add (
 		goto end;
 	}
 
+	/* Some systems have wrong _BBN */
+	list_for_each_entry(tmp, &acpi_pci_roots, node) {
+		if ((tmp->id.segment == root->id.segment)
+				&& (tmp->id.bus == root->id.bus))
+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR, 
+				"Wrong _BBN value, please reboot and using option 'pci=noacpi'\n"));
+	}
+
 	/*
 	 * Device & Function
 	 * -----------------
@@ -213,7 +220,12 @@ acpi_pci_root_add (
 	 * PCI namespace does not get created until this call is made (and 
 	 * thus the root bridge's pci_dev does not exist).
 	 */
+#ifdef CONFIG_X86
 	root->bus = pcibios_scan_root(root->id.bus);
+#else
+	root->bus = pcibios_scan_root(root->handle,
+				      root->id.segment, root->id.bus);
+#endif
 	if (!root->bus) {
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR, 
 			"Bus %02x:%02x not present in PCI namespace\n", 

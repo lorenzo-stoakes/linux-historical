@@ -1,6 +1,10 @@
 /*
  *  sata_vsc.c - Vitesse VSC7174 4 port DPA SATA
  *
+ *  Maintained by:  Jeremy Higdon @ SGI
+ * 		    Please ALWAYS copy linux-ide@vger.kernel.org
+ *		    on emails.
+ *
  *  Copyright 2004 SGI
  *
  *  Bits from Jeff Garzik, Copyright RedHat, Inc.
@@ -44,6 +48,8 @@
 #define VSC_SATA_TF_CTL_OFFSET		0x29
 
 /* DMA base */
+#define VSC_SATA_UP_DESCRIPTOR_OFFSET	0x64
+#define VSC_SATA_UP_DATA_BUFFER_OFFSET	0x6C
 #define VSC_SATA_DMA_CMD_OFFSET		0x70
 
 /* SCRs base */
@@ -235,6 +241,8 @@ static void __devinit vsc_sata_setup_port(struct ata_ioports *port, unsigned lon
 	port->ctl_addr		= base + VSC_SATA_TF_CTL_OFFSET;
 	port->bmdma_addr	= base + VSC_SATA_DMA_CMD_OFFSET;
 	port->scr_addr		= base + VSC_SATA_SCR_STATUS_OFFSET;
+	writel(0, base + VSC_SATA_UP_DESCRIPTOR_OFFSET);
+	writel(0, base + VSC_SATA_UP_DATA_BUFFER_OFFSET);
 }
 
 

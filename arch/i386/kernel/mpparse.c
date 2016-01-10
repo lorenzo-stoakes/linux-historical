@@ -1111,8 +1111,6 @@ void __init mp_override_legacy_irq (
 	u32			global_irq)
 {
 	struct mpc_config_intsrc intsrc;
-	int			i = 0;
-	int			found = 0;
 	int			ioapic = -1;
 	int			pin = -1;
 
@@ -1145,23 +1143,9 @@ void __init mp_override_legacy_irq (
 		(intsrc.mpc_irqflag >> 2) & 3, intsrc.mpc_srcbus, 
 		intsrc.mpc_srcbusirq, intsrc.mpc_dstapic, intsrc.mpc_dstirq);
 
-	/* 
-	 * If an existing [IOAPIC.PIN -> IRQ] routing entry exists we override it.
-	 * Otherwise create a new entry (e.g. global_irq == 2).
-	 */
-	for (i = 0; i < mp_irq_entries; i++) {
-		if ((mp_irqs[i].mpc_srcbus == intsrc.mpc_srcbus) 
-			&& (mp_irqs[i].mpc_srcbusirq == intsrc.mpc_srcbusirq)) {
-			mp_irqs[i] = intsrc;
-			found = 1;
-			break;
-		}
-	}
-	if (!found) {
-		mp_irqs[mp_irq_entries] = intsrc;
-		if (++mp_irq_entries == MAX_IRQ_SOURCES)
-			panic("Max # of irq sources exceeded!\n");
-	}
+	mp_irqs[mp_irq_entries] = intsrc;
+	if (++mp_irq_entries == MAX_IRQ_SOURCES)
+		panic("Max # of irq sources exceeded!\n");
 
 	return;
 }
@@ -1206,13 +1190,19 @@ void __init mp_config_acpi_legacy_irqs (void)
 		return;
 
 	/* 
-	 * Use the default configuration for the IRQs 0-15.  These may be
+	 * Use the default configuration for the IRQs 0-15.  Unless
 	 * overriden by (MADT) interrupt source override entries.
 	 */
 	for (i = 0; i < 16; i++) {
+		int idx;
 
-		if (i == 2)
-			continue;			/* Don't connect IRQ2 */
+		for (idx = 0; idx < mp_irq_entries; idx++)
+			if (mp_irqs[idx].mpc_srcbus == MP_ISA_BUS &&
+				(mp_irqs[idx].mpc_srcbusirq == i ||
+				mp_irqs[idx].mpc_dstirq == i))
+					break;
+		if (idx != mp_irq_entries)
+			continue;			  /* IRQ already used */
 
 		mp_irqs[mp_irq_entries].mpc_type = MP_INTSRC;
 		mp_irqs[mp_irq_entries].mpc_irqflag = 0;	/* Conforming */
@@ -1308,11 +1298,13 @@ void __init mp_parse_prt (void)
 		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, irq, edge_level, active_high_low))
 			entry->irq = irq;
 
-		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
-			entry->id.segment, entry->id.bus, 
-			entry->id.device, ('A' + entry->pin), 
-			mp_ioapic_routing[ioapic].apic_id, ioapic_pin, 
-			entry->irq);
+                printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d"
+                        " -> IRQ %d %s %s\n", entry->id.segment, entry->id.bus,
+                        entry->id.device, ('A' + entry->pin),
+                        mp_ioapic_routing[ioapic].apic_id, ioapic_pin,
+                        entry->irq, edge_level ? "level" : "edge",
+                        active_high_low ? "low" : "high");
+
 	}
 	
 	print_IO_APIC();

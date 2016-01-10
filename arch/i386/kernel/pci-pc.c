@@ -1328,6 +1328,39 @@ static void __devinit pci_fixup_transparent_bridge(struct pci_dev *dev)
 		dev->transparent = 1;
 }
 
+/*
+ * Fixup for C1 Halt Disconnect problem on nForce2 systems.
+ *
+ * From information provided by "Allen Martin" <AMartin@nvidia.com>:
+ *
+ * A hang is caused when the CPU generates a very fast CONNECT/HALT cycle
+ * sequence.  Workaround is to set the SYSTEM_IDLE_TIMEOUT to 80 ns.
+ * This allows the state-machine and timer to return to a proper state within
+ * 80 ns of the CONNECT and probe appearing together.  Since the CPU will not
+ * issue another HALT within 80 ns of the initial HALT, the failure condition
+ * is avoided.
+ */
+static void __devinit pci_fixup_nforce2(struct pci_dev *dev)
+{
+	u32 val, fixed_val;
+	u8 rev;
+
+	pci_read_config_byte(dev, PCI_REVISION_ID, &rev);
+
+	/*
+	* Chip 	Old value   	New value
+	* C17  	0x1F01FF01  	0x1F0FFF01
+	* C18D 	0x9F01FF01  	0x9F0FFF01
+	*/
+	fixed_val = rev < 0xC1 ? 0x1F01FF01 : 0x9F01FF01;
+
+	pci_read_config_dword(dev, 0x6c, &val);
+	if (val != fixed_val) {
+		printk(KERN_WARNING "PCI: nForce2 C1 Halt Disconnect fixup\n");
+		pci_write_config_dword(dev, 0x6c, fixed_val);
+	}
+}
+
 struct pci_fixup pcibios_fixups[] = {
 	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_INTEL,	PCI_DEVICE_ID_INTEL_82451NX,	pci_fixup_i450nx },
 	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_INTEL,	PCI_DEVICE_ID_INTEL_82454GX,	pci_fixup_i450gx },
@@ -1343,6 +1376,7 @@ struct pci_fixup pcibios_fixups[] = {
 	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_VIA,	PCI_DEVICE_ID_VIA_8367_0,	pci_fixup_via_northbridge_bug },
 	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_NCR,	PCI_DEVICE_ID_NCR_53C810,	pci_fixup_ncr53c810 },
 	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_INTEL,	PCI_ANY_ID,			pci_fixup_transparent_bridge },
+	{ PCI_FIXUP_HEADER,	PCI_VENDOR_ID_NVIDIA,	PCI_DEVICE_ID_NVIDIA_NFORCE2,	pci_fixup_nforce2},
 	{ 0 }
 };
 
@@ -1433,7 +1467,6 @@ void __init pcibios_init(void)
 	if (!acpi_noirq && !acpi_pci_irq_init()) {
 		pci_using_acpi_prt = 1;
 		printk(KERN_INFO "PCI: Using ACPI for IRQ routing\n");
-		printk(KERN_INFO "PCI: if you experience problems, try using option 'pci=noacpi' or even 'acpi=off'\n");
 	}
 #endif
 	if (!pci_using_acpi_prt) {
