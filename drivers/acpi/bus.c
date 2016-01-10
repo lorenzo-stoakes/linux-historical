@@ -1769,22 +1769,14 @@ acpi_bus_scan (
 }
 
 
-struct acpi_device *acpi_fixed_pwr_button;
-struct acpi_device *acpi_fixed_sleep_button;
-
-EXPORT_SYMBOL(acpi_fixed_pwr_button);
-EXPORT_SYMBOL(acpi_fixed_sleep_button);
-
 static int
 acpi_bus_scan_fixed (
 	struct acpi_device	*root)
 {
 	int			result = 0;
+	struct acpi_device	*device = NULL;
 
 	ACPI_FUNCTION_TRACE("acpi_bus_scan_fixed");
-
-	acpi_fixed_pwr_button = NULL;
-	acpi_fixed_sleep_button = NULL;
 
 	if (!root)
 		return_VALUE(-ENODEV);
@@ -1793,11 +1785,11 @@ acpi_bus_scan_fixed (
 	 * Enumerate all fixed-feature devices.
 	 */
 	if (acpi_fadt.pwr_button == 0)
-		result = acpi_bus_add(&acpi_fixed_pwr_button, acpi_root, 
+		result = acpi_bus_add(&device, acpi_root, 
 			NULL, ACPI_BUS_TYPE_POWER_BUTTON);
 
 	if (acpi_fadt.sleep_button == 0)
-		result = acpi_bus_add(&acpi_fixed_sleep_button, acpi_root, 
+		result = acpi_bus_add(&device, acpi_root, 
 			NULL, ACPI_BUS_TYPE_SLEEP_BUTTON);
 
 	return_VALUE(result);

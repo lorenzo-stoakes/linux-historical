@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+# Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as
@@ -34,11 +34,22 @@
 EXTRA_CFLAGS += -I.. -I. -funsigned-char
 
 ifeq ($(CONFIG_XFS_DEBUG),y)
-	EXTRA_CFLAGS += -g -DSTATIC="" -DDEBUG -DXFSDEBUG
+	EXTRA_CFLAGS += -g -DSTATIC="" -DDEBUG
 	EXTRA_CFLAGS += -DPAGEBUF_LOCK_TRACKING
 endif
 ifeq ($(CONFIG_XFS_TRACE),y)
-	EXTRA_CFLAGS += -DXFS_RW_TRACE -DPAGEBUF_TRACE
+	EXTRA_CFLAGS += -DXFS_ALLOC_TRACE
+	EXTRA_CFLAGS += -DXFS_ATTR_TRACE
+	EXTRA_CFLAGS += -DXFS_BLI_TRACE
+	EXTRA_CFLAGS += -DXFS_BMAP_TRACE
+	EXTRA_CFLAGS += -DXFS_BMBT_TRACE
+	EXTRA_CFLAGS += -DXFS_DIR_TRACE
+	EXTRA_CFLAGS += -DXFS_DQUOT_TRACE
+	EXTRA_CFLAGS += -DXFS_ILOCK_TRACE
+	EXTRA_CFLAGS += -DXFS_LOG_TRACE
+	EXTRA_CFLAGS += -DXFS_RW_TRACE
+	EXTRA_CFLAGS += -DXFS_DIR2_TRACE
+	EXTRA_CFLAGS += -DPAGEBUF_TRACE
 	# EXTRA_CFLAGS += -DXFS_VNODE_TRACE
 endif
 

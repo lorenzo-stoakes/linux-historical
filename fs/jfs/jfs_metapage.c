@@ -1,5 +1,5 @@
 /*
- *   Copyright (C) International Business Machines Corp., 2000-2003
+ *   Copyright (C) International Business Machines Corp., 2000-2004
  *   Portions Copyright (C) Christoph Hellwig, 2001-2002
  *
  *   This program is free software;  you can redistribute it and/or modify
@@ -295,6 +295,7 @@ again:
 		spin_unlock(&meta_lock);
 		if (test_bit(META_stale, &mp->flag)) {
 			release_metapage(mp);
+			yield();	/* Let other waiters release it, too */
 			goto again;
 		}
 		if (test_bit(META_discard, &mp->flag)) {
@@ -340,6 +341,10 @@ again:
 			no_wait = 0;
 
 		mp = alloc_metapage(&dropped_lock, no_wait);
+		if (!mp) {
+			spin_unlock(&meta_lock);
+			return NULL;
+		}
 		if (dropped_lock) {
 			/* alloc_metapage blocked, we need to search the hash
 			 * again.

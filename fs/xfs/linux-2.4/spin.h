@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -29,27 +29,28 @@
  *
  * http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
  */
-#ifndef __XFS_SUPPORT_TIME_H__
-#define __XFS_SUPPORT_TIME_H__
+#ifndef __XFS_SUPPORT_SPIN_H__
+#define __XFS_SUPPORT_SPIN_H__
 
-#include <linux/sched.h>
-#include <linux/time.h>
+#include <linux/sched.h>	/* preempt needs this */
+#include <linux/spinlock.h>
 
-typedef struct timespec timespec_t;
+/*
+ * Map lock_t from IRIX to Linux spinlocks.
+ *
+ * We do not make use of lock_t from interrupt context, so we do not
+ * have to worry about disabling interrupts at all (unlike IRIX).
+ */
 
-static inline void delay(long ticks)
-{
-	current->state = TASK_UNINTERRUPTIBLE;
-	schedule_timeout(ticks);
-}
+typedef spinlock_t lock_t;
 
-static inline void nanotime(struct timespec *tvp)
-{
-	struct timeval tv;
+#define SPLDECL(s)			unsigned long s
 
-	do_gettimeofday(&tv);
-	tvp->tv_sec = tv.tv_sec;
-	tvp->tv_nsec = tv.tv_usec * 1000;
-}
+#define spinlock_init(lock, name)	spin_lock_init(lock)
+#define	spinlock_destroy(lock)
+#define mutex_spinlock(lock)		({ spin_lock(lock); 0; })
+#define mutex_spinunlock(lock, s)	do { spin_unlock(lock); (void)s; } while (0)
+#define nested_spinlock(lock)		spin_lock(lock)
+#define nested_spinunlock(lock)		spin_unlock(lock)
 
-#endif /* __XFS_SUPPORT_TIME_H__ */
+#endif /* __XFS_SUPPORT_SPIN_H__ */

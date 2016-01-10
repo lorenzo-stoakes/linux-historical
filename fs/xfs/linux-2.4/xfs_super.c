@@ -439,7 +439,7 @@ xfssyncd(
 
 	for (;;) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		schedule_timeout(xfs_syncd_interval);
+		schedule_timeout((xfs_syncd_centisecs * HZ) / 100);
 		if (vfsp->vfs_flag & VFS_UMOUNT)
 			break;
 		if (vfsp->vfs_flag & VFS_RDONLY)

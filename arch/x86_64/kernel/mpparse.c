@@ -935,8 +935,6 @@ void __init mp_parse_prt (void)
 			irq = entry->link.index;
 		}
 
-		irq = entry->link.index;
-
   		/* Don't set up the ACPI SCI because it's already set up */
                 if (acpi_fadt.sci_int == irq) {
                          entry->irq = irq; /*we still need to set entry's irq*/

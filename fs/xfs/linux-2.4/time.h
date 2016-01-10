@@ -29,47 +29,27 @@
  *
  * http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
  */
+#ifndef __XFS_SUPPORT_TIME_H__
+#define __XFS_SUPPORT_TIME_H__
 
-/*
- * This file contains globals needed by XFS that were normally defined
- * somewhere else in IRIX.
- */
+#include <linux/sched.h>
+#include <linux/time.h>
 
-#include "xfs.h"
-#include "xfs_cred.h"
-#include "xfs_sysctl.h"
-#include "xfs_refcache.h"
+typedef struct timespec timespec_t;
 
-/*
- * System memory size - used to scale certain data structures in XFS.
- */
-unsigned long xfs_physmem;
+static inline void delay(long ticks)
+{
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout(ticks);
+}
 
-/*
- * Tunable XFS parameters.  xfs_params is required even when CONFIG_SYSCTL=n,
- * other XFS code uses these values.
- */
+static inline void nanotime(struct timespec *tvp)
+{
+	struct timeval tv;
 
-xfs_param_t xfs_params = {
-			  /*	MIN	DFLT	MAX	*/
-	.refcache_size	= {	0,	128,	XFS_REFCACHE_SIZE_MAX },
-	.refcache_purge	= {	0,	32,	XFS_REFCACHE_SIZE_MAX },
-	.restrict_chown	= {	0,	1,	1	},
-	.sgid_inherit	= {	0,	0,	1	},
-	.symlink_mode	= {	0,	0,	1	},
-	.panic_mask	= {	0,	0,	127	},
-	.error_level	= {	0,	3,	11	},
-	.sync_interval	= {	HZ,	30*HZ,	60*HZ	},
-	.stats_clear	= {	0,	0,	1	},
-	.inherit_sync	= {	0,	1,	1	},
-	.inherit_nodump	= {	0,	1,	1	},
-	.inherit_noatim = {	0,	1,	1	},
-	.flush_interval	= {	HZ/2,	HZ,	30*HZ	},
-	.age_buffer	= {	1*HZ,	15*HZ,	300*HZ	},
-};
+	do_gettimeofday(&tv);
+	tvp->tv_sec = tv.tv_sec;
+	tvp->tv_nsec = tv.tv_usec * 1000;
+}
 
-/*
- * Global system credential structure.
- */
-cred_t sys_cred_val, *sys_cred = &sys_cred_val;
-
+#endif /* __XFS_SUPPORT_TIME_H__ */

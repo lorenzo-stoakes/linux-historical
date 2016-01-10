@@ -40,6 +40,7 @@
 #define KM_SLEEP	0x0001
 #define KM_NOSLEEP	0x0002
 #define KM_NOFS		0x0004
+#define KM_MAYFAIL	0x0008
 
 #define	kmem_zone	kmem_cache_s
 #define kmem_zone_t	kmem_cache_t
@@ -83,18 +84,22 @@ static __inline unsigned int kmem_flags_convert(int flags)
         int lflags;
         
 #if DEBUG
-	if (unlikely(flags & ~(KM_SLEEP|KM_NOSLEEP|KM_NOFS))) {
+	if (unlikely(flags & ~(KM_SLEEP|KM_NOSLEEP|KM_NOFS|KM_MAYFAIL))) {
 		printk(KERN_WARNING
 		    "XFS: memory allocation with wrong flags (%x)\n", flags);
 		BUG();
 	}
 #endif
-        
-        lflags = (flags & KM_NOSLEEP) ? GFP_ATOMIC : GFP_KERNEL;
-        
-        /* avoid recusive callbacks to filesystem during transactions */
-	if (PFLAGS_TEST_FSTRANS() || (flags & KM_NOFS))
-		lflags &= ~__GFP_FS;
+
+	if (flags & KM_NOSLEEP) {
+		lflags = GFP_ATOMIC;
+	} else {
+		lflags = GFP_KERNEL;
+
+		/* avoid recusive callbacks to filesystem during transactions */
+		if (PFLAGS_TEST_FSTRANS() || (flags & KM_NOFS))
+			lflags &= ~__GFP_FS;
+	}
         
         return lflags;
 }

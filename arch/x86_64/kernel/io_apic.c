@@ -256,8 +256,9 @@ void __init check_ioapic(void)
 							 PCI_VENDOR_ID);
 				vendor &= 0xffff;
 				switch (vendor) { 
-				case PCI_VENDOR_ID_NVIDIA: 
 				case PCI_VENDOR_ID_VIA:
+					return;
+				case PCI_VENDOR_ID_NVIDIA: 
 					printk(KERN_INFO 
      "PCI bridge %02x:%02x from %x found. Setting \"noapic\". Overwrite with \"apic\"\n",
 					       num,slot,vendor); 

@@ -39,7 +39,7 @@
 #include "kmem.h"
 
 #define DEF_PRIORITY	(6)
-#define MAX_SLAB_SIZE	0x10000
+#define MAX_SLAB_SIZE	0x20000
 #define MAX_SHAKE	8
 
 static kmem_shake_func_t	shake_list[MAX_SHAKE];
@@ -124,7 +124,7 @@ repeat:
 	}
 
 	rval = __vmalloc(size, lflags, PAGE_KERNEL);
-	if (!rval && !nosleep)
+	if (!rval && !(flags & KM_MAYFAIL))
 		panic("kmem_alloc: NULL memory on KM_SLEEP request!");
 
 	return rval;

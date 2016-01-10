@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2001-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -130,10 +130,10 @@ STATIC ctl_table xfs_table[] = {
 	&sysctl_intvec, NULL, 
 	&xfs_params.error_level.min, &xfs_params.error_level.max},
 
-	{XFS_SYNC_INTERVAL, "sync_interval", &xfs_params.sync_interval.val,
+	{XFS_SYNCD_TIMER, "xfssyncd_centisecs", &xfs_params.syncd_timer.val,
 	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
 	&sysctl_intvec, NULL, 
-	&xfs_params.sync_interval.min, &xfs_params.sync_interval.max},
+	&xfs_params.syncd_timer.min, &xfs_params.syncd_timer.max},
 
 	{XFS_INHERIT_SYNC, "inherit_sync", &xfs_params.inherit_sync.val,
 	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
@@ -149,16 +149,16 @@ STATIC ctl_table xfs_table[] = {
 	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
 	&sysctl_intvec, NULL,
 	&xfs_params.inherit_noatim.min, &xfs_params.inherit_noatim.max},
-	
-	{XFS_FLUSH_INTERVAL, "flush_interval", &xfs_params.flush_interval.val,
-	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
-	&sysctl_intvec, NULL,
-	&xfs_params.flush_interval.min, &xfs_params.flush_interval.max},
 
-	{XFS_AGE_BUFFER, "age_buffer", &xfs_params.age_buffer.val,
+	{XFS_BUF_TIMER, "xfsbufd_centisecs", &xfs_params.xfs_buf_timer.val,
 	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
 	&sysctl_intvec, NULL,
-	&xfs_params.age_buffer.min, &xfs_params.age_buffer.max},
+	&xfs_params.xfs_buf_timer.min, &xfs_params.xfs_buf_timer.max},
+
+	{XFS_BUF_AGE, "age_buffer_centisecs", &xfs_params.xfs_buf_age.val,
+	sizeof(int), 0644, NULL, &proc_dointvec_minmax,
+	&sysctl_intvec, NULL,
+	&xfs_params.xfs_buf_age.min, &xfs_params.xfs_buf_age.max},
 
 	/* please keep this the last entry */
 #ifdef CONFIG_PROC_FS

@@ -32,7 +32,7 @@
 #ifndef __XFS_H__
 #define __XFS_H__
 
-#include <linux/xfs_linux.h>
+#include <linux-2.4/xfs_linux.h>
 
 #include <xfs_fs.h> 
 

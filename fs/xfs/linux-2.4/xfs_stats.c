@@ -82,7 +82,7 @@ xfs_read_xfsstats(
 			xfsstats.xs_write_bytes,
 			xfsstats.xs_read_bytes);
 	len += sprintf(buffer + len, "debug %u\n",
-#if defined(XFSDEBUG)
+#if defined(DEBUG)
 		1);
 #else
 		0);

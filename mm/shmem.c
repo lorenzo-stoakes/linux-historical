@@ -86,7 +86,7 @@ static void shmem_free_block(struct inode *inode)
 
 static void shmem_removepage(struct page *page)
 {
-	if (!PageLaunder(page))
+	if (!PageLaunder(page) && !PageError(page))
 		shmem_free_block(page->mapping->host);
 }
 
@@ -626,8 +626,11 @@ static int shmem_getpage(struct inode *inode, unsigned long idx, struct page **p
 	swp_entry_t swap;
 	int error = 0;
 
-	if (idx >= SHMEM_MAX_INDEX)
-		return -EFBIG;
+	if (idx >= SHMEM_MAX_INDEX) {
+		error = -EFBIG;
+		goto failed;
+	}
+
 	/*
 	 * Normally, filepage is NULL on entry, and either found
 	 * uptodate immediately, or allocated and zeroed, or read
@@ -781,18 +784,24 @@ repeat:
 	}
 done:
 	if (!*pagep) {
-		if (filepage) {
+		if (filepage)
 			UnlockPage(filepage);
-			*pagep = filepage;
-		} else
-			*pagep = ZERO_PAGE(0);
+		else
+			filepage = ZERO_PAGE(0);
+		*pagep = filepage;
 	}
+	if (PageError(filepage))
+		ClearPageError(filepage);
 	return 0;
 
 failed:
-	if (*pagep != filepage) {
-		UnlockPage(filepage);
-		page_cache_release(filepage);
+	if (filepage) {
+		if (*pagep == filepage)
+			SetPageError(filepage);
+		else {
+			UnlockPage(filepage);
+			page_cache_release(filepage);
+		}
 	}
 	return error;
 }
