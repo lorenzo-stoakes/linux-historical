@@ -80,8 +80,8 @@
 #define COPYRIGHT	"Copyright (c) 1999-2003 " MODULEAUTHOR
 #endif
 
-#define MPT_LINUX_VERSION_COMMON	"2.05.11.01"
-#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.05.11.01"
+#define MPT_LINUX_VERSION_COMMON	"2.05.11.03"
+#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-2.05.11.03"
 #define WHAT_MAGIC_STRING		"@" "(" "#" ")"
 
 #define show_mptmod_ver(s,ver)  \

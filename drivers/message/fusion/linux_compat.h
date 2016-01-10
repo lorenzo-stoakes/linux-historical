@@ -12,7 +12,7 @@
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 
 
-#if (defined(__sparc__) && defined(__sparc_v9__)) || defined(__x86_64__) || defined(__ia64__)
+#if (defined(__sparc__) && defined(__sparc_v9__)) || defined(__x86_64__)
 #define MPT_CONFIG_COMPAT
 #endif
 

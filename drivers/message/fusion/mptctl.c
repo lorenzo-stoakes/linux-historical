@@ -82,6 +82,7 @@
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/miscdevice.h>
+#include <linux/smp_lock.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -2715,7 +2716,6 @@ extern int register_ioctl32_conversion(unsigned int cmd,
 						      unsigned long,
 						      struct file *));
 int unregister_ioctl32_conversion(unsigned int cmd);
-extern asmlinkage int sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg);
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /* compat_XXX functions are used to provide a conversion between
@@ -2724,6 +2724,19 @@ extern asmlinkage int sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long
  * does contain pointer(s), then the specialized function is used
  * to ensure the structure contents is properly processed by mptctl.
  */
+static int
+compat_mptctl_ioctl(unsigned int fd, unsigned int cmd,
+			unsigned long arg, struct file *filp)
+{
+	int ret;
+
+	lock_kernel();
+	dctlprintk((KERN_INFO MYNAM "::compat_mptctl_ioctl() called\n"));
+	ret = mptctl_ioctl(filp->f_dentry->d_inode, filp, cmd, arg);
+	unlock_kernel();
+	return ret;
+}
+
 static int
 compat_mptfwxfer_ioctl(unsigned int fd, unsigned int cmd,
 			unsigned long arg, struct file *filp)
@@ -2864,30 +2877,31 @@ int __init mptctl_init(void)
 	}
 
 #ifdef MPT_CONFIG_COMPAT
-	err = register_ioctl32_conversion(MPTIOCINFO, sys_ioctl);
+	err = register_ioctl32_conversion(MPTIOCINFO, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTIOCINFO1, sys_ioctl);
+	err = register_ioctl32_conversion(MPTIOCINFO1, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTTARGETINFO, sys_ioctl);
+	err = register_ioctl32_conversion(MPTTARGETINFO, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTTEST, sys_ioctl);
+	err = register_ioctl32_conversion(MPTTEST, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTEVENTQUERY, sys_ioctl);
+	err = register_ioctl32_conversion(MPTEVENTQUERY, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTEVENTENABLE, sys_ioctl);
+	err = register_ioctl32_conversion(MPTEVENTENABLE, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTEVENTREPORT, sys_ioctl);
+	err = register_ioctl32_conversion(MPTEVENTREPORT, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(MPTHARDRESET, sys_ioctl);
+	err = register_ioctl32_conversion(MPTHARDRESET, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
 	err = register_ioctl32_conversion(MPTCOMMAND32, compat_mpt_command);
 	if (++where && err) goto out_fail;
 	err = register_ioctl32_conversion(MPTFWDOWNLOAD32,
 					  compat_mptfwxfer_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(HP_GETHOSTINFO, sys_ioctl);
+	err = register_ioctl32_conversion(HP_GETHOSTINFO, compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
-	err = register_ioctl32_conversion(HP_GETTARGETINFO, sys_ioctl);
+	err = register_ioctl32_conversion(HP_GETTARGETINFO,
+	    				compat_mptctl_ioctl);
 	if (++where && err) goto out_fail;
 #endif
 

@@ -914,8 +914,8 @@ mptscsih_io_done(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 			sc->resid = sc->request_bufflen - xfer_cnt;
 			dprintk((KERN_NOTICE "  SET sc->resid=%02xh\n", sc->resid));
 #endif
-			if (sc->underflow > xfer_cnt) {
-				sc->result = DID_SOFT_ERROR;
+			if((xfer_cnt == 0 ) || (sc->underflow > xfer_cnt)) {
+				sc->result = DID_SOFT_ERROR << 16;
 			}
 
 			/* Report Queue Full

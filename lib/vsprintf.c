@@ -248,6 +248,18 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 				/* 'z' support added 23/7/1999 S.H.    */
 				/* 'z' changed to 'Z' --davidm 1/25/99 */
 
+	/* Reject out-of-range values early */
+	if (unlikely((int) size < 0)) {
+		/* There can be only one.. */
+		static int warn = 1;
+		if (warn) {
+			printk(KERN_WARNING "improper call of vsnprintf!\n");
+			dump_stack();
+			warn = 0;
+		}
+		return 0;
+	}
+
 	str = buf;
 	end = buf + size - 1;
 
@@ -488,7 +500,7 @@ int snprintf(char * buf, size_t size, const char *fmt, ...)
  */
 int vsprintf(char *buf, const char *fmt, va_list args)
 {
-	return vsnprintf(buf, 0xFFFFFFFFUL, fmt, args);
+	return vsnprintf(buf, (~0U)>>1, fmt, args);
 }
 
 
