@@ -14,7 +14,7 @@
 #define unlikely(x)	__builtin_expect((x),0)
 
 #if __GNUC__ > 3
-#define __attribute_used__	__attribute((__used__))
+#define __attribute_used__	__attribute__((__used__))
 #elif __GNUC__ == 3
 #if  __GNUC_MINOR__ >= 3
 # define __attribute_used__	__attribute__((__used__))

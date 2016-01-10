@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -67,7 +67,6 @@
 #include "xfs_utils.h"
 #include "xfs_version.h"
 
-#include <linux/blkdev.h>
 #include <linux/init.h>
 
 STATIC struct quotactl_ops linvfs_qops;
@@ -319,88 +318,6 @@ xfs_blkdev_put(
 		blkdev_put(bdev, BDEV_FS);
 }
 
-void
-xfs_flush_buftarg(
-	xfs_buftarg_t		*btp)
-{
-	pagebuf_delwri_flush(btp, PBDF_WAIT, NULL);
-}
-
-void
-xfs_free_buftarg(
-	xfs_buftarg_t		*btp)
-{
-	xfs_flush_buftarg(btp);
-	kmem_free(btp, sizeof(*btp));
-}
-
-int
-xfs_readonly_buftarg(
-	xfs_buftarg_t		*btp)
-{
-	return is_read_only(btp->pbr_kdev);
-}
-
-void
-xfs_relse_buftarg(
-	xfs_buftarg_t		*btp)
-{
-	destroy_buffers(btp->pbr_kdev);
-	truncate_inode_pages(btp->pbr_mapping, 0LL);
-}
-
-unsigned int
-xfs_getsize_buftarg(
-	xfs_buftarg_t		*btp)
-{
-	return block_size(btp->pbr_kdev);
-}
-
-void
-xfs_setsize_buftarg(
-	xfs_buftarg_t		*btp,
-	unsigned int		blocksize,
-	unsigned int		sectorsize)
-{
-	btp->pbr_bsize = blocksize;
-	btp->pbr_sshift = ffs(sectorsize) - 1;
-	btp->pbr_smask = sectorsize - 1;
-
-	if (set_blocksize(btp->pbr_kdev, sectorsize)) {
-		printk(KERN_WARNING
-			"XFS: Cannot set_blocksize to %u on device 0x%x\n",
-			sectorsize, kdev_t_to_nr(btp->pbr_kdev));
-	}
-}
-
-xfs_buftarg_t *
-xfs_alloc_buftarg(
-	struct block_device	*bdev)
-{
-	xfs_buftarg_t		*btp;
-
-	btp = kmem_zalloc(sizeof(*btp), KM_SLEEP);
-
-	btp->pbr_dev =  bdev->bd_dev;
-	btp->pbr_kdev = to_kdev_t(btp->pbr_dev);
-	btp->pbr_bdev = bdev;
-	btp->pbr_mapping = bdev->bd_inode->i_mapping;
-	xfs_setsize_buftarg(btp, PAGE_CACHE_SIZE,
-			    get_hardsect_size(btp->pbr_kdev));
-
-	switch (MAJOR(btp->pbr_dev)) {
-	case MD_MAJOR:
-	case EVMS_MAJOR:
-		btp->pbr_flags = PBR_ALIGNED_ONLY;
-		break;
-	case LVM_BLK_MAJOR:
-		btp->pbr_flags = PBR_SECTOR_ONLY;
-		break;
-	}
-
-	return btp;
-}
-
 STATIC struct inode *
 linvfs_alloc_inode(
 	struct super_block	*sb)
@@ -501,7 +418,8 @@ linvfs_clear_inode(
 #define SYNCD_FLAGS	(SYNC_FSDATA|SYNC_BDFLUSH|SYNC_ATTR|SYNC_REFCACHE)
 
 STATIC int
-syncd(void *arg)
+xfssyncd(
+	void			*arg)
 {
 	vfs_t			*vfsp = (vfs_t *) arg;
 	int			error;
@@ -537,11 +455,12 @@ syncd(void *arg)
 }
 
 STATIC int
-linvfs_start_syncd(vfs_t *vfsp)
+linvfs_start_syncd(
+	vfs_t			*vfsp)
 {
-	int pid;
+	int			pid;
 
-	pid = kernel_thread(syncd, (void *) vfsp,
+	pid = kernel_thread(xfssyncd, (void *) vfsp,
 			CLONE_VM | CLONE_FS | CLONE_FILES);
 	if (pid < 0)
 		return pid;
@@ -550,7 +469,8 @@ linvfs_start_syncd(vfs_t *vfsp)
 }
 
 STATIC void
-linvfs_stop_syncd(vfs_t *vfsp)
+linvfs_stop_syncd(
+	vfs_t			*vfsp)
 {
 	vfsp->vfs_flag |= VFS_UMOUNT;
 	wmb();
@@ -603,6 +523,7 @@ linvfs_sync_super(
 	int		error;
 
 	VFS_SYNC(vfsp, SYNC_FSDATA|SYNC_WAIT, NULL, error);
+	sb->s_dirt = 0;
 	return -error;
 }
 

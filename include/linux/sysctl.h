@@ -128,6 +128,7 @@ enum
 	KERN_PPC_L3CR=57,       /* l3cr register on PPC */
 	KERN_EXCEPTION_TRACE=58, /* boolean: exception trace */
  	KERN_CORE_SETUID=59,	/* int: set to allow core dumps of setuid apps */
+	KERN_SPARC_SCONS_PWROFF=64, /* int: serial console power-off halt */
 };
 
 
@@ -554,6 +555,7 @@ enum {
 	NET_SCTP_PRESERVE_ENABLE         = 11,
 	NET_SCTP_MAX_BURST               = 12,
 	NET_SCTP_ADDIP_ENABLE            = 13,
+	NET_SCTP_PRSCTP_ENABLE           = 14,
 };
 /* /proc/sys/net/khttpd/ */
 enum {

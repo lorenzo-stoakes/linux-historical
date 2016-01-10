@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -521,18 +521,12 @@ linvfs_setattr(
 	}
 
 	if (ia_valid & (ATTR_MTIME_SET | ATTR_ATIME_SET))
-		flags = ATTR_UTIME;
+		flags |= ATTR_UTIME;
 
 	VOP_SETATTR(vp, &vattr, flags, NULL, error);
 	if (error)
-		return(-error);	/* Positive error up from XFS */
-	if (ia_valid & ATTR_SIZE) {
-		error = vmtruncate(inode, attr->ia_size);
-	}
-
-	if (!error) {
-		vn_revalidate(vp);
-	}
+		return -error;
+	vn_revalidate(vp);
 	return error;
 }
 

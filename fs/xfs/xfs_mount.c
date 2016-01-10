@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -117,6 +117,7 @@ static struct {
     { offsetof(xfs_sb_t, sb_logsectlog), 0 },
     { offsetof(xfs_sb_t, sb_logsectsize),0 },
     { offsetof(xfs_sb_t, sb_logsunit),	 0 },
+    { offsetof(xfs_sb_t, sb_features2),	 0 },
     { sizeof(xfs_sb_t),			 0 }
 };
 
@@ -1130,22 +1131,11 @@ xfs_unmountfs(xfs_mount_t *mp, struct cred *cr)
 void
 xfs_unmountfs_close(xfs_mount_t *mp, struct cred *cr)
 {
-	int		have_logdev = (mp->m_logdev_targp != mp->m_ddev_targp);
-
-	if (mp->m_ddev_targp) {
-		xfs_free_buftarg(mp->m_ddev_targp);
-		mp->m_ddev_targp = NULL;
-	}
-	if (mp->m_rtdev_targp) {
-		xfs_blkdev_put(mp->m_rtdev_targp->pbr_bdev);
-		xfs_free_buftarg(mp->m_rtdev_targp);
-		mp->m_rtdev_targp = NULL;
-	}
-	if (mp->m_logdev_targp && have_logdev) {
-		xfs_blkdev_put(mp->m_logdev_targp->pbr_bdev);
-		xfs_free_buftarg(mp->m_logdev_targp);
-		mp->m_logdev_targp = NULL;
-	}
+	if (mp->m_logdev_targp != mp->m_ddev_targp)
+		xfs_free_buftarg(mp->m_logdev_targp, 1);
+	if (mp->m_rtdev_targp)
+		xfs_free_buftarg(mp->m_rtdev_targp, 1);
+	xfs_free_buftarg(mp->m_ddev_targp, 0);
 }
 
 int

@@ -699,10 +699,10 @@ static void hci_usb_rx_complete(struct urb *urb)
 	BT_DBG("%s urb %p type %d status %d count %d flags %x", hdev->name, urb,
 			_urb->type, urb->status, count, urb->transfer_flags);
 
-	if (!test_bit(HCI_RUNNING, &hdev->flags))
-		return;
-
 	read_lock(&husb->completion_lock);
+
+	if (!test_bit(HCI_RUNNING, &hdev->flags))
+		goto unlock;
 
 	if (urb->status || !count)
 		goto resubmit;
@@ -740,6 +740,8 @@ resubmit:
 		BT_DBG("%s urb %p type %d resubmit status %d", hdev->name, urb,
 				_urb->type, err);
 	}
+
+unlock:
 	read_unlock(&husb->completion_lock);
 }
 

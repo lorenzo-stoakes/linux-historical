@@ -197,6 +197,8 @@
 #define  PCI_CAP_ID_MSI		0x05	/* Message Signalled Interrupts */
 #define  PCI_CAP_ID_CHSWP	0x06	/* CompactPCI HotSwap */
 #define  PCI_CAP_ID_PCIX	0x07	/* PCI-X */
+#define  PCI_CAP_ID_SHPC	0x0C    /* PCI Standard Hot-Plug Controller */	
+#define  PCI_CAP_ID_EXP		0x10    /* PCI-EXPRESS */	
 #define PCI_CAP_LIST_NEXT	1	/* Next capability in the list */
 #define PCI_CAP_FLAGS		2	/* Capability defined flags (16 bits) */
 #define PCI_CAP_SIZEOF		4
@@ -831,6 +833,8 @@ extern int pci_pci_problems;
 #define PCIPCI_VIAETBF		8
 #define PCIPCI_VSFX		16
 #define PCIPCI_ALIMAGIK		32
+
+extern int pciehp_msi_quirk;
 
 #endif /* __KERNEL__ */
 #endif /* LINUX_PCI_H */

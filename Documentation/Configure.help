@@ -17440,12 +17440,9 @@ Tracing support (EXPERIMENTAL)
 CONFIG_XFS_TRACE
   Say Y here to get an XFS build with activity tracing enabled.
   Enabling this option will attach historical information to XFS
-  inodes, pagebufs, certain locks, the log, the IO path, and a
+  inodes, buffers, certain locks, the log, the IO path, and a
   few other key areas within XFS.  These traces can be examined
   using a kernel debugger.
-
-  Note that for the pagebuf traces, you will also have to enable
-  the sysctl in /proc/sys/vm/pagebuf/debug for this to work.
 
   Say N unless you are an XFS developer.
 
@@ -23180,9 +23177,6 @@ CONFIG_BLUEZ_HCIBT3C
      3Com Bluetooth Card (3CRWB6096)
      HP Bluetooth Card
 
-  The HCI BT3C driver uses external firmware loader program provided in
-  the BlueFW package. For more information, see <http://bluez.sf.net>.
-
   Say Y here to compile support for HCI BT3C devices into the
   kernel or say M to compile it as module (bt3c_cs.o).
 
@@ -28797,15 +28791,22 @@ CONFIG_CRYPTO_CAST6
 CONFIG_CRYPTO_ARC4
   ARC4 cipher algorithm.
   
-  This is a stream cipher using keys ranging from 8 bits to 2048
-  bits in length.  ARC4 is commonly used in protocols such as WEP 
-  and SSL.
+  ARC4 is a stream cipher using keys ranging from 8 bits to 2048
+  bits in length.  This algorithm is required for driver-based 
+  WEP, but it should not be for other purposes because of the
+  weakness of the algorithm.
 
 CONFIG_CRYPTO_DEFLATE
   This is the Deflate algorithm (RFC1951), specified for use in
   IPSec with the IPCOMP protocol (RFC3173, RFC2394).
 
   You will most probably want this if using IPSec.
+
+CONFIG_CRYPTO_MICHAEL_MIC
+  Michael MIC is used for message integrity protection in TKIP
+  (IEEE 802.11i). This algorithm is required for TKIP, but it
+  should not be used for other purposes because of the weakness
+  of the algorithm.
 
 CONFIG_CRYPTO_TEST
   Quick & dirty crypto test module.

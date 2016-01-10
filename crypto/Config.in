@@ -81,6 +81,7 @@ if [ "$CONFIG_CRYPTO" = "y" ]; then
   else
     tristate       '  Deflate compression algorithm' CONFIG_CRYPTO_DEFLATE
   fi
+  tristate       '  Michael MIC keyed digest algorithm' CONFIG_CRYPTO_MICHAEL_MIC
   tristate       '  Testing module' CONFIG_CRYPTO_TEST
 fi
 

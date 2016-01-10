@@ -49,14 +49,18 @@ typedef unsigned long xfs_pflags_t;
 #define PFLAGS_TEST_NOIO()              (current->flags & PF_NOIO)
 #define PFLAGS_TEST_FSTRANS()           (current->flags & PF_FSTRANS)
 
-#define PFLAGS_SET_NOIO(STATEP) do {    \
-	*(STATEP) = current->flags;     \
-        current->flags |= PF_NOIO;      \
+#define PFLAGS_SET_NOIO() do {		\
+	current->flags |= PF_NOIO;	\
 } while (0)
 
-#define PFLAGS_SET_FSTRANS(STATEP) do { \
-	*(STATEP) = current->flags;     \
-        current->flags |= PF_FSTRANS;   \
+#define PFLAGS_CLEAR_NOIO() do {	\
+	current->flags &= ~PF_NOIO;	\
+} while (0)
+
+/* these could be nested, so we save state */
+#define PFLAGS_SET_FSTRANS(STATEP) do {	\
+	*(STATEP) = current->flags;	\
+	current->flags |= PF_FSTRANS;	\
 } while (0)
 
 #define PFLAGS_CLEAR_FSTRANS(STATEP) do { \
@@ -64,14 +68,15 @@ typedef unsigned long xfs_pflags_t;
 	current->flags &= ~PF_FSTRANS;	\
 } while (0)
 
-
-#define PFLAGS_RESTORE(STATEP) do {     \
-	current->flags = *(STATEP);     \
+/* Restore the PF_FSTRANS state to what was saved in STATEP */
+#define PFLAGS_RESTORE_FSTRANS(STATEP) do {     		\
+	current->flags = ((current->flags & ~PF_FSTRANS) |	\
+			  (*(STATEP) & PF_FSTRANS));		\
 } while (0)
 
 #define PFLAGS_DUP(OSTATEP, NSTATEP) do { \
 	*(NSTATEP) = *(OSTATEP);	\
-} while (0);
+} while (0)
 
 static __inline unsigned int kmem_flags_convert(int flags)
 {

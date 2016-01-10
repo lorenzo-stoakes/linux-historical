@@ -1321,7 +1321,7 @@ static void __init pci_fixup_via_northbridge_bug(struct pci_dev *d)
  * system to PCI bus no matter what are their window settings, so they are
  * "transparent" (or subtractive decoding) from programmers point of view.
  */
-static void __init pci_fixup_transparent_bridge(struct pci_dev *dev)
+static void __devinit pci_fixup_transparent_bridge(struct pci_dev *dev)
 {
 	if ((dev->class >> 8) == PCI_CLASS_BRIDGE_PCI &&
 	    (dev->device & 0xff00) == 0x2400)

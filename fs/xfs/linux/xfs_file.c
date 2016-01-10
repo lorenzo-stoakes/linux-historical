@@ -68,7 +68,7 @@ __linvfs_read(
 {
 	struct inode	*inode = file->f_dentry->d_inode;
 	vnode_t		*vp = LINVFS_GET_VP(inode);
-	size_t		rval;
+	ssize_t		rval;
 
 	if (unlikely(file->f_flags & O_DIRECT)) {
 		ioflags |= IO_ISDIRECT;
@@ -212,6 +212,10 @@ linvfs_fsync(
 	vnode_t		*vp = LINVFS_GET_VP(inode);
 	int		error;
 	int		flags = FSYNC_WAIT;
+
+	error = fsync_inode_data_buffers(inode);
+	if (error)
+		return error;
 
 	if (datasync)
 		flags |= FSYNC_DATA;

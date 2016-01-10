@@ -63,6 +63,7 @@
 
 #include <linux/mm.h>
 #include <linux/kernel.h>
+#include <linux/blkdev.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/file.h>
@@ -236,6 +237,10 @@ BUFFER_FNS(Unwritten, unwritten)
 #define DEFAULT_PROJID	0
 #define dfltprid	DEFAULT_PROJID
 
+#ifndef pgoff_t		/* 2.6 compat */
+#define pgoff_t		unsigned long
+#endif
+
 #define MAXPATHLEN	1024
 
 #define MIN(a,b)	(min(a,b))
@@ -258,13 +263,10 @@ BUFFER_FNS(Unwritten, unwritten)
 
 #define XFS_DEV_TO_KDEVT(dev)	mk_kdev(XFS_DEV_MAJOR(dev),XFS_DEV_MINOR(dev))
 
+#define xfs_stack_trace()	dump_stack()
 
-/* Produce a kernel stack trace */
-
-static inline void xfs_stack_trace(void)
-{
-	dump_stack();
-}
+#define xfs_itruncate_data(ip, off)	\
+	(-vmtruncate(LINVFS_GET_IP(XFS_ITOV(ip)), (off)))
 
 
 /* Move the kernel do_div definition off to one side */
