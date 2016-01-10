@@ -1309,11 +1309,13 @@ CONFIG_PIIX_TUNING
 
   If unsure, say N.
 
-PROMISE PDC20246/PDC20262/PDC20265/PDC20267/PDC20268 support
+Promise PDC202{46|62|65|67} support
 CONFIG_BLK_DEV_PDC202XX_OLD
-  Promise Ultra33 or PDC20246
-  Promise Ultra66 or PDC20262
-  Promise Ultra100 or PDC20265/PDC20267/PDC20268
+  Promise Ultra 33 [PDC20246]
+  Promise Ultra 66 [PDC20262]
+  Promise FastTrak 66 [PDC20263]
+  Promise MB Ultra 100 [PDC20265]
+  Promise Ultra 100 [PDC20267]
 
   This driver adds up to 4 more EIDE devices sharing a single
   interrupt. This add-on card is a bootable PCI UDMA controller. Since
@@ -1322,7 +1324,7 @@ CONFIG_BLK_DEV_PDC202XX_OLD
   not match, the driver attempts to do dynamic tuning of the chipset
   at boot-time for max-speed.  Ultra33 BIOS 1.25 or newer is required
   for more than one card. This card may require that you say Y to
-  "Special UDMA Feature".
+  "Force (U)DMA burst transfers" (old name: "Special UDMA Feature").
 
   If you say Y here, you need to say Y to "Use DMA by default when
   available" as well.
@@ -1332,7 +1334,7 @@ CONFIG_BLK_DEV_PDC202XX_OLD
 
   If unsure, say N.
 
-PROMISE PDC202{68|69|70|71|75|76|77} support
+Promise PDC202{68|69|70|71|75|76|77} support
 CONFIG_BLK_DEV_PDC202XX_NEW
   Promise Ultra 100 TX2 [PDC20268]
   Promise Ultra 133 PTX2 [PDC20269]
@@ -1347,17 +1349,16 @@ CONFIG_BLK_DEV_PDC202XX_NEW
   multiple cards can be installed and there are BIOS ROM problems that
   happen if the BIOS revisions of all installed cards (max of five) do
   not match, the driver attempts to do dynamic tuning of the chipset
-  at boot-time for max speed.  Ultra33 BIOS 1.25 or newer is required
-  for more than one card.
+  at boot-time for max speed.
 
   If you say Y here, you need to say Y to "Use DMA by default when
   available" as well.
 
   If unsure, say N.
 
-Special UDMA Feature
+Force (U)DMA burst transfers
 CONFIG_PDC202XX_BURST
-  This option causes the pdc202xx driver to enable UDMA modes on the
+  This option causes the pdc202xx_old driver to enable UDMA modes on the
   PDC202xx even when the PDC202xx BIOS has not done so.
 
   It was originally designed for the PDC20246/Ultra33, whose BIOS will
@@ -1370,9 +1371,17 @@ CONFIG_PDC202XX_BURST
 
   If unsure, say N.
 
-Special FastTrak Feature
+Ignore BIOS port disabled setting on FastTrak
 CONFIG_PDC202XX_FORCE
-  For FastTrak enable overriding BIOS.
+  Chipsets affected:
+
+  PDC202{46|62|63|65|67}
+  (pdc202xx_old driver)
+
+  PDC202{70|76}
+  (pdc202xx_new driver)
+
+  Say Y unless you want to use Promise proprietary driver.
 
 SiS5513 chipset support
 CONFIG_BLK_DEV_SIS5513
@@ -5596,14 +5605,15 @@ CONFIG_FB_SIS
 SIS 300 series support
 CONFIG_FB_SIS_300
   This enables support for SiS 300 series chipsets (300/305, 540, 630,
-  730).  Documentation available at the maintainer's website at
-   <http://www.winischhofer.net/linuxsisvga.shtml>.
+  630S, 730S). Documentation available at the maintainer's website at
+  <http://www.winischhofer.net/linuxsisvga.shtml>.
 
 SIS 315/330 series support
 CONFIG_FB_SIS_315
-  This enables support for SiS 315/330 series chipsets (315, 550, 650,
-  M650, 651, 661FX, M661FX, 740, 741, 330). Documentation available at
-  the maintainer's site <http://www.winischhofer.net/linuxsisvga.shtml>.
+  This enables support for SiS 315/330 series chipsets (315, 315PRO, 
+  55x, (M)650, 651, (M)661FX, 661MX, 740, (M)741(GX), (M)760, 330).
+  Documentation available at the maintainer's website at
+  <http://www.winischhofer.net/linuxsisvga.shtml>.
 
 IMS Twin Turbo display support
 CONFIG_FB_IMSTT
@@ -17332,7 +17342,7 @@ CONFIG_AUTOFS4_FS
   automounter (amd), which is a pure user space daemon.
 
   To use the automounter you need the user-space tools from
-  <ftp://ftp.kernel.org/pub/linux/daemons/autofs/testing-v4/>; you also
+  <ftp://ftp.kernel.org/pub/linux/daemons/autofs/v4/>; you also
   want to answer Y to "NFS file system support", below.
 
   If you want to compile this as a module ( = code which can be
