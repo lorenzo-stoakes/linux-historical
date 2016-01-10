@@ -174,8 +174,12 @@ iiSendPendingMail(i2eBordStrPtr pB)
 			pB->i2eWaitingForEmptyFifo |=
 				(pB->i2eOutMailWaiting & MB_OUT_STUFFED);
 			pB->i2eOutMailWaiting = 0;
+			if( pB->SendPendingRetry ) {
+				printk( KERN_DEBUG "IP2: iiSendPendingMail: busy board pickup on %d\n", pB->SendPendingRetry );
+			}
 			pB->SendPendingRetry = 0;
 		} else {
+#ifdef	IP2_USE_TIMER_WAIT
 /*		The only time we hit this area is when "iiTrySendMail" has
 		failed.  That only occurs when the outbound mailbox is
 		still busy with the last message.  We take a short breather
@@ -192,6 +196,11 @@ iiSendPendingMail(i2eBordStrPtr pB)
 				add_timer( &(pB->SendPendingTimer) );
 			} else {
 				printk( KERN_ERR "IP2: iiSendPendingMail unable to queue outbound mail\n" );
+			}
+#endif
+			pB->SendPendingRetry++;
+			if( 0 == ( pB->SendPendingRetry % 8 ) ) {
+				printk( KERN_ERR "IP2: iiSendPendingMail: board busy, retry %d\n", pB->SendPendingRetry );
 			}
 		}
 	}
@@ -1329,8 +1338,9 @@ i2DrainOutput(i2ChanStrPtr pCh, int timeout)
 	remove_wait_queue(&(pCh->pBookmarkWait), &wait);
 
 	// if expires == 0 then timer poped, then do not need to del_timer
+	// jiffy wrap per Tim Schmielau (tim@physik3.uni-rostock.de)
 	if ((timeout > 0) && pCh->BookmarkTimer.expires && 
-	                     time_before(jiffies, pCh->BookmarkTimer.expires)) {
+			time_before(jiffies, pCh->BookmarkTimer.expires)) {
 		del_timer( &(pCh->BookmarkTimer) );
 		pCh->BookmarkTimer.expires = 0;
 

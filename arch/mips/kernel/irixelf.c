@@ -130,7 +130,7 @@ static void set_brk(unsigned long start, unsigned long end)
 	end = PAGE_ALIGN(end);
 	if (end <= start)
 		return;
-	do_brk(start, end - start);
+	do_brk_locked(start, end - start);
 }
 
 
@@ -379,7 +379,7 @@ static unsigned int load_irix_interp(struct elfhdr * interp_elf_ex,
 
 	/* Map the last of the bss segment */
 	if (last_bss > len) {
-		do_brk(len, (last_bss - len));
+		do_brk_locked(len, (last_bss - len));
 	}
 	kfree(elf_phdata);
 
@@ -567,7 +567,7 @@ void irix_map_prda_page (void)
 	unsigned long v;
 	struct prda *pp;
 
-	v =  do_brk (PRDA_ADDRESS, PAGE_SIZE);
+	v =  do_brk_locked (PRDA_ADDRESS, PAGE_SIZE);
 
 	if (v < 0)
 		return;
@@ -859,7 +859,7 @@ static int load_irix_library(struct file *file)
 	len = (elf_phdata->p_filesz + elf_phdata->p_vaddr+ 0xfff) & 0xfffff000;
 	bss = elf_phdata->p_memsz + elf_phdata->p_vaddr;
 	if (bss > len)
-	  do_brk(len, bss-len);
+	  do_brk_locked(len, bss-len);
 	kfree(elf_phdata);
 	return 0;
 }

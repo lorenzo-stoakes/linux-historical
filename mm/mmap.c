@@ -1116,6 +1116,21 @@ out:
 	return addr;
 }
 
+/* locking version of do_brk. */
+unsigned long do_brk_locked(unsigned long addr, unsigned long len)
+{
+	unsigned long ret;
+
+	down_write(&current->mm->mmap_sem);
+	ret = do_brk(addr, len);
+	up_write(&current->mm->mmap_sem);
+
+	return ret;
+}
+
+
+
+
 /* Build the RB tree corresponding to the VMA list. */
 void build_mmap_rb(struct mm_struct * mm)
 {

@@ -49,7 +49,7 @@ static void set_brk(unsigned long start, unsigned long end)
 	end = PAGE_ALIGN(end);
 	if (end <= start)
 		return;
-	do_brk(start, end - start);
+	do_brk_locked(start, end - start);
 }
 
 /*
@@ -246,10 +246,10 @@ static int load_aout32_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	if (N_MAGIC(ex) == NMAGIC) {
 		loff_t pos = fd_offset;
 		/* Fuck me plenty... */
-		error = do_brk(N_TXTADDR(ex), ex.a_text);
+		error = do_brk_locked(N_TXTADDR(ex), ex.a_text);
 		bprm->file->f_op->read(bprm->file, (char *) N_TXTADDR(ex),
 			  ex.a_text, &pos);
-		error = do_brk(N_DATADDR(ex), ex.a_data);
+		error = do_brk_locked(N_DATADDR(ex), ex.a_data);
 		bprm->file->f_op->read(bprm->file, (char *) N_DATADDR(ex),
 			  ex.a_data, &pos);
 		goto beyond_if;
@@ -257,7 +257,7 @@ static int load_aout32_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 
 	if (N_MAGIC(ex) == OMAGIC) {
 		loff_t pos = fd_offset;
-		do_brk(N_TXTADDR(ex) & PAGE_MASK,
+		do_brk_locked(N_TXTADDR(ex) & PAGE_MASK,
 			ex.a_text+ex.a_data + PAGE_SIZE - 1);
 		bprm->file->f_op->read(bprm->file, (char *) N_TXTADDR(ex),
 			  ex.a_text+ex.a_data, &pos);
@@ -272,7 +272,7 @@ static int load_aout32_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 
 		if (!bprm->file->f_op->mmap) {
 			loff_t pos = fd_offset;
-			do_brk(0, ex.a_text+ex.a_data);
+			do_brk_locked(0, ex.a_text+ex.a_data);
 			bprm->file->f_op->read(bprm->file,(char *)N_TXTADDR(ex),
 				  ex.a_text+ex.a_data, &pos);
 			goto beyond_if;
@@ -388,7 +388,7 @@ static int load_aout32_library(struct file *file)
 	len = PAGE_ALIGN(ex.a_text + ex.a_data);
 	bss = ex.a_text + ex.a_data + ex.a_bss;
 	if (bss > len) {
-		error = do_brk(start_addr + len, bss - len);
+		error = do_brk_locked(start_addr + len, bss - len);
 		retval = error;
 		if (error != start_addr + len)
 			goto out;
