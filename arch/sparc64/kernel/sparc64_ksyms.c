@@ -324,7 +324,6 @@ EXPORT_SYMBOL(sparc32_open);
 #endif
 
 /* Special internal versions of library functions. */
-EXPORT_SYMBOL(__memcpy);
 EXPORT_SYMBOL(__memset);
 EXPORT_SYMBOL(_clear_page);
 EXPORT_SYMBOL(clear_user_page);

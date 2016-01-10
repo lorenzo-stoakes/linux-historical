@@ -157,6 +157,7 @@ static struct dev_info device_list[] =
  	{"TOSHIBA","CDROM","*", BLIST_ISROM},
  	{"TOSHIBA","CD-ROM","*", BLIST_ISROM},
 	{"MegaRAID", "LD", "*", BLIST_FORCELUN},
+	{"3PARdata", "VV", "*", BLIST_SPARSELUN | BLIST_LARGELUN},    // 3PARdata InServ Virtual Volume
 	{"DGC",  "RAID",      "*", BLIST_SPARSELUN | BLIST_LARGELUN}, // Dell PV 650F (tgt @ LUN 0)
 	{"DGC",  "DISK",      "*", BLIST_SPARSELUN | BLIST_LARGELUN}, // Dell PV 650F (no tgt @ LUN 0) 
 	{"DELL", "PV660F",   "*", BLIST_SPARSELUN | BLIST_LARGELUN},
@@ -208,6 +209,7 @@ static struct dev_info device_list[] =
 	{"SMSC", "USB 2 HS", "*", BLIST_SPARSELUN | BLIST_LARGELUN}, 
 	{"XYRATEX", "RS", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 	{"NEC", "iStorage", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_FORCELUN},
+	{"Xyratex", "4200", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 
 	/*
 	 * Must be at end of list...

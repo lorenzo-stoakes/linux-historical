@@ -295,6 +295,20 @@ static unsigned int ata_scsi_rw_xlat(struct ata_queued_cmd *qc, u8 *scsicmd)
 	return 1;
 }
 
+static int ata_scsi_qc_complete(struct ata_queued_cmd *qc, u8 drv_stat)
+{
+	struct scsi_cmnd *cmd = qc->scsicmd;
+
+	if (unlikely(drv_stat & (ATA_ERR | ATA_BUSY | ATA_DRQ)))
+		ata_to_sense_error(qc);
+	else
+		cmd->result = SAM_STAT_GOOD;
+
+	qc->scsidone(cmd);
+
+	return 0;
+}
+
 /**
  *	ata_scsi_translate - Translate then issue SCSI command to ATA device
  *	@ap: ATA port to which the command is addressed
@@ -328,6 +342,7 @@ static void ata_scsi_translate(struct ata_port *ap, struct ata_device *dev,
 	if (!qc)
 		return;
 
+	/* data is present; dma-map it */
 	if (cmd->sc_data_direction == SCSI_DATA_READ ||
 	    cmd->sc_data_direction == SCSI_DATA_WRITE) {
 		if (unlikely(cmd->request_bufflen < 1)) {
@@ -336,8 +351,16 @@ static void ata_scsi_translate(struct ata_port *ap, struct ata_device *dev,
 			goto err_out;
 		}
 
-		qc->flags |= ATA_QCFLAG_SG; /* data is present; dma-map it */
+		if (cmd->use_sg)
+			ata_sg_init(qc, cmd->request_buffer, cmd->use_sg);
+		else
+			ata_sg_init_one(qc, cmd->request_buffer,
+					cmd->request_bufflen);
+
+		qc->pci_dma_dir = scsi_to_pci_dma_dir(cmd->sc_data_direction);
 	}
+
+	qc->complete_fn = ata_scsi_qc_complete;
 
 	if (xlat_func(qc, scsicmd))
 		goto err_out;
@@ -897,6 +920,31 @@ void ata_scsi_badcmd(struct scsi_cmnd *cmd, void (*done)(struct scsi_cmnd *), u8
 	done(cmd);
 }
 
+static int atapi_qc_complete(struct ata_queued_cmd *qc, u8 drv_stat)
+{
+	struct scsi_cmnd *cmd = qc->scsicmd;
+
+	if (unlikely(drv_stat & (ATA_ERR | ATA_BUSY | ATA_DRQ)))
+		cmd->result = SAM_STAT_CHECK_CONDITION;
+	else {
+		u8 *scsicmd = cmd->cmnd;
+
+		if (scsicmd[0] == INQUIRY) {
+			u8 *buf = NULL;
+			unsigned int buflen;
+
+			buflen = ata_scsi_rbuf_get(cmd, &buf);
+			buf[2] = 0x5;
+			buf[3] = (buf[3] & 0xf0) | 2;
+			ata_scsi_rbuf_put(cmd);
+		}
+		cmd->result = SAM_STAT_GOOD;
+	}
+
+	qc->scsidone(cmd);
+
+	return 0;
+}
 /**
  *	atapi_xlat - Initialize PACKET taskfile
  *	@qc: command structure to be initialized
@@ -912,6 +960,13 @@ void ata_scsi_badcmd(struct scsi_cmnd *cmd, void (*done)(struct scsi_cmnd *), u8
 static unsigned int atapi_xlat(struct ata_queued_cmd *qc, u8 *scsicmd)
 {
 	struct scsi_cmnd *cmd = qc->scsicmd;
+	struct ata_device *dev = qc->dev;
+	int using_pio = (dev->flags & ATA_DFLAG_PIO);
+	int nodata = (cmd->sc_data_direction == SCSI_DATA_NONE);
+
+	memcpy(&qc->cdb, scsicmd, qc->ap->cdb_len);
+
+	qc->complete_fn = atapi_qc_complete;
 
 	qc->tf.flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE;
 	if (cmd->sc_data_direction == SCSI_DATA_WRITE) {
@@ -921,19 +976,18 @@ static unsigned int atapi_xlat(struct ata_queued_cmd *qc, u8 *scsicmd)
 
 	qc->tf.command = ATA_CMD_PACKET;
 
-	/* no data - interrupt-driven */
-	if (cmd->sc_data_direction == SCSI_DATA_NONE)
-		qc->tf.protocol = ATA_PROT_ATAPI;
-
-	/* PIO data xfer - polling */
-	else if ((qc->flags & ATA_QCFLAG_DMA) == 0) {
-		ata_qc_set_polling(qc);
-		qc->tf.protocol = ATA_PROT_ATAPI;
+	/* no data, or PIO data xfer */
+	if (using_pio || nodata) {
+		if (nodata)
+			qc->tf.protocol = ATA_PROT_ATAPI_NODATA;
+		else
+			qc->tf.protocol = ATA_PROT_ATAPI;
 		qc->tf.lbam = (8 * 1024) & 0xff;
 		qc->tf.lbah = (8 * 1024) >> 8;
+	}
 
-	/* DMA data xfer - interrupt-driven */
-	} else {
+	/* DMA data xfer */
+	else {
 		qc->tf.protocol = ATA_PROT_ATAPI_DMA;
 		qc->tf.feature |= ATAPI_PKT_DMA;
 

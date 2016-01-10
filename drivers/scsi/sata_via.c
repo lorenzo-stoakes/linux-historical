@@ -109,10 +109,13 @@ static struct ata_port_operations svia_sata_ops = {
 
 	.bmdma_setup            = ata_bmdma_setup_pio,
 	.bmdma_start            = ata_bmdma_start_pio,
-	.fill_sg		= ata_fill_sg,
+	.qc_prep		= ata_qc_prep,
+	.qc_issue		= ata_qc_issue_prot,
+
 	.eng_timeout		= ata_eng_timeout,
 
 	.irq_handler		= ata_interrupt,
+	.irq_clear		= ata_bmdma_irq_clear,
 
 	.scr_read		= svia_scr_read,
 	.scr_write		= svia_scr_write,
@@ -209,6 +212,7 @@ static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	probe_ent->irq = pdev->irq;
 	probe_ent->irq_flags = SA_SHIRQ;
 	probe_ent->pio_mask = 0x1f;
+	probe_ent->mwdma_mask = 0x07;
 	probe_ent->udma_mask = 0x7f;
 
 	probe_ent->port[0].cmd_addr = pci_resource_start(pdev, 0);

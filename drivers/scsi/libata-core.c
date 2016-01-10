@@ -49,13 +49,14 @@ static unsigned int ata_busy_sleep (struct ata_port *ap,
 				    unsigned long tmout_pat,
 			    	    unsigned long tmout);
 static void __ata_dev_select (struct ata_port *ap, unsigned int device);
-static void ata_dma_complete(struct ata_queued_cmd *qc, u8 host_stat);
-static void ata_host_set_pio(struct ata_port *ap);
-static void ata_host_set_udma(struct ata_port *ap);
-static void ata_dev_set_pio(struct ata_port *ap, unsigned int device);
-static void ata_dev_set_udma(struct ata_port *ap, unsigned int device);
 static void ata_set_mode(struct ata_port *ap);
-static int ata_qc_issue_prot(struct ata_queued_cmd *qc);
+static void ata_dev_set_xfermode(struct ata_port *ap, struct ata_device *dev);
+static unsigned int ata_get_mode_mask(struct ata_port *ap, int shift);
+static int fgb(u32 bitmap);
+static int ata_choose_xfer_mode(struct ata_port *ap,
+				u8 *xfer_mode_out,
+				unsigned int *xfer_shift_out);
+static int ata_qc_complete_noop(struct ata_queued_cmd *qc, u8 drv_stat);
 
 static unsigned int ata_unique_id = 1;
 static LIST_HEAD(ata_probe_list);
@@ -64,37 +65,6 @@ static spinlock_t ata_module_lock = SPIN_LOCK_UNLOCKED;
 MODULE_AUTHOR("Jeff Garzik");
 MODULE_DESCRIPTION("Library module for ATA devices");
 MODULE_LICENSE("GPL");
-
-static const char * thr_state_name[] = {
-	"THR_UNKNOWN",
-	"THR_PORT_RESET",
-	"THR_AWAIT_DEATH",
-	"THR_PROBE_FAILED",
-	"THR_IDLE",
-	"THR_PROBE_SUCCESS",
-	"THR_PROBE_START",
-};
-
-/**
- *	ata_thr_state_name - convert thread state enum to string
- *	@thr_state: thread state to be converted to string
- *
- *	Converts the specified thread state id to a constant C string.
- *
- *	LOCKING:
- *	None.
- *
- *	RETURNS:
- *	The THR_xxx-prefixed string naming the specified thread
- *	state id, or the string "<invalid THR_xxx state>".
- */
-
-static const char *ata_thr_state_name(unsigned int thr_state)
-{
-	if (thr_state < ARRAY_SIZE(thr_state_name))
-		return thr_state_name[thr_state];
-	return "<invalid THR_xxx state>";
-}
 
 /**
  *	msleep - sleep for a number of milliseconds
@@ -111,6 +81,11 @@ static void msleep(unsigned long msecs)
 {
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout(msecs_to_jiffies(msecs) + 1);
+}
+
+void libata_msleep(unsigned long msecs)
+{
+	msleep(msecs);
 }
 
 /**
@@ -574,7 +549,7 @@ static void ata_dev_set_protocol(struct ata_device *dev)
 	dev->write_cmd = (cmd >> 8) & 0xff;
 }
 
-static const char * udma_str[] = {
+static const char * xfer_mode_str[] = {
 	"UDMA/16",
 	"UDMA/25",
 	"UDMA/33",
@@ -583,6 +558,14 @@ static const char * udma_str[] = {
 	"UDMA/100",
 	"UDMA/133",
 	"UDMA7",
+	"MWDMA0",
+	"MWDMA1",
+	"MWDMA2",
+	"PIO0",
+	"PIO1",
+	"PIO2",
+	"PIO3",
+	"PIO4",
 };
 
 /**
@@ -600,16 +583,24 @@ static const char * udma_str[] = {
  *	@udma_mask, or the constant C string "<n/a>".
  */
 
-static const char *ata_udma_string(unsigned int udma_mask)
+static const char *ata_mode_string(unsigned int mask)
 {
 	int i;
 
-	for (i = 7; i >= 0; i--) {
-		if (udma_mask & (1 << i))
-			return udma_str[i];
-	}
+	for (i = 7; i >= 0; i--)
+		if (mask & (1 << i))
+			goto out;
+	for (i = ATA_SHIFT_MWDMA + 2; i >= ATA_SHIFT_MWDMA; i--)
+		if (mask & (1 << i))
+			goto out;
+	for (i = ATA_SHIFT_PIO + 4; i >= ATA_SHIFT_PIO; i--)
+		if (mask & (1 << i))
+			goto out;
 
 	return "<n/a>";
+
+out:
+	return xfer_mode_str[i];
 }
 
 /**
@@ -980,10 +971,14 @@ static void ata_dev_identify(struct ata_port *ap, unsigned int device)
 {
 	struct ata_device *dev = &ap->device[device];
 	unsigned int i;
-	u16 tmp, udma_modes;
+	u16 tmp;
+	unsigned long xfer_modes;
 	u8 status;
-	struct ata_taskfile tf;
 	unsigned int using_edd;
+	DECLARE_COMPLETION(wait);
+	struct ata_queued_cmd *qc;
+	unsigned long flags;
+	int rc;
 
 	if (!ata_dev_present(dev)) {
 		DPRINTK("ENTER/EXIT (host %u, dev %u) -- nodev\n",
@@ -1003,27 +998,34 @@ static void ata_dev_identify(struct ata_port *ap, unsigned int device)
 
 	ata_dev_select(ap, device, 1, 1); /* select device 0/1 */
 
-retry:
-	ata_tf_init(ap, &tf, device);
-	tf.ctl |= ATA_NIEN;
-	tf.protocol = ATA_PROT_PIO;
+	qc = ata_qc_new_init(ap, dev);
+	BUG_ON(qc == NULL);
 
+	ata_sg_init_one(qc, dev->id, sizeof(dev->id));
+	qc->pci_dma_dir = PCI_DMA_FROMDEVICE;
+	qc->tf.protocol = ATA_PROT_PIO;
+	qc->nsect = 1;
+
+retry:
 	if (dev->class == ATA_DEV_ATA) {
-		tf.command = ATA_CMD_ID_ATA;
+		qc->tf.command = ATA_CMD_ID_ATA;
 		DPRINTK("do ATA identify\n");
 	} else {
-		tf.command = ATA_CMD_ID_ATAPI;
+		qc->tf.command = ATA_CMD_ID_ATAPI;
 		DPRINTK("do ATAPI identify\n");
 	}
 
-	ata_tf_to_host(ap, &tf);
+	qc->waiting = &wait;
+	qc->complete_fn = ata_qc_complete_noop;
 
-	/* crazy ATAPI devices... */
-	if (dev->class == ATA_DEV_ATAPI)
-		msleep(150);
+	spin_lock_irqsave(&ap->host_set->lock, flags);
+	rc = ata_qc_issue(qc);
+	spin_unlock_irqrestore(&ap->host_set->lock, flags);
 
-	if (ata_busy_sleep(ap, ATA_TMOUT_BOOT_QUICK, ATA_TMOUT_BOOT))
+	if (rc)
 		goto err_out;
+	else
+		wait_for_completion(&wait);
 
 	status = ata_chk_status(ap);
 	if (status & ATA_ERR) {
@@ -1038,44 +1040,19 @@ retry:
 		 * ATA software reset (SRST, the default) does not appear
 		 * to have this problem.
 		 */
-		if ((using_edd) && (tf.command == ATA_CMD_ID_ATA)) {
+		if ((using_edd) && (qc->tf.command == ATA_CMD_ID_ATA)) {
 			u8 err = ata_chk_err(ap);
 			if (err & ATA_ABORTED) {
 				dev->class = ATA_DEV_ATAPI;
+				qc->cursg = 0;
+				qc->cursg_ofs = 0;
+				qc->cursect = 0;
+				qc->nsect = 1;
 				goto retry;
 			}
 		}
 		goto err_out;
 	}
-
-	/* make sure we have BSY=0, DRQ=1 */
-	if ((status & ATA_DRQ) == 0) {
-		printk(KERN_WARNING "ata%u: dev %u (ATA%s?) not returning id page (0x%x)\n",
-		       ap->id, device,
-		       dev->class == ATA_DEV_ATA ? "" : "PI",
-		       status);
-		goto err_out;
-	}
-
-	/* read IDENTIFY [X] DEVICE page */
-	if (ap->flags & ATA_FLAG_MMIO) {
-		for (i = 0; i < ATA_ID_WORDS; i++)
-			dev->id[i] = readw((void *)ap->ioaddr.data_addr);
-	} else
-		for (i = 0; i < ATA_ID_WORDS; i++)
-			dev->id[i] = inw(ap->ioaddr.data_addr);
-
-	/* wait for host_idle */
-	status = ata_wait_idle(ap);
-	if (status & (ATA_BUSY | ATA_DRQ)) {
-		printk(KERN_WARNING "ata%u: dev %u (ATA%s?) error after id page (0x%x)\n",
-		       ap->id, device,
-		       dev->class == ATA_DEV_ATA ? "" : "PI",
-		       status);
-		goto err_out;
-	}
-
-	ata_irq_on(ap);	/* re-enable interrupts */
 
 	/* print device capabilities */
 	printk(KERN_DEBUG "ata%u: dev %u cfg "
@@ -1095,12 +1072,13 @@ retry:
 		goto err_out_nosup;
 	}
 
-	/* we require UDMA support */
-	udma_modes =
-	tmp = dev->id[ATA_ID_UDMA_MODES];
-	if ((tmp & 0xff) == 0) {
-		printk(KERN_DEBUG "ata%u: no udma\n", ap->id);
-		goto err_out_nosup;
+	/* quick-n-dirty find max transfer mode; for printk only */
+	xfer_modes = dev->id[ATA_ID_UDMA_MODES];
+	if (!xfer_modes)
+		xfer_modes = (dev->id[ATA_ID_MWDMA_MODES]) << ATA_SHIFT_MWDMA;
+	if (!xfer_modes) {
+		xfer_modes = (dev->id[ATA_ID_PIO_MODES]) << (ATA_SHIFT_PIO + 3);
+		xfer_modes |= (0x7 << ATA_SHIFT_PIO);
 	}
 
 	ata_dump_id(dev);
@@ -1133,7 +1111,7 @@ retry:
 		/* print device info to dmesg */
 		printk(KERN_INFO "ata%u: dev %u ATA, max %s, %Lu sectors:%s\n",
 		       ap->id, device,
-		       ata_udma_string(udma_modes),
+		       ata_mode_string(xfer_modes),
 		       (unsigned long long)dev->n_sectors,
 		       dev->flags & ATA_DFLAG_LBA48 ? " lba48" : "");
 	}
@@ -1143,15 +1121,18 @@ retry:
 		if (ata_id_is_ata(dev))		/* sanity check */
 			goto err_out_nosup;
 
-		/* see if 16-byte commands supported */
-		tmp = dev->id[0] & 0x3;
-		if (tmp == 1)
-			ap->host->max_cmd_len = 16;
+		rc = atapi_cdb_len(dev->id);
+		if ((rc < 12) || (rc > ATAPI_CDB_LEN)) {
+			printk(KERN_WARNING "ata%u: unsupported CDB len\n", ap->id);
+			goto err_out_nosup;
+		}
+		ap->cdb_len = (unsigned int) rc;
+		ap->host->max_cmd_len = (unsigned char) ap->cdb_len;
 
 		/* print device info to dmesg */
 		printk(KERN_INFO "ata%u: dev %u ATAPI, max %s\n",
 		       ap->id, device,
-		       ata_udma_string(udma_modes));
+		       ata_mode_string(xfer_modes));
 	}
 
 	DPRINTK("EXIT, drv_stat = 0x%x\n", ata_chk_status(ap));
@@ -1167,13 +1148,16 @@ err_out:
 }
 
 /**
- *	ata_port_reset -
- *	@ap:
+ *	ata_bus_probe - Reset and probe ATA bus
+ *	@ap: Bus to probe
  *
  *	LOCKING:
+ *
+ *	RETURNS:
+ *	Zero on success, non-zero on error.
  */
 
-static void ata_port_reset(struct ata_port *ap)
+static int ata_bus_probe(struct ata_port *ap)
 {
 	unsigned int i, found = 0;
 
@@ -1197,14 +1181,12 @@ static void ata_port_reset(struct ata_port *ap)
 	if (ap->flags & ATA_FLAG_PORT_DISABLED)
 		goto err_out_disable;
 
-	ap->thr_state = THR_PROBE_SUCCESS;
-
-	return;
+	return 0;
 
 err_out_disable:
 	ap->ops->port_disable(ap);
 err_out:
-	ap->thr_state = THR_PROBE_FAILED;
+	return -1;
 }
 
 /**
@@ -1281,6 +1263,101 @@ void ata_port_disable(struct ata_port *ap)
 	ap->flags |= ATA_FLAG_PORT_DISABLED;
 }
 
+static struct {
+	unsigned int shift;
+	u8 base;
+} xfer_mode_classes[] = {
+	{ ATA_SHIFT_UDMA,	XFER_UDMA_0 },
+	{ ATA_SHIFT_MWDMA,	XFER_MW_DMA_0 },
+	{ ATA_SHIFT_PIO,	XFER_PIO_0 },
+};
+
+static inline u8 base_from_shift(unsigned int shift)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(xfer_mode_classes); i++)
+		if (xfer_mode_classes[i].shift == shift)
+			return xfer_mode_classes[i].base;
+
+	return 0xff;
+}
+
+static void ata_dev_set_mode(struct ata_port *ap, struct ata_device *dev)
+{
+	int ofs, idx;
+	u8 base;
+
+	if (!ata_dev_present(dev) || (ap->flags & ATA_FLAG_PORT_DISABLED))
+		return;
+
+	if (dev->xfer_shift == ATA_SHIFT_PIO)
+		dev->flags |= ATA_DFLAG_PIO;
+
+	ata_dev_set_xfermode(ap, dev);
+
+	base = base_from_shift(dev->xfer_shift);
+	ofs = dev->xfer_mode - base;
+	idx = ofs + dev->xfer_shift;
+	WARN_ON(idx >= ARRAY_SIZE(xfer_mode_str));
+
+	DPRINTK("idx=%d xfer_shift=%u, xfer_mode=0x%x, base=0x%x, offset=%d\n",
+		idx, dev->xfer_shift, (int)dev->xfer_mode, (int)base, ofs);
+
+	printk(KERN_INFO "ata%u: dev %u configured for %s\n",
+		ap->id, dev->devno, xfer_mode_str[idx]);
+}
+
+static int ata_host_set_pio(struct ata_port *ap)
+{
+	unsigned int mask;
+	int x, i;
+	u8 base, xfer_mode;
+
+	mask = ata_get_mode_mask(ap, ATA_SHIFT_PIO);
+	x = fgb(mask);
+	if (x < 0) {
+		printk(KERN_WARNING "ata%u: no PIO support\n", ap->id);
+		return -1;
+	}
+
+	base = base_from_shift(ATA_SHIFT_PIO);
+	xfer_mode = base + x;
+
+	DPRINTK("base 0x%x xfer_mode 0x%x mask 0x%x x %d\n",
+		(int)base, (int)xfer_mode, mask, x);
+
+	for (i = 0; i < ATA_MAX_DEVICES; i++) {
+		struct ata_device *dev = &ap->device[i];
+		if (ata_dev_present(dev)) {
+			dev->pio_mode = xfer_mode;
+			dev->xfer_mode = xfer_mode;
+			dev->xfer_shift = ATA_SHIFT_PIO;
+			if (ap->ops->set_piomode)
+				ap->ops->set_piomode(ap, dev);
+		}
+	}
+
+	return 0;
+}
+
+static void ata_host_set_dma(struct ata_port *ap, u8 xfer_mode,
+			    unsigned int xfer_shift)
+{
+	int i;
+
+	for (i = 0; i < ATA_MAX_DEVICES; i++) {
+		struct ata_device *dev = &ap->device[i];
+		if (ata_dev_present(dev)) {
+			dev->dma_mode = xfer_mode;
+			dev->xfer_mode = xfer_mode;
+			dev->xfer_shift = xfer_shift;
+			if (ap->ops->set_dmamode)
+				ap->ops->set_dmamode(ap, dev);
+		}
+	}
+}
+
 /**
  *	ata_set_mode - Program timings and issue SET FEATURES - XFER
  *	@ap: port on which timings will be programmed
@@ -1290,29 +1367,28 @@ void ata_port_disable(struct ata_port *ap)
  */
 static void ata_set_mode(struct ata_port *ap)
 {
-	unsigned int force_pio, i;
+	unsigned int i, xfer_shift;
+	u8 xfer_mode;
+	int rc;
 
-	ata_host_set_pio(ap);
-	if (ap->flags & ATA_FLAG_PORT_DISABLED)
-		return;
+	/* step 1: always set host PIO timings */
+	rc = ata_host_set_pio(ap);
+	if (rc)
+		goto err_out;
 
-	ata_host_set_udma(ap);
-	if (ap->flags & ATA_FLAG_PORT_DISABLED)
-		return;
+	/* step 2: choose the best data xfer mode */
+	xfer_mode = xfer_shift = 0;
+	rc = ata_choose_xfer_mode(ap, &xfer_mode, &xfer_shift);
+	if (rc)
+		goto err_out;
 
-#ifdef ATA_FORCE_PIO
-	force_pio = 1;
-#else
-	force_pio = 0;
-#endif
+	/* step 3: if that xfer mode isn't PIO, set host DMA timings */
+	if (xfer_shift != ATA_SHIFT_PIO)
+		ata_host_set_dma(ap, xfer_mode, xfer_shift);
 
-	if (force_pio) {
-		ata_dev_set_pio(ap, 0);
-		ata_dev_set_pio(ap, 1);
-	} else {
-		ata_dev_set_udma(ap, 0);
-		ata_dev_set_udma(ap, 1);
-	}
+	/* step 4: update devices' xfer mode */
+	ata_dev_set_mode(ap, &ap->device[0]);
+	ata_dev_set_mode(ap, &ap->device[1]);
 
 	if (ap->flags & ATA_FLAG_PORT_DISABLED)
 		return;
@@ -1324,6 +1400,11 @@ static void ata_set_mode(struct ata_port *ap)
 		struct ata_device *dev = &ap->device[i];
 		ata_dev_set_protocol(dev);
 	}
+
+	return;
+
+err_out:
+	ata_port_disable(ap);
 }
 
 /**
@@ -1585,116 +1666,102 @@ err_out:
 	DPRINTK("EXIT\n");
 }
 
-/**
- *	ata_host_set_pio -
- *	@ap:
- *
- *	LOCKING:
- */
-
-static void ata_host_set_pio(struct ata_port *ap)
+static unsigned int ata_get_mode_mask(struct ata_port *ap, int shift)
 {
 	struct ata_device *master, *slave;
-	unsigned int pio, i;
-	u16 mask;
+	unsigned int mask;
 
 	master = &ap->device[0];
 	slave = &ap->device[1];
 
 	assert (ata_dev_present(master) || ata_dev_present(slave));
 
-	mask = ap->pio_mask;
-	if (ata_dev_present(master))
-		mask &= (master->id[ATA_ID_PIO_MODES] & 0x03);
-	if (ata_dev_present(slave))
-		mask &= (slave->id[ATA_ID_PIO_MODES] & 0x03);
-
-	/* require pio mode 3 or 4 support for host and all devices */
-	if (mask == 0) {
-		printk(KERN_WARNING "ata%u: no PIO3/4 support, ignoring\n",
-		       ap->id);
-		goto err_out;
+	if (shift == ATA_SHIFT_UDMA) {
+		mask = ap->udma_mask;
+		if (ata_dev_present(master))
+			mask &= (master->id[ATA_ID_UDMA_MODES] & 0xff);
+		if (ata_dev_present(slave))
+			mask &= (slave->id[ATA_ID_UDMA_MODES] & 0xff);
+	}
+	else if (shift == ATA_SHIFT_MWDMA) {
+		mask = ap->mwdma_mask;
+		if (ata_dev_present(master))
+			mask &= (master->id[ATA_ID_MWDMA_MODES] & 0x07);
+		if (ata_dev_present(slave))
+			mask &= (slave->id[ATA_ID_MWDMA_MODES] & 0x07);
+	}
+	else if (shift == ATA_SHIFT_PIO) {
+		mask = ap->pio_mask;
+		if (ata_dev_present(master)) {
+			/* spec doesn't return explicit support for
+			 * PIO0-2, so we fake it
+			 */
+			u16 tmp_mode = master->id[ATA_ID_PIO_MODES] & 0x03;
+			tmp_mode <<= 3;
+			tmp_mode |= 0x7;
+			mask &= tmp_mode;
+		}
+		if (ata_dev_present(slave)) {
+			/* spec doesn't return explicit support for
+			 * PIO0-2, so we fake it
+			 */
+			u16 tmp_mode = slave->id[ATA_ID_PIO_MODES] & 0x03;
+			tmp_mode <<= 3;
+			tmp_mode |= 0x7;
+			mask &= tmp_mode;
+		}
+	}
+	else {
+		mask = 0xffffffff; /* shut up compiler warning */
+		BUG();
 	}
 
-	pio = (mask & ATA_ID_PIO4) ? 4 : 3;
-	for (i = 0; i < ATA_MAX_DEVICES; i++)
-		if (ata_dev_present(&ap->device[i])) {
-			ap->device[i].pio_mode = (pio == 3) ?
-				XFER_PIO_3 : XFER_PIO_4;
-			if (ap->ops->set_piomode)
-				ap->ops->set_piomode(ap, &ap->device[i], pio);
-		}
+	return mask;
+}
 
-	return;
+/* find greatest bit */
+static int fgb(u32 bitmap)
+{
+	unsigned int i;
+	int x = -1;
 
-err_out:
-	ap->ops->port_disable(ap);
+	for (i = 0; i < 32; i++)
+		if (bitmap & (1 << i))
+			x = i;
+
+	return x;
 }
 
 /**
- *	ata_host_set_udma -
+ *	ata_choose_xfer_mode -
  *	@ap:
  *
  *	LOCKING:
+ *
+ *	RETURNS:
+ *	Zero on success, negative on error.
  */
 
-static void ata_host_set_udma(struct ata_port *ap)
+static int ata_choose_xfer_mode(struct ata_port *ap,
+				u8 *xfer_mode_out,
+				unsigned int *xfer_shift_out)
 {
-	struct ata_device *master, *slave;
-	u16 mask;
-	unsigned int i, j;
-	int udma_mode = -1;
+	unsigned int mask, shift;
+	int x, i;
 
-	master = &ap->device[0];
-	slave = &ap->device[1];
+	for (i = 0; i < ARRAY_SIZE(xfer_mode_classes); i++) {
+		shift = xfer_mode_classes[i].shift;
+		mask = ata_get_mode_mask(ap, shift);
 
-	assert (ata_dev_present(master) || ata_dev_present(slave));
-	assert ((ap->flags & ATA_FLAG_PORT_DISABLED) == 0);
-
-	DPRINTK("udma masks: host 0x%X, master 0x%X, slave 0x%X\n",
-		ap->udma_mask,
-		(!ata_dev_present(master)) ? 0xff :
-			(master->id[ATA_ID_UDMA_MODES] & 0xff),
-		(!ata_dev_present(slave)) ? 0xff :
-			(slave->id[ATA_ID_UDMA_MODES] & 0xff));
-
-	mask = ap->udma_mask;
-	if (ata_dev_present(master))
-		mask &= (master->id[ATA_ID_UDMA_MODES] & 0xff);
-	if (ata_dev_present(slave))
-		mask &= (slave->id[ATA_ID_UDMA_MODES] & 0xff);
-
-	i = XFER_UDMA_7;
-	while (i >= XFER_UDMA_0) {
-		j = i - XFER_UDMA_0;
-		DPRINTK("mask 0x%X i 0x%X j %u\n", mask, i, j);
-		if (mask & (1 << j)) {
-			udma_mode = i;
-			break;
+		x = fgb(mask);
+		if (x >= 0) {
+			*xfer_mode_out = xfer_mode_classes[i].base + x;
+			*xfer_shift_out = shift;
+			return 0;
 		}
-
-		i--;
 	}
 
-	/* require udma for host and all attached devices */
-	if (udma_mode < 0) {
-		printk(KERN_WARNING "ata%u: no UltraDMA support, ignoring\n",
-		       ap->id);
-		goto err_out;
-	}
-
-	for (i = 0; i < ATA_MAX_DEVICES; i++)
-		if (ata_dev_present(&ap->device[i])) {
-			ap->device[i].udma_mode = udma_mode;
-			if (ap->ops->set_udmamode)
-				ap->ops->set_udmamode(ap, &ap->device[i],
-						      udma_mode);
-		}
-
-	return;
-
-err_out:
-	ap->ops->port_disable(ap);
+	return -1;
 }
 
 /**
@@ -1707,86 +1774,36 @@ err_out:
 
 static void ata_dev_set_xfermode(struct ata_port *ap, struct ata_device *dev)
 {
-	struct ata_taskfile tf;
+	DECLARE_COMPLETION(wait);
+	struct ata_queued_cmd *qc;
+	int rc;
+	unsigned long flags;
 
 	/* set up set-features taskfile */
 	DPRINTK("set features - xfer mode\n");
-	ata_tf_init(ap, &tf, dev->devno);
-	tf.ctl |= ATA_NIEN;
-	tf.command = ATA_CMD_SET_FEATURES;
-	tf.feature = SETFEATURES_XFER;
-	tf.flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE;
-	tf.protocol = ATA_PROT_NODATA;
-	if (dev->flags & ATA_DFLAG_PIO)
-		tf.nsect = dev->pio_mode;
+
+	qc = ata_qc_new_init(ap, dev);
+	BUG_ON(qc == NULL);
+
+	qc->tf.command = ATA_CMD_SET_FEATURES;
+	qc->tf.feature = SETFEATURES_XFER;
+	qc->tf.flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE;
+	qc->tf.protocol = ATA_PROT_NODATA;
+	qc->tf.nsect = dev->xfer_mode;
+
+	qc->waiting = &wait;
+	qc->complete_fn = ata_qc_complete_noop;
+
+	spin_lock_irqsave(&ap->host_set->lock, flags);
+	rc = ata_qc_issue(qc);
+	spin_unlock_irqrestore(&ap->host_set->lock, flags);
+
+	if (rc)
+		ata_port_disable(ap);
 	else
-		tf.nsect = dev->udma_mode;
-
-	/* do bus reset */
-	ata_tf_to_host(ap, &tf);
-
-	/* crazy ATAPI devices... */
-	if (dev->class == ATA_DEV_ATAPI)
-		msleep(150);
-
-	ata_busy_sleep(ap, ATA_TMOUT_BOOT_QUICK, ATA_TMOUT_BOOT);
-
-	ata_irq_on(ap);	/* re-enable interrupts */
-
-	ata_wait_idle(ap);
+		wait_for_completion(&wait);
 
 	DPRINTK("EXIT\n");
-}
-
-/**
- *	ata_dev_set_udma - Set ATA device's transfer mode to Ultra DMA
- *	@ap: Port associated with device @dev
- *	@device: Device whose mode will be set
- *
- *	LOCKING:
- */
-
-static void ata_dev_set_udma(struct ata_port *ap, unsigned int device)
-{
-	struct ata_device *dev = &ap->device[device];
-
-	if (!ata_dev_present(dev) || (ap->flags & ATA_FLAG_PORT_DISABLED))
-		return;
-
-	ata_dev_set_xfermode(ap, dev);
-
-	assert((dev->udma_mode >= XFER_UDMA_0) &&
-	       (dev->udma_mode <= XFER_UDMA_7));
-	printk(KERN_INFO "ata%u: dev %u configured for %s\n",
-	       ap->id, device,
-	       udma_str[dev->udma_mode - XFER_UDMA_0]);
-}
-
-/**
- *	ata_dev_set_pio - Set ATA device's transfer mode to PIO
- *	@ap: Port associated with device @dev
- *	@device: Device whose mode will be set
- *
- *	LOCKING:
- */
-
-static void ata_dev_set_pio(struct ata_port *ap, unsigned int device)
-{
-	struct ata_device *dev = &ap->device[device];
-
-	if (!ata_dev_present(dev) || (ap->flags & ATA_FLAG_PORT_DISABLED))
-		return;
-
-	/* force PIO mode */
-	dev->flags |= ATA_DFLAG_PIO;
-
-	ata_dev_set_xfermode(ap, dev);
-
-	assert((dev->pio_mode >= XFER_PIO_3) &&
-	       (dev->pio_mode <= XFER_PIO_4));
-	printk(KERN_INFO "ata%u: dev %u configured for PIO%c\n",
-	       ap->id, device,
-	       dev->pio_mode == 3 ? '3' : '4');
 }
 
 /**
@@ -1799,37 +1816,35 @@ static void ata_dev_set_pio(struct ata_port *ap, unsigned int device)
 static void ata_sg_clean(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
-	struct scsi_cmnd *cmd = qc->scsicmd;
 	struct scatterlist *sg = qc->sg;
-	int dir = scsi_to_pci_dma_dir(cmd->sc_data_direction);
+	int dir = qc->pci_dma_dir;
 
-	assert(dir == SCSI_DATA_READ || dir == SCSI_DATA_WRITE);
-	assert(qc->flags & ATA_QCFLAG_SG);
+	assert(qc->flags & ATA_QCFLAG_DMAMAP);
 	assert(sg != NULL);
 
-	if (!cmd->use_sg)
+	if (qc->flags & ATA_QCFLAG_SINGLE)
 		assert(qc->n_elem == 1);
 
 	DPRINTK("unmapping %u sg elements\n", qc->n_elem);
 
-	if (cmd->use_sg)
+	if (qc->flags & ATA_QCFLAG_SG)
 		pci_unmap_sg(ap->host_set->pdev, sg, qc->n_elem, dir);
 	else
 		pci_unmap_single(ap->host_set->pdev, sg_dma_address(&sg[0]),
 				 sg_dma_len(&sg[0]), dir);
 
-	qc->flags &= ~ATA_QCFLAG_SG;
+	qc->flags &= ~ATA_QCFLAG_DMAMAP;
 	qc->sg = NULL;
 }
 
 /**
- *	ata_fill_sg -
- *	@qc:
+ *	ata_fill_sg - Fill PCI IDE PRD table
+ *	@qc: Metadata associated with taskfile to be transferred
  *
  *	LOCKING:
  *
  */
-void ata_fill_sg(struct ata_queued_cmd *qc)
+static void ata_fill_sg(struct ata_queued_cmd *qc)
 {
 	struct scatterlist *sg = qc->sg;
 	struct ata_port *ap = qc->ap;
@@ -1871,6 +1886,48 @@ void ata_fill_sg(struct ata_queued_cmd *qc)
 }
 
 /**
+ *	ata_qc_prep - Prepare taskfile for submission
+ *	@qc: Metadata associated with taskfile to be prepared
+ *
+ *	LOCKING:
+ *	spin_lock_irqsave(host_set lock)
+ */
+void ata_qc_prep(struct ata_queued_cmd *qc)
+{
+	if (!(qc->flags & ATA_QCFLAG_DMAMAP))
+		return;
+
+	ata_fill_sg(qc);
+}
+
+void ata_sg_init_one(struct ata_queued_cmd *qc, void *buf, unsigned int buflen)
+{
+	struct scatterlist *sg;
+
+	qc->flags |= ATA_QCFLAG_SINGLE;
+
+	memset(&qc->sgent, 0, sizeof(qc->sgent));
+	qc->sg = &qc->sgent;
+	qc->n_elem = 1;
+	qc->buf_virt = buf;
+
+	sg = qc->sg;
+	sg->page = virt_to_page(buf);
+	sg->offset = (unsigned long) buf & ~PAGE_MASK;
+	sg_dma_len(sg) = buflen;
+
+	WARN_ON(buflen > PAGE_SIZE);
+}
+
+void ata_sg_init(struct ata_queued_cmd *qc, struct scatterlist *sg,
+		 unsigned int n_elem)
+{
+	qc->flags |= ATA_QCFLAG_SG;
+	qc->sg = sg;
+	qc->n_elem = n_elem;
+}
+
+/**
  *	ata_sg_setup_one -
  *	@qc:
  *
@@ -1884,29 +1941,16 @@ void ata_fill_sg(struct ata_queued_cmd *qc)
 static int ata_sg_setup_one(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
-	struct scsi_cmnd *cmd = qc->scsicmd;
-	int dir = scsi_to_pci_dma_dir(cmd->sc_data_direction);
+	int dir = qc->pci_dma_dir;
 	struct scatterlist *sg = qc->sg;
-	unsigned int have_sg = (qc->flags & ATA_QCFLAG_SG);
 	dma_addr_t dma_address;
 
-	assert(sg == &qc->sgent);
-	assert(qc->n_elem == 1);
-
-	sg->address = cmd->request_buffer;
-	sg->page = virt_to_page(cmd->request_buffer);
-	sg->offset = (unsigned long) cmd->request_buffer & ~PAGE_MASK;
-	sg_dma_len(sg) = cmd->request_bufflen;
-
-	if (!have_sg)
-		return 0;
-
-	dma_address = pci_map_single(ap->host_set->pdev, cmd->request_buffer,
-				     cmd->request_bufflen, dir);
+	dma_address = pci_map_single(ap->host_set->pdev, qc->buf_virt,
+				     sg_dma_len(sg), dir);
 
 	sg_dma_address(sg) = dma_address;
 
-	DPRINTK("mapped buffer of %d bytes for %s\n", cmd->request_bufflen,
+	DPRINTK("mapped buffer of %d bytes for %s\n", sg_dma_len(sg),
 		qc->tf.flags & ATA_TFLAG_WRITE ? "write" : "read");
 
 	return 0;
@@ -1926,24 +1970,19 @@ static int ata_sg_setup_one(struct ata_queued_cmd *qc)
 static int ata_sg_setup(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
-	struct scsi_cmnd *cmd = qc->scsicmd;
-	struct scatterlist *sg;
-	int n_elem;
-	unsigned int have_sg = (qc->flags & ATA_QCFLAG_SG);
+	struct scatterlist *sg = qc->sg;
+	int n_elem, dir;
 
-	VPRINTK("ENTER, ata%u, use_sg %d\n", ap->id, cmd->use_sg);
-	assert(cmd->use_sg > 0);
+	VPRINTK("ENTER, ata%u\n", ap->id);
+	assert(qc->flags & ATA_QCFLAG_SG);
 
-	sg = (struct scatterlist *)cmd->request_buffer;
-	if (have_sg) {
-		int dir = scsi_to_pci_dma_dir(cmd->sc_data_direction);
-		n_elem = pci_map_sg(ap->host_set->pdev, sg, cmd->use_sg, dir);
-		if (n_elem < 1)
-			return -1;
-		DPRINTK("%d sg elements mapped\n", n_elem);
-	} else {
-		n_elem = cmd->use_sg;
-	}
+	dir = qc->pci_dma_dir;
+	n_elem = pci_map_sg(ap->host_set->pdev, sg, qc->n_elem, dir);
+	if (n_elem < 1)
+		return -1;
+
+	DPRINTK("%d sg elements mapped\n", n_elem);
+
 	qc->n_elem = n_elem;
 
 	return 0;
@@ -2028,7 +2067,7 @@ static void ata_pio_complete (struct ata_port *ap)
 	}
 
 	drv_stat = ata_wait_idle(ap);
-	if (drv_stat & (ATA_BUSY | ATA_DRQ)) {
+	if (!ata_ok(drv_stat)) {
 		ap->pio_task_state = PIO_ST_ERR;
 		return;
 	}
@@ -2043,6 +2082,43 @@ static void ata_pio_complete (struct ata_port *ap)
 	ata_qc_complete(qc, drv_stat);
 }
 
+static void ata_mmio_data_xfer(struct ata_port *ap, unsigned char *buf,
+			       unsigned int buflen, int write_data)
+{
+	unsigned int i;
+	unsigned int words = buflen >> 1;
+	u16 *buf16 = (u16 *) buf;
+	void *mmio = (void *)ap->ioaddr.data_addr;
+
+	if (write_data) {
+		for (i = 0; i < words; i++)
+			writew(buf16[i], mmio);
+	} else {
+		for (i = 0; i < words; i++)
+			buf16[i] = readw(mmio);
+	}
+}
+
+static void ata_pio_data_xfer(struct ata_port *ap, unsigned char *buf,
+			      unsigned int buflen, int write_data)
+{
+	unsigned int dwords = buflen >> 2;
+
+	if (write_data)
+		outsl(ap->ioaddr.data_addr, buf, dwords);
+	else
+		insl(ap->ioaddr.data_addr, buf, dwords);
+}
+
+static void ata_data_xfer(struct ata_port *ap, unsigned char *buf,
+			  unsigned int buflen, int do_write)
+{
+	if (ap->flags & ATA_FLAG_MMIO)
+		ata_mmio_data_xfer(ap, buf, buflen, do_write);
+	else
+		ata_pio_data_xfer(ap, buf, buflen, do_write);
+}
+
 /**
  *	ata_pio_sector -
  *	@ap:
@@ -2054,9 +2130,10 @@ static void ata_pio_sector(struct ata_port *ap)
 {
 	struct ata_queued_cmd *qc;
 	struct scatterlist *sg;
-	struct scsi_cmnd *cmd;
+	struct page *page;
 	unsigned char *buf;
 	u8 status;
+	int do_write;
 
 	/*
 	 * This is purely hueristic.  This is a fast path.
@@ -2086,36 +2163,51 @@ static void ata_pio_sector(struct ata_port *ap)
 	qc = ata_qc_from_tag(ap, ap->active_tag);
 	assert(qc != NULL);
 
-	cmd = qc->scsicmd;
 	sg = qc->sg;
 
 	if (qc->cursect == (qc->nsect - 1))
 		ap->pio_task_state = PIO_ST_LAST;
 
-	buf = kmap(sg[qc->cursg].page) +
+	page = sg[qc->cursg].page;
+	buf = kmap(page) +
 	      sg[qc->cursg].offset + (qc->cursg_ofs * ATA_SECT_SIZE);
 
 	qc->cursect++;
 	qc->cursg_ofs++;
 
-	if (cmd->use_sg)
-		if ((qc->cursg_ofs * ATA_SECT_SIZE) == sg_dma_len(&sg[qc->cursg])) {
-			qc->cursg++;
-			qc->cursg_ofs = 0;
-		}
+	if ((qc->cursg_ofs * ATA_SECT_SIZE) == sg_dma_len(&sg[qc->cursg])) {
+		qc->cursg++;
+		qc->cursg_ofs = 0;
+	}
 
 	DPRINTK("data %s, drv_stat 0x%X\n",
 		qc->tf.flags & ATA_TFLAG_WRITE ? "write" : "read",
 		status);
 
 	/* do the actual data transfer */
-	/* FIXME: mmio-ize */
-	if (qc->tf.flags & ATA_TFLAG_WRITE)
-		outsl(ap->ioaddr.data_addr, buf, ATA_SECT_DWORDS);
-	else
-		insl(ap->ioaddr.data_addr, buf, ATA_SECT_DWORDS);
+	do_write = (qc->tf.flags & ATA_TFLAG_WRITE);
+	ata_data_xfer(ap, buf, ATA_SECT_SIZE, do_write);
 
-	kunmap(sg[qc->cursg].page);
+	kunmap(page);
+}
+
+static void ata_pio_error(struct ata_port *ap)
+{
+	struct ata_queued_cmd *qc;
+	u8 drv_stat;
+
+	qc = ata_qc_from_tag(ap, ap->active_tag);
+	assert(qc != NULL);
+
+	drv_stat = ata_chk_status(ap);
+	printk(KERN_WARNING "ata%u: PIO error, drv_stat 0x%x\n",
+	       ap->id, drv_stat);
+
+	ap->pio_task_state = PIO_ST_IDLE;
+
+	ata_irq_on(ap);
+
+	ata_qc_complete(qc, drv_stat | ATA_ERR);
 }
 
 static void ata_pio_task(void *_data)
@@ -2138,15 +2230,8 @@ static void ata_pio_task(void *_data)
 		break;
 
 	case PIO_ST_TMOUT:
-		printk(KERN_ERR "ata%d: FIXME: PIO_ST_TMOUT\n", /* FIXME */
-		       ap->id);
-		timeout = 11 * HZ;
-		break;
-
 	case PIO_ST_ERR:
-		printk(KERN_ERR "ata%d: FIXME: PIO_ST_ERR\n", /* FIXME */
-		       ap->id);
-		timeout = 11 * HZ;
+		ata_pio_error(ap);
 		break;
 	}
 
@@ -2159,6 +2244,68 @@ static void ata_pio_task(void *_data)
 	    (ap->pio_task_state != PIO_ST_TMOUT) &&
 	    (ap->pio_task_state != PIO_ST_ERR))
 		schedule_task(&ap->pio_task);
+}
+
+/**
+ *	ata_qc_timeout - Handle timeout of queued command
+ *	@qc: Command that timed out
+ *
+ *	Some part of the kernel (currently, only the SCSI layer)
+ *	has noticed that the active command on port @ap has not
+ *	completed after a specified length of time.  Handle this
+ *	condition by disabling DMA (if necessary) and completing
+ *	transactions, with error if necessary.
+ *
+ *	This also handles the case of the "lost interrupt", where
+ *	for some reason (possibly hardware bug, possibly driver bug)
+ *	an interrupt was not delivered to the driver, even though the
+ *	transaction completed successfully.
+ *
+ *	LOCKING:
+ */
+
+static void ata_qc_timeout(struct ata_queued_cmd *qc)
+{
+	struct ata_port *ap = qc->ap;
+	u8 host_stat = 0, drv_stat;
+
+	DPRINTK("ENTER\n");
+
+	/* hack alert!  We cannot use the supplied completion
+	 * function from inside the ->eh_strategy_handler() thread.
+	 * libata is the only user of ->eh_strategy_handler() in
+	 * any kernel, so the default scsi_done() assumes it is
+	 * not being called from the SCSI EH.
+	 */
+	qc->scsidone = scsi_finish_command;
+
+	switch (qc->tf.protocol) {
+
+	case ATA_PROT_DMA:
+	case ATA_PROT_ATAPI_DMA:
+		host_stat = ata_bmdma_status(ap);
+
+		/* before we do anything else, clear DMA-Start bit */
+		ata_bmdma_stop(ap);
+
+		/* fall through */
+
+	default:
+		ata_altstatus(ap);
+		drv_stat = ata_chk_status(ap);
+
+		/* ack bmdma irq events */
+		ata_bmdma_ack_irq(ap);
+
+		printk(KERN_ERR "ata%u: command 0x%x timeout, stat 0x%x host_stat 0x%x\n",
+		       ap->id, qc->tf.command, drv_stat, host_stat);
+
+		/* complete taskfile transaction */
+		ata_qc_complete(qc, drv_stat);
+		break;
+	}
+
+	DPRINTK("EXIT\n");
 }
 
 /**
@@ -2182,7 +2329,6 @@ static void ata_pio_task(void *_data)
 
 void ata_eng_timeout(struct ata_port *ap)
 {
-	u8 host_stat, drv_stat;
 	struct ata_queued_cmd *qc;
 
 	DPRINTK("ENTER\n");
@@ -2194,46 +2340,7 @@ void ata_eng_timeout(struct ata_port *ap)
 		goto out;
 	}
 
-	/* hack alert!  We cannot use the supplied completion
-	 * function from inside the ->eh_strategy_handler() thread.
-	 * libata is the only user of ->eh_strategy_handler() in
-	 * any kernel, so the default scsi_done() assumes it is
-	 * not being called from the SCSI EH.
-	 */
-	qc->scsidone = scsi_finish_command;
-
-	switch (qc->tf.protocol) {
-	case ATA_PROT_DMA:
-		if (ap->flags & ATA_FLAG_MMIO) {
-			void *mmio = (void *) ap->ioaddr.bmdma_addr;
-			host_stat = readb(mmio + ATA_DMA_STATUS);
-		} else
-			host_stat = inb(ap->ioaddr.bmdma_addr + ATA_DMA_STATUS);
-
-		printk(KERN_ERR "ata%u: DMA timeout, stat 0x%x\n",
-		       ap->id, host_stat);
-
-		ata_dma_complete(qc, host_stat);
-		break;
-
-	case ATA_PROT_NODATA:
-		drv_stat = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 1000);
-
-		printk(KERN_ERR "ata%u: command 0x%x timeout, stat 0x%x\n",
-		       ap->id, qc->tf.command, drv_stat);
-
-		ata_qc_complete(qc, drv_stat);
-		break;
-
-	default:
-		drv_stat = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 1000);
-
-		printk(KERN_ERR "ata%u: unknown timeout, cmd 0x%x stat 0x%x\n",
-		       ap->id, qc->tf.command, drv_stat);
-
-		ata_qc_complete(qc, drv_stat);
-		break;
-	}
+	ata_qc_timeout(qc);
 
 out:
 	DPRINTK("EXIT\n");
@@ -2289,13 +2396,16 @@ struct ata_queued_cmd *ata_qc_new_init(struct ata_port *ap,
 
 		ata_tf_init(ap, &qc->tf, dev->devno);
 
-		if (likely((dev->flags & ATA_DFLAG_PIO) == 0))
-			qc->flags |= ATA_QCFLAG_DMA;
 		if (dev->flags & ATA_DFLAG_LBA48)
 			qc->tf.flags |= ATA_TFLAG_LBA48;
 	}
 
 	return qc;
+}
+
+static int ata_qc_complete_noop(struct ata_queued_cmd *qc, u8 drv_stat)
+{
+	return 0;
 }
 
 /**
@@ -2310,29 +2420,25 @@ struct ata_queued_cmd *ata_qc_new_init(struct ata_port *ap,
 void ata_qc_complete(struct ata_queued_cmd *qc, u8 drv_stat)
 {
 	struct ata_port *ap = qc->ap;
-	struct scsi_cmnd *cmd = qc->scsicmd;
 	unsigned int tag, do_clear = 0;
+	int rc;
 
 	assert(qc != NULL);	/* ata_qc_from_tag _might_ return NULL */
 	assert(qc->flags & ATA_QCFLAG_ACTIVE);
 
-	if (likely(qc->flags & ATA_QCFLAG_SG))
+	if (likely(qc->flags & ATA_QCFLAG_DMAMAP))
 		ata_sg_clean(qc);
 
-	if (cmd) {
-		if (unlikely(drv_stat & (ATA_ERR | ATA_BUSY | ATA_DRQ))) {
-			if (is_atapi_taskfile(&qc->tf))
-				cmd->result = SAM_STAT_CHECK_CONDITION;
-			else
-				ata_to_sense_error(qc);
-		} else {
-			cmd->result = SAM_STAT_GOOD;
-		}
+	/* call completion callback */
+	rc = qc->complete_fn(qc, drv_stat);
 
-		qc->scsidone(cmd);
-	}
+	/* if callback indicates not to complete command (non-zero),
+	 * return immediately
+	 */
+	if (rc != 0)
+		return;
 
-	qc->flags &= ~ATA_QCFLAG_ACTIVE;
+	qc->flags = 0;
 	tag = qc->tag;
 	if (likely(ata_tag_valid(tag))) {
 		if (tag == ap->active_tag)
@@ -2341,11 +2447,16 @@ void ata_qc_complete(struct ata_queued_cmd *qc, u8 drv_stat)
 		do_clear = 1;
 	}
 
-	if (qc->waiting)
-		complete(qc->waiting);
+	if (qc->waiting) {
+		struct completion *waiting = qc->waiting;
+		qc->waiting = NULL;
+		complete(waiting);
+	}
 
 	if (likely(do_clear))
 		clear_bit(tag, &ap->qactive);
+
+	VPRINTK("EXIT\n");
 }
 
 /**
@@ -2367,25 +2478,21 @@ void ata_qc_complete(struct ata_queued_cmd *qc, u8 drv_stat)
 int ata_qc_issue(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
-	struct scsi_cmnd *cmd = qc->scsicmd;
 
 	if (qc->flags & ATA_QCFLAG_SG) {
-		/* set up SG table */
-		if (cmd->use_sg) {
-			if (ata_sg_setup(qc))
-				goto err_out;
-		} else {
-			if (ata_sg_setup_one(qc))
-				goto err_out;
-		}
-
-		ap->ops->fill_sg(qc);
+		if (ata_sg_setup(qc))
+			goto err_out;
+	} else if (qc->flags & ATA_QCFLAG_SINGLE) {
+		if (ata_sg_setup_one(qc))
+			goto err_out;
 	}
+
+	ap->ops->qc_prep(qc);
 
 	qc->ap->active_tag = qc->tag;
 	qc->flags |= ATA_QCFLAG_ACTIVE;
 
-	return ata_qc_issue_prot(qc);
+	return ap->ops->qc_issue(qc);
 
 err_out:
 	return -1;
@@ -2407,7 +2514,7 @@ err_out:
  *	Zero on success, negative on error.
  */
 
-static int ata_qc_issue_prot(struct ata_queued_cmd *qc)
+int ata_qc_issue_prot(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
 
@@ -2432,6 +2539,12 @@ static int ata_qc_issue_prot(struct ata_queued_cmd *qc)
 		break;
 
 	case ATA_PROT_ATAPI:
+		ata_qc_set_polling(qc);
+		ata_tf_to_host_nolock(ap, &qc->tf);
+		schedule_task(&ap->packet_task);
+		break;
+
+	case ATA_PROT_ATAPI_NODATA:
 		ata_tf_to_host_nolock(ap, &qc->tf);
 		schedule_task(&ap->packet_task);
 		break;
@@ -2461,7 +2574,7 @@ void ata_bmdma_setup_mmio (struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
 	unsigned int rw = (qc->tf.flags & ATA_TFLAG_WRITE);
-	u8 host_stat, dmactl;
+	u8 dmactl;
 	void *mmio = (void *) ap->ioaddr.bmdma_addr;
 
 	/* load PRD table addr. */
@@ -2474,10 +2587,6 @@ void ata_bmdma_setup_mmio (struct ata_queued_cmd *qc)
 	if (!rw)
 		dmactl |= ATA_DMA_WR;
 	writeb(dmactl, mmio + ATA_DMA_CMD);
-
-	/* clear interrupt, error bits */
-	host_stat = readb(mmio + ATA_DMA_STATUS);
-	writeb(host_stat | ATA_DMA_INTR | ATA_DMA_ERR, mmio + ATA_DMA_STATUS);
 
 	/* issue r/w command */
 	ap->ops->exec_command(ap, &qc->tf);
@@ -2526,7 +2635,7 @@ void ata_bmdma_setup_pio (struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
 	unsigned int rw = (qc->tf.flags & ATA_TFLAG_WRITE);
-	u8 host_stat, dmactl;
+	u8 dmactl;
 
 	/* load PRD table addr. */
 	outl(ap->prd_dma, ap->ioaddr.bmdma_addr + ATA_DMA_TABLE_OFS);
@@ -2537,11 +2646,6 @@ void ata_bmdma_setup_pio (struct ata_queued_cmd *qc)
 	if (!rw)
 		dmactl |= ATA_DMA_WR;
 	outb(dmactl, ap->ioaddr.bmdma_addr + ATA_DMA_CMD);
-
-	/* clear interrupt, error bits */
-	host_stat = inb(ap->ioaddr.bmdma_addr + ATA_DMA_STATUS);
-	outb(host_stat | ATA_DMA_INTR | ATA_DMA_ERR,
-	     ap->ioaddr.bmdma_addr + ATA_DMA_STATUS);
 
 	/* issue r/w command */
 	ap->ops->exec_command(ap, &qc->tf);
@@ -2566,48 +2670,9 @@ void ata_bmdma_start_pio (struct ata_queued_cmd *qc)
 	     ap->ioaddr.bmdma_addr + ATA_DMA_CMD);
 }
 
-/**
- *	ata_dma_complete - Complete an active ATA BMDMA command
- *	@qc: Command to complete
- *	@host_stat: BMDMA status register contents
- *
- *	LOCKING:
- */
-
-static void ata_dma_complete(struct ata_queued_cmd *qc, u8 host_stat)
+void ata_bmdma_irq_clear(struct ata_port *ap)
 {
-	struct ata_port *ap = qc->ap;
-	VPRINTK("ENTER\n");
-
-	if (ap->flags & ATA_FLAG_MMIO) {
-		void *mmio = (void *) ap->ioaddr.bmdma_addr;
-
-		/* clear start/stop bit */
-		writeb(readb(mmio + ATA_DMA_CMD) & ~ATA_DMA_START,
-		       mmio + ATA_DMA_CMD);
-
-		/* ack intr, err bits */
-		writeb(host_stat | ATA_DMA_INTR | ATA_DMA_ERR,
-		       mmio + ATA_DMA_STATUS);
-	} else {
-		/* clear start/stop bit */
-		outb(inb(ap->ioaddr.bmdma_addr + ATA_DMA_CMD) & ~ATA_DMA_START,
-		     ap->ioaddr.bmdma_addr + ATA_DMA_CMD);
-
-		/* ack intr, err bits */
-		outb(host_stat | ATA_DMA_INTR | ATA_DMA_ERR,
-		     ap->ioaddr.bmdma_addr + ATA_DMA_STATUS);
-	}
-
-
-	/* one-PIO-cycle guaranteed wait, per spec, for HDMA1:0 transition */
-	ata_altstatus(ap);		/* dummy read */
-
-	DPRINTK("host %u, host_stat==0x%X, drv_stat==0x%X\n",
-		ap->id, (u32) host_stat, (u32) ata_chk_status(ap));
-
-	/* get drive status; clear intr; complete txn */
-	ata_qc_complete(qc, ata_wait_idle(ap));
+	ata_bmdma_ack_irq(ap);
 }
 
 /**
@@ -2630,59 +2695,63 @@ inline unsigned int ata_host_intr (struct ata_port *ap,
 				   struct ata_queued_cmd *qc)
 {
 	u8 status, host_stat;
-	unsigned int handled = 0;
 
 	switch (qc->tf.protocol) {
 
-	/* BMDMA completion */
 	case ATA_PROT_DMA:
 	case ATA_PROT_ATAPI_DMA:
-		if (ap->flags & ATA_FLAG_MMIO) {
-			void *mmio = (void *) ap->ioaddr.bmdma_addr;
-			host_stat = readb(mmio + ATA_DMA_STATUS);
-		} else
-			host_stat = inb(ap->ioaddr.bmdma_addr + ATA_DMA_STATUS);
-		VPRINTK("BUS_DMA (host_stat 0x%X)\n", host_stat);
-
-		if (!(host_stat & ATA_DMA_INTR)) {
-			ap->stats.idle_irq++;
-			break;
-		}
-
-		ata_dma_complete(qc, host_stat);
-		handled = 1;
-		break;
-
-	/* command completion, but no data xfer */
-	/* FIXME: a shared interrupt _will_ cause a non-data command
-	 * to be completed prematurely, with an error.
-	 *
-	 * This doesn't matter right now, since we aren't sending
-	 * non-data commands down this pipe except in development
-	 * situations.
-	 */
 	case ATA_PROT_ATAPI:
+		/* check status of DMA engine */
+		host_stat = ata_bmdma_status(ap);
+		VPRINTK("ata%u: host_stat 0x%X\n", ap->id, host_stat);
+
+		/* if it's not our irq... */
+		if (!(host_stat & ATA_DMA_INTR))
+			goto idle_irq;
+
+		/* before we do anything else, clear DMA-Start bit */
+		ata_bmdma_stop(ap);
+
+		/* fall through */
+
+	case ATA_PROT_ATAPI_NODATA:
 	case ATA_PROT_NODATA:
-		status = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 1000);
-		DPRINTK("BUS_NODATA (drv_stat 0x%X)\n", status);
+		/* check altstatus */
+		status = ata_altstatus(ap);
+		if (status & ATA_BUSY)
+			goto idle_irq;
+
+		/* check main status, clearing INTRQ */
+		status = ata_chk_status(ap);
+		if (unlikely(status & ATA_BUSY))
+			goto idle_irq;
+		DPRINTK("ata%u: protocol %d (dev_stat 0x%X)\n",
+			ap->id, qc->tf.protocol, status);
+
+		/* ack bmdma irq events */
+		ata_bmdma_ack_irq(ap);
+
+		/* complete taskfile transaction */
 		ata_qc_complete(qc, status);
-		handled = 1;
 		break;
 
 	default:
-		ap->stats.idle_irq++;
-
-#ifdef ATA_IRQ_TRAP
-		if ((ap->stats.idle_irq % 1000) == 0) {
-			handled = 1;
-			ata_irq_ack(ap, 0); /* debug trap */
-			printk(KERN_WARNING "ata%d: irq trap\n", ap->id);
-		}
-#endif
-		break;
+		goto idle_irq;
 	}
 
-	return handled;
+	return 1;	/* irq handled */
+
+idle_irq:
+	ap->stats.idle_irq++;
+
+#ifdef ATA_IRQ_TRAP
+	if ((ap->stats.idle_irq % 1000) == 0) {
+		handled = 1;
+		ata_irq_ack(ap, 0); /* debug trap */
+		printk(KERN_WARNING "ata%d: irq trap\n", ap->id);
+	}
+#endif
+	return 0;	/* irq not handled */
 }
 
 /**
@@ -2716,69 +2785,13 @@ irqreturn_t ata_interrupt (int irq, void *dev_instance, struct pt_regs *regs)
 
 			qc = ata_qc_from_tag(ap, ap->active_tag);
 			if (qc && (!(qc->tf.ctl & ATA_NIEN)))
-				handled += ata_host_intr(ap, qc);
+				handled |= ata_host_intr(ap, qc);
 		}
 	}
 
 	spin_unlock_irqrestore(&host_set->lock, flags);
 
 	return IRQ_RETVAL(handled);
-}
-
-/**
- *	ata_thread_iter -
- *	@ap:
- *
- *	LOCKING:
- *
- *	RETURNS:
- *
- */
-
-static unsigned long ata_thread_iter(struct ata_port *ap)
-{
-	long timeout = 0;
-
-	DPRINTK("ata%u: thr_state %s\n",
-		ap->id, ata_thr_state_name(ap->thr_state));
-
-	switch (ap->thr_state) {
-	case THR_UNKNOWN:
-		ap->thr_state = THR_PORT_RESET;
-		break;
-
-	case THR_PROBE_START:
-		ap->thr_state = THR_PORT_RESET;
-		break;
-
-	case THR_PORT_RESET:
-		ata_port_reset(ap);
-		break;
-
-	case THR_PROBE_SUCCESS:
-		up(&ap->probe_sem);
-		ap->thr_state = THR_IDLE;
-		break;
-
-	case THR_PROBE_FAILED:
-		up(&ap->probe_sem);
-		ap->thr_state = THR_AWAIT_DEATH;
-		break;
-
-	case THR_AWAIT_DEATH:
-	case THR_IDLE:
-		timeout = -1;
-		break;
-
-	default:
-		printk(KERN_DEBUG "ata%u: unknown thr state %s\n",
-		       ap->id, ata_thr_state_name(ap->thr_state));
-		break;
-	}
-
-	DPRINTK("ata%u: new thr_state %s, returning %ld\n",
-		ap->id, ata_thr_state_name(ap->thr_state), timeout);
-	return timeout;
 }
 
 /**
@@ -2812,21 +2825,20 @@ static void atapi_packet_task(void *_data)
 
 	/* make sure DRQ is set */
 	status = ata_chk_status(ap);
-	if ((status & ATA_DRQ) == 0)
+	if ((status & (ATA_BUSY | ATA_DRQ)) != ATA_DRQ)
 		goto err_out;
 
 	/* send SCSI cdb */
-	/* FIXME: mmio-ize */
 	DPRINTK("send cdb\n");
-	outsl(ap->ioaddr.data_addr,
-	      qc->scsicmd->cmnd, ap->host->max_cmd_len / 4);
+	assert(ap->cdb_len >= 12);
+	ata_data_xfer(ap, qc->cdb, ap->cdb_len, 1);
 
 	/* if we are DMA'ing, irq handler takes over from here */
 	if (qc->tf.protocol == ATA_PROT_ATAPI_DMA)
 		ap->ops->bmdma_start(qc);	    /* initiate bmdma */
 
 	/* non-data commands are also handled via irq */
-	else if (qc->scsicmd->sc_data_direction == SCSI_DATA_NONE) {
+	else if (qc->tf.protocol == ATA_PROT_ATAPI_NODATA) {
 		/* do nothing */
 	}
 
@@ -2860,23 +2872,6 @@ void ata_port_stop (struct ata_port *ap)
 	struct pci_dev *pdev = ap->host_set->pdev;
 
 	pci_free_consistent(pdev, ATA_PRD_TBL_SZ, ap->prd, ap->prd_dma);
-}
-
-static void ata_probe_task(void *_data)
-{
-	struct ata_port *ap = _data;
-	long timeout;
-
-	timeout = ata_thread_iter(ap);
-	if (timeout < 0)
-		return;
-
-	if (timeout > 0) {
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(timeout);
-	}
-
-	schedule_task(&ap->probe_task);
 }
 
 /**
@@ -2931,23 +2926,19 @@ static void ata_host_init(struct ata_port *ap, struct Scsi_Host *host,
 	ap->host_set = host_set;
 	ap->port_no = port_no;
 	ap->pio_mask = ent->pio_mask;
+	ap->mwdma_mask = ent->mwdma_mask;
 	ap->udma_mask = ent->udma_mask;
 	ap->flags |= ent->host_flags;
 	ap->ops = ent->port_ops;
-	ap->thr_state = THR_PROBE_START;
 	ap->cbl = ATA_CBL_NONE;
-	ap->device[0].flags = ATA_DFLAG_MASTER;
 	ap->active_tag = ATA_TAG_POISON;
 	ap->last_ctl = 0xFF;
 
 	INIT_TQUEUE(&ap->packet_task, atapi_packet_task, ap);
 	INIT_TQUEUE(&ap->pio_task, ata_pio_task, ap);
-	INIT_TQUEUE(&ap->probe_task, ata_probe_task, ap);
 
 	for (i = 0; i < ATA_MAX_DEVICES; i++)
 		ap->device[i].devno = i;
-
-	init_MUTEX_LOCKED(&ap->probe_sem);
 
 #ifdef ATA_IRQ_TRAP
 	ap->stats.unhandled_irq = 1;
@@ -3027,28 +3018,35 @@ int ata_device_add(struct ata_probe_ent *ent)
 	host_set->irq = ent->irq;
 	host_set->mmio_base = ent->mmio_base;
 	host_set->private_data = ent->private_data;
+	host_set->ops = ent->port_ops;
 
 	/* register each port bound to this device */
 	for (i = 0; i < ent->n_ports; i++) {
 		struct ata_port *ap;
+		unsigned long xfer_mode_mask;
 
 		ap = ata_host_add(ent, host_set, i);
 		if (!ap)
 			goto err_out;
 
 		host_set->ports[i] = ap;
+		xfer_mode_mask =(ap->udma_mask << ATA_SHIFT_UDMA) |
+				(ap->mwdma_mask << ATA_SHIFT_MWDMA) |
+				(ap->pio_mask << ATA_SHIFT_PIO);
 
 		/* print per-port info to dmesg */
 		printk(KERN_INFO "ata%u: %cATA max %s cmd 0x%lX ctl 0x%lX "
 				 "bmdma 0x%lX irq %lu\n",
 			ap->id,
 			ap->flags & ATA_FLAG_SATA ? 'S' : 'P',
-			ata_udma_string(ent->udma_mask),
+			ata_mode_string(xfer_mode_mask),
 	       		ap->ioaddr.cmd_addr,
 	       		ap->ioaddr.ctl_addr,
 	       		ap->ioaddr.bmdma_addr,
 	       		ent->irq);
 
+		ata_chk_status(ap);
+		host_set->ops->irq_clear(ap);
 		count++;
 	}
 
@@ -3066,16 +3064,22 @@ int ata_device_add(struct ata_probe_ent *ent)
 	DPRINTK("probe begin\n");
 	for (i = 0; i < count; i++) {
 		struct ata_port *ap;
+		int rc;
 
 		ap = host_set->ports[i];
 
 		DPRINTK("ata%u: probe begin\n", ap->id);
-		schedule_task(&ap->probe_task);		/* start probe */
+		rc = ata_bus_probe(ap);
+		DPRINTK("ata%u: probe end\n", ap->id);
 
-		DPRINTK("ata%u: probe-wait begin\n", ap->id);
-		down(&ap->probe_sem);	/* wait for end */
-
-		DPRINTK("ata%u: probe-wait end\n", ap->id);
+		if (rc) {
+			/* FIXME: do something useful here?
+			 * Current libata behavior will
+			 * tear down everything when
+			 * the module is removed
+			 * or the h/w is unplugged.
+			 */
+		}
 	}
 
 	pci_set_drvdata(pdev, host_set);
@@ -3276,6 +3280,7 @@ int ata_pci_init_one (struct pci_dev *pdev, struct ata_port_info **port_info,
 	probe_ent->sht = port0->sht;
 	probe_ent->host_flags = port0->host_flags;
 	probe_ent->pio_mask = port0->pio_mask;
+	probe_ent->mwdma_mask = port0->mwdma_mask;
 	probe_ent->udma_mask = port0->udma_mask;
 	probe_ent->port_ops = port0->port_ops;
 
@@ -3298,6 +3303,7 @@ int ata_pci_init_one (struct pci_dev *pdev, struct ata_port_info **port_info,
 		probe_ent2->sht = port1->sht;
 		probe_ent2->host_flags = port1->host_flags;
 		probe_ent2->pio_mask = port1->pio_mask;
+		probe_ent2->mwdma_mask = port1->mwdma_mask;
 		probe_ent2->udma_mask = port1->udma_mask;
 		probe_ent2->port_ops = port1->port_ops;
 	} else {
@@ -3383,10 +3389,10 @@ void ata_pci_remove_one (struct pci_dev *pdev)
 	/* FIXME: handle 'rc' failure? */
 
 	free_irq(host_set->irq, host_set);
+	if (host_set->ops->host_stop)
+		host_set->ops->host_stop(host_set);
 	if (host_set->mmio_base)
 		iounmap(host_set->mmio_base);
-	if (host_set->ports[0]->ops->host_stop)
-		host_set->ports[0]->ops->host_stop(host_set);
 
 	pci_release_regions(pdev);
 
@@ -3492,7 +3498,10 @@ EXPORT_SYMBOL_GPL(pci_test_config_bits);
 EXPORT_SYMBOL_GPL(ata_std_bios_param);
 EXPORT_SYMBOL_GPL(ata_std_ports);
 EXPORT_SYMBOL_GPL(ata_device_add);
+EXPORT_SYMBOL_GPL(ata_sg_init);
+EXPORT_SYMBOL_GPL(ata_sg_init_one);
 EXPORT_SYMBOL_GPL(ata_qc_complete);
+EXPORT_SYMBOL_GPL(ata_qc_issue_prot);
 EXPORT_SYMBOL_GPL(ata_eng_timeout);
 EXPORT_SYMBOL_GPL(ata_tf_load_pio);
 EXPORT_SYMBOL_GPL(ata_tf_load_mmio);
@@ -3507,11 +3516,12 @@ EXPORT_SYMBOL_GPL(ata_exec_command_mmio);
 EXPORT_SYMBOL_GPL(ata_port_start);
 EXPORT_SYMBOL_GPL(ata_port_stop);
 EXPORT_SYMBOL_GPL(ata_interrupt);
-EXPORT_SYMBOL_GPL(ata_fill_sg);
+EXPORT_SYMBOL_GPL(ata_qc_prep);
 EXPORT_SYMBOL_GPL(ata_bmdma_setup_pio);
 EXPORT_SYMBOL_GPL(ata_bmdma_start_pio);
 EXPORT_SYMBOL_GPL(ata_bmdma_setup_mmio);
 EXPORT_SYMBOL_GPL(ata_bmdma_start_mmio);
+EXPORT_SYMBOL_GPL(ata_bmdma_irq_clear);
 EXPORT_SYMBOL_GPL(ata_port_probe);
 EXPORT_SYMBOL_GPL(sata_phy_reset);
 EXPORT_SYMBOL_GPL(ata_bus_reset);
@@ -3523,5 +3533,6 @@ EXPORT_SYMBOL_GPL(ata_scsi_error);
 EXPORT_SYMBOL_GPL(ata_scsi_detect);
 EXPORT_SYMBOL_GPL(ata_add_to_probe_list);
 EXPORT_SYMBOL_GPL(ata_scsi_release);
+EXPORT_SYMBOL_GPL(libata_msleep);
 EXPORT_SYMBOL_GPL(ata_host_intr);
 EXPORT_SYMBOL_GPL(ata_dev_id_string);

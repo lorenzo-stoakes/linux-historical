@@ -101,6 +101,7 @@
 
 
 #if 1
+#undef ASSERT
 #define ASSERT(expr)     if (!(expr)) { \
                              printk(FORE200E "assertion failed! %s[%d]: %s\n", \
 			            __FUNCTION__, __LINE__, #expr); \

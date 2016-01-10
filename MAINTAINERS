@@ -456,14 +456,20 @@ L:	omnibook@zurich.ai.mit.edu
 S:      Maintained
 
 
-HP SMART2 RAID DRIVER
-P:     Francis Wiran
-M:     francis.wiran@hp.com
-L:     iss_storagedev@hp.com
-S:	Odd Fixes
+HP 66Mhz FIBRE CHANNEL DRIVER
+P:	Chirag Kantharia
+M:	chirag.kantharia@hp.com
+L:	iss_storagedev@hp.com
+S:	Maintained
 
-HP SMART CISS RAID DRIVER
-P:     Mike Miller, Michael Ni
+HP SMART2 RAID DRIVER
+P:	Chirag Kantharia
+M:	chirag.kantharia@hp.com
+L:     iss_storagedev@hp.com
+S:	Maintained
+
+HP SMART ARRAY CISS RAID DRIVER (cciss)
+P:	Mike Miller
 M:     mike.miller@hp.com
 L:     iss_storagedev@hp.com
 S:	Supported
@@ -1735,8 +1741,8 @@ L:	ultralinux@vger.kernel.org
 S:	Maintained
 
 SPARC (sparc32):
-P:	Keith M. Wesolowski
-M:	wesolows@foobazco.org
+P:	William L. Irwin
+M:	wli@holomorphy.com
 L:	sparclinux@vger.kernel.org
 S:	Maintained
 

@@ -587,7 +587,7 @@ static inline int rx_refill(struct ns83820 *dev, int gfp)
 }
 
 static void FASTCALL(rx_refill_atomic(struct ns83820 *dev));
-static void rx_refill_atomic(struct ns83820 *dev)
+static void fastcall rx_refill_atomic(struct ns83820 *dev)
 {
 	rx_refill(dev, GFP_ATOMIC);
 }
@@ -608,7 +608,7 @@ static inline void clear_rx_desc(struct ns83820 *dev, unsigned i)
 }
 
 static void FASTCALL(phy_intr(struct ns83820 *dev));
-static void phy_intr(struct ns83820 *dev)
+static void fastcall phy_intr(struct ns83820 *dev)
 {
 	static char *speeds[] = { "10", "100", "1000", "1000(?)", "1000F" };
 	u32 cfg, new_cfg;
@@ -793,7 +793,7 @@ static void ns83820_cleanup_rx(struct ns83820 *dev)
 }
 
 static void FASTCALL(ns83820_rx_kick(struct ns83820 *dev));
-static void ns83820_rx_kick(struct ns83820 *dev)
+static void fastcall ns83820_rx_kick(struct ns83820 *dev)
 {
 	/*if (nr_rx_empty(dev) >= NR_RX_DESC/4)*/ {
 		if (dev->rx_info.up) {
@@ -814,7 +814,7 @@ static void ns83820_rx_kick(struct ns83820 *dev)
  *	
  */
 static void FASTCALL(rx_irq(struct ns83820 *dev));
-static void rx_irq(struct ns83820 *dev)
+static void fastcall rx_irq(struct ns83820 *dev)
 {
 	struct rx_info *info = &dev->rx_info;
 	unsigned next_rx;

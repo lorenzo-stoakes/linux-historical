@@ -5,7 +5,7 @@
  *	Generic neighbour manipulation
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>
+ *	Pedro Roque		<pedro_m@yahoo.com>
  *	Alexey Kuznetsov	<kuznet@ms2.inr.ac.ru>
  */
 

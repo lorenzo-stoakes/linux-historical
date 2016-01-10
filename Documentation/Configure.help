@@ -696,6 +696,24 @@ CONFIG_BLK_DEV_IDE
   could say N here, and select the "Old hard disk driver" below
   instead to save about 13 KB of memory in the kernel.
 
+Support for SATA (deprecated; conflicts with libata SATA driver)
+CONFIG_BLK_DEV_IDE_SATA
+  There are two drivers for Serial ATA controllers.
+
+  The main driver, "libata", exists inside the SCSI subsystem
+  and supports most modern SATA controllers.
+
+  The IDE driver (which you are currently configuring) supports
+  a few first-generation SATA controllers.
+
+  In order to eliminate conflicts between the two subsystems,
+  this config option enables the IDE driver's SATA support.
+  Normally this is disabled, as it is preferred that libata
+  supports SATA controllers, and this (IDE) driver supports
+  PATA controllers.
+
+  If unsure, say N.
+
 Old hard disk (MFM/RLL/IDE) driver
 CONFIG_BLK_DEV_HD_ONLY
   There are two drivers for MFM/RLL/IDE hard disks. Most people use
@@ -10076,6 +10094,49 @@ CONFIG_AIRONET4500_CS
   The module will be called aironet4500_cs.o. If you want to
   compile it as a module, say M here and read
   <file:Documentation/modules.txt>.
+
+Intersil 802.11(a/b/g) Prism GT/Duette/Indigo support
+CONFIG_PRISM54
+  Enable PCI and Cardbus support for the following chipset based cards:
+
+  ISL3880 - Prism GT		802.11 b/g
+  ISL3877 - Prism Indigo	802.11 a
+  ISL3890 - Prism Duette	802.11 a/b/g
+  
+  For a complete list of supported cards visit <http://prism54.org>.
+  Here is the latest confirmed list of supported cards:
+
+  3com OfficeConnect 11g Cardbus Card aka 3CRWE154G72
+  Allnet ALL0271 PCI Card
+  Compex WL54G Cardbus Card
+  Corega CG-WLCB54GT Cardbus Card
+  D-Link Air Plus Xtreme G A1 Cardbus Card aka DWL-g650
+  I-O Data WN-G54/CB Cardbus Card
+  Kobishi XG-300 aka Z-Com Cardbus Card
+  Netgear WG511 Cardbus Card
+  Ovislink WL-5400PCI PCI Card
+  Peabird WLG-PCI PCI Card
+  Sitecom WL-100i Cardbus Card
+  Sitecom WL-110i PCI Card
+  SMC2802W - EZ Connect g 2.4GHz 54 Mbps Wireless PCI Card
+  SMC2835W - EZ Connect g 2.4GHz 54 Mbps Wireless Cardbus Card
+  Z-Com XG-900 PCI Card
+  Zyxel G-100 Cardbus Card
+
+  If you enable this, you require a firmware file as well.
+  You will need to copy this to /usr/lib/hotplug/firmware/isl3890.
+  You can get this non-GPL'd firmware file from the Prism54 project page:
+  <http://prism54.org>.
+  You will also need the /etc/hotplug/firmware.agent script from
+  a current hotplug package.
+
+
+  Note: You need a motherboard with DMA support to use any of these cards 
+  
+  If you want to compile the driver as a module ( = code which can be
+  inserted in and removed from the running kernel whenever you want),
+  say M here and read <file:Documentation/modules.txt>.  The module
+  will be called prism54.o.
 
 Aironet 4500/4800 PROC interface
 CONFIG_AIRONET4500_PROC
@@ -28932,7 +28993,7 @@ CONFIG_CRYPTO_TEA
   many rounds for security.  It is very fast and uses
   little memory.
 
-  Xtendend Tiny Encryption Algorithm is a modifcation to
+  Xtendend Tiny Encryption Algorithm is a modification to
   the TEA algorithm to address a potential key weakness
   in the TEA algorithm.
 
@@ -28943,6 +29004,16 @@ CONFIG_CRYPTO_ARC4
   bits in length.  This algorithm is required for driver-based 
   WEP, but it should not be for other purposes because of the
   weakness of the algorithm.
+
+CONFIG_CRYPTO_KHAZAD
+  Khazad cipher algorithm.
+
+  Khazad was a finalist in the initial NESSIE competition.  It is
+  an algorithm optimized for 64-bit processors with good performance
+  on 32-bit processors.  Khazad uses an 128 bit key size.
+
+  See also:
+  http://planeta.terra.com.br/informatica/paulobarreto/KhazadPage.html
 
 CONFIG_CRYPTO_DEFLATE
   This is the Deflate algorithm (RFC1951), specified for use in

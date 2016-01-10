@@ -80,7 +80,7 @@ const struct pci_device_id cciss_pci_device_id[] = {
                         0x0E11, 0x4091, 0, 0, 0},
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSC,
                         0x0E11, 0x409E, 0, 0, 0},
-	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_CISSC,
+	{ PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_CISS,
                         0x103C, 0x3211, 0, 0, 0},
 	{0,}
 };
@@ -125,7 +125,7 @@ static struct board_type products[] = {
 /* Originally cciss driver only supports 8 major number */
 #define MAX_CTLR_ORIG  COMPAQ_CISS_MAJOR7 - COMPAQ_CISS_MAJOR + 1
 
-#define CCISS_DMA_MASK 0xFFFFFFFFFFFFFFFF /* 64 bit DMA */
+#define CCISS_DMA_MASK 0xFFFFFFFFFFFFFFFFULL /* 64 bit DMA */
 
 #ifdef CONFIG_CISS_MONITOR_THREAD
 static int cciss_monitor(void *ctlr);
@@ -592,7 +592,7 @@ int cciss_ioctl32_passthru(unsigned int fd, unsigned cmd, unsigned long arg,
 	set_fs(old_fs);
 	if (err)
 		return err;
-	err |= copy_to_user(&arg32->error_info, &arg64.error_info, sizeof(&arg32->error_info));
+	err |= copy_to_user(&arg32->error_info, &arg64.error_info, sizeof(arg32->error_info));
 	if (err) 
 		return -EFAULT; 
 	return err;
@@ -620,7 +620,7 @@ int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg,
 	set_fs(old_fs);
 	if (err)
 		return err;
-	err |= copy_to_user(&arg32->error_info, &arg64.error_info, sizeof(&arg32->error_info));
+	err |= copy_to_user(&arg32->error_info, &arg64.error_info, sizeof(arg32->error_info));
 	if (err) 
 		return -EFAULT; 
 	return err;
@@ -942,6 +942,8 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 			{
 				kfree(buff);
 				return -EFAULT;
+			} else {
+				memset(buff, 0, iocommand.buf_size);
 			}
 		}
 		if ((c = cmd_alloc(h , 0)) == NULL) {
@@ -1060,12 +1062,15 @@ static int cciss_ioctl(struct inode *inode, struct file *filep,
 					goto cleanup1;
 				}
 				if (iocommand.Request.Type.Direction == 
-						XFER_WRITE)
+						XFER_WRITE) {
 				   /* Copy the data into the buffer created */
 				   if (copy_from_user(buff[sg_used], data_ptr, 
 						buff_size[sg_used])) {
 					status = -ENOMEM;
 					goto cleanup1;			
+				   } else {
+					memset(buff[sg_used], 0, buff_size[sg_used]);
+				   }
 				   }
 				size_left_alloc -= buff_size[sg_used];
 				data_ptr += buff_size[sg_used];
@@ -2671,7 +2676,7 @@ static int find_PCI_BAR_index(struct pci_dev *pdev,
 static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 {
 	ushort subsystem_vendor_id, subsystem_device_id, command;
-	unchar irq = pdev->irq, ready = 0;
+	int ready = 0;
 	__u32 board_id, scratchpad;
 	__u64 cfg_offset;
 	__u32 cfg_base_addr;
@@ -2727,11 +2732,11 @@ static int cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 
 #ifdef CCISS_DEBUG
 	printk("command = %x\n", command);
-	printk("irq = %x\n", irq);
+	printk("irq = %x\n", pdev->irq);
 	printk("board_id = %x\n", board_id);
 #endif /* CCISS_DEBUG */ 
 
-	c->intr = irq;
+	c->intr = pdev->irq;
 
 	/*
 	 * Memory base addr is first addr , the second points to the config
