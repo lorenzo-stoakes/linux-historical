@@ -1,9 +1,9 @@
 /*
- * printer.c  Version 0.11
+ * printer.c  Version 0.13
  *
  * Copyright (c) 1999 Michael Gee	<michael@linuxspecific.com>
  * Copyright (c) 1999 Pavel Machek	<pavel@suse.cz>
- * Copyright (c) 2000 Randy Dunlap	<randy.dunlap@intel.com>
+ * Copyright (c) 2000 Randy Dunlap	<rddunlap@osdl.org>
  * Copyright (c) 2000 Vojtech Pavlik	<vojtech@suse.cz>
  # Copyright (c) 2001 Pete Zaitcev	<zaitcev@redhat.com>
  # Copyright (c) 2001 David Paschal	<paschal@rcsis.com>
@@ -230,11 +230,21 @@ static DECLARE_MUTEX(usblp_sem);	/* locks the existence of usblp's. */
 
 static int usblp_ctrl_msg(struct usblp *usblp, int request, int type, int dir, int recip, int value, void *buf, int len)
 {
-	int retval = usb_control_msg(usblp->dev,
+	int retval;
+	int index = usblp->ifnum;
+
+	/* High byte has the interface index.
+	   Low byte has the alternate setting.
+	 */
+	if ((request == USBLP_REQ_GET_ID) && (type == USB_TYPE_CLASS)) {
+	  index = (usblp->ifnum<<8)|usblp->protocol[usblp->current_protocol].alt_setting;
+	}
+
+	retval = usb_control_msg(usblp->dev,
 		dir ? usb_rcvctrlpipe(usblp->dev, 0) : usb_sndctrlpipe(usblp->dev, 0),
-		request, type | dir | recip, value, usblp->ifnum, buf, len, USBLP_WRITE_TIMEOUT);
-	dbg("usblp_control_msg: rq: 0x%02x dir: %d recip: %d value: %d len: %#x result: %d",
-		request, !!dir, recip, value, len, retval);
+		request, type | dir | recip, value, index, buf, len, USBLP_WRITE_TIMEOUT);
+	dbg("usblp_control_msg: rq: 0x%02x dir: %d recip: %d value: %d idx: %d len: %#x result: %d",
+		request, !!dir, recip, value, index, len, retval);
 	return retval < 0 ? retval : 0;
 }
 
@@ -747,6 +757,7 @@ static ssize_t usblp_read(struct file *file, char *buffer, size_t count, loff_t 
 			usblp->minor, usblp->readurb->status);
 		usblp->readurb->dev = usblp->dev;
  		usblp->readcount = 0;
+		usblp->rcomplete = 0;
 		if (usb_submit_urb(usblp->readurb) < 0)
 			dbg("error submitting urb");
 		count = -EIO;

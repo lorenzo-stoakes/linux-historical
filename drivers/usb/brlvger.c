@@ -743,6 +743,7 @@ brlvger_ioctl(struct inode *inode, struct file *file,
 	case BRLVGER_GET_INFO: {
 		struct brlvger_info vi;
 
+		memset(&vi, 0, sizeof(vi));
 		strncpy(vi.driver_version, DRIVER_VERSION,
 			sizeof(vi.driver_version));
 		vi.driver_version[sizeof(vi.driver_version)-1] = 0;

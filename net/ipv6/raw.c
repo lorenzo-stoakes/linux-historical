@@ -407,7 +407,10 @@ int rawv6_recvmsg(struct sock *sk, struct msghdr *msg, int len,
 
 	if (sk->net_pinfo.af_inet6.rxopt.all)
 		datagram_recv_ctl(sk, msg, skb);
+
 	err = copied;
+	if (flags & MSG_TRUNC)
+		err = skb->len;
 
 out_free:
 	skb_free_datagram(sk, skb);

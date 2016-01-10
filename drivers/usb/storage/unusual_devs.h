@@ -185,7 +185,7 @@ UNUSUAL_DEV(  0x04e6, 0x0005, 0x0100, 0x0208,
 UNUSUAL_DEV(  0x04e6, 0x0006, 0x0100, 0x0205, 
 		"Shuttle",
 		"eUSB MMC Adapter",
-		US_SC_SCSI, US_PR_CB, NULL, 
+		US_SC_SCSI, US_PR_DEVICE, NULL, 
 		US_FL_SINGLE_LUN), 
 
 UNUSUAL_DEV(  0x04e6, 0x0007, 0x0100, 0x0200, 
@@ -317,6 +317,15 @@ UNUSUAL_DEV(  0x057b, 0x0000, 0x0300, 0x9999,
 		"Flashbuster-U",
 		US_SC_DEVICE,  US_PR_DEVICE, NULL,
 		US_FL_SINGLE_LUN),
+
+/* Reported by Johann Cardon <johann.cardon@free.fr>
+ * This entry is needed only because the device reports
+ * bInterfaceClass = 0xff (vendor-specific)
+ */
+UNUSUAL_DEV(  0x057b, 0x0022, 0x0000, 0x9999, 
+		"Y-E Data",
+		"Silicon Media R/W",
+		US_SC_DEVICE, US_PR_DEVICE, NULL, 0),
 
 /* Fabrizio Fellini <fello@libero.it> */
 UNUSUAL_DEV(  0x0595, 0x4343, 0x0000, 0x2210,

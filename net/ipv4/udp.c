@@ -698,7 +698,10 @@ try_again:
   	}
 	if (sk->protinfo.af_inet.cmsg_flags)
 		ip_cmsg_recv(msg, skb);
+
 	err = copied;
+	if (flags & MSG_TRUNC)
+		err = skb->len - sizeof(struct udphdr);
   
 out_free:
   	skb_free_datagram(sk, skb);

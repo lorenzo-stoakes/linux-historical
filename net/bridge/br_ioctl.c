@@ -234,6 +234,7 @@ static int br_ioctl_deviceless(unsigned int cmd,
 int br_ioctl_deviceless_stub(unsigned long arg)
 {
 	unsigned long i[3];
+	int err;
 
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
@@ -241,8 +242,10 @@ int br_ioctl_deviceless_stub(unsigned long arg)
 	if (copy_from_user(i, (void *)arg, 3*sizeof(unsigned long)))
 		return -EFAULT;
 
-	ASSERT_RTNL();
-	return  br_ioctl_deviceless(i[0], i[1], i[2]);
+	rtnl_lock();
+	err =  br_ioctl_deviceless(i[0], i[1], i[2]);
+	rtnl_unlock();
+	return err;
 }
 
 int br_ioctl(struct net_bridge *br, unsigned int cmd, unsigned long arg0, unsigned long arg1, unsigned long arg2)

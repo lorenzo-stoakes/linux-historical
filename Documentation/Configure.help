@@ -6172,8 +6172,7 @@ CONFIG_NET_IPIP
   can be useful if you want to make your (or some other) machine
   appear on a different network than it physically is, or to use
   mobile-IP facilities (allowing laptops to seamlessly move between
-  networks without changing their IP addresses; check out
-  <http://anchor.cs.binghamton.edu/~mobileip/LJ/index.html>).
+  networks without changing their IP addresses).
 
   Saying Y to this option will produce two modules ( = code which can
   be inserted in and removed from the running kernel whenever you
@@ -28923,6 +28922,17 @@ CONFIG_CRYPTO_CAST6
   
   The CAST6 encryption algorithm (synonymous with CAST-256) is
   described in RFC2612.
+
+CONFIG_CRYPTO_TEA
+  TEA cipher algorithm.
+
+  Tiny Encryption Algorithm is a simple cipher that uses
+  many rounds for security.  It is very fast and uses
+  little memory.
+
+  Xtendend Tiny Encryption Algorithm is a modifcation to
+  the TEA algorithm to address a potential key weakness
+  in the TEA algorithm.
 
 CONFIG_CRYPTO_ARC4
   ARC4 cipher algorithm.
