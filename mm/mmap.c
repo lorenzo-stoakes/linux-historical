@@ -1031,6 +1031,15 @@ asmlinkage long sys_munmap(unsigned long addr, size_t len)
 	return ret;
 }
 
+
+static inline void verify_mmap_write_lock_held(struct mm_struct *mm)
+{
+	if (down_read_trylock(&mm->mmap_sem)) {
+		WARN_ON(1);
+		up_read(&mm->mmap_sem);
+	}
+}
+
 /*
  *  this is really a simplified "do_mmap".  it only handles
  *  anonymous maps.  eventually we may be able to do some
@@ -1059,6 +1068,12 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 		if (locked > current->rlim[RLIMIT_MEMLOCK].rlim_cur)
 			return -EAGAIN;
 	}
+
+	/*
+	 * mm->mmap_sem is required to protect against another thread
+	 * changing the mappings while we sleep (on kmalloc for one).
+	 */
+	verify_mmap_write_lock_held(mm);
 
 	/*
 	 * Clear old maps.  this also does some error checking for us
@@ -1115,21 +1130,6 @@ out:
 	}
 	return addr;
 }
-
-/* locking version of do_brk. */
-unsigned long do_brk_locked(unsigned long addr, unsigned long len)
-{
-	unsigned long ret;
-
-	down_write(&current->mm->mmap_sem);
-	ret = do_brk(addr, len);
-	up_write(&current->mm->mmap_sem);
-
-	return ret;
-}
-
-
-
 
 /* Build the RB tree corresponding to the VMA list. */
 void build_mmap_rb(struct mm_struct * mm)

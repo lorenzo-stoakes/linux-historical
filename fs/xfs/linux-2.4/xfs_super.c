@@ -787,10 +787,14 @@ linvfs_fh_to_dentry(
 		xfid.fid_gen = data[1];
 		xfid.fid_ino = (__u64)data[0];
 	} else {
-		if (fhtype == 4)
-			xfid.fid_gen = data[3];
-		else
-			xfid.fid_gen = 0;
+		if (fhtype != 4) {
+			printk(KERN_WARNING
+			       "XFS: detected filehandle without "
+			       "parent inode generation information.");
+			return ERR_PTR(-ESTALE);
+		}
+
+		xfid.fid_gen = data[3];
 		xfid.fid_ino = (__u64)data[2];
 	}
 

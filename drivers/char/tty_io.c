@@ -478,7 +478,6 @@ static int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 	int	retval = 0;
 	struct	tty_ldisc o_ldisc;
 	char buf[64];
-	int work;
 	unsigned long flags;
 	struct tty_ldisc *ld;
 

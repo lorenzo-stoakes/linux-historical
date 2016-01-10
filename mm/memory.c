@@ -454,9 +454,8 @@ static inline struct page * get_page_map(struct page *page)
 int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long start,
 		int len, int write, int force, struct page **pages, struct vm_area_struct **vmas)
 {
-	int i, s;
+	int i;
 	unsigned int flags;
-	struct vm_area_struct *savevma = NULL;
 
 	/*
 	 * Require read or write permissions.
@@ -464,7 +463,7 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 	 */
 	flags = write ? (VM_WRITE | VM_MAYWRITE) : (VM_READ | VM_MAYREAD);
 	flags &= force ? (VM_MAYREAD | VM_MAYWRITE) : (VM_READ | VM_WRITE);
-	i = s = 0;
+	i = 0;
 
 	do {
 		struct vm_area_struct *	vma;
@@ -500,13 +499,9 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 				/* FIXME: call the correct function,
 				 * depending on the type of the found page
 				 */
-				if (!pages[i] || PageReserved(pages[i])) {
-					if (pages[i] != ZERO_PAGE(start)) {
-						savevma = vma;
-						goto bad_page;
-					}
-				} else
-					page_cache_get(pages[i]);
+				if (!pages[i])
+					goto bad_page;
+				page_cache_get(pages[i]);
 			}
 			if (vmas)
 				vmas[i] = vma;
@@ -525,15 +520,9 @@ out:
 	 */
 bad_page:
 	spin_unlock(&mm->page_table_lock);
-	s = i;
 	while (i--)
 		page_cache_release(pages[i]);
-	/* catch bad uses of PG_reserved on !VM_IO vma's */
-	printk(KERN_ERR "get_user_pages PG_reserved page on"
-			"vma:%p flags:%lx page:%d\n", savevma,
-			savevma->vm_flags, s);
-	BUG();
-	i = -EFAULT; 
+	i = -EFAULT;
 	goto out;
 }
 

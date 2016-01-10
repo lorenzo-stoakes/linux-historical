@@ -1073,6 +1073,7 @@ pagebuf_cond_lock(			/* lock buffer, if not locked	*/
 	return(locked ? 0 : -EBUSY);
 }
 
+#ifdef DEBUG
 /*
  *	pagebuf_lock_value
  *
@@ -1084,6 +1085,7 @@ pagebuf_lock_value(
 {
 	return(atomic_read(&pb->pb_sema.count));
 }
+#endif
 
 /*
  *	pagebuf_lock
@@ -1547,6 +1549,7 @@ xfs_alloc_buftarg(
 	case EVMS_MAJOR:
 		btp->pbr_flags = PBR_ALIGNED_ONLY;
 		break;
+	case LOOP_MAJOR:
 	case LVM_BLK_MAJOR:
 		btp->pbr_flags = PBR_SECTOR_ONLY;
 		break;

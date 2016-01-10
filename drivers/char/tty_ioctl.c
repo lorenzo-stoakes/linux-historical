@@ -387,7 +387,6 @@ int n_tty_ioctl(struct tty_struct * tty, struct file * file,
 	struct tty_struct * real_tty;
 	int retval;
 	struct tty_ldisc *ld;
-	unsigned long flags;
 
 	if (tty->driver.type == TTY_DRIVER_TYPE_PTY &&
 	    tty->driver.subtype == PTY_TYPE_MASTER)

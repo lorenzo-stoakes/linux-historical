@@ -575,7 +575,6 @@ out:
 extern int do_munmap(struct mm_struct *, unsigned long, size_t);
 
 extern unsigned long do_brk(unsigned long, unsigned long);
-extern unsigned long do_brk_locked(unsigned long, unsigned long);
 
 static inline void __vma_unlink(struct mm_struct * mm, struct vm_area_struct * vma, struct vm_area_struct * prev)
 {
@@ -648,18 +647,33 @@ static inline int expand_stack(struct vm_area_struct * vma, unsigned long addres
 	unsigned long grow;
 
 	/*
-	 * vma->vm_start/vm_end cannot change under us because the caller is required
-	 * to hold the mmap_sem in write mode. We need to get the spinlock only
-	 * before relocating the vma range ourself.
+	 * vma->vm_start/vm_end cannot change under us because the caller
+	 * is required to hold the mmap_sem in read mode.  We need the
+	 * page_table_lock lock to serialize against concurrent expand_stacks.
 	 */
 	address &= PAGE_MASK;
  	spin_lock(&vma->vm_mm->page_table_lock);
+
+	/* already expanded while we were spinning? */
+	if (vma->vm_start <= address) {
+		spin_unlock(&vma->vm_mm->page_table_lock);
+		return 0;
+	}
+
 	grow = (vma->vm_start - address) >> PAGE_SHIFT;
 	if (vma->vm_end - address > current->rlim[RLIMIT_STACK].rlim_cur ||
 	    ((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) > current->rlim[RLIMIT_AS].rlim_cur) {
 		spin_unlock(&vma->vm_mm->page_table_lock);
 		return -ENOMEM;
 	}
+
+	if ((vma->vm_flags & VM_LOCKED) &&
+      	    ((vma->vm_mm->locked_vm + grow) << PAGE_SHIFT) > current->rlim[RLIMIT_MEMLOCK].rlim_cur) {
+		spin_unlock(&vma->vm_mm->page_table_lock);
+		return -ENOMEM;
+	}
+
+
 	vma->vm_start = address;
 	vma->vm_pgoff -= grow;
 	vma->vm_mm->total_vm += grow;

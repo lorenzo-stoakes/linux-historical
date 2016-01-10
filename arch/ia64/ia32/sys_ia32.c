@@ -1370,7 +1370,7 @@ struct cmsghdr32 {
 	((len) >= sizeof(struct cmsghdr32) ? (struct cmsghdr32 *)(ctl) : (struct cmsghdr32 *)NULL)
 #define CMSG32_FIRSTHDR(msg)	__CMSG32_FIRSTHDR((msg)->msg_control, (msg)->msg_controllen)
 #define CMSG32_OK(ucmlen, ucmsg, mhdr) \
-	((ucmlen) >= sizeof(struct cmsghdr) && \
+	((ucmlen) >= sizeof(struct cmsghdr32) && \
 	 (ucmlen) <= (unsigned long) \
 	 ((mhdr)->msg_controllen - \
 	  ((char *)(ucmsg) - (char *)(mhdr)->msg_control)))
