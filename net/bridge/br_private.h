@@ -79,7 +79,6 @@ struct net_bridge_port
 
 struct net_bridge
 {
-	struct net_bridge		*next;
 	rwlock_t			lock;
 	struct net_bridge_port		*port_list;
 	struct net_device		dev;

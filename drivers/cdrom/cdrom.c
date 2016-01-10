@@ -1,8 +1,7 @@
 /* linux/drivers/cdrom/cdrom.c. 
    Copyright (c) 1996, 1997 David A. van Leeuwen.
    Copyright (c) 1997, 1998 Erik Andersen <andersee@debian.org>
-   Copyright (c) 1998-2004 Jens Axboe <axboe@image.dk>
-   Copyright (c) 2004, Iomega Corp.
+   Copyright (c) 1998, 1999 Jens Axboe <axboe@image.dk>
 
    May be copied or modified under the terms of the GNU General Public
    License.  See linux/COPYING for more information.
@@ -448,100 +447,6 @@ struct cdrom_device_info *cdrom_find_device(kdev_t dev)
 	return cdi;
 }
 
-int cdrom_get_random_writable(struct cdrom_device_info *cdi,
-			      struct rwrt_feature_desc *rfd)
-{
-	struct cdrom_generic_command cgc;
-	char buffer[24];
-	int ret;
-
-	init_cdrom_command(&cgc, buffer, sizeof(buffer), CGC_DATA_READ);
-
-	cgc.cmd[0] = GPCMD_GET_CONFIGURATION;	/* often 0x46 */
-	cgc.cmd[3] = CDF_RWRT;			/* often 0x0020 */
-	cgc.cmd[8] = sizeof(buffer);		/* often 0x18 */
-	cgc.quiet = 1;
-
-	if ((ret = cdi->ops->generic_packet(cdi, &cgc)))
-		return ret;
-
-	memcpy(rfd, &buffer[sizeof(struct feature_header)], sizeof (*rfd));
-	return 0;
-}
-
-int cdrom_has_defect_mgt(struct cdrom_device_info *cdi)
-{
-	struct cdrom_generic_command cgc;
-	char buffer[16];
-	__u16 *feature_code;
-	int ret;
-
-	init_cdrom_command(&cgc, buffer, sizeof(buffer), CGC_DATA_READ);
-
-	cgc.cmd[0] = GPCMD_GET_CONFIGURATION;
-	cgc.cmd[3] = CDF_HWDM;
-	cgc.cmd[8] = sizeof(buffer);
-	cgc.quiet = 1;
-
-	if ((ret = cdi->ops->generic_packet(cdi, &cgc)))
-		return ret;
-
-	feature_code = (__u16 *) &buffer[sizeof(struct feature_header)];
-	if (be16_to_cpu(*feature_code) == CDF_HWDM)
-		return 0;
-
-	return 1;
-}
-
-
-int cdrom_is_random_writable(struct cdrom_device_info *cdi, int *write)
-{
-	struct rwrt_feature_desc rfd;
-	int ret;
-
-	*write = 0;
-
-	if ((ret = cdrom_get_random_writable(cdi, &rfd)))
-		return ret;
-
-	if (CDF_RWRT == be16_to_cpu(rfd.feature_code))
-		*write = 1;
-
-	return 0;
-}
-
-static int cdrom_ram_open_write(struct cdrom_device_info *cdi)
-{
-	struct rwrt_feature_desc rfd;
-	int ret;
-
-	if ((ret = cdrom_has_defect_mgt(cdi)))
-		return ret;
-	else
-		if ((ret = cdrom_get_random_writable(cdi, &rfd)))
-			return ret;
-		else if (CDF_RWRT == be16_to_cpu(rfd.feature_code))
-			ret = !rfd.curr;
-
-	cdinfo(CD_OPEN, "can open for random write\n");
-	return ret;
-}
-
-/*
- * returns 0 for ok to open write, non-0 to disallow
- */
-static int cdrom_open_write(struct cdrom_device_info *cdi)
-{
-	int ret;
-	if (CDROM_CAN(CDC_RAM) &&
-	    !CDROM_CAN(CDC_CD_R|CDC_CD_RW|CDC_DVD|CDC_DVD_R)) 
-		ret = cdrom_ram_open_write(cdi);
-	else
-		ret = 1;
-
-	return ret;
-}
-
 /* We use the open-option O_NONBLOCK to indicate that the
  * purpose of opening is only for subsequent ioctl() calls; no device
  * integrity checks are performed.
@@ -560,15 +465,8 @@ int cdrom_open(struct inode *ip, struct file *fp)
 	if ((cdi = cdrom_find_device(dev)) == NULL)
 		return -ENODEV;
 
-	cdi->use_count++;
-	ret = -EROFS;
-	if (fp->f_mode & FMODE_WRITE) {
-		/* printk("cdrom: %s opening for WRITE\n", current->comm); */
-		if (!CDROM_CAN(CDC_RAM))
-			goto out;
-		if (cdrom_open_write(cdi))
-			goto out;
-	}
+	if ((fp->f_mode & FMODE_WRITE) && !CDROM_CAN(CDC_DVD_RAM))
+		return -EROFS;
 
 	/* if this was a O_NONBLOCK open and we should honor the flags,
 	 * do a quick open without drive/disc integrity checks. */
@@ -577,13 +475,12 @@ int cdrom_open(struct inode *ip, struct file *fp)
 	else
 		ret = open_for_data(cdi);
 
+	if (!ret) cdi->use_count++;
+
 	cdinfo(CD_OPEN, "Use count for \"/dev/%s\" now %d\n", cdi->name, cdi->use_count);
 	/* Do this on open.  Don't wait for mount, because they might
 	    not be mounting, but opening with O_NONBLOCK */
 	check_disk_change(dev);
-out:
-	if (ret)
-		cdi->use_count--;
 	return ret;
 }
 
@@ -760,14 +657,15 @@ int cdrom_release(struct inode *ip, struct file *fp)
 
 	cdinfo(CD_CLOSE, "entering cdrom_release\n"); 
 
-	if (!--cdi->use_count) {
+	if (cdi->use_count > 0)
+		cdi->use_count--;
+	if (cdi->use_count == 0)
 		cdinfo(CD_CLOSE, "Use count for \"/dev/%s\" now zero\n", cdi->name);
-		if ((cdo->capability & CDC_LOCK) && !keeplocked) {
-			cdinfo(CD_CLOSE, "Unlocking door!\n");
-			cdo->lock_door(cdi, 0);
-		}
+	if (cdi->use_count == 0 &&
+	    cdo->capability & CDC_LOCK && !keeplocked) {
+		cdinfo(CD_CLOSE, "Unlocking door!\n");
+		cdo->lock_door(cdi, 0);
 	}
-
 	opened_for_data = !(cdi->options & CDO_USE_FFLAGS) ||
 		!(fp && fp->f_flags & O_NONBLOCK);
 	cdo->release(cdi);
@@ -2011,24 +1909,10 @@ static int cdrom_do_cmd(struct cdrom_device_info *cdi,
 		}
 	}
 
-	/*
-	 * queue command and wait for it to complete
-	 */
 	ret = cdi->ops->generic_packet(cdi, cgc);
-
-	/*
-	 * always copy back sense, command need not have failed for it to
-	 * contain useful info
-	 */
-	if (usense)
-		__copy_to_user(usense, cgc->sense, sizeof(*usense));
-
-	/*
-	 * this really needs to be modified to copy back good bytes
-	 */
+	__copy_to_user(usense, cgc->sense, sizeof(*usense));
 	if (!ret && cgc->data_direction == CGC_DATA_READ)
 		__copy_to_user(ubuf, cgc->buffer, cgc->buflen);
-
 	if (cgc->data_direction == CGC_DATA_READ ||
 	    cgc->data_direction == CGC_DATA_WRITE) {
 		kfree(cgc->buffer);
@@ -2508,7 +2392,6 @@ EXPORT_SYMBOL(cdrom_mode_select);
 EXPORT_SYMBOL(cdrom_mode_sense);
 EXPORT_SYMBOL(init_cdrom_command);
 EXPORT_SYMBOL(cdrom_find_device);
-EXPORT_SYMBOL(cdrom_is_random_writable);
 
 #ifdef CONFIG_SYSCTL
 
@@ -2604,10 +2487,6 @@ int cdrom_sysctl_info(ctl_table *ctl, int write, struct file * filp,
 	pos += sprintf(info+pos, "\nCan write DVD-RAM:");
 	for (cdi=topCdromPtr;cdi!=NULL;cdi=cdi->next)
 	    pos += sprintf(info+pos, "\t%d", CDROM_CAN(CDC_DVD_RAM) != 0);
-
-	pos += sprintf(info+pos, "\nCan write RAM:\t");
-	for (cdi=topCdromPtr;cdi!=NULL;cdi=cdi->next)
-	    pos += sprintf(info+pos, "\t%d", CDROM_CAN(CDC_RAM) != 0);
 
 	strcpy(info+pos,"\n\n");
 		

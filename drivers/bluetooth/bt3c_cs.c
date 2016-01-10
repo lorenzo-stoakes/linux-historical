@@ -643,6 +643,9 @@ int bt3c_close(bt3c_info_t *info)
 {
 	struct hci_dev *hdev = &(info->hdev);
 
+	if (info->link.state & DEV_CONFIG_PENDING)
+		return -ENODEV;
+
 	bt3c_hci_close(hdev);
 
 	if (hci_unregister_dev(hdev) < 0)

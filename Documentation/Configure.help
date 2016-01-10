@@ -10949,13 +10949,15 @@ CONFIG_NET_SCH_TBF
   whenever you want). If you want to compile it as a module, say M
   here and read <file:Documentation/modules.txt>.
 
-Network delay simualtor  
-CONFIG_NET_SCH_DELAY
-  Say Y if you want to delay packets by a fixed amount of
-  time. This is often useful to simulate network delay when
+CONFIG_NET_SCH_NETEM
+  Say Y if you want to emulate network delay, loss, and packet
+  re-ordering. This is often useful to simulate networks when
   testing applications or protocols.
-  
-  This code is also available as a module called sch_delay.o
+
+  To compile this driver as a module, choose M here: the module
+  will be called sch_netem.
+
+  If unsure, say N.
 
 Ingress Qdisc
 CONFIG_NET_SCH_INGRESS

@@ -250,14 +250,9 @@ int br_ioctl_deviceless_stub(unsigned long arg)
 
 int br_ioctl(struct net_bridge *br, unsigned int cmd, unsigned long arg0, unsigned long arg1, unsigned long arg2)
 {
-	int err;
-
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
 
 	ASSERT_RTNL();
-	err = br_ioctl_deviceless(cmd, arg0, arg1);
-	if (err == -EOPNOTSUPP)
-		err = br_ioctl_device(br, cmd, arg0, arg1, arg2);
-	return err;
+	return br_ioctl_device(br, cmd, arg0, arg1, arg2);
 }

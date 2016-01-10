@@ -596,6 +596,9 @@ brlvger_write(struct file *file, const char *buffer,
 
 	off = *pos;
 
+	if (off < 0)
+		return -EINVAL;
+
 	if(off > priv->plength)
 		return -ESPIPE;;
 

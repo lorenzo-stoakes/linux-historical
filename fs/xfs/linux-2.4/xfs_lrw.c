@@ -283,6 +283,8 @@ xfs_read(
 	XFS_STATS_INC(xs_read_calls);
 
 	if (unlikely(ioflags & IO_ISDIRECT)) {
+		if ((ssize_t)size < 0)
+			return -XFS_ERROR(EINVAL);
 		if (((__psint_t)buf & BBMASK) ||
 		    (*offset & mp->m_blockmask) ||
 		    (size & mp->m_blockmask)) {
@@ -325,7 +327,8 @@ xfs_read(
 	if (unlikely(ioflags & IO_ISDIRECT)) {
 		xfs_rw_enter_trace(XFS_DIORD_ENTER, &ip->i_iocore,
 					buf, size, *offset, ioflags);
-		ret = do_generic_direct_read(file, buf, size, offset);
+		ret = (*offset < ip->i_d.di_size) ?
+			do_generic_direct_read(file, buf, size, offset) : 0;
 		UPDATE_ATIME(file->f_dentry->d_inode);
 	} else {
 		xfs_rw_enter_trace(XFS_READ_ENTER, &ip->i_iocore,

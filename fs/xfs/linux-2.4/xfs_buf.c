@@ -1830,7 +1830,7 @@ _pagebuf_ioapply(			/* apply function to pages	*/
 	cur_offset = pb->pb_offset;
 	cur_len = buffer_len;
 
-	if (!pb->pb_locked &&
+	if (!pb->pb_locked && !(pb->pb_flags & PBF_DIRECTIO) &&
 	    (pb->pb_target->pbr_bsize < PAGE_CACHE_SIZE)) {
 		for (index = 0; index < pb->pb_page_count; index++)
 			lock_page(pb->pb_pages[index]);

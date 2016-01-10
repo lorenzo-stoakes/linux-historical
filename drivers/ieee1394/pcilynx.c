@@ -1065,12 +1065,15 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
         ssize_t retval;
         void *membase;
 
-        if ((off + count) > PCILYNX_MAX_MEMORY+1) {
-                count = PCILYNX_MAX_MEMORY+1 - off;
-        }
-        if (count == 0 || off > PCILYNX_MAX_MEMORY) {
+	if (!count)
+		return 0;
+	if (off < 0)
+		return -EINVAL;
+	if (off > PCILYNX_MAX_MEMORY)
                 return -ENOSPC;
-        }
+
+	if (count > PCILYNX_MAX_MEMORY + 1 - off)
+		count = PCILYNX_MAX_MEMORY + 1 - off;
 
         switch (md->type) {
         case rom:
@@ -1091,6 +1094,7 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
 
         if (count < mem_mindma) {
                 memcpy_fromio(md->lynx->mem_dma_buffer, membase+off, count);
+		off += count;
                 goto out;
         }
 
@@ -1121,6 +1125,7 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
         if (bcount) {
                 memcpy_fromio(md->lynx->mem_dma_buffer + count - bcount,
                               membase+off, bcount);
+		off += bcount;
         }
 
  out:
@@ -1128,7 +1133,7 @@ static ssize_t mem_read(struct file *file, char *buffer, size_t count,
         up(&md->lynx->mem_dma_mutex);
 
 	if (retval) return -EFAULT;
-        *offset += count;
+        *offset = off;
         return count;
 }
 
@@ -1137,32 +1142,36 @@ static ssize_t mem_write(struct file *file, const char *buffer, size_t count,
                          loff_t *offset)
 {
         struct memdata *md = (struct memdata *)file->private_data;
+	loff_t off = *offset;
 
-        if (((*offset) + count) > PCILYNX_MAX_MEMORY+1) {
-                count = PCILYNX_MAX_MEMORY+1 - *offset;
-        }
-        if (count == 0 || *offset > PCILYNX_MAX_MEMORY) {
-                return -ENOSPC;
-        }
+	if (!count)
+		return 0;
+	if (off < 0)
+		return -EINVAL;
+	if (off > PCILYNX_MAX_MEMORY)
+		return -ENOSPC;
+
+	if (count > PCILYNX_MAX_MEMORY + 1 - off)
+		count = PCILYNX_MAX_MEMORY + 1 - off;
 
         /* FIXME: dereferencing pointers to PCI mem doesn't work everywhere */
         switch (md->type) {
         case aux:
-		if (copy_from_user(md->lynx->aux_port+(*offset), buffer, count))
+		if (copy_from_user(md->lynx->aux_port+off, buffer, count))
 			return -EFAULT;
                 break;
         case ram:
-		if (copy_from_user(md->lynx->local_ram+(*offset), buffer, count))
+		if (copy_from_user(md->lynx->local_ram+off, buffer, count))
 			return -EFAULT;
                 break;
         case rom:
                 /* the ROM may be writeable */
-		if (copy_from_user(md->lynx->local_rom+(*offset), buffer, count))
+		if (copy_from_user(md->lynx->local_rom+off, buffer, count))
 			return -EFAULT;
                 break;
         }
 
-        file->f_pos += count;
+	*offset = off + count;
         return count;
 }
 #endif /* CONFIG_IEEE1394_PCILYNX_PORTS */

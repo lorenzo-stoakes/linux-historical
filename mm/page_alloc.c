@@ -46,8 +46,6 @@ static int lower_zone_reserve_ratio[MAX_NR_ZONES-1] = { 256, 32 };
 
 int vm_gfp_debug = 0;
 
-int free_dbg_count = 0;
-
 static void FASTCALL(__free_pages_ok (struct page *page, unsigned int order));
 
 static spinlock_t free_pages_ok_no_irq_lock = SPIN_LOCK_UNLOCKED;
@@ -123,7 +121,7 @@ static void __free_pages_ok (struct page *page, unsigned int order)
 	 * a reference to a page in order to pin it for io. -ben
 	 */
 	if (PageLRU(page)) {
-		if (unlikely(in_interrupt()) || ((free_dbg_count++ % 10000) == 0)) {
+		if (unlikely(in_interrupt())) {
 			unsigned long flags;
 
 			spin_lock_irqsave(&free_pages_ok_no_irq_lock, flags);

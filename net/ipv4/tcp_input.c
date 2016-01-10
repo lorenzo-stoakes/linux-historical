@@ -333,6 +333,15 @@ static void tcp_init_buffer_space(struct sock *sk)
 	tp->snd_cwnd_stamp = tcp_time_stamp;
 }
 
+static void init_bictcp(struct tcp_opt *tp)
+{
+	tp->bictcp.cnt = 0;
+
+	tp->bictcp.last_max_cwnd = 0;
+	tp->bictcp.last_cwnd = 0;
+	tp->bictcp.last_stamp = 0;
+}
+
 /* 5. Recalculate window clamp after socket hit its memory bounds. */
 static void tcp_clamp_window(struct sock *sk, struct tcp_opt *tp)
 {
@@ -1221,6 +1230,8 @@ void tcp_enter_frto_loss(struct sock *sk)
 	tcp_set_ca_state(tp, TCP_CA_Loss);
 	tp->high_seq = tp->frto_highmark;
 	TCP_ECN_queue_cwr(tp);
+
+	init_bictcp(tp);
 }
 
 void tcp_clear_retrans(struct tcp_opt *tp)
@@ -1997,10 +2008,12 @@ static inline __u32 bictcp_cwnd(struct tcp_opt *tp)
 	if (!sysctl_tcp_bic)
 		return tp->snd_cwnd;
 
-	if (tp->bictcp.last_cwnd == tp->snd_cwnd)
-		return tp->bictcp.cnt; /*  same cwnd, no update */
-      
+	if (tp->bictcp.last_cwnd == tp->snd_cwnd &&
+	   (s32)(tcp_time_stamp - tp->bictcp.last_stamp) <= (HZ>>5))
+		return tp->bictcp.cnt;
+
 	tp->bictcp.last_cwnd = tp->snd_cwnd;
+	tp->bictcp.last_stamp = tcp_time_stamp;
       
 	/* start off normal */
 	if (tp->snd_cwnd <= sysctl_tcp_bic_low_window)
@@ -4563,6 +4576,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 				return 1;
 
 			tcp_init_westwood(sk);
+			init_bictcp(tp);
 
 			/* Now we have several options: In theory there is 
 			 * nothing else in the frame. KA9Q has an option to 
@@ -4586,6 +4600,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 
 	case TCP_SYN_SENT:
 		tcp_init_westwood(sk);
+		init_bictcp(tp);
 
 		queued = tcp_rcv_synsent_state_process(sk, skb, th, len);
 		if (queued >= 0)

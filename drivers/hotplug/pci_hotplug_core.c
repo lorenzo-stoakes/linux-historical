@@ -616,7 +616,7 @@ static ssize_t power_read_file (struct file *file, char *buf, size_t count, loff
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = len;
 	retval = len;
 
 exit:
@@ -727,7 +727,7 @@ static ssize_t attention_read_file (struct file *file, char *buf, size_t count, 
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = len;
 	retval = len;
 
 exit:
@@ -792,14 +792,15 @@ static ssize_t latch_read_file (struct file *file, char *buf, size_t count, loff
 	int retval;
 	int len;
 	u8 value;
+	loff_t off = *offset;
 
-	dbg("count = %d, offset = %lld\n", count, *offset);
+	dbg("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -820,7 +821,7 @@ static ssize_t latch_read_file (struct file *file, char *buf, size_t count, loff
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:
@@ -835,14 +836,15 @@ static ssize_t presence_read_file (struct file *file, char *buf, size_t count, l
 	int retval;
 	int len;
 	u8 value;
+	loff_t off = *offset;
 
 	dbg("count = %d, offset = %lld\n", count, *offset);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -863,7 +865,7 @@ static ssize_t presence_read_file (struct file *file, char *buf, size_t count, l
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:
@@ -878,14 +880,15 @@ static ssize_t address_read_file (struct file *file, char *buf, size_t count, lo
 	int retval;
 	int len;
 	u32 address;
+	loff_t off = *offset;
 
-	dbg("count = %d, offset = %lld\n", count, *offset);
+	dbg("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -909,7 +912,7 @@ static ssize_t address_read_file (struct file *file, char *buf, size_t count, lo
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset  = off + len;
 	retval = len;
 
 exit:
@@ -927,14 +930,15 @@ static ssize_t max_bus_speed_read_file (struct file *file, char *buf, size_t cou
 	int retval;
 	int len = 0;
 	enum pci_bus_speed value;
+	loff_t off = *offset;
 	
-	dbg ("count = %d, offset = %lld\n", count, *offset);
+	dbg ("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -961,7 +965,7 @@ static ssize_t max_bus_speed_read_file (struct file *file, char *buf, size_t cou
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:
@@ -977,14 +981,15 @@ static ssize_t cur_bus_speed_read_file (struct file *file, char *buf, size_t cou
 	int retval;
 	int len = 0;
 	enum pci_bus_speed value;
+	loff_t off = *offset;
 
-	dbg ("count = %d, offset = %lld\n", count, *offset);
+	dbg ("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -1011,7 +1016,7 @@ static ssize_t cur_bus_speed_read_file (struct file *file, char *buf, size_t cou
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:

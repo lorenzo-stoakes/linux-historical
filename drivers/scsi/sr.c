@@ -1,7 +1,6 @@
 /*
  *  sr.c Copyright (C) 1992 David Giller
  *           Copyright (C) 1993, 1994, 1995, 1999 Eric Youngdale
- *       Copyright (C) 2004 Iomega Corp
  *
  *  adapted from:
  *      sd.c Copyright (C) 1992 Drew Eckhardt
@@ -129,7 +128,7 @@ static struct cdrom_device_ops sr_dops =
 				CDC_MEDIA_CHANGED | CDC_PLAY_AUDIO |
 				CDC_RESET | CDC_IOCTLS | CDC_DRIVE_STATUS |
 				CDC_CD_R | CDC_CD_RW | CDC_DVD | CDC_DVD_R |
-				CDC_DVD_RAM | CDC_GENERIC_PACKET | CDC_RAM,
+				CDC_DVD_RAM | CDC_GENERIC_PACKET,
 	generic_packet:		sr_packet,
 };
 
@@ -694,7 +693,7 @@ void get_capabilities(int i)
 {
 	unsigned char cmd[6];
 	unsigned char *buffer;
-	int rc, n, ram_write=0;
+	int rc, n;
 
 	static char *loadmech[] =
 	{
@@ -732,11 +731,6 @@ void get_capabilities(int i)
 		printk("sr%i: scsi-1 drive\n", i);
 		return;
 	}
-	if (cdrom_is_random_writable(&scsi_CDs[i].cdi, &ram_write))
-		scsi_CDs[i].cdi.mask |= CDC_RAM;
-	if (!ram_write)
-		scsi_CDs[i].cdi.mask |= CDC_RAM;
-
 	n = buffer[3] + 4;
 	scsi_CDs[i].cdi.speed = ((buffer[n + 8] << 8) + buffer[n + 9]) / 176;
 	scsi_CDs[i].readcd_known = 1;
@@ -760,6 +754,8 @@ void get_capabilities(int i)
 	if ((buffer[n + 3] & 0x20) == 0) {
 		/* can't write DVD-RAM media */
 		scsi_CDs[i].cdi.mask |= CDC_DVD_RAM;
+	} else {
+		scsi_CDs[i].device->writeable = 1;
 	}
 	if ((buffer[n + 3] & 0x10) == 0)
 		/* can't write DVD-R media */
@@ -783,13 +779,6 @@ void get_capabilities(int i)
 		scsi_CDs[i].cdi.mask |= CDC_SELECT_DISC;
 	/*else    I don't think it can close its tray
 	   scsi_CDs[i].cdi.mask |= CDC_CLOSE_TRAY; */
-
-	/*
-	 * if DVD-RAM of MRW-W, we are randomly writeable
-	 */
-	if ((scsi_CDs[i].cdi.mask & (CDC_DVD_RAM | CDC_RAM)) !=
-	    (CDC_DVD_RAM | CDC_RAM))
-		scsi_CDs[i].device->writeable = 1;
 
 	scsi_free(buffer, 512);
 }

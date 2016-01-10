@@ -3,8 +3,7 @@
  *
  * Copyright (C) 1994, 1995, 1996  scott snyder  <snyder@fnald0.fnal.gov>
  * Copyright (C) 1996-1998  Erik Andersen <andersee@debian.org>
- * Copyright (C) 1998-2004  Jens Axboe <axboe@suse.de>
- * Copyright (C) 2004 Iomega Corp
+ * Copyright (C) 1998-2000  Jens Axboe <axboe@suse.de>
  *
  * May be copied or modified under the terms of the GNU General Public
  * License.  See linux/COPYING for more information.
@@ -2684,7 +2683,7 @@ static struct cdrom_device_ops ide_cdrom_dops = {
 				CDC_MEDIA_CHANGED | CDC_PLAY_AUDIO | CDC_RESET |
 				CDC_IOCTLS | CDC_DRIVE_STATUS | CDC_CD_R |
 				CDC_CD_RW | CDC_DVD | CDC_DVD_R| CDC_DVD_RAM |
-				CDC_GENERIC_PACKET | CDC_RAM,
+				CDC_GENERIC_PACKET,
 	generic_packet:		ide_cdrom_packet,
 };
 
@@ -2719,8 +2718,6 @@ static int ide_cdrom_register (ide_drive_t *drive, int nslots)
 		devinfo->mask |= CDC_PLAY_AUDIO;
 	if (!CDROM_CONFIG_FLAGS(drive)->close_tray)
 		devinfo->mask |= CDC_CLOSE_TRAY;
-	if (!CDROM_CONFIG_FLAGS(drive)->ram)
-		devinfo->mask |= CDC_RAM;
 
 	devinfo->de = devfs_register(drive->de, "cd", DEVFS_FL_DEFAULT,
 				     HWIF(drive)->major, minor,
@@ -2769,7 +2766,7 @@ int ide_cdrom_probe_capabilities (ide_drive_t *drive)
 	struct cdrom_info *info = drive->driver_data;
 	struct cdrom_device_info *cdi = &info->devinfo;
 	struct atapi_capabilities_page cap;
-	int nslots = 1, ram_write = 0;
+	int nslots = 1;
 
 	if (CDROM_CONFIG_FLAGS(drive)->nec260) {
 		CDROM_CONFIG_FLAGS(drive)->no_eject = 0;                       
@@ -2779,9 +2776,7 @@ int ide_cdrom_probe_capabilities (ide_drive_t *drive)
 
 	if (ide_cdrom_get_capabilities(drive, &cap))
 		return 0;
-	cdrom_is_random_writable(cdi, &ram_write);
-	if (ram_write) 
-		CDROM_CONFIG_FLAGS(drive)->ram = 1;
+
 	if (cap.lock == 0)
 		CDROM_CONFIG_FLAGS(drive)->no_doorlock = 1;
 	if (cap.eject)
@@ -2794,10 +2789,8 @@ int ide_cdrom_probe_capabilities (ide_drive_t *drive)
 		CDROM_CONFIG_FLAGS(drive)->test_write = 1;
 	if (cap.dvd_ram_read || cap.dvd_r_read || cap.dvd_rom)
 		CDROM_CONFIG_FLAGS(drive)->dvd = 1;
-	if (cap.dvd_ram_write) {
+	if (cap.dvd_ram_write)
 		CDROM_CONFIG_FLAGS(drive)->dvd_ram = 1;
-		CDROM_CONFIG_FLAGS(drive)->ram = 1;
-	}
 	if (cap.dvd_r_write)
 		CDROM_CONFIG_FLAGS(drive)->dvd_r = 1;
 	if (cap.audio_play)
@@ -3007,8 +3000,7 @@ int ide_cdrom_setup (ide_drive_t *drive)
 
 	nslots = ide_cdrom_probe_capabilities (drive);
 
-	if ((CDROM_CONFIG_FLAGS(drive)->dvd_ram) ||
-	    (CDROM_CONFIG_FLAGS(drive)->ram))
+	if (CDROM_CONFIG_FLAGS(drive)->dvd_ram)
 		set_device_ro(MKDEV(HWIF(drive)->major, minor), 0);
 
 #if 0

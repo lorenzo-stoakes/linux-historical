@@ -5,8 +5,7 @@
  *               1994, 1995   Eberhard Moenkeberg, emoenke@gwdg.de
  *               1996         David van Leeuwen, david@tm.tno.nl
  *               1997, 1998   Erik Andersen, andersee@debian.org
- *               1998-2004    Jens Axboe, axboe@suse.de
- *               2004         Iomega Corp
+ *               1998-2000    Jens Axboe, axboe@suse.de
  */
  
 #ifndef	_LINUX_CDROM_H
@@ -388,7 +387,6 @@ struct cdrom_generic_command
 #define CDC_DVD			0x8000	/* drive is a DVD */
 #define CDC_DVD_R		0x10000	/* drive can write DVD-R */
 #define CDC_DVD_RAM		0x20000	/* drive can write DVD-RAM */
-#define CDC_RAM			0x100000 /* ok to open WRITE */
 
 /* drive status possibilities returned by CDROM_DRIVE_STATUS ioctl */
 #define CDS_NO_INFO		0	/* if not implemented */
@@ -716,42 +714,15 @@ struct request_sense {
 	__u8 asb[46];
 };
 
-/*
- * feature profile
- */
-#define CDF_RWRT	0x0020
-#define CDF_HWDM	0x0024
-
-/* cf. mmc4r02g.pdf 5.3.10 Random Writable Feature (0020h) pg 197 of 635 */
-struct rwrt_feature_desc {
-	__u16 feature_code;
-#if defined(__BIG_ENDIAN_BITFIELD)
-	__u8 reserved1		: 2;
-	__u8 feature_version	: 4;
-	__u8 persistent		: 1;
-	__u8 curr		: 1;
-#elif defined(__LITTLE_ENDIAN_BITFIELD)
-	__u8 curr		: 1;
-	__u8 persistent		: 1;
-	__u8 feature_version	: 4;
-	__u8 reserved1		: 2;
-#endif
-	__u8 add_len;
-	__u32 last_lba;
-	__u32 block_size;
-	__u16 blocking;
-#if defined(__BIG_ENDIAN_BITFIELD)
-	__u8 reserved2		: 7;
-	__u8 page_present	: 1;
-#elif defined(__LITTLE_ENDIAN_BITFIELD)
-	__u8 page_present	: 1;
-	__u8 reserved2		: 7;
-#endif
-	__u8 reserved3;
-};
-
 #ifdef __KERNEL__
 #include <linux/devfs_fs_kernel.h>
+
+struct cdrom_write_settings {
+	unsigned char fpacket;		/* fixed/variable packets */
+	unsigned long packet_size;	/* write out this number of packets */
+	unsigned long nwa;		/* next writeable address */
+	unsigned char writeable;	/* cdrom is writeable */
+};
 
 /* Uniform cdrom data structures for cdrom.c */
 struct cdrom_device_info {
@@ -773,6 +744,7 @@ struct cdrom_device_info {
 /* per-device flags */
         __u8 sanyo_slot		: 2;	/* Sanyo 3 CD changer support */
         __u8 reserved		: 6;	/* not used yet */
+	struct cdrom_write_settings write;
 };
 
 struct cdrom_device_ops {
@@ -1081,17 +1053,6 @@ typedef struct {
 	__u8 reserved3;
 } rpc_state_t;
 
-struct feature_header {
-	__u32 data_len;
-	__u8 reserved1;
-	__u8 reserved2;
-	__u16 curr_profile;
-};
-
-extern int cdrom_get_disc_info(kdev_t dev, disc_information *di);
-extern int cdrom_get_track_info(kdev_t dev, __u16 track, __u8 type,
-				track_information *ti);
-extern int cdrom_is_random_writable(struct cdrom_device_info *cdi, int *write);
-#endif /* __KERNEL__ */
+#endif  /* End of kernel only stuff */ 
 
 #endif  /* _LINUX_CDROM_H */

@@ -2,8 +2,7 @@
  *  linux/drivers/ide/ide_cd.h
  *
  *  Copyright (C) 1996-98  Erik Andersen
- *  Copyright (C) 1998-2004 Jens Axboe
- *  Copyright (C) 2004 Iomega Corp
+ *  Copyright (C) 1998-2000 Jens Axboe
  */
 #ifndef _IDE_CD_H
 #define _IDE_CD_H
@@ -76,7 +75,6 @@ struct ide_cd_config_flags {
 	__u8 dvd		: 1; /* Drive is a DVD-ROM */
 	__u8 dvd_r		: 1; /* Drive can write DVD-R */
 	__u8 dvd_ram		: 1; /* Drive can write DVD-RAM */
-	__u8 ram		: 1; /* generic WRITE (dvd-ram/mrw) */
 	__u8 test_write		: 1; /* Drive can fake writes */
 	__u8 supp_disc_present	: 1; /* Changer can report exact contents
 					of slots. */
