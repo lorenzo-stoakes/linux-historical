@@ -253,10 +253,10 @@ extern void (*ip_conntrack_destroyed)(struct ip_conntrack *conntrack);
 struct sk_buff *
 ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user);
 
-/* Delete all conntracks which match. */
+/* Iterate over all conntracks: if iter returns true, it's deleted. */
 extern void
-ip_ct_selective_cleanup(int (*kill)(const struct ip_conntrack *i, void *data),
-			void *data);
+ip_ct_iterate_cleanup(int (*iter)(struct ip_conntrack *i, void *data),
+                      void *data);
 
 /* It's confirmed if it is, or has been in the hash table. */
 static inline int is_confirmed(struct ip_conntrack *ct)

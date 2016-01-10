@@ -249,8 +249,6 @@ static int jfs_mkdir(struct inode *dip, struct dentry *dentry, int mode)
 	ip->i_nlink = 2;	/* for '.' */
 	ip->i_op = &jfs_dir_inode_operations;
 	ip->i_fop = &jfs_dir_operations;
-	ip->i_mapping->a_ops = &jfs_aops;
-	ip->i_mapping->gfp_mask = GFP_NOFS;
 
 	insert_inode_hash(ip);
 	mark_inode_dirty(ip);
