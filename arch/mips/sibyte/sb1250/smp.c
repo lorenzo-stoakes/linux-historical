@@ -91,26 +91,6 @@ extern atomic_t cpus_booted;
 extern atomic_t smp_commenced;
 
 /*
- * Clear all undefined state in the cpu, set up sp and gp to the passed
- * values, and kick the cpu into smp_bootstrap();
- */
-extern int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp);
-
-/*
- *  After we've done initial boot, this function is called to allow the
- *  board code to clean up state, if needed
- */
-extern void prom_init_secondary(void);
-
-/*
- * Do whatever setup needs to be done for SMP at the board level.  Return
- * the number of cpus in the system, including this one
- */
-extern int prom_setup_smp(void);
-
-extern void prom_smp_finish(void);
-
-/*
  * Hook for doing final board-specific setup after the generic smp setup
  * is done
  */
@@ -161,7 +141,6 @@ void __init smp_boot_cpus(void)
 	for (i = 1; i < smp_num_cpus; ) {
 		struct task_struct *p;
 		struct pt_regs regs;
-		int retval;
 		printk("Starting CPU %d... ", i);
 
 		/* Spawn a new process normally.  Grab a pointer to
@@ -181,17 +160,13 @@ void __init smp_boot_cpus(void)
 		do {
 			/* Iterate until we find a CPU that comes up */
 			cur_cpu++;
-			retval = prom_boot_secondary(cur_cpu,
+			prom_boot_secondary(cur_cpu,
 					    (unsigned long)p + KERNEL_STACK_SIZE - 32,
 					    (unsigned long)p);
-		} while (!retval && (cur_cpu < NR_CPUS));
-		if (retval) {
-			__cpu_number_map[cur_cpu] = i;
-			__cpu_logical_map[i] = cur_cpu;
-			i++;
-		} else {
-			panic("CPU discovery disaster");
-		}
+		} while (cur_cpu < NR_CPUS);
+		__cpu_number_map[cur_cpu] = i;
+		__cpu_logical_map[i] = cur_cpu;
+		i++;
 	}
 
 	/* Wait for everyone to come up */

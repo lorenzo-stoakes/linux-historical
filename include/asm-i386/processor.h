@@ -426,9 +426,12 @@ extern void release_thread(struct task_struct *);
  */
 extern int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
-/* Copy and release all segment info associated with a VM */
-extern void copy_segments(struct task_struct *p, struct mm_struct * mm);
-extern void release_segments(struct mm_struct * mm);
+/* Copy and release all segment info associated with a VM
+ * Unusable due to lack of error handling, use {init_new,destroy}_context
+ * instead.
+ */
+static inline void copy_segments(struct task_struct *p, struct mm_struct * mm) { }
+static inline void release_segments(struct mm_struct * mm) { }
 
 /*
  * Return saved PC of a blocked thread.

@@ -162,7 +162,7 @@ unsigned long last_entryLo0, last_entryLo1;
 static int config_access(unsigned char access_type, struct pci_dev *dev, 
 			 unsigned char where, u32 * data)
 {
-#ifdef CONFIG_SOC_AU1500
+#if defined( CONFIG_SOC_AU1500 ) || defined( CONFIG_SOC_AU1550 )
 	unsigned char bus = dev->bus->number;
 	unsigned int dev_fn = dev->devfn;
 	unsigned int device = PCI_SLOT(dev_fn);

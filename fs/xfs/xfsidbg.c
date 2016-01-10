@@ -2610,9 +2610,9 @@ kdbm_iomap(int argc, const char **argv, const char **envp,
 	    (diag = kdb_getarea(iomap, addr)))
 
 	kdb_printf("iomap_t at 0x%lx\n", addr);
-	kdb_printf("  iomap_bn 0x%llx iomap_offset 0x%Lx iomap_delta 0x%lx iomap_bsize 0x%lx\n",
+	kdb_printf("  iomap_bn 0x%llx iomap_offset 0x%Lx iomap_delta 0x%lx iomap_bsize 0x%llx\n",
 		(long long) iomap.iomap_bn, iomap.iomap_offset,
-		(unsigned long) iomap.iomap_delta, (unsigned long) iomap.iomap_bsize);
+		(unsigned long)iomap.iomap_delta, (long long)iomap.iomap_bsize);
 
 	kdb_printf("  iomap_flags %s\n", map_flags(iomap.iomap_flags, iomap_flag_vals));
 

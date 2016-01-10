@@ -14,10 +14,11 @@ O_TARGET := vr41xx.o
 
 obj-y := bcu.o cmu.o giu.o icu.o int-handler.o ksyms.o reset.o rtc.o
 
-export-objs := ksyms.o vrc4173.o
+export-objs := ksyms.o vrc4171.o vrc4173.o
 
 obj-$(CONFIG_PCI)		+= pciu.o
 obj-$(CONFIG_SERIAL)		+= serial.o
+obj-$(CONFIG_VRC4171)		+= vrc4171.o
 obj-$(CONFIG_VRC4173)		+= vrc4173.o
 obj-$(subst m,y,$(CONFIG_IDE))	+= ide.o
 

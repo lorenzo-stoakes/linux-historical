@@ -26,7 +26,6 @@
 #include <asm/trace.h>
 
 extern void smp_call_function_interrupt(void);
-extern void asmlinkage smp_bootstrap(void);
 
 /*
  * Send inter-processor interrupt
@@ -65,8 +64,6 @@ void jaguar_mailbox_irq(struct pt_regs *regs)
 }
 
 extern atomic_t cpus_booted;
-extern int prom_setup_smp(void);
-extern int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp);
 
 void __init start_secondary(void)
 {

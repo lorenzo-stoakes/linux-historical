@@ -151,8 +151,6 @@ void __init prom_fixup_mem_map(unsigned long start, unsigned long end)
 {
 }
 
-extern void asmlinkage smp_bootstrap(void);
-
 /*
  * SMP support
  */

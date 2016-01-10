@@ -237,7 +237,7 @@ void show_regs(struct pt_regs *regs)
 	 */
 	printk("epc   : %08lx    %s\n", regs->cp0_epc, print_tainted());
 	printk("Status: %08lx\n", regs->cp0_status);
-	printk("epc   : %08lx\n", regs->cp0_cause);
+	printk("Cause : %08lx\n", regs->cp0_cause);
 	printk("PrId  : %08x\n", read_c0_prid());
 }
 
@@ -885,7 +885,7 @@ void __init per_cpu_trap_init(void)
 	unsigned int cpu = smp_processor_id();
 
 	/* Some firmware leaves the BEV flag set, clear it.  */
-	clear_c0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_BEV);
+	clear_c0_status(ST0_CU3|ST0_CU2|ST0_CU1|ST0_BEV|ST0_KX|ST0_SX|ST0_UX);
 
 	if (current_cpu_data.isa_level == MIPS_CPU_ISA_IV)
 		set_c0_status(ST0_XX);

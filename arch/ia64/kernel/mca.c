@@ -36,6 +36,10 @@
  *                      SAL 3.0 spec.
  * 00/03/29 C. Fleckenstein  Fixed PAL/SAL update issues, began MCA bug fixes, logging issues,
  *                           added min save state dump, added INIT handler.
+ *
+ * 2003-12-08 Keith Owens <kaos@sgi.com>
+ *            smp_call_function() must not be called from interrupt context (can
+ *            deadlock on tasklist_lock).  Use keventd to call smp_call_function().
  */
 #include <linux/config.h>
 #include <linux/types.h>
@@ -50,6 +54,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/smp.h>
+#include <linux/tqueue.h>
 
 #include <asm/delay.h>
 #include <asm/machvec.h>
@@ -80,11 +85,8 @@ u64				ia64_mca_stack[1024] __attribute__((aligned(16)));
 u64				ia64_mca_stackframe[32];
 u64				ia64_mca_bspstore[1024];
 u64				ia64_init_stack[INIT_TASK_SIZE/8] __attribute__((aligned(16)));
-u64				ia64_mca_sal_data_area[1356];
-u64				ia64_tlb_functional;
 u64				ia64_os_mca_recovery_successful;
-/* TODO: need to assign min-state structure to UC memory */
-u64				ia64_mca_min_state_save_info[MIN_STATE_AREA_SIZE] __attribute__((aligned(512)));
+u64				ia64_mca_serialize;
 static void			ia64_mca_wakeup_ipi_wait(void);
 static void			ia64_mca_wakeup(int cpu);
 static void			ia64_mca_wakeup_all(void);
@@ -93,6 +95,8 @@ extern void			ia64_monarch_init_handler (void);
 extern void			ia64_slave_init_handler (void);
 static u64			ia64_log_get(int sal_info_type, u8 **buffer);
 extern struct hw_interrupt_type	irq_type_iosapic_level;
+
+struct ia64_mca_tlb_info ia64_mca_tlb_list[NR_CPUS];
 
 static struct irqaction cmci_irqaction = {
 	.handler =	ia64_mca_cmc_int_handler,
@@ -153,6 +157,8 @@ static int cmc_polling_enabled = 1;
 static int cpe_poll_enabled = 1;
 
 extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size);
+
+static struct tq_struct	cmc_disable_tq, cmc_enable_tq;
 
 /*
  *  ia64_mca_log_sal_error_record
@@ -468,26 +474,6 @@ ia64_mca_register_cpev (int cpev)
 #endif /* PLATFORM_MCA_HANDLERS */
 
 /*
- * routine to process and prepare to dump min_state_save
- * information for debugging purposes.
- */
-void
-ia64_process_min_state_save (pal_min_state_area_t *pmss)
-{
-	int i, max = MIN_STATE_AREA_SIZE;
-	u64 *tpmss_ptr = (u64 *)pmss;
-	u64 *return_min_state_ptr = ia64_mca_min_state_save_info;
-
-	for (i=0;i<max;i++) {
-
-		/* copy min-state register info for eventual return to PAL */
-		*return_min_state_ptr++ = *tpmss_ptr;
-
-		tpmss_ptr++;  /* skip to next entry */
-	}
-}
-
-/*
  * ia64_mca_cmc_vector_setup
  *
  *  Setup the corrected machine check vector register in the processor and
@@ -626,6 +612,36 @@ verify_guid (efi_guid_t *test, efi_guid_t *target)
 }
 
 /*
+ * ia64_mca_cmc_vector_disable_keventd
+ *
+ * Called via keventd (smp_call_function() is not safe in interrupt context) to
+ * disable the cmc interrupt vector.
+ *
+ * Note: needs preempt_disable() if you apply the preempt patch to 2.4.
+ */
+static void
+ia64_mca_cmc_vector_disable_keventd(void *unused)
+{
+	ia64_mca_cmc_vector_disable(NULL);
+	smp_call_function(ia64_mca_cmc_vector_disable, NULL, 1, 0);
+}
+
+/*
+ * ia64_mca_cmc_vector_enable_keventd
+ *
+ * Called via keventd (smp_call_function() is not safe in interrupt context) to
+ * enable the cmc interrupt vector.
+ *
+ * Note: needs preempt_disable() if you apply the preempt patch to 2.4.
+ */
+static void
+ia64_mca_cmc_vector_enable_keventd(void *unused)
+{
+	smp_call_function(ia64_mca_cmc_vector_enable, NULL, 1, 0);
+	ia64_mca_cmc_vector_enable(NULL);
+}
+
+/*
  * ia64_mca_init
  *
  *  Do all the system level mca specific initialization.
@@ -657,6 +673,9 @@ ia64_mca_init(void)
 	u64 timeout = IA64_MCA_RENDEZ_TIMEOUT;	/* platform specific */
 
 	IA64_MCA_DEBUG("ia64_mca_init: begin\n");
+
+	INIT_TQUEUE(&cmc_disable_tq, ia64_mca_cmc_vector_disable_keventd, NULL);
+	INIT_TQUEUE(&cmc_enable_tq, ia64_mca_cmc_vector_enable_keventd, NULL);
 
 	/* initialize recovery success indicator */
 	ia64_os_mca_recovery_successful = 0;
@@ -956,6 +975,9 @@ ia64_mca_wakeup_int_handler(int wakeup_irq, void *arg, struct pt_regs *ptregs)
 void
 ia64_return_to_sal_check(void)
 {
+	pal_processor_state_info_t *psp = (pal_processor_state_info_t *)
+		&ia64_sal_to_os_handoff_state.proc_state_param;
+
 	/* Copy over some relevant stuff from the sal_to_os_mca_handoff
 	 * so that it can be used at the time of os_mca_to_sal_handoff
 	 */
@@ -965,15 +987,22 @@ ia64_return_to_sal_check(void)
 	ia64_os_to_sal_handoff_state.imots_sal_check_ra =
 		ia64_sal_to_os_handoff_state.imsto_sal_check_ra;
 
-	/* Cold Boot for uncorrectable MCA */
-	ia64_os_to_sal_handoff_state.imots_os_status = IA64_MCA_COLD_BOOT;
+	/*
+	 * Did we correct the error? At the moment the only error that
+	 * we fix is a TLB error, if any other kind of error occurred
+	 * we must reboot.
+	 */
+	if (psp->cc == 1 && psp->bc == 1 && psp->rc == 1 && psp->uc == 1)
+		ia64_os_to_sal_handoff_state.imots_os_status = IA64_MCA_COLD_BOOT;
+	else
+		ia64_os_to_sal_handoff_state.imots_os_status = IA64_MCA_CORRECTED;
 
 	/* Default = tell SAL to return to same context */
 	ia64_os_to_sal_handoff_state.imots_context = IA64_MCA_SAME_CONTEXT;
 
-	/* Register pointer to new min state values */
 	ia64_os_to_sal_handoff_state.imots_new_min_state =
-		ia64_mca_min_state_save_info;
+		(u64 *)ia64_sal_to_os_handoff_state.pal_min_state;
+
 }
 
 /*
@@ -1062,14 +1091,7 @@ ia64_mca_cmc_int_handler(int cmc_irq, void *arg, struct pt_regs *ptregs)
 
 			cmc_polling_enabled = 1;
 			spin_unlock(&cmc_history_lock);
-
-			/*
-			 * We rely on the local_irq_enable() above so
-			 * that this can't deadlock.
-			 */
-			ia64_mca_cmc_vector_disable(NULL);
-
-			smp_call_function(ia64_mca_cmc_vector_disable, NULL, 1, 0);
+			schedule_task(&cmc_disable_tq);
 
 			/*
 			 * Corrected errors will still be corrected, but
@@ -1163,19 +1185,7 @@ ia64_mca_cmc_int_caller(int cpe_irq, void *arg, struct pt_regs *ptregs)
 		if (start_count == IA64_LOG_COUNT(SAL_INFO_TYPE_CMC)) {
 
 			printk(KERN_WARNING "%s: Returning to interrupt driven CMC handler\n", __FUNCTION__);
-
-			/*
-			 * The cmc interrupt handler enabled irqs, so
-			 * this can't deadlock.
-			 */
-			smp_call_function(ia64_mca_cmc_vector_enable, NULL, 1, 0);
-
-			/*
-			 * Turn off interrupts before re-enabling the
-			 * cmc vector locally.  Make sure we get out.
-			 */
-			local_irq_disable();
-			ia64_mca_cmc_vector_enable(NULL);
+			schedule_task(&cmc_enable_tq);
 			cmc_polling_enabled = 0;
 
 		} else {
@@ -2154,9 +2164,6 @@ ia64_log_proc_dev_err_info_print (sal_log_processor_info_t  *slpi,
 	/* Print processor static info if any */
 	if (slpi->valid.psi_static_struct) {
 		spsi = (sal_processor_static_info_t *)p_data;
-
-		/* copy interrupted context PAL min-state info */
-		ia64_process_min_state_save(&spsi->min_state_area);
 
 		/* Print branch register contents if valid */
 		if (spsi->valid.br)

@@ -429,6 +429,7 @@ CONFIG_8139TOO=y
 # CONFIG_INPUT_MOUSEDEV is not set
 # CONFIG_INPUT_JOYDEV is not set
 # CONFIG_INPUT_EVDEV is not set
+# CONFIG_INPUT_UINPUT is not set
 
 #
 # Character devices
@@ -439,6 +440,7 @@ CONFIG_SERIAL=y
 CONFIG_SERIAL_CONSOLE=y
 # CONFIG_SERIAL_EXTENDED is not set
 # CONFIG_SERIAL_NONSTANDARD is not set
+# CONFIG_VR41XX_KIU is not set
 CONFIG_UNIX98_PTYS=y
 CONFIG_UNIX98_PTY_COUNT=256
 
@@ -497,12 +499,12 @@ CONFIG_WATCHDOG=y
 # CONFIG_WDTPCI is not set
 # CONFIG_MACHZ_WDT is not set
 # CONFIG_AMD7XX_TCO is not set
+# CONFIG_SCx200 is not set
 # CONFIG_SCx200_GPIO is not set
 # CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 # CONFIG_RTC is not set
 # CONFIG_MIPS_RTC is not set
-# CONFIG_DS1742 is not set
 # CONFIG_DTLK is not set
 # CONFIG_R3964 is not set
 # CONFIG_APPLICOM is not set

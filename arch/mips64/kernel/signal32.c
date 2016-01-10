@@ -126,12 +126,12 @@ static inline int get_sigset(sigset_t *kbuf, const sigset32_t *ubuf)
 /*
  * Atomically swap in the new signal mask, and wait for a signal.
  */
-asmlinkage inline int sys32_sigsuspend(abi64_no_regargs, struct pt_regs regs)
+save_static_function(sys32_sigsuspend);
+static_unused int _sys32_sigsuspend(abi64_no_regargs, struct pt_regs regs)
 {
 	sigset32_t *uset;
 	sigset_t newset, saveset;
 
-	save_static(&regs);
 	uset = (sigset32_t *) regs.regs[4];
 	if (get_sigset(&newset, uset))
 		return -EFAULT;
@@ -153,13 +153,13 @@ asmlinkage inline int sys32_sigsuspend(abi64_no_regargs, struct pt_regs regs)
 	}
 }
 
-asmlinkage int sys32_rt_sigsuspend(abi64_no_regargs, struct pt_regs regs)
+save_static_function(sys32_rt_sigsuspend);
+static_unused int _sys32_rt_sigsuspend(abi64_no_regargs, struct pt_regs regs)
 {
 	sigset32_t *uset;
 	sigset_t newset, saveset;
         size_t sigsetsize;
 
-	save_static(&regs);
 	/* XXX Don't preclude handling different sized sigset_t's.  */
 	sigsetsize = regs.regs[5];
 	if (sigsetsize != sizeof(sigset32_t))

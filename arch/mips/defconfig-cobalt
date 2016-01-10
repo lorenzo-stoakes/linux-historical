@@ -484,6 +484,7 @@ CONFIG_TULIP=y
 # CONFIG_INPUT_MOUSEDEV is not set
 # CONFIG_INPUT_JOYDEV is not set
 # CONFIG_INPUT_EVDEV is not set
+# CONFIG_INPUT_UINPUT is not set
 
 #
 # Character devices
@@ -530,12 +531,12 @@ CONFIG_UNIX98_PTY_COUNT=16
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
+# CONFIG_SCx200 is not set
 # CONFIG_SCx200_GPIO is not set
 # CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 CONFIG_RTC=y
 # CONFIG_MIPS_RTC is not set
-# CONFIG_DS1742 is not set
 # CONFIG_DTLK is not set
 # CONFIG_R3964 is not set
 # CONFIG_APPLICOM is not set

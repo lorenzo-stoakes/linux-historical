@@ -228,7 +228,7 @@ void local_flush_tlb_one(unsigned long page)
 	idx = read_c0_index();
 	if (idx >= 0) {
 		/* Make sure all entries differ. */
-		write_c0_entryhi(KSEG0 + (idx<<(PAGE_SHIFT+1)));
+		write_c0_entryhi(UNIQUE_ENTRYHI(idx));
 		write_c0_entrylo0(0);
 		write_c0_entrylo1(0);
 		tlb_write_indexed();

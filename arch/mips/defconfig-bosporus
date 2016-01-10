@@ -200,6 +200,8 @@ CONFIG_MTD_BOSPORUS=y
 # CONFIG_MTD_XXS1500 is not set
 # CONFIG_MTD_MTX1 is not set
 # CONFIG_MTD_DB1X00 is not set
+# CONFIG_MTD_HYDIII is not set
+# CONFIG_MTD_MIRAGE is not set
 # CONFIG_MTD_CSTM_MIPS_IXX is not set
 # CONFIG_MTD_OCELOT is not set
 # CONFIG_MTD_LASAT is not set
@@ -619,6 +621,7 @@ CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
 CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
 # CONFIG_INPUT_JOYDEV is not set
 CONFIG_INPUT_EVDEV=y
+# CONFIG_INPUT_UINPUT is not set
 
 #
 # Character devices
@@ -713,12 +716,12 @@ CONFIG_UNIX98_PTY_COUNT=256
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
+# CONFIG_SCx200 is not set
 # CONFIG_SCx200_GPIO is not set
 # CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 CONFIG_RTC=y
 # CONFIG_MIPS_RTC is not set
-# CONFIG_DS1742 is not set
 # CONFIG_DTLK is not set
 # CONFIG_R3964 is not set
 # CONFIG_APPLICOM is not set

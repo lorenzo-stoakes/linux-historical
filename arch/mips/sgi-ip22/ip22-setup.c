@@ -117,7 +117,7 @@ extern void ip22_time_init(void) __init;
 void __init ip22_setup(void)
 {
 	struct console_cmdline *c;
-	char *ctype;
+	char *con;
 #ifdef CONFIG_KGDB
 	char *kgdb_ttyd;
 #endif
@@ -144,21 +144,21 @@ void __init ip22_setup(void)
 
 	/* Nothing registered console before us, so simply use first entry */
 	c = &console_cmdline[0];
-	ctype = ArcGetEnvironmentVariable("console");
 	/* ARCS console environment variable is set to "g?" for
 	 * graphics console, it is set to "d" for the first serial
 	 * line and "d2" for the second serial line.
 	 */
-	if (ctype && *ctype == 'd') {
+	con = ArcGetEnvironmentVariable("console");
+	if (con && *con == 'd') {
 		static char options[8];
-		char *dbaud = ArcGetEnvironmentVariable("dbaud");
+		char *baud = ArcGetEnvironmentVariable("dbaud");
 		strcpy(c->name, "ttyS");
-		c->index = *(ctype + 1) == '2' ? 1 : 0;
-		if (dbaud) {
-			strcpy(&options, dbaud);
+		c->index = *(con + 1) == '2' ? 1 : 0;
+		if (baud) {
+			strcpy(options, baud);
 			c->options = options;
 		}
-	} else if (!ctype || *ctype != 'g') {
+	} else if (!con || *con != 'g') {
 		/* Use ARC if we don't want serial ('d') or Newport ('g'). */
 		prom_flags |= PROM_FLAG_USE_AS_CONSOLE;
 		strcpy(c->name, "arc");
@@ -188,7 +188,7 @@ void __init ip22_setup(void)
 #ifdef CONFIG_VT
 	conswitchp = &dummy_con;
 #ifdef CONFIG_SGI_NEWPORT_CONSOLE
-	if (ctype && *ctype == 'g'){
+	if (con && *con == 'g'){
 		ULONG *gfxinfo;
 		ULONG * (*__vec)(void) = (void *) (long)
 			*((_PULONG *)(long)((PROMBLOCK)->pvector + 0x20));

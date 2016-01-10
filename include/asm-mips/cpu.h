@@ -65,7 +65,8 @@
 #define PRID_IMP_20KC		0x8200
 #define PRID_IMP_4KEC		0x8400
 #define PRID_IMP_4KSC		0x8600
-
+#define PRID_IMP_25KF		0x8800
+#define PRID_IMP_24K		0x9300
 
 #define PRID_IMP_UNKNOWN	0xff00
 
@@ -168,8 +169,11 @@
 #define CPU_AU1100		52
 #define CPU_SR71000		53
 #define CPU_RM9000		54
-#define CPU_VR4133		55
-#define CPU_LAST		55
+#define CPU_25KF		55
+#define CPU_VR4133		56
+#define CPU_AU1550		57
+#define CPU_24K			58
+#define CPU_LAST		58
 
 /*
  * ISA Level encodings
@@ -202,12 +206,13 @@
 #define MIPS_CPU_MIPS16		0x00000100 /* code compression */
 #define MIPS_CPU_DIVEC		0x00000200 /* dedicated interrupt vector */
 #define MIPS_CPU_VCE		0x00000400 /* virt. coherence conflict possible */
-#define MIPS_CPU_CACHE_CDEX	0x00000800 /* Create_Dirty_Exclusive CACHE op */
-#define MIPS_CPU_MCHECK		0x00001000 /* Machine check exception */
-#define MIPS_CPU_EJTAG		0x00002000 /* EJTAG exception */
-#define MIPS_CPU_NOFPUEX	0x00004000 /* no FPU exception */
-#define MIPS_CPU_LLSC		0x00008000 /* CPU has ll/sc instructions */
-#define MIPS_CPU_SUBSET_CACHES	0x00010000 /* P-cache subset enforced */
-#define MIPS_CPU_PREFETCH	0x00020000 /* CPU has usable prefetch */
+#define MIPS_CPU_CACHE_CDEX_P	0x00000800 /* Create_Dirty_Exclusive CACHE op */
+#define MIPS_CPU_CACHE_CDEX_S	0x00001000 /* ... same for seconary cache ... */
+#define MIPS_CPU_MCHECK		0x00002000 /* Machine check exception */
+#define MIPS_CPU_EJTAG		0x00004000 /* EJTAG exception */
+#define MIPS_CPU_NOFPUEX	0x00008000 /* no FPU exception */
+#define MIPS_CPU_LLSC		0x00010000 /* CPU has ll/sc instructions */
+#define MIPS_CPU_SUBSET_CACHES	0x00020000 /* P-cache subset enforced */
+#define MIPS_CPU_PREFETCH	0x00040000 /* CPU has usable prefetch */
 
 #endif /* _ASM_CPU_H */

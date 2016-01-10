@@ -81,10 +81,12 @@ static void end_irq(unsigned int irq_nr);
 static inline void mask_and_ack_level_irq(unsigned int irq_nr);
 static inline void mask_and_ack_rise_edge_irq(unsigned int irq_nr);
 static inline void mask_and_ack_fall_edge_irq(unsigned int irq_nr);
+static inline void mask_and_ack_either_edge_irq(unsigned int irq_nr);
 inline void local_enable_irq(unsigned int irq_nr);
 inline void local_disable_irq(unsigned int irq_nr);
 
 extern void __init init_generic_irq(void);
+void	(*board_init_irq)(void);
 
 #ifdef CONFIG_PM
 extern void counter0_irq(int irq, void *dev_id, struct pt_regs *regs);
@@ -107,6 +109,11 @@ static void setup_local_irq(unsigned int irq_nr, int type, int int_req)
 				au_writel(1<<(irq_nr-32), IC1_CFG2CLR);
 				au_writel(1<<(irq_nr-32), IC1_CFG1SET);
 				au_writel(1<<(irq_nr-32), IC1_CFG0CLR);
+				break;
+			case INTC_INT_RISE_AND_FALL_EDGE: /* 0:1:1 */
+				au_writel(1<<(irq_nr-32), IC1_CFG2CLR);
+				au_writel(1<<(irq_nr-32), IC1_CFG1SET);
+				au_writel(1<<(irq_nr-32), IC1_CFG0SET);
 				break;
 			case INTC_INT_HIGH_LEVEL: /* 1:0:1 */
 				au_writel(1<<(irq_nr-32), IC1_CFG2SET);
@@ -149,6 +156,11 @@ static void setup_local_irq(unsigned int irq_nr, int type, int int_req)
 				au_writel(1<<irq_nr, IC0_CFG2CLR);
 				au_writel(1<<irq_nr, IC0_CFG1SET);
 				au_writel(1<<irq_nr, IC0_CFG0CLR);
+				break;
+			case INTC_INT_RISE_AND_FALL_EDGE: /* 0:1:1 */
+				au_writel(1<<irq_nr, IC0_CFG2CLR);
+				au_writel(1<<irq_nr, IC0_CFG1SET);
+				au_writel(1<<irq_nr, IC0_CFG0SET);
 				break;
 			case INTC_INT_HIGH_LEVEL: /* 1:0:1 */
 				au_writel(1<<irq_nr, IC0_CFG2SET);
@@ -254,6 +266,25 @@ static inline void mask_and_ack_fall_edge_irq(unsigned int irq_nr)
 }
 
 
+static inline void mask_and_ack_either_edge_irq(unsigned int irq_nr)
+{
+	/* This may assume that we don't get interrupts from
+	 * both edges at once, or if we do, that we don't care.
+	 */
+	if (irq_nr > AU1000_LAST_INTC0_INT) {
+		au_writel(1<<(irq_nr-32), IC1_FALLINGCLR);
+		au_writel(1<<(irq_nr-32), IC1_RISINGCLR);
+		au_writel(1<<(irq_nr-32), IC1_MASKCLR);
+	}
+	else {
+		au_writel(1<<irq_nr, IC0_FALLINGCLR);
+		au_writel(1<<irq_nr, IC0_RISINGCLR);
+		au_writel(1<<irq_nr, IC0_MASKCLR);
+	}
+	au_sync();
+}
+
+
 static inline void mask_and_ack_level_irq(unsigned int irq_nr)
 {
 
@@ -339,7 +370,6 @@ static struct hw_interrupt_type rise_edge_irq_type = {
 	NULL
 };
 
-/*
 static struct hw_interrupt_type fall_edge_irq_type = {
 	"Au1000 Fall Edge",
 	startup_irq,
@@ -350,7 +380,17 @@ static struct hw_interrupt_type fall_edge_irq_type = {
 	end_irq,
 	NULL
 };
-*/
+
+static struct hw_interrupt_type either_edge_irq_type = {
+	"Au1000 Rise or Fall Edge",
+	startup_irq,
+	shutdown_irq,
+	local_enable_irq,
+	local_disable_irq,
+	mask_and_ack_either_edge_irq,
+	end_irq,
+	NULL
+};
 
 static struct hw_interrupt_type level_irq_type = {
 	"Au1000 Level",
@@ -412,6 +452,14 @@ void __init init_IRQ(void)
 			irq_desc[imp->im_irq].handler = &rise_edge_irq_type;
 			break;
 
+		case INTC_INT_FALL_EDGE:
+			irq_desc[imp->im_irq].handler = &fall_edge_irq_type;
+			break;
+
+		case INTC_INT_RISE_AND_FALL_EDGE:
+			irq_desc[imp->im_irq].handler = &either_edge_irq_type;
+			break;
+
 		default:
 			panic("Unknown au1xxx irq map");
 			break;
@@ -420,6 +468,12 @@ void __init init_IRQ(void)
 	}
 
 	set_c0_status(ALLINTS);
+
+	/* Board specific IRQ initialization.
+	*/
+	if (board_init_irq)
+		(*board_init_irq)();
+
 #ifdef CONFIG_KGDB
 	/* If local serial I/O used for debug port, enter kgdb at once */
 	puts("Waiting for kgdb to connect...");

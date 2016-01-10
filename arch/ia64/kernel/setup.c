@@ -46,6 +46,7 @@
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <asm/smp.h>
+#include <asm/tlb.h>
 
 #ifdef CONFIG_BLK_DEV_RAM
 # include <linux/blk.h>
@@ -64,6 +65,7 @@ extern char _end;
  struct cpuinfo_ia64 *_cpu_data[NR_CPUS];
 #else
  struct cpuinfo_ia64 _cpu_data[NR_CPUS] __attribute__ ((section ("__special_page_section")));
+ mmu_gather_t mmu_gathers[NR_CPUS];
 #endif
 
 unsigned long ia64_cycles_per_usec;
@@ -659,6 +661,7 @@ cpu_init (void)
 		_cpu_data[cpu]->cpu_data[smp_processor_id()] = my_cpu_data;
 #else
 	my_cpu_data = cpu_data(smp_processor_id());
+	my_cpu_data->mmu_gathers = &mmu_gathers[smp_processor_id()];
 #endif
 
 	/*

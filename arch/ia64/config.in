@@ -33,9 +33,9 @@ choice 'IA-64 processor type' \
 choice 'IA-64 system type'					\
 	"generic		CONFIG_IA64_GENERIC		\
 	 DIG-compliant		CONFIG_IA64_DIG			\
-	 HP-simulator		CONFIG_IA64_HP_SIM		\
 	 HP			CONFIG_IA64_HP_ZX1		\
-	 SGI-SN2		CONFIG_IA64_SGI_SN2" generic
+	 SGI-SN2		CONFIG_IA64_SGI_SN2		\
+	 Ski-simulator		CONFIG_IA64_HP_SIM" generic
 
 if [ "$CONFIG_ITANIUM" = "y" ]; then
   choice 'Kernel page size'						\
@@ -83,6 +83,30 @@ if [ "$CONFIG_IA64_SGI_SN2" = "y" ]; then
 fi
 
 define_bool CONFIG_KCORE_ELF y	# On IA-64, we always want an ELF /proc/kcore.
+
+define_int CONFIG_FORCE_MAX_ZONEORDER 19
+
+if [ "$CONFIG_HUGETLB_PAGE" = "y" ]; then
+	if [ "$CONFIG_MCKINLEY" = "y" ]; then
+		choice '    IA-64 Huge TLB Page Size'		\
+			"4GB	CONFIG_HUGETLB_PAGE_SIZE_4GB	\
+			 1GB	CONFIG_HUGETLB_PAGE_SIZE_1GB	\
+                         256MB	CONFIG_HUGETLB_PAGE_SIZE_256MB	\
+			 64MB	CONFIG_HUGETLB_PAGE_SIZE_64MB	\
+			 16MB	CONFIG_HUGETLB_PAGE_SIZE_16MB	\
+			 4MB	CONFIG_HUGETLB_PAGE_SIZE_4MB	\
+			 1MB	CONFIG_HUGETLB_PAGE_SIZE_1MB	\
+			 256KB	CONFIG_HUGETLB_PAGE_SIZE_256KB"	16MB
+	else
+		choice '    IA-64 Huge TLB Page Size'		\
+			"256MB	CONFIG_HUGETLB_PAGE_SIZE_256MB	\
+			 64MB	CONFIG_HUGETLB_PAGE_SIZE_64MB	\
+			 16MB	CONFIG_HUGETLB_PAGE_SIZE_16MB	\
+			 4MB	CONFIG_HUGETLB_PAGE_SIZE_4MB	\
+			 1MB	CONFIG_HUGETLB_PAGE_SIZE_1MB	\
+			 256KB	CONFIG_HUGETLB_PAGE_SIZE_256KB"	16MB
+	fi
+fi
 
 bool 'Use PAL_HALT_LIGHT in idle loop' CONFIG_IA64_PAL_IDLE
 bool 'SMP support' CONFIG_SMP

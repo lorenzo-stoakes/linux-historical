@@ -319,7 +319,6 @@ void __init ld_mmu_r23000(void)
 {
 	extern void build_clear_page(void);
 	extern void build_copy_page(void);
-	unsigned long config;
 
 	r3k_probe_cache();
 

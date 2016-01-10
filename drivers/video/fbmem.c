@@ -143,6 +143,8 @@ extern int pvr2fb_init(void);
 extern int pvr2fb_setup(char*);
 extern int sstfb_init(void);
 extern int sstfb_setup(char*);
+extern int it8181fb_init(void);
+extern int it8181fb_setup(char*);
 
 static struct {
 	const char *name;
@@ -329,6 +331,9 @@ static struct {
 #ifdef CONFIG_FB_AU1100
 	{ "au1100fb", au1100fb_init, au1100fb_setup },
 #endif 
+#ifdef CONFIG_FB_IT8181
+	{ "it8181fb", it8181fb_init, it8181fb_setup },
+#endif
 
 
 	/*

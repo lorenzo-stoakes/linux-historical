@@ -374,8 +374,9 @@ map_unwritten(
 	offset <<= PAGE_CACHE_SHIFT;
 	offset += p_offset;
 
-	pb = pagebuf_lookup(iomapp->iomap_target,
-			    iomapp->iomap_offset, iomapp->iomap_bsize, 0);
+	/* get an "empty" pagebuf to manage IO completion
+	 * Proper values will be set before returning */
+	pb = pagebuf_lookup(iomapp->iomap_target, 0, 0, 0);
 	if (!pb)
 		return -EAGAIN;
 
@@ -438,6 +439,11 @@ map_unwritten(
 			nblocks += bs;
 			atomic_add(bs, &pb->pb_io_remaining);
 			convert_page(inode, page, iomapp, pb, startio, all_bh);
+			/* stop if converting the next page might add
+			 * enough blocks that the corresponding byte
+			 * count won't fit in our ulong page buf length */
+			if (nblocks >= ((ULONG_MAX - PAGE_SIZE) >> block_bits))
+				goto enough;
 		}
 
 		if (tindex == tlast &&
@@ -448,16 +454,20 @@ map_unwritten(
 				nblocks += bs;
 				atomic_add(bs, &pb->pb_io_remaining);
 				convert_page(inode, page, iomapp, pb, startio, all_bh);
+				if (nblocks >= ((ULONG_MAX - PAGE_SIZE) >> block_bits))
+					goto enough;
 			}
 		}
 	}
 
+enough:
 	size = nblocks;		/* NB: using 64bit number here */
 	size <<= block_bits;	/* convert fsb's to byte range */
 
 	XFS_BUF_DATAIO(pb);
 	XFS_BUF_ASYNC(pb);
 	XFS_BUF_SET_SIZE(pb, size);
+	XFS_BUF_SET_COUNT(pb, size);
 	XFS_BUF_SET_OFFSET(pb, offset);
 	XFS_BUF_SET_FSPRIVATE(pb, LINVFS_GET_VP(inode));
 	XFS_BUF_SET_IODONE_FUNC(pb, linvfs_unwritten_convert);
@@ -1127,10 +1137,14 @@ linvfs_direct_IO(
 	int			error = 0;
 	int			pb_flags, map_flags, pg_index = 0;
 	size_t			length, total;
-	loff_t			offset;
-	size_t			map_size, size;
+	loff_t			offset, map_size;
+	size_t			size;
 	vnode_t			*vp = LINVFS_GET_VP(inode);
 
+	/* Note - although the iomap could have a 64-bit size,
+	 * kiobuf->length is only an int, so the min(map_size, length)
+	 * test will keep us from overflowing the pagebuf size_t size.
+	 */
 	total = length = iobuf->length;
 	offset = blocknr;
 	offset <<= inode->i_blkbits;
@@ -1147,7 +1161,7 @@ linvfs_direct_IO(
 		BUG_ON(iomap.iomap_flags & IOMAP_DELAY);
 
 		map_size = iomap.iomap_bsize - iomap.iomap_delta;
-		size = min(map_size, length);
+		size = (size_t)min(map_size, (loff_t)length);
 
 		if ((iomap.iomap_flags & IOMAP_HOLE) ||
 		    ((iomap.iomap_flags & IOMAP_UNWRITTEN) && rw == READ)) {

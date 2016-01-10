@@ -447,6 +447,12 @@ M:      chase.maupin@hp.com
 L:     iss_storagedev@hp.com
 S:      Odd Fixes
 
+HP OMNIBOOK 600 C/CT POP-UP MOUSE DRIVER
+P:      Grant Grundler
+M:      grundler@parisc-linux.org
+L:	omnibook@zurich.ai.mit.edu
+S:      Maintained
+
 
 HP SMART2 RAID DRIVER
 P:     Francis Wiran

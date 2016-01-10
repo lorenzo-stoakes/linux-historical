@@ -399,6 +399,7 @@ fi
 
 if [ "$CONFIG_X86" = "y" ]; then
    tristate 'ACP Modem (Mwave) support' CONFIG_MWAVE
+   dep_tristate 'HP OB600 C/CT Pop-up mouse support' CONFIG_OBMOUSE $CONFIG_INPUT_MOUSEDEV
 fi
 
 endmenu

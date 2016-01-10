@@ -820,4 +820,22 @@ acpi_irq_to_vector (u32 irq)
 	return gsi_to_vector(irq);
 }
 
+int
+acpi_register_irq (u32 gsi, u32 polarity, u32 trigger)
+{
+	int vector = 0;
+
+	if (has_8259 && gsi < 16)
+		return isa_irq_to_vector(gsi);
+
+	if (!iosapic_register_intr)
+		return 0;
+
+	/* Turn it on */
+	vector = iosapic_register_intr(gsi,
+		       	(polarity == ACPI_ACTIVE_HIGH) ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
+			(trigger == ACPI_EDGE_SENSITIVE) ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
+	return vector;
+}
+
 #endif /* CONFIG_ACPI_BOOT */

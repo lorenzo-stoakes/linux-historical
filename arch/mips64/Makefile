@@ -3,13 +3,15 @@
 # License.  See the file "COPYING" in the main directory of this archive
 # for more details.
 #
-# Copyright (C) 2002  Maciej W. Rozycki
+# Copyright (C) 2002, 2003  Maciej W. Rozycki
 #
 # This file is included by the global makefile so that you can add your own
 # architecture-specific flags and dependencies. Remember to do have actions
 # for "archclean" and "archdep" for cleaning up and making dependencies for
 # this architecture
 #
+
+comma := ,
 
 #
 # Select the object file format to substitute into the linker script.
@@ -48,48 +50,81 @@ endif
 endif
 
 check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
+check_gas = $(shell if $(CC) $(1) -Wa,-Z -c -o /dev/null -xassembler /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
+
+#
+# Use: $(call set_gccflags,<cpu0>,<isa0>,<cpu1>,<isa1>)
+#
+# <cpu0>,<isa0> -- preferred CPU and ISA designations (may require
+#                  recent tools)
+# <cpu1>,<isa1> -- fallback CPU and ISA designations (have to work
+#                  with up to the oldest supported tools)
+#
+set_gccflags = $(shell \
+while :; do \
+	cpu=$(1); isa=-$(2); \
+	for gcc_opt in -march= -mcpu=; do \
+		$(CC) $$gcc_opt$$cpu $$isa -S -o /dev/null \
+			-xc /dev/null > /dev/null 2>&1 && \
+			break 2; \
+	done; \
+	cpu=$(3); isa=-$(4); \
+	for gcc_opt in -march= -mcpu=; do \
+		$(CC) $$gcc_opt$$cpu $$isa -S -o /dev/null \
+			-xc /dev/null > /dev/null 2>&1 && \
+			break 2; \
+	done; \
+	break; \
+done; \
+gcc_cpu=$$cpu; gcc_isa=$$isa; \
+gas_cpu=$$cpu; gas_isa=-Wa,$$isa; \
+while :; do \
+	for gas_opt in -Wa,-march= -Wa,-mcpu=; do \
+		$(CC) $$gas_opt$$cpu $$gas_isa -Wa,-Z -c -o /dev/null \
+			-xassembler /dev/null > /dev/null 2>&1 && \
+			break 2; \
+	done; \
+	gas_opt=; gas_cpu=; gas_isa=; \
+	break; \
+done; \
+echo $$gcc_opt$$gcc_cpu $$gcc_isa $$gas_opt$$gas_cpu $$gas_isa)
 
 #
 # CPU-dependent compiler/assembler options for optimization.
 #
 ifdef CONFIG_CPU_R4300
-GCCFLAGS	+= -mcpu=r4300 -mips3
+GCCFLAGS	+= $(call set_gccflags,r4300,mips3,r4300,mips3)
 endif
 ifdef CONFIG_CPU_R4X00
-GCCFLAGS	+= -mcpu=r4600 -mips3
+GCCFLAGS	+= $(call set_gccflags,r4600,mips3,r4600,mips3)
 endif
 ifdef CONFIG_CPU_R5000
-GCCFLAGS	+= -mcpu=r8000 -mips4
+GCCFLAGS	+= $(call set_gccflags,r5000,mips4,r8000,mips4)
 endif
 ifdef CONFIG_CPU_NEVADA
-# Cannot use -mmad with currently recommended tools
-GCCFLAGS	+= -mcpu=r8000 -mips3
+GCCFLAGS	+= $(call set_gccflags,rm5200,mips4,r8000,mips4)
+#GCCFLAGS	+= $(call check_gcc,-mmad,)
 endif
 ifdef CONFIG_CPU_RM7000
-GCCFLAGS	+= $(call check_gcc, -march=rm7000, -mcpu=r5000) \
-		   -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,rm7000,mips4,r5000,mips4)
+endif
+ifdef CONFIG_CPU_RM9000
+GCCFLAGS	+= $(call set_gccflags,rm9000,mips4,r5000,mips4)
 endif
 ifdef CONFIG_CPU_R8000
-GCCFLAGS	+= -mcpu=r8000 -mips4
+GCCFLAGS	+= $(call set_gccflags,r8000,mips4,r8000,mips4)
 endif
 ifdef CONFIG_CPU_R10000
-GCCFLAGS	+= -mcpu=r8000 -mips4
+GCCFLAGS	+= $(call set_gccflags,r10000,mips4,r8000,mips4)
 endif
 ifdef CONFIG_CPU_SB1
-GCCFLAGS	+= $(call check_gcc, -mcpu=sb1, -mcpu=r5000) -mips4
+GCCFLAGS	+= $(call set_gccflags,sb1,mips64,r5000,mips4)
 ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
 MODFLAGS	+= -msb1-pass1-workarounds
 endif
 endif
 ifdef CONFIG_CPU_MIPS64
-#CFLAGS		+= -mips64	# Should be used then we get a MIPS64 compiler
-CFLAGS		+= -mcpu=r8000 -mips4
-endif
-ifdef CONFIG_CPU_RM7000
-GCCFLAGS	+= -mcpu=r8000 -mips4
-endif
-ifdef CONFIG_CPU_RM9000
-GCCFLAGS	+= -mcpu=r8000 -mips4
+GCCFLAGS	+= $(call set_gccflags,mips64,mips64,r8000,mips4)
 endif
 
 #
@@ -299,7 +334,7 @@ endif
 # convert to ECOFF using elf2ecoff.
 #
 ifdef CONFIG_BOOT_ELF32
-GCCFLAGS += -Wa,-32 $(shell if $(CC) -Wa,-mgp64 -c -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "-Wa,-mgp64"; fi)
+GCCFLAGS += -Wa,-32 $(call check_gas,-Wa$(comma)-mgp64,)
 LINKFLAGS += -T arch/mips64/ld.script.elf32
 endif
 #
@@ -307,7 +342,7 @@ endif
 # ELF files from 32-bit files by conversion.
 #
 ifdef CONFIG_BOOT_ELF64
-GCCFLAGS += -Wa,-32 $(shell if $(CC) -Wa,-mgp64 -c -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "-Wa,-mgp64"; fi)
+GCCFLAGS += -Wa,-32 $(call check_gas,-Wa$(comma)-mgp64,)
 LINKFLAGS += -T arch/mips64/ld.script.elf32
 #AS += -64
 #LD += -m elf64bmip

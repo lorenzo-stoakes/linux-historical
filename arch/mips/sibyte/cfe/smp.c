@@ -24,20 +24,15 @@
 #include "cfe_api.h"
 #include "cfe_error.h"
 
-extern void asmlinkage smp_bootstrap(void);
-
 /* Boot all other cpus in the system, initialize them, and
    bring them into the boot fn */
-int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp)
+void prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp)
 {
 	int retval;
 	
-	retval = cfe_cpu_start(cpu, &smp_bootstrap, sp, gp, 0);
+	retval = cfe_cpu_start(cpu, smp_bootstrap, sp, gp, 0);
 	if (retval != 0) {
 		printk("cfe_start_cpu(%i) returned %i\n" , cpu, retval);
-		return 0;
-	} else {
-		return 1;
 	}
 }
 

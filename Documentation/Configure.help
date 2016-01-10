@@ -14897,6 +14897,16 @@ CONFIG_INPUT_ADBHID
 
   If unsure, say Y.
 
+HP OB600 C/CT Pop-Up Mouse
+CONFIG_OBMOUSE
+  Only add this driver if you have an Omnibook 600C or 600CT laptop.
+  This driver has no probe routine and must assume ports 0x238-23b
+  belong to the Pop-Up mouse. Depends on CONFIG_INPUT_MOUSEDEV.
+
+  Best is to use a module and load the obmouse driver at runtime.
+  Say M here and read <file:Documentation/modules.txt>.
+
+
 Input core support
 CONFIG_INPUT
   Say Y here if you want to enable any of the following options for

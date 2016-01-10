@@ -232,6 +232,9 @@ if [ "$CONFIG_FB" = "y" ]; then
    if [ "$CONFIG_NINO" = "y" ]; then
       bool '  TMPTX3912/PR31700 frame buffer support' CONFIG_FB_TX3912
    fi
+   if [ "$CONFIG_PCI" = "y" -o "$CONFIG_CPU_VR41XX" = "y" ]; then
+      tristate '  ITE IT8181E/F support' CONFIG_FB_IT8181
+   fi
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
       tristate '  Virtual Frame Buffer support (ONLY FOR TESTING!) (EXPERIMENTAL)' CONFIG_FB_VIRTUAL
    fi
