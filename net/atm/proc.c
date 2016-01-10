@@ -44,6 +44,11 @@
 #include "ipcommon.h"
 #endif
 
+#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+#include "lec.h"
+#include "lec_arpc.h"
+#endif
+
 static ssize_t proc_dev_atm_read(struct file *file,char *buf,size_t count,
     loff_t *pos);
 static ssize_t proc_spec_atm_read(struct file *file,char *buf,size_t count,
@@ -373,6 +378,57 @@ static void svc_info(struct atm_vcc *vcc,char *buf)
 }
 
 
+#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+
+static char*
+lec_arp_get_status_string(unsigned char status)
+{
+  switch(status) {
+  case ESI_UNKNOWN:
+    return "ESI_UNKNOWN       ";
+  case ESI_ARP_PENDING:
+    return "ESI_ARP_PENDING   ";
+  case ESI_VC_PENDING:
+    return "ESI_VC_PENDING    ";
+  case ESI_FLUSH_PENDING:
+    return "ESI_FLUSH_PENDING ";
+  case ESI_FORWARD_DIRECT:
+    return "ESI_FORWARD_DIRECT";
+  default:
+    return "<Unknown>         ";
+  }
+}
+
+static void 
+lec_info(struct lec_arp_table *entry, char *buf)
+{
+        int j, offset=0;
+
+        for(j=0;j<ETH_ALEN;j++) {
+                offset+=sprintf(buf+offset,"%2.2x",0xff&entry->mac_addr[j]);
+        }
+        offset+=sprintf(buf+offset, " ");
+        for(j=0;j<ATM_ESA_LEN;j++) {
+                offset+=sprintf(buf+offset,"%2.2x",0xff&entry->atm_addr[j]);
+        }
+        offset+=sprintf(buf+offset, " %s %4.4x",
+                        lec_arp_get_status_string(entry->status),
+                        entry->flags&0xffff);
+        if (entry->vcc) {
+                offset+=sprintf(buf+offset, "%3d %3d ", entry->vcc->vpi, 
+                                entry->vcc->vci);                
+        } else
+                offset+=sprintf(buf+offset, "        ");
+        if (entry->recv_vcc) {
+                offset+=sprintf(buf+offset, "     %3d %3d", 
+                                entry->recv_vcc->vpi, entry->recv_vcc->vci);
+        }
+
+        sprintf(buf+offset,"\n");
+}
+
+#endif
+
 static int atm_devices_info(loff_t pos,char *buf)
 {
 	struct atm_dev *dev;
@@ -487,6 +543,85 @@ static int atm_svc_info(loff_t pos,char *buf)
 
 	return 0;
 }
+
+#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+static int atm_lec_info(loff_t pos,char *buf)
+{
+	unsigned long flags;
+	struct lec_priv *priv;
+	struct lec_arp_table *entry;
+	int i, count, d, e;
+	struct net_device *dev;
+
+	if (!pos) {
+		return sprintf(buf,"Itf  MAC          ATM destination"
+		    "                          Status            Flags "
+		    "VPI/VCI Recv VPI/VCI\n");
+	}
+	if (!try_atm_lane_ops())
+		return 0; /* the lane module is not there yet */
+
+	count = pos;
+	for(d = 0; d < MAX_LEC_ITF; d++) {
+		dev = atm_lane_ops->get_lec(d);
+		if (!dev || !(priv = (struct lec_priv *) dev->priv))
+			continue;
+		spin_lock_irqsave(&priv->lec_arp_lock, flags);
+		for(i = 0; i < LEC_ARP_TABLE_SIZE; i++) {
+			for(entry = priv->lec_arp_tables[i]; entry; entry = entry->next) {
+				if (--count)
+					continue;
+				e = sprintf(buf,"%s ", dev->name);
+				lec_info(entry, buf+e);
+				spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+				dev_put(dev);
+				if (atm_lane_ops->owner)
+					__MOD_DEC_USE_COUNT(atm_lane_ops->owner);
+				return strlen(buf);
+			}
+		}
+		for(entry = priv->lec_arp_empty_ones; entry; entry = entry->next) {
+			if (--count)
+				continue;
+			e = sprintf(buf,"%s ", dev->name);
+			lec_info(entry, buf+e);
+			spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+			dev_put(dev);
+			if (atm_lane_ops->owner)
+				__MOD_DEC_USE_COUNT(atm_lane_ops->owner);
+			return strlen(buf);
+		}
+		for(entry = priv->lec_no_forward; entry; entry=entry->next) {
+			if (--count)
+				continue;
+			e = sprintf(buf,"%s ", dev->name);
+			lec_info(entry, buf+e);
+			spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+			dev_put(dev);
+			if (atm_lane_ops->owner)
+				__MOD_DEC_USE_COUNT(atm_lane_ops->owner);
+			return strlen(buf);
+		}
+		for(entry = priv->mcast_fwds; entry; entry = entry->next) {
+			if (--count)
+				continue;
+			e = sprintf(buf,"%s ", dev->name);
+			lec_info(entry, buf+e);
+			spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+			dev_put(dev);
+			if (atm_lane_ops->owner)
+				__MOD_DEC_USE_COUNT(atm_lane_ops->owner);
+			return strlen(buf);
+		}
+		spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
+		dev_put(dev);
+	}
+	if (atm_lane_ops->owner)
+		__MOD_DEC_USE_COUNT(atm_lane_ops->owner);
+	return 0;
+}
+#endif
+
 
 static ssize_t proc_dev_atm_read(struct file *file,char *buf,size_t count,
     loff_t *pos)

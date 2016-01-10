@@ -59,8 +59,8 @@
 
 #define DRV_MODULE_NAME		"tg3"
 #define PFX DRV_MODULE_NAME	": "
-#define DRV_MODULE_VERSION	"3.11"
-#define DRV_MODULE_RELDATE	"October 20, 2004"
+#define DRV_MODULE_VERSION	"3.13"
+#define DRV_MODULE_RELDATE	"November 1, 2004"
 
 #define TG3_DEF_MAC_MODE	0
 #define TG3_DEF_RX_MODE		0
@@ -2143,7 +2143,16 @@ static int tg3_setup_fiber_hw_autoneg(struct tg3 *tp, u32 mac_status)
 		tp->tg3_flags2 |= TG3_FLG2_PHY_JUST_INITTED;
 	} else if (mac_status & (MAC_STATUS_PCS_SYNCED |
 				 MAC_STATUS_SIGNAL_DET)) {
-		sg_dig_status = tr32(SG_DIG_STATUS);
+		int i;
+
+		/* Giver time to negotiate (~200ms) */
+		for (i = 0; i < 40000; i++) {
+			sg_dig_status = tr32(SG_DIG_STATUS);
+			if (sg_dig_status & (0x3))
+				break;
+			udelay(5);
+		}
+		mac_status = tr32(MAC_STATUS);
 
 		if ((sg_dig_status & (1 << 1)) &&
 		    (mac_status & MAC_STATUS_PCS_SYNCED)) {
@@ -8208,7 +8217,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
 	spin_lock_init(&tp->indirect_lock);
 	INIT_TQUEUE(&tp->reset_task, tg3_reset_task, tp);
 
-	tp->regs = (unsigned long) ioremap(tg3reg_base, tg3reg_len);
+	tp->regs = (unsigned long) ioremap_nocache(tg3reg_base, tg3reg_len);
 	if (tp->regs == 0UL) {
 		printk(KERN_ERR PFX "Cannot map device registers, "
 		       "aborting.\n");

@@ -95,6 +95,7 @@
 #include <linux/stat.h>
 #include <linux/init.h>
 #include <linux/jhash.h>
+#include <linux/module.h>
 #ifdef CONFIG_SYSCTL
 #include <linux/sysctl.h>
 #endif

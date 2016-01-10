@@ -29073,6 +29073,17 @@ CONFIG_CRYPTO_KHAZAD
   See also:
   http://planeta.terra.com.br/informatica/paulobarreto/KhazadPage.html
 
+CONFIG_CRYPTO_ANUBIS
+  Anubis cipher algorithm.
+
+  Anubis is a variable key length cipher which can use keys from 
+  128 bits to 320 bits in length.  It was evaluated as a entrant
+  in the NESSIE competition.
+	  
+  See also:
+  https://www.cosic.esat.kuleuven.ac.be/nessie/reports/
+  http://planeta.terra.com.br/informatica/paulobarreto/AnubisPage.html
+
 CONFIG_CRYPTO_DEFLATE
   This is the Deflate algorithm (RFC1951), specified for use in
   IPSec with the IPCOMP protocol (RFC3173, RFC2394).

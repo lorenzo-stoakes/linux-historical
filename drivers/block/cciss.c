@@ -532,10 +532,9 @@ register_ioctl32_conversion(unsigned int cmd, int (*handler)(unsigned int,
 extern int unregister_ioctl32_conversion(unsigned int cmd);
 
 static int cciss_ioctl32_passthru(unsigned int fd, unsigned cmd, unsigned long arg, struct file *file);
-static int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg, 
-	struct file *file);
+static int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg, struct file *file);
 
-typedef long (*handler_type) (unsigned int, unsigned int, unsigned long,
+typedef int (*handler_type) (unsigned int, unsigned int, unsigned long,
 				struct file *);
 
 static struct ioctl32_map {
@@ -605,13 +604,15 @@ int cciss_ioctl32_passthru(unsigned int fd, unsigned cmd, unsigned long arg,
 	IOCTL_Command_struct arg64;
 	mm_segment_t old_fs; 
 	int err;
+	__u64 tmp_ptr;
 
 	err = 0;
 	err |= copy_from_user(&arg64.LUN_info, &arg32->LUN_info, sizeof(arg64.LUN_info));
 	err |= copy_from_user(&arg64.Request, &arg32->Request, sizeof(arg64.Request));
 	err |= copy_from_user(&arg64.error_info, &arg32->error_info, sizeof(arg64.error_info));
 	err |= get_user(arg64.buf_size, &arg32->buf_size);
-	err |= get_user(arg64.buf, &arg32->buf);
+	err |= get_user(tmp_ptr, &arg32->buf);
+	arg64.buf = (BYTE *) tmp_ptr;
 	if (err) 
 		return -EFAULT; 
 
@@ -634,6 +635,7 @@ int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg,
 	BIG_IOCTL_Command_struct arg64;
 	mm_segment_t old_fs; 
 	int err;
+	__u64 tmp_ptr;
 
 	err = 0;
 	err |= copy_from_user(&arg64.LUN_info, &arg32->LUN_info, sizeof(arg64.LUN_info));
@@ -641,7 +643,8 @@ int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg,
 	err |= copy_from_user(&arg64.error_info, &arg32->error_info, sizeof(arg64.error_info));
 	err |= get_user(arg64.buf_size, &arg32->buf_size);
 	err |= get_user(arg64.malloc_size, &arg32->malloc_size);
-	err |= get_user(arg64.buf, &arg32->buf);
+	err |= get_user(tmp_ptr, &arg32->buf);
+	arg64.buf = (BYTE *) tmp_ptr;
 	if (err) return -EFAULT; 
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);

@@ -423,7 +423,8 @@ void qdisc_destroy(struct Qdisc *qdisc)
 {
 	struct Qdisc_ops *ops = qdisc->ops;
 
-	if (!atomic_dec_and_test(&qdisc->refcnt))
+	if (qdisc->flags&TCQ_F_BUILTIN ||
+	    !atomic_dec_and_test(&qdisc->refcnt))
 		return;
 	list_del(&qdisc->list);
 #ifdef CONFIG_NET_ESTIMATOR
@@ -433,8 +434,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
 		ops->reset(qdisc);
 	if (ops->destroy)
 		ops->destroy(qdisc);
-	if (!(qdisc->flags&TCQ_F_BUILTIN))
-		kfree(qdisc);
+	kfree(qdisc);
 }
 
 

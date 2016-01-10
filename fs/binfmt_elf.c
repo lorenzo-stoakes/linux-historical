@@ -299,9 +299,12 @@ static unsigned long load_elf_interp(struct elfhdr * interp_elf_ex,
 		goto out;
 
 	retval = kernel_read(interpreter,interp_elf_ex->e_phoff,(char *)elf_phdata,size);
-	error = retval;
-	if (retval < 0)
+	error = -EIO;
+	if (retval != size) {
+		if (retval < 0)
+			error = retval;	
 		goto out_close;
+	}
 
 	eppnt = elf_phdata;
 	for (i=0; i<interp_elf_ex->e_phnum; i++, eppnt++) {
@@ -472,9 +475,12 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		goto out;
 
 	retval = kernel_read(bprm->file, elf_ex.e_phoff, (char *) elf_phdata, size);
-	if (retval < 0)
+	if (retval != size) {
+		if (retval >= 0)
+			retval = -EIO;
 		goto out_free_ph;
-		
+	}
+
 	files = current->files;		/* Refcounted so ok */
 	retval = unshare_files();
 	if (retval < 0)
@@ -520,8 +526,14 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 			retval = kernel_read(bprm->file, elf_ppnt->p_offset,
 					   elf_interpreter,
 					   elf_ppnt->p_filesz);
-			if (retval < 0)
+			if (retval != elf_ppnt->p_filesz) {
+				if (retval >= 0)
+					retval = -EIO;
 				goto out_free_interp;
+			}
+			/* make sure path is NULL terminated */
+			elf_interpreter[elf_ppnt->p_filesz - 1] = '\0';
+
 			/* If the program interpreter is one of these two,
 			 * then assume an iBCS2 image. Otherwise assume
 			 * a native linux image.
@@ -540,8 +552,11 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 			if (IS_ERR(interpreter))
 				goto out_free_interp;
 			retval = kernel_read(interpreter, 0, bprm->buf, BINPRM_BUF_SIZE);
-			if (retval < 0)
+			if (retval != BINPRM_BUF_SIZE) {
+				if (retval >= 0)
+					retval = -EIO;
 				goto out_free_dentry;
+			}
 
 			/* Get the exec headers */
 			interp_ex = *((struct exec *) bprm->buf);
@@ -679,8 +694,10 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		}
 
 		error = elf_map(bprm->file, load_bias + vaddr, elf_ppnt, elf_prot, elf_flags);
-		if (BAD_ADDR(error))
-			continue;
+		if (BAD_ADDR(error)) {
+			send_sig(SIGKILL, current, 0);
+			goto out_free_dentry;
+		}
 
 		if (!load_addr_set) {
 			load_addr_set = 1;
