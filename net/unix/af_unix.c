@@ -1403,9 +1403,11 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	msg->msg_namelen = 0;
 
+	down(&sk->protinfo.af_unix.readsem);
+
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
-		goto out;
+		goto out_unlock;
 
 	wake_up_interruptible(&sk->protinfo.af_unix.peer_wait);
 
@@ -1449,6 +1451,8 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 
 out_free:
 	skb_free_datagram(sk,skb);
+out_unlock:
+	up(&sk->protinfo.af_unix.readsem);
 out:
 	return err;
 }

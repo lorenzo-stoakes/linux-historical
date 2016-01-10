@@ -1569,6 +1569,7 @@ void neigh_for_each(struct neigh_table *tbl, void (*cb)(struct neighbour *, void
 	}
 	read_unlock_bh(&tbl->lock);
 }
+EXPORT_SYMBOL(neigh_for_each);
 
 /* The tbl->lock must be held as a writer and BH disabled. */
 void __neigh_for_each_release(struct neigh_table *tbl,
@@ -1596,6 +1597,7 @@ void __neigh_for_each_release(struct neigh_table *tbl,
 		}
 	}
 }
+EXPORT_SYMBOL(__neigh_for_each_release);
 
 #ifdef CONFIG_PROC_FS
 
