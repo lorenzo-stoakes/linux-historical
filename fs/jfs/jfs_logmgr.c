@@ -1697,7 +1697,7 @@ static int lbmLogInit(struct jfs_log * log)
 		if (lbuf == 0)
 			goto error;
 		lbuf->l_bh.b_data = lbuf->l_ldata =
-		    (char *) __get_free_page(GFP_KERNEL);
+		    (char *) get_zeroed_page(GFP_KERNEL);
 		if (lbuf->l_ldata == 0) {
 			kfree(lbuf);
 			goto error;

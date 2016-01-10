@@ -2073,8 +2073,8 @@ W:	http://www.kroah.com/linux/
 S:	Maintained
 
 USB SUBSYSTEM
-P:	Greg Kroah-Hartman
-M:	greg@kroah.com
+P:	Pete Zaitcev
+M:	zaitcev@redhat.com
 L:	linux-usb-users@lists.sourceforge.net
 L:	linux-usb-devel@lists.sourceforge.net
 W:	http://www.linux-usb.org

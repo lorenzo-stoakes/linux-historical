@@ -85,6 +85,10 @@ running once the system is up.
 	acpi_irq_pci=	If irq_balance, Clear listed IRQs for use by PCI
 	acpi_irq_isa=	If irq_balance, Mark listed IRQs used by ISA
 
+	acpi_osi=	[HW,ACPI] empty param disables _OSI
+
+	acpi_serialize	[HW,ACPI] force serialization of AML methods
+
 	ad1816=		[HW,SOUND]
 
 	ad1848=		[HW,SOUND]

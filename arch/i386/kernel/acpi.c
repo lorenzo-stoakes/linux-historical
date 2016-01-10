@@ -655,7 +655,8 @@ void acpi_restore_state_mem (void)
 void __init acpi_reserve_bootmem(void)
 {
 	acpi_wakeup_address = (unsigned long)alloc_bootmem_low(PAGE_SIZE);
-	printk(KERN_DEBUG "ACPI: have wakeup address 0x%8.8lx\n", acpi_wakeup_address);
+	if (!acpi_wakeup_address)
+		printk(KERN_ERR "ACPI: Cannot allocate lowmem, S3 disabled.\n");
 }
 
 void do_suspend_lowlevel_s4bios(int resume)

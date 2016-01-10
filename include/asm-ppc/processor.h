@@ -714,6 +714,7 @@
 #define _CHRP_IBM      0x05  /* IBM chrp, the longtrail and longtrail 2 */
 
 #define _GLOBAL(n)\
+        .stabs __stringify(n:F-1),N_FUN,0,0,n;\
 	.globl n;\
 n:
 

@@ -40,6 +40,7 @@
 #include <asm/acpi.h>
 #include <acpi/acpi_bus.h>
 #include <acpi/acpi_drivers.h>
+#include <linux/sched.h>
 
 #ifdef CONFIG_ACPI_SLEEP
 #include <linux/mc146818rtc.h>
@@ -99,6 +100,8 @@ acpi_power_off (void)
 {
 	if (unlikely(in_interrupt())) 
 		BUG();
+	/* Some SMP machines only can poweroff in boot CPU */
+	set_cpus_allowed(current, 1UL << cpu_logical_map(0));
 	acpi_system_save_state(ACPI_STATE_S5);
 	acpi_enter_sleep_state_prep(ACPI_STATE_S5);
 	ACPI_DISABLE_IRQS();

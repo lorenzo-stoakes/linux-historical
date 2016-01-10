@@ -32,7 +32,8 @@ all: $(HEAD-y) kernel.o
 O_TARGET := kernel.o
 
 export-objs			:= ppc_ksyms.o time.o ocp.o ppc4xx_setup.o \
-					ppc4xx_dma.o ppc4xx_sgdma.o
+					ppc4xx_dma.o ppc4xx_sgdma.o \
+					ppc4xx_stbdma.o
 
 obj-y				:= entry.o traps.o irq.o idle.o time.o misc.o \
 					process.o signal.o ptrace.o align.o \
@@ -53,8 +54,10 @@ ifeq ($(CONFIG_SERIAL)$(CONFIG_GEN550),yy)
 obj-$(CONFIG_KGDB)		+= gen550_kgdb.o gen550_dbg.o
 obj-$(CONFIG_SERIAL_TEXT_DEBUG)	+= gen550_dbg.o
 endif
+obj-$(CONFIG_PPC_OCP)		+= ocp.o
 obj-$(CONFIG_40x)		+= ppc4xx_setup.o
-obj-$(CONFIG_4xx)		+= ocp.o ppc4xx_pic.o todc_time.o
+obj-$(CONFIG_4xx)		+= ppc4xx_pic.o todc_time.o
+obj-$(CONFIG_STBXXX_DMA)	+= ppc4xx_stbdma.o
 ifeq ($(CONFIG_PCI),y)
 obj-$(CONFIG_40x)		+= ppc405_pci.o
 obj-$(CONFIG_4xx)		+= indirect_pci.o pci_auto.o
