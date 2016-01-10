@@ -135,7 +135,7 @@ static void e100_non_tx_background(unsigned long);
 static inline void e100_tx_skb_free(struct e100_private *bdp, tcb_t *tcb);
 /* Global Data structures and variables */
 char e100_copyright[] __devinitdata = "Copyright (c) 2004 Intel Corporation";
-char e100_driver_version[]="2.3.40-k1";
+char e100_driver_version[]="2.3.43-k1";
 const char *e100_full_driver_name = "Intel(R) PRO/100 Network Driver";
 char e100_short_driver_name[] = "e100";
 static int e100nics = 0;

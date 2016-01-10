@@ -34,7 +34,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include "scsi.h"
-#include "hosts.h"
+#include <scsi/scsi_host.h>
 #include <linux/libata.h>
 
 #define DRV_NAME	"sata_sis"
@@ -99,6 +99,7 @@ static struct ata_port_operations sis_ops = {
 	.check_status		= ata_check_status_pio,
 	.exec_command		= ata_exec_command_pio,
 	.phy_reset		= sata_phy_reset,
+	.bmdma_setup            = ata_bmdma_setup_pio,
 	.bmdma_start            = ata_bmdma_start_pio,
 	.fill_sg		= ata_fill_sg,
 	.eng_timeout		= ata_eng_timeout,

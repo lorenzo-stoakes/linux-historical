@@ -33,7 +33,7 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include "scsi.h"
-#include "hosts.h"
+#include <scsi/scsi_host.h>
 #include <linux/libata.h>
 #include <asm/io.h>
 
@@ -107,6 +107,7 @@ static struct ata_port_operations svia_sata_ops = {
 
 	.phy_reset		= sata_phy_reset,
 
+	.bmdma_setup            = ata_bmdma_setup_pio,
 	.bmdma_start            = ata_bmdma_start_pio,
 	.fill_sg		= ata_fill_sg,
 	.eng_timeout		= ata_eng_timeout,
@@ -147,17 +148,6 @@ static unsigned long svia_scr_addr(unsigned long addr, unsigned int port)
 {
 	return addr + (port * 128);
 }
-
-/**
- *	svia_init_one -
- *	@pdev:
- *	@ent:
- *
- *	LOCKING:
- *
- *	RETURNS:
- *
- */
 
 static int svia_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 {
@@ -284,15 +274,6 @@ err_out:
 	return rc;
 }
 
-/**
- *	svia_init -
- *
- *	LOCKING:
- *
- *	RETURNS:
- *
- */
-
 static int __init svia_init(void)
 {
 	int rc;
@@ -310,13 +291,6 @@ static int __init svia_init(void)
 
 	return 0;
 }
-
-/**
- *	svia_exit -
- *
- *	LOCKING:
- *
- */
 
 static void __exit svia_exit(void)
 {
