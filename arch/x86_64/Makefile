@@ -60,7 +60,7 @@ ifdef CONFIG_MK8
 CFLAGS += $(call check_gcc,-march=k8,)
 endif
 ifdef CONFIG_MPSC
-CFLAGS += $(call check_gcc,-march=prescott,)
+CFLAGS += $(call check_gcc,-march=nocona,)
 endif
 
 HEAD := arch/x86_64/kernel/head.o arch/x86_64/kernel/head64.o arch/x86_64/kernel/init_task.o

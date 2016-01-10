@@ -1159,6 +1159,14 @@ CONFIG_AMD74XX_OVERRIDE
   This effect can be also invoked by calling "idex=ata66"
   If unsure, say N.
 
+ATI IXP chipset IDE support
+CONFIG_BLK_DEV_ATIIXP
+  This driver adds explicit support for ATI IXP chipset.
+  This allows the kernel to change PIO, DMA and UDMA speeds
+  and to configure the chip to optimum performance.
+
+  Say Y here if you have an ATI IXP chipset IDE controller.
+
 CMD64X/CMD680 chipset support
 CONFIG_BLK_DEV_CMD64X
   Say Y here if you have an IDE controller which uses any of these
@@ -7047,8 +7055,11 @@ CONFIG_PACKET
 
 Packet socket: mmapped IO
 CONFIG_PACKET_MMAP
-  If you say Y here, the Packet protocol driver will use an IO
-  mechanism that results in faster communication.
+  If you say Y here, the Packet protocol driver can use a faster and 
+  more efficient capture method. This feature also allows bigger 
+  receive buffers. To take advantage of this method who have to use 
+  a libpcap library that supports it. For more info see
+  <file:Documentation/networking/packet_mmap.txt>.
 
   If unsure, say N.
 

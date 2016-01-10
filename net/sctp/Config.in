@@ -4,10 +4,10 @@
 mainmenu_option next_comment
 comment '   SCTP Configuration (EXPERIMENTAL)'
 
-if [ "$CONFIG_IPV6" = "n" ]; then
-  tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP
-else
-  dep_tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP $CONFIG_IPV6
+tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP
+
+if [ "$CONFIG_IP_SCTP" = "y" -a "$CONFIG_IPV6" = "m" ]; then
+	define_tristate CONFIG_IP_SCTP m
 fi
 
 if [ "$CONFIG_IP_SCTP" != "n" ]; then

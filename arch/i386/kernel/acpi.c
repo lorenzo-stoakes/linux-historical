@@ -590,6 +590,10 @@ acpi_pic_sci_set_trigger(unsigned int irq, u16 trigger)
 
 
 
+#ifndef __HAVE_ARCH_CMPXCHG
+#warning ACPI uses CMPXCHG, i486 and later hardware
+#endif
+
 /* --------------------------------------------------------------------------
                               Low-Level Sleep Support
    -------------------------------------------------------------------------- */

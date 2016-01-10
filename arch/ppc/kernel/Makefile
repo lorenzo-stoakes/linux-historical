@@ -55,15 +55,16 @@ obj-$(CONFIG_KGDB)		+= gen550_kgdb.o gen550_dbg.o
 obj-$(CONFIG_SERIAL_TEXT_DEBUG)	+= gen550_dbg.o
 endif
 obj-$(CONFIG_PPC_OCP)		+= ocp.o
-obj-$(CONFIG_40x)		+= ppc4xx_setup.o
-obj-$(CONFIG_4xx)		+= ppc4xx_pic.o todc_time.o
+obj-$(CONFIG_40x)		+= ppc4xx_setup.o ppc4xx_pic.o
+obj-$(CONFIG_4xx)		+= todc_time.o
 obj-$(CONFIG_STBXXX_DMA)	+= ppc4xx_stbdma.o
 ifeq ($(CONFIG_PCI),y)
 obj-$(CONFIG_40x)		+= ppc405_pci.o
 obj-$(CONFIG_4xx)		+= indirect_pci.o pci_auto.o
 endif
-obj-$(CONFIG_44x)		+= ibm44x_common.o
+obj-$(CONFIG_44x)		+= ppc4xx_pic.o ibm44x_common.o
 obj-$(CONFIG_440GP)		+= ibm440gp_common.o
+obj-$(CONFIG_440GX)		+= ibm440gx_common.o
 obj-$(CONFIG_PPC4xx_DMA)	+= ppc4xx_dma.o
 obj-$(CONFIG_PPC4xx_EDMA)	+= ppc4xx_sgdma.o
 obj-$(CONFIG_8xx)		+= m8xx_setup.o ppc8xx_pic.o
