@@ -378,7 +378,8 @@ struct page * __alloc_pages(unsigned int gfp_mask, unsigned int order, zonelist_
 
 	/* here we're in the low on memory slow path */
 
-	if (current->flags & PF_MEMALLOC && !in_interrupt()) {
+	if ((current->flags & PF_MEMALLOC) && 
+			(!in_interrupt() || (current->flags & PF_MEMDIE))) {
 		zone = zonelist->zones;
 		for (;;) {
 			zone_t *z = *(zone++);

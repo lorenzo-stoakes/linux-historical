@@ -44,10 +44,11 @@ check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1
 GCCFLAGS	:= -I $(TOPDIR)/include/asm/gcc
 GCCFLAGS	+= -G 0 -mno-abicalls -fno-pic -pipe
 GCCFLAGS	+= $(call check_gcc, -mabi=32,)
+GCCFLAGS	+= $(call check_gcc, -finline-limit=100000,)
 LINKFLAGS	+= -G 0 -static # -N
 MODFLAGS	+= -mlong-calls
 
-ifdef CONFIG_KGDB
+ifdef CONFIG_DEBUG_INFO
 GCCFLAGS	+= -g
 ifdef CONFIG_SB1XXX_CORELIS
 GCCFLAGS	+= -mno-sched-prolog -fno-omit-frame-pointer
@@ -95,6 +96,10 @@ GCCFLAGS	+= -mcpu=r5000 -mips2 -Wa,--trap
 endif
 ifdef CONFIG_CPU_RM7000
 GCCFLAGS	+= $(call check_gcc, -march=rm7000, -mcpu=r5000) \
+		   -mips2 -Wa,--trap
+endif
+ifdef CONFIG_CPU_RM9000
+GCCFLAGS	+= $(call check_gcc, -march=rm9000, -mcpu=r5000) \
 		   -mips2 -Wa,--trap
 endif
 ifdef CONFIG_CPU_SB1
@@ -195,6 +200,13 @@ SUBDIRS       += arch/mips/au1000/db1x00 arch/mips/au1000/common
 LOADADDR      += 0x80100000
 endif
 
+ifdef CONFIG_MIPS_HYDROGEN3
+LIBS          += arch/mips/au1000/hydrogen3/hydrogen3.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/hydrogen3 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
 ifdef CONFIG_MIPS_BOSPORUS
 LIBS          += arch/mips/au1000/db1x00/db1x00.o \
                  arch/mips/au1000/common/au1000.o
@@ -221,6 +233,16 @@ LIBS          += arch/mips/au1000/mtx-1/mtx-1.o \
                  arch/mips/au1000/common/au1000.o
 SUBDIRS       += arch/mips/au1000/mtx-1 arch/mips/au1000/common
 LOADADDR      += 0x80100000
+endif
+
+#
+# Cogent CSB250
+#
+ifdef CONFIG_COGENT_CSB250
+LIBS		+= arch/mips/au1000/csb250/csb250.o \
+		   arch/mips/au1000/common/au1000.o
+SUBDIRS		+= arch/mips/au1000/csb250 arch/mips/au1000/common
+LOADADDR	:= 0x80100000
 endif
 
 ifdef CONFIG_PCI
@@ -375,6 +397,16 @@ ifdef CONFIG_MOMENCO_OCELOT_C
 CORE_FILES	+= arch/mips/momentum/ocelot_c/ocelot_c.o
 SUBDIRS		+= arch/mips/momentum/ocelot_c
 LOADADDR	:= 0x80100000
+endif
+
+ifdef CONFIG_MOMENCO_JAGUAR_ATX
+LIBS		+= arch/mips/momentum/jaguar_atx/jaguar_atx.o
+SUBDIRS		+= arch/mips/momentum/jaguar_atx
+ifdef CONFIG_JAGUAR_DMALOW
+LOADADDR	:= 0x88000000
+else
+LOADADDR	:= 0x80100000
+endif
 endif
 
 #
@@ -630,6 +662,9 @@ endif
 MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot
 
 vmlinux.ecoff: vmlinux
+	@$(MAKEBOOT) $@
+
+vmlinux.srec: vmlinux
 	@$(MAKEBOOT) $@
 
 archclean:

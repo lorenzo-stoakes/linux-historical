@@ -36,20 +36,19 @@
  * system call/exception. As usual the registers k0/k1 aren't being saved.
  */
 struct pt_regs {
+	/* Pad bytes for argument save space on the stack. */
+	unsigned long pad0[6];
+
 	/* Saved main processor registers. */
 	unsigned long regs[32];
 
-	/* Other saved registers. */
+	/* Saved special registers. */
+	unsigned long cp0_status;
 	unsigned long lo;
 	unsigned long hi;
-
-	/*
-	 * saved cp0 registers
-	 */
-	unsigned long cp0_epc;
 	unsigned long cp0_badvaddr;
-	unsigned long cp0_status;
 	unsigned long cp0_cause;
+	unsigned long cp0_epc;
 };
 
 #endif /* !__ASSEMBLY__ */
