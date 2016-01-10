@@ -46,8 +46,8 @@ ata_scsi_find_dev(struct ata_port *ap, struct scsi_device *scsidev);
 /**
  *	ata_std_bios_param - generic bios head/sector/cylinder calculator used by sd.
  *	@disk: SCSI device for which BIOS geometry is to be determined
- *	@dev: device major/minor
- *	@ip: location to which geometry will be output
+ *	@bdev: device major/minor
+ *	@geom: location to which geometry will be output
  *
  *	Generic bios head/sector/cylinder calculator
  *	used by sd. Most BIOSes nowadays expect a XXX/255/16  (CHS)
@@ -61,7 +61,7 @@ ata_scsi_find_dev(struct ata_port *ap, struct scsi_device *scsidev);
  *	Zero.
  */
 int ata_std_bios_param(Disk * disk,	/* SCSI disk */
-		       kdev_t dev,	/* Device major, minor */
+		       kdev_t bdev,	/* Device major, minor */
 		  int *geom /* Heads, sectors, cylinders in that order */ )
 {
 	geom[0] = 255;
@@ -95,7 +95,7 @@ int ata_scsi_ioctl(struct scsi_device *scsidev, int cmd, void __user *arg)
 		return 0;
 
 	case ATA_IOC_SET_IO32:
-		val = (long) arg;
+		val = (unsigned long) arg;
 		if (val != 0)
 			return -EINVAL;
 		return 0;

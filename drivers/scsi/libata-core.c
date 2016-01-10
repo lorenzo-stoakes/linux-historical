@@ -1858,7 +1858,7 @@ static void ata_fill_sg(struct ata_queued_cmd *qc)
 
 	idx = 0;
 	for (nelem = qc->n_elem; nelem; nelem--,sg++) {
-		u32 addr, boundary;
+		u32 addr, offset;
 		u32 sg_len, len;
 
 		/* determine if physical DMA addr spans 64K boundary.
@@ -1869,10 +1869,10 @@ static void ata_fill_sg(struct ata_queued_cmd *qc)
 		sg_len = sg_dma_len(sg);
 
 		while (sg_len) {
-			boundary = (addr & ~0xffff) + (0xffff + 1);
+			offset = addr & 0xffff;
 			len = sg_len;
-			if ((addr + sg_len) > boundary)
-				len = boundary - addr;
+			if ((offset + sg_len) > 0x10000)
+				len = 0x10000 - offset;
 
 			ap->prd[idx].addr = cpu_to_le32(addr);
 			ap->prd[idx].flags_len = cpu_to_le32(len & 0xffff);
@@ -2304,8 +2304,9 @@ static void ata_pio_task(void *_data)
 
 	if ((ap->pio_task_state != PIO_ST_IDLE) &&
 	    (ap->pio_task_state != PIO_ST_TMOUT) &&
-	    (ap->pio_task_state != PIO_ST_ERR))
+	    (ap->pio_task_state != PIO_ST_ERR)) {
 		schedule_task(&ap->pio_task);
+	}
 }
 
 /**
@@ -3596,7 +3597,7 @@ EXPORT_SYMBOL_GPL(ata_scsi_queuecmd);
 EXPORT_SYMBOL_GPL(ata_scsi_error);
 EXPORT_SYMBOL_GPL(ata_scsi_detect);
 EXPORT_SYMBOL_GPL(ata_add_to_probe_list);
-EXPORT_SYMBOL_GPL(ata_scsi_release);
 EXPORT_SYMBOL_GPL(libata_msleep);
+EXPORT_SYMBOL_GPL(ata_scsi_release);
 EXPORT_SYMBOL_GPL(ata_host_intr);
 EXPORT_SYMBOL_GPL(ata_dev_id_string);

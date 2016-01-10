@@ -309,7 +309,7 @@ typedef struct page {
 #define UnlockPage(page)	unlock_page(page)
 #define Page_Uptodate(page)	test_bit(PG_uptodate, &(page)->flags)
 #ifndef SetPageUptodate
-#define SetPageUptodate(page)	set_bit(PG_uptodate, &(page)->flags);
+#define SetPageUptodate(page)	set_bit(PG_uptodate, &(page)->flags)
 #endif
 #define ClearPageUptodate(page)	clear_bit(PG_uptodate, &(page)->flags)
 #define PageDirty(page)		test_bit(PG_dirty, &(page)->flags)

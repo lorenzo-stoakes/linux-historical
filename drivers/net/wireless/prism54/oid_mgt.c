@@ -219,7 +219,7 @@ struct oid_t isl_oid[] = {
 	OID_UNKNOWN(OID_INL_MEMORY, 0xFF020002),
 	OID_U32_C(OID_INL_MODE, 0xFF020003),
 	OID_UNKNOWN(OID_INL_COMPONENT_NR, 0xFF020004),
-	OID_UNKNOWN(OID_INL_VERSION, 0xFF020005),
+	OID_STRUCT(OID_INL_VERSION, 0xFF020005, u8[8], OID_TYPE_RAW),
 	OID_UNKNOWN(OID_INL_INTERFACE_ID, 0xFF020006),
 	OID_UNKNOWN(OID_INL_COMPONENT_ID, 0xFF020007),
 	OID_U32_C(OID_INL_CONFIG, 0xFF020008),
@@ -481,6 +481,8 @@ mgt_get_request(islpci_private *priv, enum oid_num_t n, int extra, void *data,
 	BUG_ON(OID_NUM_LAST <= n);
 	BUG_ON(extra > isl_oid[n].range);
 
+	res->ptr = NULL;
+
 	if (!priv->mib)
 		/* memory has been freed */
 		return -1;
@@ -613,7 +615,9 @@ static enum oid_num_t commit_part2[] = {
 	DOT11_OID_DEFKEYID,
 	DOT11_OID_DOT1XENABLE,
 	OID_INL_DOT11D_CONFORMANCE,
+	/* Do not initialize this - fw < 1.0.4.3 rejects it
 	OID_INL_OUTPUTPOWER,
+	*/
 };
 
 /* update the MAC addr. */

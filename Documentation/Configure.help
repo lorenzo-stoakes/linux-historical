@@ -28961,6 +28961,18 @@ CONFIG_CRYPTO_SHA512
   This code also includes SHA-384, a 384 bit hash with 192 bits
   of security against collision attacks.
 
+CONFIG_CRYPTO_WHIRLPOOL
+  Whirlpool hash algorithm.
+
+  Whirlpool is part of the NESSIE cryptographic primtives.
+  Whirlpool works on messages shorter than 2^256 bits and
+  produces a 512 bit hash.
+
+  Whirlpool will be part of the ISO/IEC 10118-3:2003(E) standard
+
+  See also:
+  http://planeta.terra.com.br/informatica/paulobarreto/WhirlpoolPage.html
+
 CONFIG_CRYPTO_DES
   DES cipher algorithm (FIPS 46-2), and Triple DES EDE (FIPS 46-3).
 

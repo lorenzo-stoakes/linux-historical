@@ -52,7 +52,7 @@
 #define schedule_work		schedule_task
 
 #if !defined(HAVE_NETDEV_PRIV)
-#define netdev_priv(x)		x->priv
+#define netdev_priv(x)		(x)->priv
 #endif
 
 #if !defined(CONFIG_FW_LOADER) && !defined(CONFIG_FW_LOADER_MODULE)

@@ -42,6 +42,7 @@
 #include <linux/notifier.h>
 #include <net/sock.h>
 #include <net/scm.h>
+#include <linux/tqueue.h>
 
 #define Nprintk(a...)
 
@@ -63,6 +64,15 @@ struct netlink_opt
 	void			(*data_ready)(struct sock *sk, int bytes);
 };
 
+struct netlink_work
+{
+	struct sock 		*sk;
+	int 			len;
+	struct tq_struct	work;
+};
+
+static DECLARE_TASK_QUEUE(tq_netlink);
+static DECLARE_WAIT_QUEUE_HEAD(netlink_thread_wait);
 static struct sock *nl_table[MAX_LINKS];
 static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
 static unsigned nl_nonroot[MAX_LINKS];
@@ -80,6 +90,15 @@ static rwlock_t nl_table_lock = RW_LOCK_UNLOCKED;
 static atomic_t nl_table_users = ATOMIC_INIT(0);
 
 static struct notifier_block *netlink_chain;
+
+void netlink_tq_handler(void *data)
+{
+	struct netlink_work *work = data;
+	
+	work->sk->data_ready(work->sk, work->len);
+	sock_put(work->sk);
+	kfree(work);
+}
 
 static void netlink_sock_destruct(struct sock *sk)
 {
@@ -437,12 +456,27 @@ retry:
 
 	if (atomic_read(&sk->rmem_alloc) > sk->rcvbuf ||
 	    test_bit(0, &sk->protinfo.af_netlink->state)) {
+		struct task_struct *client;
+		
 		if (!timeo) {
 			if (ssk->protinfo.af_netlink->pid == 0)
 				netlink_overrun(sk);
 			sock_put(sk);
 			kfree_skb(skb);
 			return -EAGAIN;
+		}
+
+		if (!sk->protinfo.af_netlink->pid) {
+			/* Kernel is sending information to user space
+			 * and socket buffer is full: Wake up user */
+			
+			client = find_task_by_pid(sk->protinfo.af_netlink->pid);
+			if (!client) {
+				sock_put(sk);
+				kfree_skb(skb);
+				return -EAGAIN;
+			}
+			wake_up_process(client);
 		}
 
 		__set_current_state(TASK_INTERRUPTIBLE);
@@ -467,8 +501,26 @@ retry:
 	skb_orphan(skb);
 	skb_set_owner_r(skb, sk);
 	skb_queue_tail(&sk->receive_queue, skb);
-	sk->data_ready(sk, len);
-	sock_put(sk);
+
+	if (!sk->protinfo.af_netlink->pid) {
+		struct netlink_work *nlwork = 
+			kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
+		
+		if  (!nlwork) {
+			sock_put(sk);
+			return -EAGAIN;
+		}
+		
+		INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
+		nlwork->sk = sk;
+		nlwork->len = len;
+		queue_task(&nlwork->work, &tq_netlink);
+		wake_up(&netlink_thread_wait);
+	} else {
+		sk->data_ready(sk, len);
+		sock_put(sk);
+	}
+	
 	return len;
 
 no_dst:
@@ -490,7 +542,22 @@ static __inline__ int netlink_broadcast_deliver(struct sock *sk, struct sk_buff 
                 skb_orphan(skb);
 		skb_set_owner_r(skb, sk);
 		skb_queue_tail(&sk->receive_queue, skb);
-		sk->data_ready(sk, skb->len);
+
+		if (!sk->protinfo.af_netlink->pid) {
+			struct netlink_work *nlwork = 
+				kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
+		
+			if  (!nlwork) 
+				return -EAGAIN;
+		
+			INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
+			nlwork->sk = sk;
+			nlwork->len = skb->len;
+			queue_task(&nlwork->work, &tq_netlink);
+			wake_up(&netlink_thread_wait);
+		} else 
+			sk->data_ready(sk, skb->len);
+
 		return 0;
 	}
 	return -1;
@@ -534,11 +601,12 @@ void netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
 			netlink_overrun(sk);
 			/* Clone failed. Notify ALL listeners. */
 			failure = 1;
+			sock_put(sk);
 		} else if (netlink_broadcast_deliver(sk, skb2)) {
 			netlink_overrun(sk);
+			sock_put(sk);
 		} else
 			skb2 = NULL;
-		sock_put(sk);
 	}
 
 	netlink_unlock_table();
@@ -868,6 +936,26 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).pid, MSG_DONTWAIT);
 }
 
+static int netlink_thread(void *unused)
+{
+	struct task_struct *tsk = current;
+	DECLARE_WAITQUEUE(wait, tsk);
+
+	daemonize();
+	strcpy(tsk->comm, "knetlinkd");
+	sigfillset(&tsk->blocked);
+	mb();
+
+	for (;;) {
+		run_task_queue(&tq_netlink);
+		
+		__set_current_state(TASK_INTERRUPTIBLE);
+		add_wait_queue(&netlink_thread_wait, &wait);
+		schedule();
+		__set_current_state(TASK_RUNNING);
+		remove_wait_queue(&netlink_thread_wait, &wait);
+	}
+}
 
 #ifdef NL_EMULATE_DEV
 
@@ -1027,6 +1115,8 @@ static int __init netlink_proto_init(void)
 #ifdef CONFIG_PROC_FS
 	create_proc_read_entry("net/netlink", 0, 0, netlink_read_proc, NULL);
 #endif
+	kernel_thread(netlink_thread, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGNAL);
+	
 	return 0;
 }
 

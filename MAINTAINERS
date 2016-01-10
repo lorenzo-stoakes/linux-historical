@@ -534,15 +534,7 @@ CRYPTO API
 P:	James Morris
 M:	jmorris@intercode.com.au
 P:	David S. Miller
-M:	davem@redhat.com
-MARVELL YUKON / SYSKONNECT DRIVER
-P:	Mirko Lindner
-M: 	mlindner@syskonnect.de
-P:	Ralph Roesler
-M: 	rroesler@syskonnect.de
-W: 	http://www.syskonnect.com
-S: 	Supported
-M:	davem@redhat.com
+M:	davem@davemloft.net
 W	http://samba.org/~jamesm/crypto/
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
@@ -1192,6 +1184,14 @@ L:	linux-mips@linux-mips.org
 L:	netdev@oss.sgi.com
 S:	Supported
 
+MARVELL YUKON / SYSKONNECT DRIVER
+P:	Mirko Lindner
+M: 	mlindner@syskonnect.de
+P:	Ralph Roesler
+M: 	rroesler@syskonnect.de
+W: 	http://www.syskonnect.com
+S: 	Supported
+
 MATROX FRAMEBUFFER DRIVER
 P:	Petr Vandrovec
 M:	vandrove@vc.cvut.cz
@@ -1316,7 +1316,7 @@ S:	Maintained
 
 NETWORKING [IPv4/IPv6]
 P:	David S. Miller
-M:	davem@redhat.com
+M:	davem@davemloft.net
 P:	Alexey Kuznetsov
 M:	kuznet@ms2.inr.ac.ru
 P:	Pekka Savola (ipv6)
@@ -1726,7 +1726,7 @@ S:	Maintained
 
 UltraSPARC (sparc64):
 P:	David S. Miller
-M:	davem@redhat.com
+M:	davem@davemloft.net
 P:	Eddie C. Dost
 M:	ecd@skynet.be
 P:	Jakub Jelinek

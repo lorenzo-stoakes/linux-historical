@@ -371,6 +371,7 @@ int sync_buffers(kdev_t dev, int wait)
 	}
 	return err;
 }
+EXPORT_SYMBOL(sync_buffers);
 
 int fsync_super(struct super_block *sb)
 {

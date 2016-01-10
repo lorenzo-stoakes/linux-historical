@@ -63,7 +63,7 @@ static char *tvmem;
 static char *check[] = {
 	"des", "md5", "des3_ede", "rot13", "sha1", "sha256", "blowfish",
 	"twofish", "serpent", "sha384", "sha512", "md4", "aes", "cast6", 
-	"arc4", "michael_mic", "deflate", "tea", "xtea", NULL
+	"arc4", "michael_mic", "deflate", "tea", "xtea", "whirlpool", NULL
 };
 
 static void
@@ -581,6 +581,7 @@ do_test(void)
 
 		test_hash("sha384", sha384_tv_template, SHA384_TEST_VECTORS);
 		test_hash("sha512", sha512_tv_template, SHA512_TEST_VECTORS);
+		test_hash("whirlpool", whirlpool_tv_template, WHIRLPOOL_TEST_VECTORS);
 		test_deflate();		
 #ifdef CONFIG_CRYPTO_HMAC
 		test_hmac("md5", hmac_md5_tv_template, HMAC_MD5_TEST_VECTORS);
@@ -685,6 +686,9 @@ do_test(void)
 	case 21:
 		test_cipher ("khazad", MODE_ECB, ENCRYPT, khazad_enc_tv_template, KHAZAD_ENC_TEST_VECTORS);
 		test_cipher ("khazad", MODE_ECB, DECRYPT, khazad_dec_tv_template, KHAZAD_DEC_TEST_VECTORS);
+		break;
+	case 22:
+		test_hash("whirlpool", whirlpool_tv_template, WHIRLPOOL_TEST_VECTORS);
 		break;
 
 #ifdef CONFIG_CRYPTO_HMAC

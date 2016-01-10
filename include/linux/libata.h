@@ -157,6 +157,7 @@ enum pio_task_states {
 };
 
 /* forward declarations */
+struct scsi_device;
 struct ata_port_operations;
 struct ata_port;
 struct ata_queued_cmd;
