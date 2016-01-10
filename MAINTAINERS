@@ -579,6 +579,11 @@ W:	http://linux-decnet.sourceforge.net
 L:	linux-decnet-user@lists.sourceforge.net
 S:	Maintained
 
+DEFXX FDDI NETWORK DRIVER
+P:	Maciej W. Rozycki
+M:	macro@linux-mips.org
+S:	Maintained
+
 DELL LAPTOP SMM DRIVER
 P:	Massimo Dal Zotto
 M:	dz@debian.org
@@ -971,11 +976,12 @@ W:	http://sourceforge.net/projects/e1000/
 S:	Supported
 
 INTERMEZZO FILE SYSTEM
-P:	Chen Yang
-M:	intermezzo-devel@lists.sourceforge.net
+P:	Peter J. Braam
+M:	braam@clusterfs.com
 W:      http://www.inter-mezzo.org/
+W:	http://sourceforge.net/projects/intermezzo/
 L:      intermezzo-discuss@lists.sourceforge.net
-S:      Maintained
+S:	Orphan
 
 IOC3 DRIVER
 P:	Ralf Baechle
@@ -1496,13 +1502,6 @@ L:	linux-mips@linux-mips.org
 W:	http://www.realitydiluted.com/projects/nino
 S:	Maintained
 
-PHILIPS NINO PALM PC
-P:	Steven Hill
-M:	sjhill@realitydiluted.com
-L:	linux-mips@oss.sgi.com
-W:	http://www.realitydiluted.com/projects/nino
-S:	Maintained
-
 PNP SUPPORT
 P:	Tom Lees
 M:	tom@lpsg.demon.co.uk
@@ -1774,11 +1773,6 @@ P:	Jan-Benedict Glaw
 M:	jbglaw@lug-owl.de
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
-
-STALLION TECHNOLOGIES MULTIPORT SERIAL BOARDS
-M:	support@stallion.oz.au
-W:	http://www.stallion.com
-S:	Supported
 
 STARFIRE/DURALAN NETWORK DRIVER
 P:	Ion Badulescu

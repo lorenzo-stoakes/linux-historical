@@ -249,7 +249,8 @@ e1000_set_pauseparam(struct net_device *netdev,
 			e1000_reset(adapter);
 	}
 	else
-		return e1000_force_mac_fc(hw);
+		return ((hw->media_type == e1000_media_type_fiber) ?
+			e1000_setup_link(hw) : e1000_force_mac_fc(hw));
 	
 	return 0;
 }
@@ -591,6 +592,9 @@ e1000_set_ringparam(struct net_device *netdev,
 
 	tx_old = adapter->tx_ring;
 	rx_old = adapter->rx_ring;
+
+	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending)) 
+		return -EINVAL;
 
 	if(netif_running(adapter->netdev))
 		e1000_down(adapter);

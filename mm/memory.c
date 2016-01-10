@@ -454,8 +454,9 @@ static inline struct page * get_page_map(struct page *page)
 int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long start,
 		int len, int write, int force, struct page **pages, struct vm_area_struct **vmas)
 {
-	int i;
+	int i, s;
 	unsigned int flags;
+	struct vm_area_struct *savevma = NULL;
 
 	/*
 	 * Require read or write permissions.
@@ -463,7 +464,7 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 	 */
 	flags = write ? (VM_WRITE | VM_MAYWRITE) : (VM_READ | VM_MAYREAD);
 	flags &= force ? (VM_MAYREAD | VM_MAYWRITE) : (VM_READ | VM_WRITE);
-	i = 0;
+	i = s = 0;
 
 	do {
 		struct vm_area_struct *	vma;
@@ -499,9 +500,13 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long 
 				/* FIXME: call the correct function,
 				 * depending on the type of the found page
 				 */
-				if (!pages[i])
-					goto bad_page;
-				page_cache_get(pages[i]);
+				if (!pages[i] || PageReserved(pages[i])) {
+					if (pages[i] != ZERO_PAGE(start)) {
+						savevma = vma;
+						goto bad_page;
+					}
+				} else
+					page_cache_get(pages[i]);
 			}
 			if (vmas)
 				vmas[i] = vma;
@@ -520,9 +525,15 @@ out:
 	 */
 bad_page:
 	spin_unlock(&mm->page_table_lock);
+	s = i;
 	while (i--)
 		page_cache_release(pages[i]);
-	i = -EFAULT;
+	/* catch bad uses of PG_reserved on !VM_IO vma's */
+	printk(KERN_ERR "get_user_pages PG_reserved page on"
+			"vma:%p flags:%lx page:%d\n", savevma,
+			savevma->vm_flags, s);
+	BUG();
+	i = -EFAULT; 
 	goto out;
 }
 
@@ -984,7 +995,8 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct * vma,
 		if (PageReserved(old_page))
 			++mm->rss;
 		break_cow(vma, new_page, address, page_table);
-		lru_cache_add(new_page);
+		if (vm_anon_lru)
+			lru_cache_add(new_page);
 
 		/* Free the old page.. */
 		new_page = old_page;
@@ -1215,7 +1227,8 @@ static int do_anonymous_page(struct mm_struct * mm, struct vm_area_struct * vma,
 		mm->rss++;
 		flush_page_to_ram(page);
 		entry = pte_mkwrite(pte_mkdirty(mk_pte(page, vma->vm_page_prot)));
-		lru_cache_add(page);
+		if (vm_anon_lru)
+			lru_cache_add(page);
 		mark_page_accessed(page);
 	}
 
@@ -1270,7 +1283,8 @@ static int do_no_page(struct mm_struct * mm, struct vm_area_struct * vma,
 		}
 		copy_user_highpage(page, new_page, address);
 		page_cache_release(new_page);
-		lru_cache_add(page);
+		if (vm_anon_lru)
+			lru_cache_add(page);
 		new_page = page;
 	}
 

@@ -199,6 +199,11 @@ typedef struct page {
 #define page_count(p)		atomic_read(&(p)->count)
 #define set_page_count(p,v) 	atomic_set(&(p)->count, v)
 
+static inline struct page *nth_page(struct page *page, int n)
+{
+	return page + n;
+}
+
 /*
  * Various page->flags bits:
  *

@@ -111,6 +111,8 @@ nargs (unsigned int arg, char **ap)
 			*ap++ = (char *) A(addr);
 		arg += sizeof(unsigned int);
 		n++;
+		if (n >= (MAX_ARG_PAGES * PAGE_SIZE) / sizeof(char *))
+			return -E2BIG;
 	} while (addr);
 	return n - 1;
 }

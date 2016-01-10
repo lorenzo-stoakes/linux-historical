@@ -290,6 +290,8 @@ static ctl_table vm_table[] = {
 	 &vm_cache_scan_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
 	{VM_MAPPED_RATIO, "vm_mapped_ratio", 
 	 &vm_mapped_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
+	{VM_ANON_LRU, "vm_anon_lru", 
+	 &vm_anon_lru, sizeof(int), 0644, NULL, &proc_dointvec},
 	{VM_LRU_BALANCE_RATIO, "vm_lru_balance_ratio", 
 	 &vm_lru_balance_ratio, sizeof(int), 0644, NULL, &proc_dointvec},
 	{VM_PASSES, "vm_passes", 
