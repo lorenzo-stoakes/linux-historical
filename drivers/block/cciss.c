@@ -535,7 +535,7 @@ static int cciss_ioctl32_passthru(unsigned int fd, unsigned cmd, unsigned long a
 static int cciss_ioctl32_big_passthru(unsigned int fd, unsigned cmd, unsigned long arg, 
 	struct file *file);
 
-typedef long (*handler type) (unsigned int, unsigned int, unsigned long,
+typedef long (*handler_type) (unsigned int, unsigned int, unsigned long,
 				struct file *);
 
 static struct ioctl32_map {

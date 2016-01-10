@@ -58,7 +58,7 @@ if [ "$CONFIG_CRYPTO" = "y" ]; then
   fi
   tristate       '  SHA256 digest algorithm' CONFIG_CRYPTO_SHA256
   tristate       '  SHA384 and SHA512 digest algorithms' CONFIG_CRYPTO_SHA512
-  tristate       '  Whirlpool digest algorithm' CONFIG_CRYPTO_WHIRLPOOL
+  tristate       '  Whirlpool digest algorithms' CONFIG_CRYPTO_WP512
   if [ "$CONFIG_INET_ESP" = "y" -o \
        "$CONFIG_INET_ESP" = "m" -o \
        "$CONFIG_INET6_ESP" = "y" -o \

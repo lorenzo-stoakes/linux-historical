@@ -59,8 +59,8 @@
 
 #define DRV_MODULE_NAME		"tg3"
 #define PFX DRV_MODULE_NAME	": "
-#define DRV_MODULE_VERSION	"3.9"
-#define DRV_MODULE_RELDATE	"August 30, 2004"
+#define DRV_MODULE_VERSION	"3.10"
+#define DRV_MODULE_RELDATE	"September 14, 2004"
 
 #define TG3_DEF_MAC_MODE	0
 #define TG3_DEF_RX_MODE		0
@@ -1121,29 +1121,33 @@ static void tg3_setup_flow_control(struct tg3 *tp, u32 local_adv, u32 remote_adv
 	u32 old_rx_mode = tp->rx_mode;
 	u32 old_tx_mode = tp->tx_mode;
 
-	if (local_adv & ADVERTISE_PAUSE_CAP) {
-		if (local_adv & ADVERTISE_PAUSE_ASYM) {
-			if (remote_adv & LPA_PAUSE_CAP)
-				new_tg3_flags |=
-					(TG3_FLAG_RX_PAUSE |
-					 TG3_FLAG_TX_PAUSE);
-			else if (remote_adv & LPA_PAUSE_ASYM)
-				new_tg3_flags |=
-					(TG3_FLAG_RX_PAUSE);
-		} else {
-			if (remote_adv & LPA_PAUSE_CAP)
-				new_tg3_flags |=
-					(TG3_FLAG_RX_PAUSE |
-					 TG3_FLAG_TX_PAUSE);
+	if (tp->tg3_flags & TG3_FLAG_PAUSE_AUTONEG) {
+		if (local_adv & ADVERTISE_PAUSE_CAP) {
+			if (local_adv & ADVERTISE_PAUSE_ASYM) {
+				if (remote_adv & LPA_PAUSE_CAP)
+					new_tg3_flags |=
+						(TG3_FLAG_RX_PAUSE |
+					 	TG3_FLAG_TX_PAUSE);
+				else if (remote_adv & LPA_PAUSE_ASYM)
+					new_tg3_flags |=
+						(TG3_FLAG_RX_PAUSE);
+			} else {
+				if (remote_adv & LPA_PAUSE_CAP)
+					new_tg3_flags |=
+						(TG3_FLAG_RX_PAUSE |
+					 	TG3_FLAG_TX_PAUSE);
+			}
+		} else if (local_adv & ADVERTISE_PAUSE_ASYM) {
+			if ((remote_adv & LPA_PAUSE_CAP) &&
+		    	(remote_adv & LPA_PAUSE_ASYM))
+				new_tg3_flags |= TG3_FLAG_TX_PAUSE;
 		}
-	} else if (local_adv & ADVERTISE_PAUSE_ASYM) {
-		if ((remote_adv & LPA_PAUSE_CAP) &&
-		    (remote_adv & LPA_PAUSE_ASYM))
-			new_tg3_flags |= TG3_FLAG_TX_PAUSE;
-	}
 
-	tp->tg3_flags &= ~(TG3_FLAG_RX_PAUSE | TG3_FLAG_TX_PAUSE);
-	tp->tg3_flags |= new_tg3_flags;
+		tp->tg3_flags &= ~(TG3_FLAG_RX_PAUSE | TG3_FLAG_TX_PAUSE);
+		tp->tg3_flags |= new_tg3_flags;
+	} else {
+		new_tg3_flags = tp->tg3_flags;
+	}
 
 	if (new_tg3_flags & TG3_FLAG_RX_PAUSE)
 		tp->rx_mode |= RX_MODE_FLOW_CTRL_ENABLE;
@@ -2167,7 +2171,7 @@ static int tg3_setup_fiber_hw_autoneg(struct tg3 *tp, u32 mac_status)
 					else
 						val |= 0x4010880;
 
-					tw32_f(MAC_SERDES_CFG, serdes_cfg);
+					tw32_f(MAC_SERDES_CFG, val);
 				}
 
 				tw32_f(SG_DIG_CTRL, 0x01388400);
@@ -2954,6 +2958,7 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
 			dma_addr_t mapping, int len, u32 flags,
 			u32 mss_and_is_end)
 {
+	struct tg3_tx_buffer_desc *txd = &tp->tx_ring[entry];
 	int is_end = (mss_and_is_end & 0x1);
 	u32 mss = (mss_and_is_end >> 1);
 	u32 vlan_tag = 0;
@@ -2965,35 +2970,11 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
 		flags &= 0xffff;
 	}
 	vlan_tag |= (mss << TXD_MSS_SHIFT);
-	if (tp->tg3_flags & TG3_FLAG_HOST_TXDS) {
-		struct tg3_tx_buffer_desc *txd = &tp->tx_ring[entry];
 
-		txd->addr_hi = ((u64) mapping >> 32);
-		txd->addr_lo = ((u64) mapping & 0xffffffff);
-		txd->len_flags = (len << TXD_LEN_SHIFT) | flags;
-		txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
-	} else {
-		struct tx_ring_info *txr = &tp->tx_buffers[entry];
-		unsigned long txd;
-
-		txd = (tp->regs +
-		       NIC_SRAM_WIN_BASE +
-		       NIC_SRAM_TX_BUFFER_DESC);
-		txd += (entry * TXD_SIZE);
-
-		/* Save some PIOs */
-		if (sizeof(dma_addr_t) != sizeof(u32))
-			writel(((u64) mapping >> 32),
-			       txd + TXD_ADDR + TG3_64BIT_REG_HIGH);
-
-		writel(((u64) mapping & 0xffffffff),
-		       txd + TXD_ADDR + TG3_64BIT_REG_LOW);
-		writel(len << TXD_LEN_SHIFT | flags, txd + TXD_LEN_FLAGS);
-		if (txr->prev_vlan_tag != vlan_tag) {
-			writel(vlan_tag << TXD_VLAN_TAG_SHIFT, txd + TXD_VLAN_TAG);
-			txr->prev_vlan_tag = vlan_tag;
-		}
-	}
+	txd->addr_hi = ((u64) mapping >> 32);
+	txd->addr_lo = ((u64) mapping & 0xffffffff);
+	txd->len_flags = (len << TXD_LEN_SHIFT) | flags;
+	txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
 }
 
 static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
@@ -3182,19 +3163,7 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	/* Packets are ready, update Tx producer idx local and on card. */
-	if (tp->tg3_flags & TG3_FLAG_HOST_TXDS) {
-		tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 +
-			      TG3_64BIT_REG_LOW), entry);
-	} else {
-		/* First, make sure tg3 sees last descriptor fully
-		 * in SRAM.
-		 */
-		if (tp->tg3_flags & TG3_FLAG_MBOX_WRITE_REORDER)
-			tr32(MAILBOX_SNDNIC_PROD_IDX_0 + TG3_64BIT_REG_LOW);
-
-		tw32_tx_mbox((MAILBOX_SNDNIC_PROD_IDX_0 +
-			      TG3_64BIT_REG_LOW), entry);
-	}
+	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
 
 	tp->tx_prod = entry;
 	if (TX_BUFFS_AVAIL(tp) <= (MAX_SKB_FRAGS + 1))
@@ -3333,7 +3302,6 @@ static void tg3_free_rings(struct tg3 *tp)
  */
 static void tg3_init_rings(struct tg3 *tp)
 {
-	unsigned long start, end;
 	u32 i;
 
 	/* Free up all the SKBs. */
@@ -3343,21 +3311,7 @@ static void tg3_init_rings(struct tg3 *tp)
 	memset(tp->rx_std, 0, TG3_RX_RING_BYTES);
 	memset(tp->rx_jumbo, 0, TG3_RX_JUMBO_RING_BYTES);
 	memset(tp->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
-
-	if (tp->tg3_flags & TG3_FLAG_HOST_TXDS) {
-		memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
-	} else {
-		start = (tp->regs +
-			 NIC_SRAM_WIN_BASE +
-			 NIC_SRAM_TX_BUFFER_DESC);
-		end = start + TG3_TX_RING_BYTES;
-		while (start < end) {
-			writel(0, start);
-			start += 4;
-		}
-		for (i = 0; i < TG3_TX_RING_SIZE; i++)
-			tp->tx_buffers[i].prev_vlan_tag = 0;
-	}
+	memset(tp->tx_ring, 0, TG3_TX_RING_BYTES);
 
 	/* Initialize invariants of the rings, we only set this
 	 * stuff once.  This works because the card does not
@@ -3488,15 +3442,10 @@ static int tg3_alloc_consistent(struct tg3 *tp)
 	if (!tp->rx_rcb)
 		goto err_out;
 
-	if (tp->tg3_flags & TG3_FLAG_HOST_TXDS) {
-		tp->tx_ring = pci_alloc_consistent(tp->pdev, TG3_TX_RING_BYTES,
-						   &tp->tx_desc_mapping);
-		if (!tp->tx_ring)
-			goto err_out;
-	} else {
-		tp->tx_ring = NULL;
-		tp->tx_desc_mapping = 0;
-	}
+	tp->tx_ring = pci_alloc_consistent(tp->pdev, TG3_TX_RING_BYTES,
+					   &tp->tx_desc_mapping);
+	if (!tp->tx_ring)
+		goto err_out;
 
 	tp->hw_status = pci_alloc_consistent(tp->pdev,
 					     TG3_HW_STATUS_SIZE,
@@ -3747,7 +3696,7 @@ static int tg3_chip_reset(struct tg3 *tp)
 	u32 flags_save;
 	int i;
 
-	if (!(tp->tg3_flags2 & TG3_FLG2_SUN_5704))
+	if (!(tp->tg3_flags2 & TG3_FLG2_SUN_570X))
 		tg3_nvram_lock(tp);
 
 	/*
@@ -3878,7 +3827,7 @@ static int tg3_chip_reset(struct tg3 *tp)
 		udelay(10);
 	}
 	if (i >= 100000 &&
-	    !(tp->tg3_flags2 & TG3_FLG2_SUN_5704)) {
+	    !(tp->tg3_flags2 & TG3_FLG2_SUN_570X)) {
 		printk(KERN_ERR PFX "tg3_reset_hw timed out for %s, "
 		       "firmware will not restart magic=%08x\n",
 		       tp->dev->name, val);
@@ -4960,10 +4909,7 @@ static int tg3_reset_hw(struct tg3 *tp)
 			  GRC_MODE_4X_NIC_SEND_RINGS |
 			  GRC_MODE_NO_TX_PHDR_CSUM |
 			  GRC_MODE_NO_RX_PHDR_CSUM);
-	if (tp->tg3_flags & TG3_FLAG_HOST_TXDS)
-		tp->grc_mode |= GRC_MODE_HOST_SENDBDS;
-	else
-		tp->grc_mode |= GRC_MODE_4X_NIC_SEND_RINGS;
+	tp->grc_mode |= GRC_MODE_HOST_SENDBDS;
 	if (tp->tg3_flags & TG3_FLAG_NO_TX_PSEUDO_CSUM)
 		tp->grc_mode |= GRC_MODE_NO_TX_PHDR_CSUM;
 	if (tp->tg3_flags & TG3_FLAG_NO_RX_PSEUDO_CSUM)
@@ -5116,18 +5062,11 @@ static int tg3_reset_hw(struct tg3 *tp)
 	tw32_mailbox(MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW, 0);
 	tw32_tx_mbox(MAILBOX_SNDNIC_PROD_IDX_0 + TG3_64BIT_REG_LOW, 0);
 
-	if (tp->tg3_flags & TG3_FLAG_HOST_TXDS) {
-		tg3_set_bdinfo(tp, NIC_SRAM_SEND_RCB,
-			       tp->tx_desc_mapping,
-			       (TG3_TX_RING_SIZE <<
-				BDINFO_FLAGS_MAXLEN_SHIFT),
-			       NIC_SRAM_TX_BUFFER_DESC);
-	} else {
-		tg3_set_bdinfo(tp, NIC_SRAM_SEND_RCB,
-			       0,
-			       BDINFO_FLAGS_DISABLED,
-			       NIC_SRAM_TX_BUFFER_DESC);
-	}
+	tg3_set_bdinfo(tp, NIC_SRAM_SEND_RCB,
+		       tp->tx_desc_mapping,
+		       (TG3_TX_RING_SIZE <<
+			BDINFO_FLAGS_MAXLEN_SHIFT),
+		       NIC_SRAM_TX_BUFFER_DESC);
 
 	/* There is only one receive return ring on 5705/5750, no need
 	 * to explicitly disable the others.
@@ -5673,8 +5612,8 @@ static int tg3_open(struct net_device *dev)
 	spin_unlock(&tp->tx_lock);
 	spin_unlock_irq(&tp->lock);
 
-	/* If you move this call, make sure TG3_FLAG_HOST_TXDS in
-	 * tp->tg3_flags is accurate at that new place.
+	/* The placement of this call is tied
+	 * to the setup and use of Host TX descriptors.
 	 */
 	err = tg3_alloc_consistent(tp);
 	if (err)
@@ -6642,8 +6581,8 @@ static void tg3_get_pauseparam(struct net_device *dev, struct ethtool_pauseparam
 	struct tg3 *tp = netdev_priv(dev);
   
 	epause->autoneg = (tp->tg3_flags & TG3_FLAG_PAUSE_AUTONEG) != 0;
-	epause->rx_pause = (tp->tg3_flags & TG3_FLAG_PAUSE_RX) != 0;
-	epause->tx_pause = (tp->tg3_flags & TG3_FLAG_PAUSE_TX) != 0;
+	epause->rx_pause = (tp->tg3_flags & TG3_FLAG_RX_PAUSE) != 0;
+	epause->tx_pause = (tp->tg3_flags & TG3_FLAG_TX_PAUSE) != 0;
 }
   
 static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam *epause)
@@ -6658,13 +6597,13 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam 
 	else
 		tp->tg3_flags &= ~TG3_FLAG_PAUSE_AUTONEG;
 	if (epause->rx_pause)
-		tp->tg3_flags |= TG3_FLAG_PAUSE_RX;
+		tp->tg3_flags |= TG3_FLAG_RX_PAUSE;
 	else
-		tp->tg3_flags &= ~TG3_FLAG_PAUSE_RX;
+		tp->tg3_flags &= ~TG3_FLAG_RX_PAUSE;
 	if (epause->tx_pause)
-		tp->tg3_flags |= TG3_FLAG_PAUSE_TX;
+		tp->tg3_flags |= TG3_FLAG_TX_PAUSE;
 	else
-		tp->tg3_flags &= ~TG3_FLAG_PAUSE_TX;
+		tp->tg3_flags &= ~TG3_FLAG_TX_PAUSE;
 	tg3_halt(tp);
 	tg3_init_hw(tp);
 	tg3_netif_start(tp);
@@ -6856,7 +6795,7 @@ static void __devinit tg3_nvram_init(struct tg3 *tp)
 {
 	int j;
 
-	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704)
+	if (tp->tg3_flags2 & TG3_FLG2_SUN_570X)
 		return;
 
 	tw32_f(GRC_EEPROM_ADDR,
@@ -6943,8 +6882,8 @@ static int __devinit tg3_nvram_read(struct tg3 *tp,
 {
 	int i;
 
-	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704) {
-		printk(KERN_ERR PFX "Attempt to do nvram_read on Sun 5704\n");
+	if (tp->tg3_flags2 & TG3_FLG2_SUN_570X) {
+		printk(KERN_ERR PFX "Attempt to do nvram_read on Sun 570X\n");
 		return -EINVAL;
 	}
 
@@ -7279,11 +7218,11 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
 	unsigned char vpd_data[256];
 	int i;
 
-	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704) {
+	if (tp->tg3_flags2 & TG3_FLG2_SUN_570X) {
 		/* Sun decided not to put the necessary bits in the
 		 * NVRAM of their onboard tg3 parts :(
 		 */
-		strcpy(tp->board_part_number, "Sun 5704");
+		strcpy(tp->board_part_number, "Sun 570X");
 		return;
 	}
 
@@ -7344,27 +7283,21 @@ out_not_found:
 }
 
 #ifdef CONFIG_SPARC64
-static int __devinit tg3_is_sun_5704(struct tg3 *tp)
+static int __devinit tg3_is_sun_570X(struct tg3 *tp)
 {
 	struct pci_dev *pdev = tp->pdev;
 	struct pcidev_cookie *pcp = pdev->sysdata;
 
 	if (pcp != NULL) {
 		int node = pcp->prom_node;
-		u32 venid, devid;
+		u32 venid;
 		int err;
 
 		err = prom_getproperty(node, "subsystem-vendor-id",
 				       (char *) &venid, sizeof(venid));
 		if (err == 0 || err == -1)
 			return 0;
-		err = prom_getproperty(node, "subsystem-id",
-				       (char *) &devid, sizeof(devid));
-		if (err == 0 || err == -1)
-			return 0;
-
-		if (venid == PCI_VENDOR_ID_SUN &&
-		    devid == PCI_DEVICE_ID_TIGON3_5704)
+		if (venid == PCI_VENDOR_ID_SUN)
 			return 1;
 	}
 	return 0;
@@ -7381,8 +7314,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	int err;
 
 #ifdef CONFIG_SPARC64
-	if (tg3_is_sun_5704(tp))
-		tp->tg3_flags2 |= TG3_FLG2_SUN_5704;
+	if (tg3_is_sun_570X(tp))
+		tp->tg3_flags2 |= TG3_FLG2_SUN_570X;
 #endif
 
 	/* If we have an AMD 762 or Intel ICH/ICH0/ICH2 chipset, write
@@ -7627,23 +7560,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	udelay(50);
 	tg3_nvram_init(tp);
 
-	/* Always use host TXDs, it performs better in particular
-	 * with multi-frag packets.  The tests below are kept here
-	 * as documentation should we change this decision again
-	 * in the future.
-	 */
-	tp->tg3_flags |= TG3_FLAG_HOST_TXDS;
-
-#if 0
-	/* Determine if TX descriptors will reside in
-	 * main memory or in the chip SRAM.
-	 */
-	if ((tp->tg3_flags & TG3_FLAG_PCIX_TARGET_HWBUG) != 0 ||
-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 ||
-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750)
-		tp->tg3_flags |= TG3_FLAG_HOST_TXDS;
-#endif
-
 	grc_misc_cfg = tr32(GRC_MISC_CFG);
 	grc_misc_cfg &= GRC_MISC_CFG_BOARD_ID_MASK;
 
@@ -7781,7 +7697,7 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
 
 	mac_offset = 0x7c;
 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 &&
-	    !(tp->tg3_flags & TG3_FLG2_SUN_5704)) {
+	    !(tp->tg3_flags & TG3_FLG2_SUN_570X)) {
 		if (tr32(TG3PCI_DUAL_MAC_CTRL) & DUAL_MAC_CTRL_ID)
 			mac_offset = 0xcc;
 		if (tg3_nvram_lock(tp))
@@ -7803,7 +7719,7 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
 		dev->dev_addr[5] = (lo >>  0) & 0xff;
 	}
 	/* Next, try NVRAM. */
-	else if (!(tp->tg3_flags & TG3_FLG2_SUN_5704) &&
+	else if (!(tp->tg3_flags & TG3_FLG2_SUN_570X) &&
 		 !tg3_nvram_read(tp, mac_offset + 0, &hi) &&
 		 !tg3_nvram_read(tp, mac_offset + 4, &lo)) {
 		dev->dev_addr[0] = ((hi >> 16) & 0xff);
@@ -8408,6 +8324,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
 	if (tp->tg3_flags2 & TG3_FLG2_IS_5788)
 		dev->features &= ~NETIF_F_HIGHDMA;
 
+	/* flow control autonegotiation is default behavior */
+	tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
+
 	err = register_netdev(dev);
 	if (err) {
 		printk(KERN_ERR PFX "Cannot register net device, "
@@ -8439,11 +8358,10 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
 		printk("%2.2x%c", dev->dev_addr[i],
 		       i == 5 ? '\n' : ':');
 
-	printk(KERN_INFO "%s: HostTXDS[%d] RXcsums[%d] LinkChgREG[%d] "
+	printk(KERN_INFO "%s: RXcsums[%d] LinkChgREG[%d] "
 	       "MIirq[%d] ASF[%d] Split[%d] WireSpeed[%d] "
 	       "TSOcap[%d] \n",
 	       dev->name,
-	       (tp->tg3_flags & TG3_FLAG_HOST_TXDS) != 0,
 	       (tp->tg3_flags & TG3_FLAG_RX_CHECKSUMS) != 0,
 	       (tp->tg3_flags & TG3_FLAG_USE_LINKCHG_REG) != 0,
 	       (tp->tg3_flags & TG3_FLAG_USE_MI_INTERRUPT) != 0,

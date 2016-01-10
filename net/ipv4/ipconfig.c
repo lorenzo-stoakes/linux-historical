@@ -899,6 +899,9 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 				break;
 
 			case DHCPACK:
+				if (memcmp(dev->dev_addr, b->hw_addr, dev->addr_len) != 0)
+					goto drop;
+
 				/* Yeah! */
 				break;
 

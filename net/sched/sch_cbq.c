@@ -1736,10 +1736,6 @@ cbq_destroy(struct Qdisc* sch)
 #ifdef CONFIG_NET_CLS_POLICE
 	q->rx_class = NULL;
 #endif
-	for (h = 0; h < 16; h++) {
-		for (cl = q->classes[h]; cl; cl = cl->next)
-			cbq_destroy_filters(cl);
-	}
 
 	for (h = 0; h < 16; h++) {
 		struct cbq_class *next;
@@ -1750,7 +1746,6 @@ cbq_destroy(struct Qdisc* sch)
 		}
 	}
 
-	qdisc_put_rtab(q->link.R_tab);
 	MOD_DEC_USE_COUNT;
 }
 

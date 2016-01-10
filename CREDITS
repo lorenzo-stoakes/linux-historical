@@ -1809,10 +1809,10 @@ S: D53424 Remagen
 S: Germany
 
 N: Achim Leubner
-E: achim@vortex.de
-D: GDT SCSI Disk Array Controller driver
-S: ICP vortex Computersysteme GmbH
-S: Flein
+E: achim_leubner@adaptec.com
+D: GDT Disk Array Controller/Storage RAID controller driver
+S: ICP vortex GmbH
+S: Neckarsulm
 S: Germany
 
 N: Phil Lewis

@@ -1549,7 +1549,7 @@
  * exist only in the cards on-chip SRAM.  All 16 send bds are under
  * the same mode, they may not be configured individually.
  *
- * The mode we use is controlled by TG3_FLAG_HOST_TXDS in tp->tg3_flags.
+ * This driver always uses host memory TX descriptors.
  *
  * To use host memory TX descriptors:
  *	1) Set GRC_MODE_HOST_SENDBDS in GRC_MODE register.
@@ -2005,7 +2005,6 @@ struct tg3 {
 
 	spinlock_t			tx_lock;
 
-	/* TX descs are only used if TG3_FLAG_HOST_TXDS is set. */
 	struct tg3_tx_buffer_desc	*tx_ring;
 	struct tx_ring_info		*tx_buffers;
 	dma_addr_t			tx_desc_mapping;
@@ -2041,7 +2040,6 @@ struct tg3 {
 
 	u32				rx_offset;
 	u32				tg3_flags;
-#define TG3_FLAG_HOST_TXDS		0x00000001
 #define TG3_FLAG_TXD_MBOX_HWBUG		0x00000002
 #define TG3_FLAG_RX_CHECKSUMS		0x00000004
 #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
@@ -2071,15 +2069,13 @@ struct tg3 {
 #define TG3_FLAG_JUMBO_ENABLE		0x00800000
 #define TG3_FLAG_10_100_ONLY		0x01000000
 #define TG3_FLAG_PAUSE_AUTONEG		0x02000000
-#define TG3_FLAG_PAUSE_RX		0x04000000
-#define TG3_FLAG_PAUSE_TX		0x08000000
 #define TG3_FLAG_BROKEN_CHECKSUMS	0x10000000
 #define TG3_FLAG_GOT_SERDES_FLOWCTL	0x20000000
 #define TG3_FLAG_SPLIT_MODE		0x40000000
 #define TG3_FLAG_INIT_COMPLETE		0x80000000
 	u32				tg3_flags2;
 #define TG3_FLG2_RESTART_TIMER		0x00000001
-#define TG3_FLG2_SUN_5704		0x00000002
+#define TG3_FLG2_SUN_570X		0x00000002
 #define TG3_FLG2_NO_ETH_WIRE_SPEED	0x00000004
 #define TG3_FLG2_IS_5788		0x00000008
 #define TG3_FLG2_MAX_RXPEND_64		0x00000010

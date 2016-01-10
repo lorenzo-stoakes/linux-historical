@@ -766,7 +766,7 @@ S:	Odd fixes (e.g., new signatures)
 
 GDT SCSI DISK ARRAY CONTROLLER DRIVER
 P:	Achim Leubner
-M:	achim@vortex.de
+M:	achim_leubner@adaptec.com
 L:	linux-scsi@vger.kernel.org
 W:	http://www.icp-vortex.com/
 S:	Supported
@@ -991,6 +991,14 @@ S:	Maintained
 IP MASQUERADING:
 P:	Juanjo Ciarlante
 M:	jjciarla@raiz.uncu.edu.ar
+S:	Maintained
+
+IPVS
+P:	Wensong Zhang
+M:	wensong@linux-vs.org
+P:	Julian Anastasov
+M:	ja@ssi.bg
+L:	lvs-users@linuxvirtualserver.org
 S:	Maintained
 
 IPX NETWORK LAYER
