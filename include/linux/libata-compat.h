@@ -6,29 +6,13 @@
 
 #define MODULE_VERSION(ver_str)
 
-static inline unsigned long msecs_to_jiffies(unsigned long msecs)
-{
-	return ((HZ * msecs + 999) / 1000);
-}
 struct device {
 	struct pci_dev pdev;
 };
 
-static inline void msleep(unsigned long msecs)
-{
-	set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout(msecs_to_jiffies(msecs) + 1);
-}
-
 static inline void libata_msleep(unsigned long msecs)
 {
 	msleep(msecs);
-}
-
-static inline void ssleep(unsigned long secs)
-{
-	set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout((HZ * secs) + 1);
 }
 
 static inline struct pci_dev *to_pci_dev(struct device *dev)

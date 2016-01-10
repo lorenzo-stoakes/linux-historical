@@ -348,6 +348,7 @@ static void __init mount_block_root(char *name, int flags)
 {
 	char *fs_names = __getname();
 	char *p;
+	int tries = 10;
 
 	get_fs_names(fs_names);
 retry:
@@ -367,11 +368,18 @@ retry:
 		 * Allow the user to distinguish between failed open
 		 * and bad superblock on root device.
 		 */
+		if (--tries) {
+			printk ("VFS: Cannot open root device \"%s\" or %s, "
+				"retrying in 1s.\n",
+				root_device_name, kdevname (ROOT_DEV));
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout(HZ);
+			goto retry;
+		}
 		printk ("VFS: Cannot open root device \"%s\" or %s\n",
 			root_device_name, kdevname (ROOT_DEV));
 		printk ("Please append a correct \"root=\" boot option\n");
-		panic("VFS: Unable to mount root fs on %s",
-			kdevname(ROOT_DEV));
+		break;
 	}
 	panic("VFS: Unable to mount root fs on %s", kdevname(ROOT_DEV));
 out:

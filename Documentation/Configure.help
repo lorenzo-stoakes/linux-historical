@@ -617,6 +617,8 @@ CONFIG_BLK_STATS
 
   This is required for the full functionality of sar(8) and interesting
   if you want to do performance tuning, by tweaking the elevator, e.g.
+  On the other hand, it will cause random and mysterious failures for
+  fdisk, mount and other programs reading /proc/partitions.
 
   If unsure, say N.
 

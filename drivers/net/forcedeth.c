@@ -575,12 +575,6 @@ static int mii_rw(struct net_device *dev, int addr, int miireg, int value)
 	return retval;
 }
 
-static void msleep(unsigned long msecs)
-{
-	set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout((HZ * msecs + 999) / 1000);
-}
-
 static int phy_reset(struct net_device *dev)
 {
 	struct fe_priv *np = get_nvpriv(dev);

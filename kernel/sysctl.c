@@ -379,6 +379,9 @@ int do_sysctl(int *name, int nlen, void *oldval, size_t *oldlenp,
 		int old_len;
 		if (!oldlenp || get_user(old_len, oldlenp))
 			return -EFAULT;
+		/* XXX: insufficient for SMP, but should be redundant anyway */
+		if ((ssize_t)old_len < 0)
+			return -EINVAL;
 	}
 	tmp = &root_table_header.ctl_entry;
 	do {

@@ -1462,8 +1462,7 @@ isig(int sig, struct tty_struct *tty, int flush)
 	if (tty->pgrp > 0)
 		kill_pg(tty->pgrp, sig, 1);
 	if (flush || !L_NOFLSH(tty)) {
-		if ( tty->ldisc.flush_buffer )  
-			tty->ldisc.flush_buffer(tty);
+		tty_ldisc_flush(tty);
 		i2InputFlush( tty->driver_data );
 	}
 }
@@ -1853,8 +1852,7 @@ ip2_close( PTTY tty, struct file *pFile )
 
 	if ( tty->driver.flush_buffer ) 
 		tty->driver.flush_buffer(tty);
-	if ( tty->ldisc.flush_buffer )  
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	
 	pCh->pTTY = NULL;

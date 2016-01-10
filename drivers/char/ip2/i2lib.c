@@ -1385,15 +1385,9 @@ ip2_owake( PTTY tp)
 	ip2trace (CHANN, ITRC_SICMD, 10, 2, tp->flags,
 			(1 << TTY_DO_WRITE_WAKEUP) );
 
-	wake_up_interruptible ( &tp->write_wait );
-	if ( ( tp->flags & (1 << TTY_DO_WRITE_WAKEUP) ) 
-	  && tp->ldisc.write_wakeup )
-	{
-		(tp->ldisc.write_wakeup) ( tp );
+	tty_wakeup(tp);
+	ip2trace (CHANN, ITRC_SICMD, 11, 0 );
 
-		ip2trace (CHANN, ITRC_SICMD, 11, 0 );
-
-	}
 }
 
 static inline void
