@@ -317,6 +317,7 @@ enum {
 	NET_IPV4_VS_EXPIRE_NODEST_CONN=23,
 	NET_IPV4_VS_SYNC_THRESHOLD=24,
 	NET_IPV4_VS_NAT_ICMP_SEND=25,
+	NET_IPV4_VS_EXPIRE_QUIESCENT_TEMPLATE=26,
 	NET_IPV4_VS_LAST
 };
 
@@ -700,6 +701,7 @@ extern void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler);
  */
 extern int sysctl_ip_vs_cache_bypass;
 extern int sysctl_ip_vs_expire_nodest_conn;
+extern int sysctl_ip_vs_expire_quiescent_template;
 extern int sysctl_ip_vs_sync_threshold;
 extern int sysctl_ip_vs_nat_icmp_send;
 extern struct ip_vs_stats ip_vs_stats;

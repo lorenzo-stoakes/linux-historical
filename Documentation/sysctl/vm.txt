@@ -307,7 +307,7 @@ every anon page allocation.
 Low ram machines that swaps all the time want to turn
 this on (i.e. set to 1).
 
-The default value is 1.
+The default value is 0.
 =============================================================
 
 

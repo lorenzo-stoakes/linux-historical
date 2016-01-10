@@ -2908,7 +2908,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_opt *tp, int estab)
 							tp->snd_wscale = *(__u8 *)ptr;
 							if(tp->snd_wscale > 14) {
 								if(net_ratelimit())
-									printk("tcp_parse_options: Illegal window "
+									printk(KERN_INFO "tcp_parse_options: Illegal window "
 									       "scaling value %d >14 received.",
 									       tp->snd_wscale);
 								tp->snd_wscale = 14;
@@ -3145,7 +3145,7 @@ static void tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
 			/* Only TCP_LISTEN and TCP_CLOSE are left, in these
 			 * cases we should never reach this piece of code.
 			 */
-			printk("tcp_fin: Impossible, sk->state=%d\n", sk->state);
+			printk(KERN_ERR "tcp_fin: Impossible, sk->state=%d\n", sk->state);
 			break;
 	};
 

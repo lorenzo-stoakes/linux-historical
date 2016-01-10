@@ -1317,21 +1317,6 @@ CONFIG_BLK_DEV_PIIX
 
   Please read the comments at the top of <file:drivers/ide/pci/piix.c>.
 
-  If you say Y here, you should also say Y to "PIIXn Tuning support",
-  below.
-
-  If unsure, say N.
-
-PIIXn Tuning support
-CONFIG_PIIX_TUNING
-  This driver extension adds DMA mode setting and tuning for all PIIX
-  IDE controllers by Intel. Since the BIOS can sometimes improperly
-  set up the device/adapter combination and speed limits, it has
-  become a necessity to back/forward speed devices as needed.
-
-  Case 430HX/440FX PIIX3 need speed limits to reduce UDMA to DMA mode
-  2 if the BIOS can not perform this task at initialization.
-
   If unsure, say N.
 
 Promise PDC202{46|62|65|67} support
@@ -7759,7 +7744,7 @@ CONFIG_FUSION_CTL
   of MPT adapters via system ioctl calls.  Use of ioctl calls to
   the MPT driver requires that you create and use a misc device
   node ala:
-    mknod /dev/mptctl c 10 240
+    mknod /dev/mptctl c 10 220
 
   One use of this ioctl interface is to perform an upgrade (reflash)
   of the MPT adapter firmware.  Refer to readme file(s) distributed
@@ -9342,6 +9327,11 @@ CONFIG_SCSI_MEGARAID2
 CONFIG_SCSI_SATA
   This driver family supports Serial ATA host controllers
   and devices.
+
+  If unsure, say N.
+
+CONFIG_SCSI_SATA_AHCI
+  This option enables support for AHCI Serial ATA.
 
   If unsure, say N.
 

@@ -142,7 +142,7 @@ static int vga16fb_get_fix(struct fb_fix_screeninfo *fix, int con,
 	memset(fix, 0, sizeof(struct fb_fix_screeninfo));
 	strcpy(fix->id,"VGA16 VGA");
 
-	fix->smem_start = VGA_MAP_MEM(VGA_FB_PHYS);
+	fix->smem_start = VGA_FB_PHYS;
 	fix->smem_len = VGA_FB_PHYS_LEN;
 	fix->type = FB_TYPE_VGA_PLANES;
 	fix->visual = FB_VISUAL_PSEUDOCOLOR;
@@ -896,7 +896,7 @@ int __init vga16fb_init(void)
 
 	/* XXX share VGA_FB_PHYS region with vgacon */
 
-        vga16fb.video_vbase = ioremap(VGA_MAP_MEM(VGA_FB_PHYS), VGA_FB_PHYS_LEN);
+        vga16fb.video_vbase = ioremap(VGA_FB_PHYS, VGA_FB_PHYS_LEN);
 	if (!vga16fb.video_vbase) {
 		printk(KERN_ERR "vga16fb: unable to map device\n");
 		return -ENOMEM;

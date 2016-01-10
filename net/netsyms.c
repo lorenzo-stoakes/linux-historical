@@ -327,6 +327,7 @@ EXPORT_SYMBOL(tcp_hashinfo);
 EXPORT_SYMBOL(tcp_listen_wlock);
 EXPORT_SYMBOL(udp_hash);
 EXPORT_SYMBOL(udp_hash_lock);
+EXPORT_SYMBOL(udp_poll);
 
 EXPORT_SYMBOL(tcp_destroy_sock);
 EXPORT_SYMBOL(ip_queue_xmit);
