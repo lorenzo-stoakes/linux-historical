@@ -323,7 +323,7 @@ fi
 if [ "$CONFIG_SGI_IP27" = "y" ]; then
    bool 'SGI M48T35 RTC support' CONFIG_SGI_IP27_RTC
 fi
-if [ "$CONFIG_TOSHIBA_RBTX4927" = "y" -o "$CONFIG_TOSHIBA_JMR3927" ]; then
+if [ "$CONFIG_TOSHIBA_RBTX4927" = "y" -o "$CONFIG_TOSHIBA_JMR3927" = "y" ]; then
    tristate 'Dallas DS1742 RTC support' CONFIG_DS1742
 fi
 

@@ -168,7 +168,6 @@ char *of_stdout_device = 0;
 
 extern struct rtas_t rtas;
 extern unsigned long klimit;
-extern unsigned long embedded_sysmap_end;
 extern struct lmb lmb;
 #ifdef CONFIG_MSCHUNKS
 extern struct msChunks msChunks;
@@ -1482,9 +1481,6 @@ prom_init(unsigned long r3, unsigned long r4, unsigned long pp,
 
 	/* Default machine type. */
 	_systemcfg->platform = PLATFORM_PSERIES;
-	/* Reset klimit to take into account the embedded system map */
-	if (RELOC(embedded_sysmap_end))
-		RELOC(klimit) = __va(PAGE_ALIGN(RELOC(embedded_sysmap_end)));
 
 	/* Get a handle to the prom entry point before anything else */
 	_prom->entry = pp;

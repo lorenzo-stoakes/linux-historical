@@ -532,7 +532,7 @@ CONFIG_FEC_DP83843=y
 # CONFIG_FEC_DP83846A is not set
 CONFIG_ENET_BIG_BUFFERS=y
 CONFIG_8xx_SMC1=y
-# CONFIG_SMC2_UART is not set
+# CONFIG_8xx_SMC2 is not set
 # CONFIG_8xx_SCC1 is not set
 # CONFIG_8xx_SCC2 is not set
 # CONFIG_8xx_SCC3 is not set

@@ -1399,6 +1399,7 @@ extern struct dentry * lookup_hash(struct qstr *, struct dentry *);
 extern void inode_init_once(struct inode *);
 extern void __inode_init_once(struct inode *);
 extern void iput(struct inode *);
+extern void refile_inode(struct inode *inode);
 extern void force_delete(struct inode *);
 extern struct inode * igrab(struct inode *);
 extern struct inode * ilookup(struct super_block *, unsigned long);

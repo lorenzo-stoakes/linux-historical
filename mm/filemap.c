@@ -102,6 +102,8 @@ static inline void remove_page_from_inode_queue(struct page * page)
 	page->mapping = NULL;
 	wmb();
 	mapping->nrpages--;
+	if (!mapping->nrpages)
+		refile_inode(mapping->host);
 }
 
 static inline void remove_page_from_hash_queue(struct page * page)

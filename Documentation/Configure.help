@@ -11155,9 +11155,6 @@ CONFIG_COMX
   You must say Y to "/proc file system support" (CONFIG_PROC_FS) to
   use this driver.
 
-  If you want to compile this as a module, say M and read
-  <file:Documentation/modules.txt>.  The module will be called comx.o.
-
 Support for COMX/CMX/HiCOMX boards
 CONFIG_COMX_HW_COMX
   Hardware driver for the 'CMX', 'COMX' and 'HiCOMX' boards from the
@@ -23900,7 +23897,7 @@ CONFIG_IDE_8xx_PCCARD
              PCMCIA interface (example: IDIF860 systems)
 
 Use SMC2 for UART
-CONFIG_SMC2_UART
+CONFIG_8xx_SMC2
   If you would like to use SMC2 as a serial port, say Y here.
 
   If in doubt, say Y here.
@@ -27311,16 +27308,11 @@ CONFIG_IA64_GENERIC
   will run on any supported IA-64 system.  However, if you configure
   a kernel for your specific system, it will be faster and smaller.
 
-  To find out what type of IA-64 system you have, you may want to
-  check the IA-64 Linux web site at <http://www.linux-ia64.org/>.
-  As of the time of this writing, most hardware is DIG compliant,
-  so the "DIG-compliant" option is usually the right choice.
-
-  HP-simulator   For the HP simulator (<http://software.hp.com/ia64linux/>).
-  HP-zx1	 For HP zx1 Platforms.
-  SN1            For SGI SN1 Platforms.
-  SN2            For SGI SN2 Platforms.
-  DIG-compliant  For DIG ("Developer's Interface Guide") compliant systems.
+  generic        For any supported IA-64 system
+  DIG-compliant  For DIG ("Developer's Interface Guide") compliant systems
+  HP             For HP systems
+  SGI-SN2        For SGI SN2 systems
+  Ski-simulator  For the HP simulator (<http://www.hpl.hp.com/research/linux/ski/>)
 
   If you don't know what to do, choose "generic".
 

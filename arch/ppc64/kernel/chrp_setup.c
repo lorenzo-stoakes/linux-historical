@@ -158,7 +158,7 @@ chrp_setup_arch(void)
 		ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
 	else
 #endif
-	ROOT_DEV = to_kdev_t(0x0802); /* sda2 (sda1 is for the kernel) */
+	ROOT_DEV = to_kdev_t(0x0803); /* sda3 (sda1 is for the kernel or the bootloader) */
 
 	machine_check_init();
 
@@ -282,9 +282,11 @@ chrp_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
  	#ifndef CONFIG_PPC_ISERIES
  		ppc_md.pcibios_fixup = pSeries_pcibios_fixup;
+		ppc_md.log_error     = pSeries_log_error;
  	#else 
  		ppc_md.pcibios_fixup = NULL;
  		// ppc_md.pcibios_fixup = iSeries_pcibios_fixup;
+		ppc_md.log_error     = NULL;
  	#endif
 
 

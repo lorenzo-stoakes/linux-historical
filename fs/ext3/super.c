@@ -1797,14 +1797,14 @@ int ext3_statfs (struct super_block * sb, struct statfs * buf)
 
 #ifdef CONFIG_QUOTA
 
-static int (*old_sync_dquot)(struct dquot *dquot);
+static int (*old_write_dquot)(struct dquot *dquot);
 
 /* Blocks: (2 data blocks) * (3 indirect + 1 descriptor + 1 bitmap) + superblock */
 #define EXT3_OLD_QFMT_BLOCKS 11
 /* Blocks: quota info + (4 pointer blocks + 1 entry block) * (3 indirect + 1 descriptor + 1 bitmap) + superblock */
 #define EXT3_V0_QFMT_BLOCKS 27
 
-static int ext3_sync_dquot(struct dquot *dquot)
+static int ext3_write_dquot(struct dquot *dquot)
 {
 	int nblocks, ret;
 	handle_t *handle;
@@ -1829,7 +1829,7 @@ static int ext3_sync_dquot(struct dquot *dquot)
 		return PTR_ERR(handle);
 	}
 	unlock_kernel();
-	ret = old_sync_dquot(dquot);
+	ret = old_write_dquot(dquot);
 	lock_kernel();
 	ret = ext3_journal_stop(handle, qinode);
 	unlock_kernel();
@@ -1843,8 +1843,8 @@ static int __init init_ext3_fs(void)
 {
 #ifdef CONFIG_QUOTA
 	init_dquot_operations(&ext3_qops);
-	old_sync_dquot = ext3_qops.sync_dquot;
-	ext3_qops.sync_dquot = ext3_sync_dquot;
+	old_write_dquot = ext3_qops.write_dquot;
+	ext3_qops.write_dquot = ext3_write_dquot;
 #endif
         return register_filesystem(&ext3_fs_type);
 }

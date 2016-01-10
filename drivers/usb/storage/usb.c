@@ -332,6 +332,8 @@ static int usb_stor_control_thread(void * __us)
 
 	/* set our name for identification purposes */
 	sprintf(current->comm, "usb-storage-%d", us->host_number);
+	
+	current->flags |= PF_MEMALLOC;
 
 	unlock_kernel();
 

@@ -704,6 +704,9 @@ iSeries_setup_arch(void)
 	systemcfg->processor = xIoHriProcessorVpd[procIx].xPVR;
 	printk("Processor version = %x\n", systemcfg->processor);
 
+#if defined(CONFIG_IRQ_ALL_CPUS)
+	do_spread_lpevents(MAX_PACAS);
+#endif
 }
 
 /*

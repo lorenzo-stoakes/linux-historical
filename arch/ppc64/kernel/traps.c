@@ -211,6 +211,8 @@ static int recover_mce(struct pt_regs *regs, struct rtas_error_log *errp)
 		nonfatal = 1;
 	}
 
+	log_error((char *)errp, ERR_TYPE_RTAS_LOG, !nonfatal);
+
 	return nonfatal;
 }
 
@@ -250,6 +252,8 @@ MachineCheckException(struct pt_regs *regs)
 		status = rtas_call(rtas_token("check-exception"), 6, 1, NULL,
 				   0x200, (uint)srr1, RTAS_INTERNAL_ERROR, 0,
 				   __pa(mce_data_buf), RTAS_ERROR_LOG_MAX);
+		if (status == 0)
+			log_error((char *)mce_data_buf, ERR_TYPE_RTAS_LOG, 1);
 	}
 
 #if defined(CONFIG_XMON) || defined(CONFIG_KGDB)

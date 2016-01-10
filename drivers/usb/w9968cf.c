@@ -3548,9 +3548,12 @@ w9968cf_v4l_ioctl(struct inode* inode, struct file* filp,
 
 	case VIDIOCSYNC: /* wait until the capture of a frame is finished */
 	{
-		unsigned int f_num = *((unsigned int *) arg);
+		unsigned int f_num;
 		struct w9968cf_frame_t* fr;
 		int err = 0;
+
+		if (copy_from_user(&f_num, arg, sizeof(f_num)))
+			return -EFAULT;
 
 		if (f_num >= cam->nbuffers) {
 			DBG(4, "Invalid frame number (%d). "
@@ -3616,7 +3619,8 @@ w9968cf_v4l_ioctl(struct inode* inode, struct file* filp,
 	{
 		struct video_buffer* buffer = (struct video_buffer*)arg;
 
-		memset(buffer, 0, sizeof(struct video_buffer));
+		if (clear_user(buffer, sizeof(struct video_buffer)))
+			return -EFAULT;
 
 		DBG(5, "VIDIOCGFBUF successfully called.")
 		return 0;

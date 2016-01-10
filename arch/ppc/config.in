@@ -62,7 +62,8 @@ fi
 
 if [ "$CONFIG_40x" = "y" ]; then
     choice 'Machine Type'			\
-	 "Oak		CONFIG_OAK		\
+	 "CPCI405	CONFIG_CPCI405 		\
+	 Oak		CONFIG_OAK		\
 	 Walnut		CONFIG_WALNUT"		Walnut
 fi
 
@@ -188,6 +189,11 @@ if [ "$CONFIG_4xx" = "y" ]; then
 #
 # Set processor implementation based on board
 #
+
+  if [ "$CONFIG_CPCI405" = "y" ]; then
+    define_bool CONFIG_405GP y
+  fi
+
   if [ "$CONFIG_OAK" = "y" -o "$CONFIG_TIVO" = "y" ]; then
     define_bool CONFIG_403GCX y
   fi

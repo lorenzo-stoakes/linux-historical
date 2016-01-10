@@ -534,6 +534,23 @@ unsigned int nr_free_highpages (void)
 
 	return pages;
 }
+
+unsigned int freeable_lowmem(void)
+{
+	unsigned int pages = 0;
+	pg_data_t *pgdat;
+
+	for_each_pgdat(pgdat) {
+		pages += pgdat->node_zones[ZONE_DMA].free_pages;
+		pages += pgdat->node_zones[ZONE_DMA].nr_active_pages;
+		pages += pgdat->node_zones[ZONE_DMA].nr_inactive_pages;
+		pages += pgdat->node_zones[ZONE_NORMAL].free_pages;
+		pages += pgdat->node_zones[ZONE_NORMAL].nr_active_pages;
+		pages += pgdat->node_zones[ZONE_NORMAL].nr_inactive_pages;
+	}
+
+	return pages;
+}
 #endif
 
 #define K(x) ((x) << (PAGE_SHIFT-10))

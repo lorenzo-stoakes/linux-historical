@@ -598,20 +598,35 @@ void exception_trace(unsigned long trap)
 	udbg_puts("   "); udbg_puthex(srr1); udbg_puts("\n");
 }
 
-int set_spread_lpevents( char * str )
+void do_spread_lpevents(unsigned long n)
 {
-	/* The parameter is the number of processors to share in processing lp events */
-	unsigned long i;
-	unsigned long val = simple_strtoul( str, NULL, 0 );
-	if ( ( val > 0 ) && ( val <= MAX_PACAS ) ) {
-		for ( i=1; i<val; ++i )
-			paca[i].lpQueuePtr = paca[0].lpQueuePtr;
-		printk("lpevent processing spread over %ld processors\n", val);
-	}
+	unsigned long i,m;
+
+	if (n < MAX_PACAS)
+		m = n;
 	else
+		m = MAX_PACAS;
+
+	for (i=1; i<m; ++i)
+		paca[i].lpQueuePtr = paca[0].lpQueuePtr;
+
+	printk("lpevent processing spread over %ld processors\n", n);
+}
+
+/*
+ * The parameter is the number of processors to share in
+ * processing lp events
+ */
+int set_spread_lpevents(char * str)
+{
+	unsigned long val = simple_strtoul( str, NULL, 0 );
+	if ((val > 0) && (val <= MAX_PACAS)) {
+		do_spread_lpevents(val);
+	} else
 		printk("invalid spreaqd_lpevents %ld\n", val);
+
 	return 1;
-}	
+}
 
 /* This should only be called on processor 0 during calibrate decr */
 void setup_default_decr(void)

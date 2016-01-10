@@ -38,7 +38,7 @@ endif
 ifeq ($(CONFIG_PPC_PSERIES),y)
 obj-$(CONFIG_PCI) += pSeries_pci.o eeh.o
 
-obj-y += rtasd.o nvram.o
+obj-y += nvram.o rtasd.o
 endif
 
 obj-$(CONFIG_RTAS_FLASH) += rtas_flash.o

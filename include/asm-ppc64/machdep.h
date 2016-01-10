@@ -134,6 +134,9 @@ struct machdep_calls {
 	void* (*pci_dev_mem_base)(unsigned char bus, unsigned char devfn);
 	int (*pci_dev_root_bridge)(unsigned char bus, unsigned char devfn);
 
+	/* Interface for platform error logging */
+	void (*log_error)(char *buf, unsigned int err_type, int fatal);
+
 	/* this is for modules, since _machine can be a define -- Cort */
 	int ppc_machine;
 };
@@ -159,6 +162,11 @@ void ppc64_attention_msg(unsigned int src, const char *msg);
 /* Print a dump progress message. */
 void ppc64_dump_msg(unsigned int src, const char *msg);
 
+static inline void log_error(char *buf, unsigned int err_type, int fatal)
+{
+	if (ppc_md.log_error)
+		ppc_md.log_error(buf, err_type, fatal);
+}
 
 #endif /* _PPC_MACHDEP_H */
 #endif /* __KERNEL__ */

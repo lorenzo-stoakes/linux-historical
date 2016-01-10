@@ -1062,8 +1062,8 @@ extern s32 i2c_smbus_write_block_data(struct i2c_client * client,
 {
 	union i2c_smbus_data data;
 	int i;
-	if (length > 32)
-		length = 32;
+	if (length > I2C_SMBUS_BLOCK_MAX)
+		length = I2C_SMBUS_BLOCK_MAX;
 	for (i = 1; i <= length; i++)
 		data.block[i] = values[i-1];
 	data.block[0] = length;
@@ -1077,8 +1077,8 @@ extern s32 i2c_smbus_write_i2c_block_data(struct i2c_client * client,
 {
 	union i2c_smbus_data data;
 	int i;
-	if (length > 32)
-		length = 32;
+	if (length > I2C_SMBUS_I2C_BLOCK_MAX)
+		length = I2C_SMBUS_I2C_BLOCK_MAX;
 	for (i = 1; i <= length; i++)
 		data.block[i] = values[i-1];
 	data.block[0] = length;
@@ -1152,10 +1152,10 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 			return -1;
 		} else {
 			msg[0].len = data->block[0] + 2;
-			if (msg[0].len > 34) {
+			if (msg[0].len > I2C_SMBUS_BLOCK_MAX + 2) {
 				printk(KERN_ERR "i2c-core.o: smbus_access called with "
 				       "invalid block write size (%d)\n",
-				       msg[0].len);
+				       data->block[0]);
 				return -1;
 			}
 			for (i = 1; i <= msg[0].len; i++)

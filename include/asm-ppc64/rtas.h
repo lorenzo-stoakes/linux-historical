@@ -182,7 +182,27 @@ extern int rtas_errinjct_close(unsigned int);
 extern struct proc_dir_entry *rtas_proc_dir;
 extern struct errinjct_token ei_token_list[MAX_ERRINJCT_TOKENS];
 
+extern void pSeries_log_error(char *buf, unsigned int err_type, int fatal);
+
+/* Error types logged.  */
+#define ERR_FLAG_ALREADY_LOGGED	0x0
+#define ERR_FLAG_BOOT		0x1 	/* log was pulled from NVRAM on boot */
+#define ERR_TYPE_RTAS_LOG	0x2	/* from rtas event-scan */
+#define ERR_TYPE_KERNEL_PANIC	0x4	/* from panic() */
+
+/* All the types and not flags */
+#define ERR_TYPE_MASK	(ERR_TYPE_RTAS_LOG | ERR_TYPE_KERNEL_PANIC)
+
+#define RTAS_ERR KERN_ERR "RTAS: "
+
 #define RTAS_ERROR_LOG_MAX 1024
+
+
+/* Event Scan Parameters */
+#define EVENT_SCAN_ALL_EVENTS	0xf0000000
+#define SURVEILLANCE_TOKEN	9000
+#define LOG_NUMBER		64		/* must be a power of two */
+#define LOG_NUMBER_MASK		(LOG_NUMBER-1)
 
 /* Given an RTAS status code of 9900..9905 compute the hinted delay */
 unsigned int rtas_extended_busy_delay_time(int status);

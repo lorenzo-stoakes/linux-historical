@@ -146,6 +146,7 @@ int dcache_readdir(struct file * filp, void * dirent, filldir_t filldir)
 			}
 			spin_unlock(&dcache_lock);
 	}
+	UPDATE_ATIME(dentry->d_inode);
 	return 0;
 }
 

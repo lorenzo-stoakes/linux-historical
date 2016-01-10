@@ -116,6 +116,9 @@ if [ "$CONFIG_BLK_DEV_IDE" != "n" ]; then
       if [ "$CONFIG_ATARI" = "y" ]; then
 	 dep_bool '  Falcon IDE interface support' CONFIG_BLK_DEV_FALCON_IDE $CONFIG_ATARI
       fi
+      if [ "$CONFIG_CPCI405" = "y" ]; then
+	 dep_bool '  CPCI-405 IDE interface support' CONFIG_BLK_DEV_CPCI405_IDE $CONFIG_CPCI405
+      fi
       if [ "$CONFIG_MAC" = "y" ]; then
 	 dep_bool '  Macintosh Quadra/Powerbook IDE interface support' CONFIG_BLK_DEV_MAC_IDE $CONFIG_MAC
       fi

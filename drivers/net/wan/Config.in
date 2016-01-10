@@ -23,7 +23,7 @@ fi
 # COMX drivers
 #
 
-   tristate '  MultiGate (COMX) synchronous serial boards support' CONFIG_COMX
+   bool '  MultiGate (COMX) synchronous serial boards support' CONFIG_COMX
    if [ "$CONFIG_COMX" != "n" ]; then
       dep_tristate '    Support for COMX/CMX/HiCOMX boards' CONFIG_COMX_HW_COMX $CONFIG_COMX
       dep_tristate '    Support for LoCOMX board' CONFIG_COMX_HW_LOCOMX $CONFIG_COMX
